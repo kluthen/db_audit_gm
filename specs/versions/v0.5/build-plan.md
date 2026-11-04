@@ -1045,7 +1045,8 @@ vets' mapping to practices; the clinic-api endpoints' contract (9.2).
 
 ### Chunk 10 — The monitoring breadth: `pgwatch`, `health-check`, `grafana` 0.3.0, pgCluu
 
-Status: planned
+Status: merged (w2, 35e8bf7)
+Record: 10a 65dae42, 10b 88485c6, merge of v0.5-w2 3d11433, merge 35e8bf7; postgres:0.5.0 rebuilt (7cca24d4). Outside the Files list grafana's brick files, two test_model checks, the smoke runner and its unit test, health-check's companion; health.yaml's optional primary (wave log, W2-e).
 Wave: 2
 Depends on: chunk 3 (wave 1); G9; chunk 6, merge order only
 Architecture capture: W2, for chunk 27: the `pgwatch` sources file and

@@ -2341,3 +2341,112 @@ literal refused.
   `localimpl.data_login_roles(scenario, node, catalog_root)` with the same
   root, so the domains' and the partner files' login roles get their
   passwords set (`test_coherence.TestPasswordPlanReadsNodeCreates`).
+
+### Chunk 10 — merged (35e8bf7), 2026-11-04
+
+`coding-leader`: 10a `65dae42` (`pgwatch` 0.1.0; `grafana` 0.3.0's pgwatch
+dashboard), 10b `88485c6` (`health-check` 0.1.0; pgCluu in `postgres`
+0.5.0; the fixture), merge of `v0.5-w2` (chunks 6 to 8) `3d11433`, merge
+`35e8bf7`. Unit suite 1061 OK (2 skipped) after the merge in. Stack tests:
+`pgwatch` 72/72, `health-check` 95/95 (every check_postgres action on
+PostgreSQL 18.6, `hot_standby_delay` on a streaming standby, over TLS),
+`grafana` 0.3.0 130/130, `postgres` 0.5.0 rebuilt with pgCluu 302/302.
+Fixture `fixture-monitoring-v05` (6 nodes) through
+`tools/tests/smoke-monitoring-v05.sh`: 27/27, 139 s. Done when: Prometheus
+scrapes `pgwatch:9188` (`pgwatch_instance_up{dbname="records"}` 1, 29
+db_stats series); the dashboard's 10 panel queries return data (60 s, two
+fetches); `/health/` through the bastion 401 without the tools password,
+200 with, 7 records checks with UTC times (`last_autovacuum` UNKNOWN on a
+fresh cluster), the disk alarm OK; a pgCluu report (26 files) in the
+player's home, copied by `scp`, no collector left, no CGI; a node
+without the option refused for both monitors; each new brick started
+before its peer waits 30 s, fails honestly, then works (D356); the backup
+script reads the stand-in's `GET /manifests` found (`BACKUP OK`), missing
+(`BACKUP CRITICAL`), broken or unreachable (UNKNOWN) (D362). Footprints at
+rest: `pgwatch` 12–17 MiB (peak 24 MB), `health` 5 MiB (peak 34 MB).
+
+**`postgres:0.5.0` rebuilt** under the lock: `sha256:05b52e42…` →
+`sha256:7cca24d4…`, 262 → 265 MB. Sizes: `pgwatch:0.1.0` 167 MB,
+`health-check:0.1.0` 195 MB, `grafana:0.3.0` 866 MB.
+
+Deviations (none against the spec): Files beyond the line —
+`bricks/grafana/{brick.yaml,rootfs/,validator/}` (the dashboard an
+optional seed), `tools/tests/test_model.py` (two grafana seed checks),
+`tools/tests/smoke-monitoring-v05.sh` (the gate's runner),
+`tools/tests/test_monitoring_v05.py`, `bricks/health-check/companion/`;
+`health.yaml` gains an optional `primary:` on a standby (replay delay is
+measured against it); G9's text: `pgwatch --web-disable=all` with no
+sources exits 1, not 0 (the build asserts the banner only). Found for
+others:
+- **pgwatch 6.1.0 skips a source with no `is_enabled`** (its default is
+  disabled), while W2-a's `model.monitor_targets` counts every entry
+  but `is_enabled: false`: the loader may refuse a target pgwatch would
+  not watch (too strict, never too lax). **Driver**: a wave-gate fix,
+  `monitor_targets` counting only `is_enabled: true`.
+- The loader requires `crontab_roles` on any node seeding a `crontab`:
+  the health node needs `crontab_roles: []` (chunk 27, the format skill,
+  G16).
+- pgCluu needs `--disable-pidstat` with `--disable-sar`, and its `-o`
+  directory must exist (in `postgres`' `docs/gm.md`).
+Risks: on a fixable health node a player's script runs as `postgres`,
+which can read the monitoring password (documented, as the scheduler's
+scripts, access model 8); `pgwatch` and `health` keep master spec 14's
+starting footprint rows, well above the measured.
+
+**Capture W2-e — chunk 10 outcomes (the monitoring breadth; read by 6, 27)**
+
+- **`pgwatch` 0.1.0**: pgwatch 6.1.0, binary only in `/usr/local/bin`,
+  its built-in metric definitions. Build assertions: the banner (exit 1
+  with no sources), `metric print-init basic` printing nothing. Started
+  as `pgwatch` 990:990 with `--sources=/etc/pgwatch/sources.yaml
+  --refresh=60 --sink=prometheus://0.0.0.0:9188 --web-disable=all
+  --emergency-pause-triggerfile=/run/gm-pgwatch/emergency-pause`, the
+  environment only `PATH`, `HOME`, `PGPASSFILE`; password file
+  `/run/gm-pgwatch/pgpass` (`*:*:*:monitoring:<pw>`, `:` and `\` escaped,
+  owner-only), written at every start; player group `pwconf` 991.
+- **Sources format** (checked on 6.1.0): a top-level YAML list of
+  `{name, conn_str, kind, preset_metrics, is_enabled}`; `is_enabled:
+  true` required (the default is disabled); unknown keys ignored. The
+  brick reads `is_enabled` itself (`pgwatch source resolve` lists every
+  source); each enabled entry a `postgresql://` URI with one host. Series
+  `pgwatch_<metric>_<column>{dbname=<source>}` with explicit timestamps,
+  about 39 per source with `basic`; the file reread every 60 s.
+- **Waits**: 30 s on `getent ahosts` for the sources' hosts; past the
+  bound, `pgwatch_instance_up 0` until the refresh after the name
+  resolves. Wrappers `gm-restart-pgwatch`, `gm-validate`; validator rules
+  `config`, `server` (9188), `web` (nothing on 8080).
+- **`grafana` 0.3.0**: `pgwatch.json` an optional seed (uid `pgwatch`, 7
+  panels over the `basic` series); `PROV_OPTIONAL` in `grafana-files`;
+  Prometheus job `pgwatch`, target `<node>:9188`.
+- **`health-check` 0.1.0**: as `postgres` 990:990, player group
+  `healthconf` 991, nginx as `www-data`. Seeds: `health.yaml`
+  (`instances:` `{name, host, port, dbname}`, optional `primary` on a
+  standby), `crontab` (postgres's, `crontab -u`; the scenario writes
+  `crontab_roles: []`), `scripts/` (optional, 0775). `health-run checks |
+  script <name> [args] | hosts | check-config | page`. check_postgres
+  `--timeout=15`, each run bounded 30 s, scripts 120 s: `connection`;
+  `backends` 80%/90%; `locks` 100/150; `txn_wraparound` 1.3e9/1.4e9;
+  `last_autovacuum`, `last_analyze` 1d/7d on primaries; `database_size`
+  5GB/10GB; `hot_standby_delay` 16MB/128MB on standbys against the
+  primary. Scripts get `PGUSER=monitoring`, `PGPASSFILE=/run/gm-health/pgpass`,
+  `PGCONNECT_TIMEOUT=10`, `HEALTH_YAML`, `TZ=UTC`; result the first output
+  line and the exit status (0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN).
+  Results `/var/lib/health/results/*.json`; page
+  `/var/lib/health/www/health/index.html` (and `status.txt`) on 8080
+  under `/health/`, GET and HEAD, refreshed every 60 s; at start a 30 s
+  wait on the hosts, a first run, then cron. `status.txt` lines `<UTC>
+  <STATE> <instance> <check>: <line>`. Wrappers `gm-crontab` (refuses a
+  replacement unless `/etc/health` is fixable), `gm-run-checks`,
+  `gm-validate`; validator rules `config`, `scripts`, `cron`, `web`,
+  `fresh` (15 min). Companion scripts `disk-alarm <warn MB> <crit MB>
+  <host>...` and `backup-there <URL> [<source>]` (`GET
+  <URL>/manifests?type=basebackup&from=<yesterday>[&source=]`, counting
+  manifests with `rows_received` ≥ 1).
+- **pgCluu**: `pgcluu=5.0-1.pgdg13+1` in `postgres` 0.5.0, CGI and Apache
+  files removed and asserted, no sysstat; players run `pgcluu_collectd -h
+  localhost -U dba -d postgres --disable-sar --disable-pidstat -i N -E T
+  -f <pid> <dir>`, then `pgcluu --disable-sar -o <existing dir> <dir>`, in
+  their home.
+- **Fixture** `tools/tests/fixtures/fixture-monitoring-v05` (6 nodes), run
+  by `tools/tests/smoke-monitoring-v05.sh`. The backup script's first
+  read against cold storage itself stays G13's.
