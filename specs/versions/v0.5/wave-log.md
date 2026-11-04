@@ -4510,3 +4510,72 @@ Risks: the core's load about 35 % slower; the agenda relies on
 `vc_before` being exact, checked at both shifts only.
 
 Chunk 13 restarts from `v0.5-w3` (fresh owner).
+
+### Chunk 16 — 16a built, paused before 16b, 2026-11-04
+
+Owner paused at about 200k tokens. Branch `v0.5-c16-vet-portal` (worktree
+kept): 16a `2cd9479`, `62b452e` merging `v0.5-w3` at 8389dd6 (chunk 30
+in, no conflict); `c16pg` removed. `check_domain_dir` clean on the five
+domains. Load and derivation by hand, as `load-data` runs them
+(`derive.sql` reading `gm_src_vet_core`, `gm_src_vet_lab` as `gm_check`
+through postgres_fdw); the real `load-data` and `compose` path, with the
+`derive:` record, is 16b's fixture. Figures (`load_epoch` 08:50 local,
+Wednesday): shift 0 load 18 s, derivation 134–142 s, 78 MB, 241 900 rows;
++2 19 s / 130 s, same; after chunk 30, shift 0 17 s / 129 s, 77 MB,
+237 904 rows (38 973 documents, 65 032 views, 38 169 outbox rows); six
+coherence queries clean (`results-gated` rewritten: 158 s to 38 ms).
+Owner scope in SQL as `portal_api` with `portal.owner_id`: a seller 0
+rows of the horse sold, the buyer it and 8 of its 9 documents, a granted
+keeper the animal and 7 documents, a withdrawn or never-granted keeper 0,
+the setting unset 0 everywhere, another owner's document by id 0.
+Accounts: login `ok`; an old token (`session-1`) refused; the fifth wrong
+password `locked`, then the right one refused; an invitation token works
+once. `portal.sessions.purge` (`30 3 * * *`, `portal`,
+`portal_housekeeping`) registered by `data/cron.sql`; a forced pg_cron
+run needs `cron.use_background_workers = on` in `records`' seed (16b).
+
+**The keeper clause (W3 left it to the chunk)**: two `SECURITY DEFINER`
+helpers owned by `portal` (`STABLE`, `search_path = public, pg_temp`,
+`EXECUTE` for `portal_api` only): `portal_keeper_granted(animal,
+keeper)` (the current owner's latest `keeper-access` event for them is a
+grant) and `portal_owner_since(animal)`; `portal_animals_scope` an owner
+branch (`until_at IS NULL`, T270 drops it) and a keeper branch;
+`portal_documents_scope` through `portal_animals` and `record_at >=
+portal_owner_since(animal)` (T271 drops it). **The outbox's id order**:
+the load writes no outbox row; the derivation writes the year's outbox
+numbered 1..n by `queued_at`, ties by `message_key`, the sequence set
+after; the `outbox-order` coherence check enforces it; `message_key =
+md5('<template>:<account>:<reference>')::uuid`, a sent row's
+`provider_id = md5('messaging:' || message_key)::uuid`; one in fifty two
+attempts (a 503, then the same key); the last two minutes unsent.
+
+W3-e so far (chunks 21, 25): roles `portal` (NOLOGIN BYPASSRLS),
+`portal_api`, `portal_housekeeping` (LOGIN, `CONNECT` by name); RLS
+enabled and forced on all ten tables; policies `<table>_scope`, and
+`portal_sessions_purge`; no policy for the purposes' roles (chunk 21).
+**For W4 (chunk 21)**: `gm_check` sees no portal row (`pg_read_all_data`
+does not bypass RLS), so purpose 16's history reading `portal_outbox`
+through `gm_src_*` needs a `gm_check` policy on that table, which its
+`ddl:` can create; the coherence check, as `postgres`, is unaffected.
+Functions `portal_login(email, password)` → `(result, token)` (201, 401,
+423), `portal_session(token)`, `portal_logout(token)` (added: the
+sessions table has no grant), `portal_activate(token, password,
+reminders)`, `portal_request_reset(email)`, `portal_reset(token,
+password)`, `portal_unsubscribe(message_key)`, `portal_close()`,
+`portal_desk_consent(owner_id, purpose, granted)` (`reminders` only). One
+link slot (`invite_hash`, `invite_expires_at`) for an invitation's or a
+reset's link, a reset lasting 14 days. Tokens: invitations and resets
+`portal_hmac('<template>:<id>', key)`, sessions `portal_hmac('session-<rank>:<account>',
+key)`, passwords `portal_hmac('<id>', key)` stored bcrypt cost 6 with a
+deterministic salt; the key `portal_key(load_epoch)` only in
+`owners.settings` (`password_key`). Session ids from 39 301; links
+`https://portal.example.net/{activate,password-reset,documents,unsubscribe}/…`.
+Indexes `portal_ownerships_current_owner_idx` (T262),
+`portal_outbox_notice_idx`, `portal_outbox_reminder_idx` (T288),
+`portal_consent_events_keeper_idx` (T275), `portal_documents_animal_idx`
+(T294). Choices where the documents are silent (for `spec-writer` with
+16b's): `portal_logout`; the reset reusing the invitation's slot and
+life; the activation event only on a grant; the database settings in
+`schema.sql`, `pgaudit.log` left to the seed. Risks: the fixture's
+composed load about 6–7 minutes; `n_live_tup` on `portal_outbox` reads
+double (trust `count(*)`). A fresh owner resumes 16b.
