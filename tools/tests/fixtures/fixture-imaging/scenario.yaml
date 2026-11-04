@@ -1,0 +1,352 @@
+# Imaging fixture of v0.5 (build plan chunk 15b; capture W3 item 4, W3-d, of
+# specs/versions/v0.5/wave-log.md; vet-machinery-domain.md, "Testing in
+# v0.5"). Not a game: vet-core's medical record in records/clinic and
+# vet-machinery's three databases on machines (pacs, vitals, biomed), loaded
+# by gmctl load-data from the domains (domains:, the variant
+# regional-franchise: the core's schema, keys.sql and load, then each of the
+# machinery's databases created, CONNECT revoked from PUBLIC, its schema and
+# load with the core's keys streamed ahead, then data/cron.sql scheduling the
+# three partition jobs in jobs, pg_cron's database, which machines' data
+# file creates), the machines and their systems, equipment (scheduler 0.3.0),
+# as mach_pacs_app, mach_vitals_app and mach_biomed_app, with its identity
+# and census jobs on the lookup API, clinic-api (api 0.1.0), the practice
+# software, pms (scheduler 0.3.0), the integration engine, interfaces
+# (scheduler 0.3.0, idle: chunk 21 adds the imaging-orders purpose), and the
+# bastion; seven nodes on one host. gmctl compose writes nodes/clinic-api/,
+# nodes/pms/, nodes/equipment/ and nodes/interfaces/ from the domains'
+# producers/ with the scenario layers compose/pms/ (0.1, quiet),
+# compose/equipment/ (1.0) and compose/interfaces/ (the idle node). Deployed
+# by its short test, tools/tests/fixtures/fixture-imaging/run-short-test.sh,
+# T0 placed by the shift near 08:50 local on a weekday: the identity and
+# census jobs answered by clinic-api, the partitions ahead, the three jobs in
+# cron.job, CONNECT revoked from PUBLIC. One harmless seed-file fault (f1),
+# since a scenario needs at least one, copied from the core fixture. Chunk
+# 21 adds purposes 13 and 14 and the round trip.
+
+# --- Scenario information --------------------------------------------
+id: fixture-imaging
+version: 0.1.0
+title: Imaging fixture, vet-machinery's three databases and their machines beside vet-core's record
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record in one PostgreSQL
+  database, records, and its machines' three systems (the imaging archive,
+  the monitors' central station, biomedical engineering) in three
+  databases of one instance, machines; the machines learn each animal's
+  identity and the current stays from the record's lookup API, reached
+  through a bastion.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-machinery
+    at:
+      pacs: machines/pacs
+      vitals: machines/vitals
+      biomed: machines/biomed
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the machines', the practice software's and the lookup API's SQL, the lookup API's callers' HTTP
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: clinic-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/clinic-api/api.yaml
+      routes/: nodes/clinic-api/routes/
+      db/: nodes/clinic-api/db/
+    knobs: []
+
+  - name: pms
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/pms/queries.yaml
+      jobs.yaml: nodes/pms/jobs.yaml
+      schedule.yaml: nodes/pms/schedule.yaml
+    knobs: []
+
+  - name: machines
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512M
+      reservations:
+        cpu: 0.25
+        memory: 384M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/machines/postgresql.conf
+      pg_hba.conf: nodes/machines/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 192MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 32MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 128MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/machines.sql       # the database jobs and pg_cron in it; the domain makes the rest
+      databases:
+        - name: jobs
+          owner: postgres
+          tables:
+            - name: cron.job
+              description: pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions, events-partitions), scheduled by load-data after the part's loads, each as mach_maint.
+
+  - name: equipment
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/equipment/queries.yaml
+      jobs.yaml: nodes/equipment/jobs.yaml
+      schedule.yaml: nodes/equipment/schedule.yaml
+      scripts/: nodes/equipment/scripts/
+    knobs: []
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: machines
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: clinic-api
+    what: players' SSH sessions; a lookup needs the credential clinic_lookup, which the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: clinic-api
+    to: records
+    what: the lookups (an animal, its current owner, the current stays), as vet_lookup
+    how: postgresql 5432
+    cadence: per request
+  - from: pms
+    to: records
+    what: the practice software's work (vet-core's 21 streams and 2 jobs), as vet_app
+    how: postgresql 5432
+    cadence: continuous, by the clinic's hours
+  - from: equipment
+    to: machines
+    what: the machines' and their systems' work (vet-machinery's 22 streams and the chart job), as mach_pacs_app, mach_vitals_app and mach_biomed_app
+    how: postgresql 5432
+    cadence: continuous, the imaging by its day
+  - from: equipment
+    to: clinic-api
+    what: the identity job (each new worklist entry's animal and owner, every minute) and the census (the current stays, every five minutes), behind clinic_lookup
+    how: http 8000
+    cadence: every minute, every five minutes
+  - from: interfaces
+    to: clinic-api
+    what: nothing yet (the idle integration engine; chunk 21 adds the imaging orders)
+    how: http 8000
+    cadence: none
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    clinic-api: laptop
+    pms: laptop
+    machines: laptop
+    equipment: laptop
+    interfaces: laptop
