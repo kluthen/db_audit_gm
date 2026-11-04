@@ -64,7 +64,10 @@
 #     read-only standby streaming from its slot, seen in rec's
 #     pg_stat_replication, its password never in primary_conninfo nor in a
 #     log, still streaming in a new container; the hand-over snapshot on
-#     both, its temporary slot gone; rec's archive_command posting a
+#     both, its temporary slot gone; (chunk 28) clone-standby --restore
+#     keeping a setting written into the standby's postgresql.auto.conf,
+#     the standby streaming after it, the default mode keeping nothing,
+#     an unknown argument a usage error; rec's archive_command posting a
 #     switched segment to the vault stand-in with every header, a refusal
 #     and a short receipt failing honestly (the segment kept, the reason
 #     in the server log), then shipped on the retry; vault-post with no
@@ -1179,6 +1182,62 @@ for node in REC SB; do
     n=$(docker exec -e PW="$REPL_PASSWORD" "$cid" sh -c 'grep -rlF -e "$PW" /var/log/postgresql | wc -l' 2>&1)
     [ "$n" = 0 ] && pass "$node's log holds no replication password" || fail "$node's log holds the replication password ($n file(s))"
 done
+
+# --- v0.5: clone-standby's restore mode (chunk 28; capture W2-g item 3) ------------------
+# As a restart from the hand-over snapshot finds it: the standby's restored
+# data directory holding its own settings, no slot of its name on its
+# primary. Each clone below runs with its postgres stopped and the slot gone.
+AUTO=/var/lib/postgresql/18/data/postgresql.auto.conf
+reclone() {  # reclone [--restore]: rc in $tmp/reclone.rc, output in $tmp/reclone.{out,err}
+    docker exec "$SB" sh -c '/command/s6-svc -d /run/service/postgres && /command/s6-svwait -d -t 120000 /run/service/postgres' >/dev/null 2>&1
+    k=0
+    while [ "$k" -lt 30 ] && [ "$(rec_pg -c "select count(*) from pg_replication_slots where slot_name = 'standby' and active" 2>/dev/null)" != 0 ]; do sleep 1; k=$((k + 1)); done
+    rec_pg -c "select pg_drop_replication_slot('standby')" >/dev/null 2>&1
+    docker exec "$SB" /usr/local/lib/gm/clone-standby "$@" > "$tmp/reclone.out" 2> "$tmp/reclone.err"
+    echo $? > "$tmp/reclone.rc"
+}
+sb_streams() {  # sb_streams <row value>: rec's sender streaming and the row read on the standby
+    k=0
+    while [ "$k" -lt 60 ] && [ "$(rec_pg -c "select state from pg_stat_replication where application_name = 'standby'" 2>/dev/null)" != streaming ]; do sleep 1; k=$((k + 1)); done
+    rec_pg -c "insert into repl_probe values ($1)" >/dev/null 2>&1
+    k=0
+    while [ "$k" -lt 30 ] && [ "$(sb_pg -c "select count(*) from repl_probe where i = $1" 2>/dev/null)" != 1 ]; do sleep 1; k=$((k + 1)); done
+    printf '%s %s' "$(rec_pg -c "select r.state || '/' || s.slot_name || '/' || s.active from pg_stat_replication r join pg_replication_slots s on s.active_pid = r.pid where r.application_name = 'standby'" 2>&1)" \
+        "$(sb_pg -c "select count(*) from repl_probe where i = $1" 2>&1)"
+}
+w=$(docker exec "$SB" /usr/local/lib/gm/clone-standby --bogus 2>&1; echo "rc=$?")
+case $w in *"usage: clone-standby [--restore]"*"rc=2") pass "clone-standby: an unknown argument a usage error (exit 2)" ;; *) fail "clone-standby --bogus: $w" ;; esac
+docker exec -u postgres "$SB" sh -c "printf '%s\n' \"statement_timeout = '7min'\" >> $AUTO" \
+    && pass "a setting written into the standby's postgresql.auto.conf (statement_timeout = '7min')" || fail "writing into the standby's postgresql.auto.conf"
+reclone --restore
+rc=$(cat "$tmp/reclone.rc")
+[ "$rc" = 0 ] && pass "clone-standby --restore exit 0 ($(tr '\n' ';' < "$tmp/reclone.out"))" || fail "clone-standby --restore: exit $rc: $(cat "$tmp/reclone.err")"
+w=$(grep -c "saved\|put back" "$tmp/reclone.out")
+[ "$w" = 2 ] && pass "the restore mode saved the standby's postgresql.auto.conf and put it back" || fail "restore mode's lines: $(cat "$tmp/reclone.out")"
+w=$(sb_pg -c 'show statement_timeout' 2>&1)
+[ "$w" = 7min ] && pass "the setting kept across the clone (statement_timeout $w)" || fail "statement_timeout after --restore: $w"
+m=$(sb stat -c '%a %U:%G' "$AUTO" 2>&1)
+[ "$m" = "600 postgres:postgres" ] && pass "postgresql.auto.conf put back postgres 0600" || fail "postgresql.auto.conf: $m"
+w=$(sb grep -E '^primary_(conninfo|slot_name)' "$AUTO" 2>&1)
+case $w in
+    *password=*) fail "primary_conninfo holds a password after --restore" ;;
+    *"passfile=''/run/gm-replication/pgpass''"*"primary_slot_name = 'standby'"*) pass "after --restore, primary_conninfo names the password file, primary_slot_name standby" ;;
+    *) fail "the standby's postgresql.auto.conf after --restore: $w" ;;
+esac
+w=$(sb_streams 4)
+[ "$w" = "streaming/standby/true 1" ] && pass "after --restore: rec's sender streaming from the slot standby, a row written on rec read on the standby ($w)" || fail "after --restore: $w"
+w=$(sb_pg -c 'select pg_is_in_recovery()' 2>&1)
+[ "$w" = t ] && pass "after --restore: the standby in recovery" || fail "after --restore, in recovery: $w"
+info "clone-standby's default mode, unchanged"
+reclone
+rc=$(cat "$tmp/reclone.rc")
+[ "$rc" = 0 ] && pass "clone-standby (no argument) exit 0" || fail "clone-standby: exit $rc: $(cat "$tmp/reclone.err")"
+w=$(sb_pg -c 'show statement_timeout' 2>&1)
+w2=$(sb grep -c statement_timeout "$AUTO" 2>&1)
+[ "$w" = 0 ] && [ "$w2" = 0 ] && pass "the default mode keeps nothing of the standby's own postgresql.auto.conf (statement_timeout $w)" || fail "default mode: statement_timeout $w, $w2 line(s)"
+case $(cat "$tmp/reclone.out") in *"saved"*|*"put back"*) fail "the default mode saved or put back a file" ;; *) pass "the default mode saves nothing" ;; esac
+w=$(sb_streams 5)
+[ "$w" = "streaming/standby/true 1" ] && pass "after the default clone: streaming, a row read on the standby ($w)" || fail "after the default clone: $w"
 
 # --- v0.5: WAL archiving to the vault (chunk 3b) ------------------------------------------
 vault() { docker exec -i "$VAULT" "$@"; }

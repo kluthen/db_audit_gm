@@ -1,0 +1,43 @@
+# Answer key of the restore fixture (tools/tests, v0.5 chunk 28).
+scenario:
+  id: fixture-restore
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: >-
+      a physical replication slot old_reports exists on records, inactive,
+      with a restart_lsn, beside the standby's own slot standby, which is
+      active.
+    why: >-
+      the slot makes records keep every WAL segment written since its
+      restart_lsn, and max_slot_wal_keep_size is -1 (unlimited): pg_wal grows
+      with every write until the disk is full and PostgreSQL stops.
+    evidence:
+      - where: node:records
+        source: pg_replication_slots
+        how: psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'
+        shows: "old_reports | physical | f | (an LSN) | reserved, and standby | physical | t"
+      - where: node:records
+        source: replication and its limit
+        how: psql -c 'SELECT application_name, state FROM pg_stat_replication' -c 'SHOW max_slot_wal_keep_size'
+        shows: the standby streaming, no sender for old_reports; -1 (no limit on the WAL a slot may hold)
+    acceptable:
+      diagnosis: >-
+        names the inactive slot old_reports with no standby behind it, beside
+        the standby's active one, and the risk: unbounded WAL retention until
+        the disk is full.
+      proposal: >-
+        drop it (SELECT pg_drop_replication_slot('old_reports')) after
+        checking nothing uses it; set max_slot_wal_keep_size as a safety net.
+      fix: >-
+        the slot old_reports no longer exists.
+    sealed_check:
+      script: faults/pg-abandoned-replication-slot/checks/fixed.sh
+      at_handover: 1
+      notes: Hidden; the catalogue fault. A restart from the snapshot re-creates the slot (spec D397).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

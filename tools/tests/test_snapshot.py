@@ -215,10 +215,15 @@ class TestStop(StaticGame):
                 steps.append(vol.split("_db_")[1].split(":")[0])
         return steps
 
+    def steps(self):
+        """The in-node runs but the read of db's slots (v0.5), which comes first."""
+        self.assertEqual(self.fake.runs[0]["stdin"], snapshot.SLOTS_SQL)
+        return self.fake.runs[1:]
+
     def test_stopped_copied_and_started_in_order(self):
         result = self.take()
         self.assertTrue(result.ok, result.text())
-        stops = [r["stdin"] for r in self.fake.runs]
+        stops = [r["stdin"] for r in self.steps()]
         self.assertEqual(len(stops), 2)
         self.assertIn("-d /run/service/postgres", stops[0])
         self.assertIn("-u /run/service/postgres", stops[1])
@@ -236,8 +241,8 @@ class TestStop(StaticGame):
         self.pipe.status = {"/var/log/postgresql": 1}       # exit 1 is no copy under a stop
         result = self.take()
         self.assertFalse(result.ok)
-        self.assertEqual(len(self.fake.runs), 2)
-        self.assertIn("-u /run/service/postgres", self.fake.runs[1]["stdin"])
+        self.assertEqual(len(self.steps()), 2)
+        self.assertIn("-u /run/service/postgres", self.steps()[1]["stdin"])
         self.assertEqual(self.st()["snapshot"]["status"], "failed")
         self.assertEqual(self.copies(), [])
 

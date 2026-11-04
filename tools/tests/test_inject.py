@@ -14,7 +14,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
+from tools.gm import (deploy, execnode, fit, inject, localimpl, model, render, snapshot,
+                      state, teardown)
 from tools.gm.model import GmError
 from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_deploy import RenderedGame
@@ -43,6 +44,9 @@ class ScriptedDocker(FakeDocker):
         self.launcher_answer = (0, json.dumps(LAUNCHER_BEFORE) + "\n"
                                 + json.dumps({"file": NEW_LOG}) + "\n", "")
         self.clean_answer = (0, "postgresql-2026-10-31_092656.log: 68\n", "")
+        # The snapshot's read of a primary's replication slots (v0.5 capture
+        # W2-g item 1): node -> [SLOTS_SQL row]; a node not here holds none.
+        self.slots = {}
 
     def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None):
         args = [str(a) for a in args]
@@ -80,6 +84,8 @@ class ScriptedDocker(FakeDocker):
             return self.launcher_answer
         if run["stdin"] == inject.CLEAN_SH:
             return self.clean_answer
+        if run["stdin"] == snapshot.SLOTS_SQL:
+            return (0, "".join(json.dumps(r) + "\n" for r in self.slots.get(node, [])), "")
         return None
 
 
@@ -1527,13 +1533,27 @@ class TestCloneStep(unittest.TestCase):
         code, out, err = self.replies.pop(0) if self.replies else (0, "", "")
         return execnode.ExecResult(node, user, f"{node}.ctr", code, out, err)
 
-    def clone(self, timeout=None):
+    def clone(self, timeout=None, **kwargs):
         result = inject.LoadResult("g")
         printed = []
         with mock.patch.object(inject, "exec_node", self.exec_node):
             inject.clone_standby(self.ldir, "off-site", "records", "off_site", None, result,
-                                 timeout=timeout, out=printed.append)
+                                 timeout=timeout, out=printed.append, **kwargs)
         return result, printed
+
+    def test_the_restore_mode_passes_its_argument(self):
+        """A restart's from the snapshot (capture W2-g item 3): the same
+        three runs, clone-standby given --restore."""
+        self.replies = [(0, "", ""), (0, "", ""),
+                        (0, '{"exists" : true, "active" : true, "state" : "streaming"}\n', "")]
+        result, printed = self.clone(restore=True)
+        role, clone, wait = self.runs
+        self.assertIn("ALTER ROLE replicator", role["stdin"])
+        self.assertEqual((clone["node"], clone["user"], clone["argv"]),
+                         ("off-site", "root", (inject.CLONE_STANDBY, "--restore")))
+        self.assertIn("off-site /usr/local/lib/gm/clone-standby --restore (as root): ok", printed)
+        self.assertIn("r.state = 'streaming'", wait["stdin"])
+        self.assertEqual(result.standbys, [("off-site", "records", "off_site")])
 
     def test_the_three_runs(self):
         self.replies = [(0, "", ""), (0, "clone-standby: standby of records in recovery\n", ""),

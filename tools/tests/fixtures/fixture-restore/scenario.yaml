@@ -1,0 +1,338 @@
+# Restore fixture of v0.5 (build plan chunk 28; master spec 7.1, 15 "The
+# restore from the hand-over snapshot", 18.2; capture W2-g of
+# specs/versions/v0.5/wave-log.md; spec D397). Not a game: records, a primary
+# archiving its WAL to the vault, cold storage, on the partners' api node and
+# database (partners/shared/, partners/coldstore/ copied as the GM copies
+# them; no back end, so no scheduler node and the snapshot follows inject,
+# D162); standby, records' standby; the bastion. One fault instance (f1),
+# an abandoned slot on records beside the standby's. Deployed by its short
+# test, tools/tests/fixtures/fixture-restore/run-short-test.sh: load-data
+# (the standby cloned), inject, the snapshot, the hand-over and gmctl
+# restart, then the standby streaming again, the planted slot back and
+# archiving shipping. Loaded, deployed and restarted on a stubbed Docker by
+# tools/tests/test_restart.py.
+
+# --- Scenario information --------------------------------------------
+id: fixture-restore
+version: 0.1.0
+title: Restore fixture, a restart from the hand-over snapshot giving back replication
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A clinic keeps a read-only standby of its database for its reports and
+  archives the database's WAL to an off-site vault, cold storage, whose
+  console shows what it has received.
+
+# --- Difficulty (no scheduler node, so no aging: master spec 6.1, D157) ---
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+third_parties:
+  - id: cold-storage
+    name: Cold Storage
+    stands_for: an off-site archive service, the vault
+    role: round-trip
+    nodes: [partners-api, partners-db]
+    hostname: cold-storage
+    player_doc: player/partners.md#cold-storage
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic, the standby's and the vault's included (one network, spec D275)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters:
+      vault_target: cold-storage:8000     # cold storage's hostname, an alias on partners-api
+      vault_credential: cold_storage      # the customer's one account key with it
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope:
+          min: 64MB
+          max: 256MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 64MB
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope:
+          min: 16MB
+          max: 256MB
+      - setting: max_connections
+        initial: 100
+        envelope:
+          min: 10
+          max: 200
+      - setting: max_wal_size
+        initial: 1GB
+        envelope:
+          min: 64MB
+          max: 1GB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']
+    data:
+      file: data/records.sql
+      databases:
+        - name: clinic
+          owner: postgres
+          tables:
+            - name: visits
+              description: 2 000 visits (id, animal_id, seen_at), written by the short test to fill the segments it switches and read on the standby
+
+  - name: standby
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/standby/postgresql.conf
+      pg_hba.conf: nodes/standby/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope:
+          min: 64MB
+          max: 256MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 64MB
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope:
+          min: 16MB
+          max: 256MB
+      - setting: max_connections
+        initial: 100
+        envelope:
+          min: 10
+          max: 200
+      - setting: max_wal_size
+        initial: 1GB
+        envelope:
+          min: 64MB
+          max: 1GB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']
+    standby_of: records               # cloned by load-data's last step, again by a restart
+
+  # --- Two of the partners' shared nodes (partners/shared/nodes.yaml) ----
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope:
+          min: 32MB
+          max: 64MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 16MB
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope:
+          min: 16MB
+          max: 64MB
+      - setting: max_connections
+        initial: 40
+        envelope:
+          min: 20
+          max: 60
+      - setting: max_wal_size
+        initial: 256MB
+        envelope:
+          min: 64MB
+          max: 512MB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: coldstore.manifests
+              description: cold storage's manifests, one a shipment (shipment_id, type, source, name, rows_declared, rows_received, size, date_from, date_to, received_at); the 35 days before T0 planted for records, wal and basebackup
+            - name: coldstore.state
+              description: cold storage's state, read by its routes at each request; its baseline planted, delay_ms 0, uploads accept
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: standby
+    what: players' SSH and SQL sessions, read only
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: standby
+    to: records
+    what: streaming replication from the standby's slot, as replicator
+    how: postgresql 5432
+    cadence: continuous
+  - from: records
+    to: partners-api
+    what: WAL segments to the vault (cold-storage), vault-post's POST /shipments
+    how: http 8000
+    cadence: per segment
+  - from: bastion
+    to: partners-api
+    what: cold storage's page and manifests (cold-storage), read only
+    how: http 8000
+    cadence: interactive
+  - from: partners-api
+    to: partners-db
+    what: cold storage's manifests and state, as coldstore
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: pg-abandoned-replication-slot
+      version: 0.1.0
+    node: records
+    parameters:
+      slot-name: old_reports          # beside the standby's own slot, standby
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 3
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    records: host-1
+    standby: host-1
+    partners-api: host-1
+    partners-db: host-1

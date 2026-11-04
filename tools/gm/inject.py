@@ -179,6 +179,7 @@ ROTATE_WAIT = 10                    # seconds
 REPLICATION_ROLE = "replicator"
 REPLICATION_SECRET = "replication_password"
 CLONE_STANDBY = "/usr/local/lib/gm/clone-standby"
+CLONE_RESTORE = "--restore"         # a restart's from the snapshot (capture W2-g item 3)
 STANDBY_WAIT = 300                  # seconds, without --timeout: the clone, then streaming
 # The composed load (v0.5 capture W2 item 3).
 EPOCH_VAR = "load_epoch"            # every file's one reference moment
@@ -951,9 +952,13 @@ SELECT pg_catalog.json_build_object(
 """
 
 
-def clone_standby(ldir, standby, primary, slot, docker, result, timeout=None, out=print):
+def clone_standby(ldir, standby, primary, slot, docker, result, timeout=None, out=print,
+                  restore=False):
     """The clone of one standby (see the module's docstring), into
-    result.standbys; GmError at the first step that fails."""
+    result.standbys; GmError at the first step that fails. `restore`: a
+    restart's from the hand-over snapshot (capture W2-g item 3),
+    `clone-standby --restore`, keeping the standby's own
+    postgresql.auto.conf across the clone."""
     run = exec_node(ldir, primary, DATA_USER, stdin=replication_sql(ldir, slot),
                     timeout=timeout, docker=docker, argv=PSQL_ARGV)
     _print_run(out, f"{primary} replication role {REPLICATION_ROLE} for {standby} "
@@ -961,9 +966,9 @@ def clone_standby(ldir, standby, primary, slot, docker, result, timeout=None, ou
     if not run.ok:
         raise GmError(f"setting the replication role on {primary} for {standby}: psql exit "
                       f"{run.returncode}: {psql_error_line(run)}")
-    run = exec_node(ldir, standby, DEFAULT_RUN_AS, timeout=timeout, docker=docker,
-                    argv=(CLONE_STANDBY,))
-    _print_run(out, f"{standby} {CLONE_STANDBY} (as {DEFAULT_RUN_AS})", run)
+    argv = (CLONE_STANDBY, CLONE_RESTORE) if restore else (CLONE_STANDBY,)
+    run = exec_node(ldir, standby, DEFAULT_RUN_AS, timeout=timeout, docker=docker, argv=argv)
+    _print_run(out, f"{standby} {' '.join(argv)} (as {DEFAULT_RUN_AS})", run)
     if not run.ok:
         raise GmError(f"cloning the standby {standby} from {primary}: exit {run.returncode}: "
                       f"{_last_line(run)}")
