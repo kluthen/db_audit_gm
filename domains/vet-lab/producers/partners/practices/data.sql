@@ -57,7 +57,10 @@ CREATE TABLE practices.state (
     PRIMARY KEY (hostname, name)
 );
 ALTER TABLE practices.state OWNER TO practices;
-INSERT INTO practices.state (hostname, name, value) VALUES ('practices', 'delay_ms', '0');
+-- delay_ms the baseline practices.normal upserts; utc_offset the customer's,
+-- for the local date of a new order's client_ref (the tick's).
+INSERT INTO practices.state (hostname, name, value)
+VALUES ('practices', 'delay_ms', '0'), ('practices', 'utc_offset', :'customer_utc_offset');
 
 CREATE TEMP TABLE p_t AS
 SELECT * FROM pg_temp.lab_order_tests(:'load_epoch'::timestamptz, :customer_utc_offset)

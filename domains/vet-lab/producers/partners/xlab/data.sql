@@ -45,7 +45,7 @@ CREATE INDEX orders_due_at_idx ON xlab.orders (due_at) WHERE answered_at IS NULL
 ALTER TABLE xlab.orders OWNER TO xlab;
 
 -- Its state, read by its routes at each request (W2-f); the back end's
--- xlab_tick upserts this baseline, a fault's key other values.
+-- xlab.normal upserts this baseline, a fault's key other values.
 CREATE TABLE xlab.state (
     hostname text NOT NULL,
     name     text NOT NULL,

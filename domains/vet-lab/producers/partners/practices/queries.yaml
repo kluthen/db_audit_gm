@@ -1,0 +1,12 @@
+# queries.yaml of the region's practices' stub, a fragment for
+# partners-backend (v0.5 master spec 10.2; capture W2 item 6, W3 item 1): its
+# baseline key, every delivery acknowledged at once (delay_ms, the
+# milliseconds its results endpoint adds before each answer), and its tick. A
+# fault's key (practices.<behaviour>) upserts other values.
+queries:
+  practices.normal:
+    sql: >-
+      INSERT INTO practices.state (hostname, name, value) VALUES ('practices', 'delay_ms', '0')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  practices.order:
+    call: POST /tick

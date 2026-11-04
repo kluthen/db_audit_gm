@@ -1,0 +1,19 @@
+# The lab fixture's composition record (tools/tests, v0.5 chunk 12b, spec
+# D403; capture W3 items 0 and 1): the core and its laboratory, each on its
+# own node; the lab computes the core's keys by the core's functions (its
+# docs/gm.md, "Core keys used"). Left out (W3 item 0, chunk 29's (b)): the
+# practice software, whose node the fixture does without, and the lab's two
+# partners' fragments, whose shared api and back-end nodes it does without;
+# their state is still loaded on partners-db and checked by the coherence
+# check, and their fragments are composed in tools/tests/test_compose.py.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-lab, at: lab/lab}
+keys:
+  vet-lab: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner]
+scale: {checked: true, note: "the core and its lab at one centre's scale: about 0.27 and 0.33 million rows, 49 and 54 MB"}
+order: [vet-core, vet-lab]
+left_out:
+  - {domain: vet-core, producer: pms, reason: "the lab's fixture runs no practice software (eight nodes at most, D314)"}
+  - {domain: vet-lab, producer: partners/xlab, reason: "no partners' api or back-end node; the external lab's state loaded and checked on partners-db, its fragments composed in test_compose.py"}
+  - {domain: vet-lab, producer: partners/practices, reason: "no partners' api or back-end node; the practices' state loaded and checked on partners-db, their fragments composed in test_compose.py"}

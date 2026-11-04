@@ -1,0 +1,34 @@
+# Fixed-time operations of the lab's information system, vet-lab's
+# fragment (vet-lab-domain.md, "Rates at intensity 1.0", fixed-time
+# operations), in scenario time: quality control before the bench opens
+# and before the night (rule 4), the pathologist's rounds at 11:00, 14:00
+# and 18:00 from Monday to Saturday and at 11:00 on Sundays (rule 1), the
+# samples' disposal at 06:00 (rule 12), and every minute the centre's new
+# orders' identity from the core's lookup API, a script job holding the
+# lab connection and the HTTP one (D303). The disposal is light, set-based
+# work: the GM may move it to the database node's pg_cron (D206, D207).
+jobs:
+  - name: lab-qc-morning
+    key: lab.qc.morning
+    connection: lab
+    at: "45 6 * * *"
+  - name: lab-qc-night
+    key: lab.qc.night
+    connection: lab
+    at: "15 21 * * *"
+  - name: lab-release-round
+    key: lab.release.round
+    connection: lab
+    at: "0 11,14,18 * * 1-6"
+  - name: lab-release-round-sunday
+    key: lab.release.round
+    connection: lab
+    at: "0 11 * * 0"
+  - name: lab-samples-dispose
+    key: lab.samples.dispose
+    connection: lab
+    at: "0 6 * * *"
+  - name: lab-identity
+    key: lab.identity
+    connections: {lab: lab, clinic_api: clinic-api}
+    at: "* * * * *"

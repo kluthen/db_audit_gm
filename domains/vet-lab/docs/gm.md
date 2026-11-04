@@ -237,9 +237,59 @@ name the owner or the client (T24).
 
 ## The producers
 
-The information system and middleware (`lis`), the order API
-(`lab-api`) and the two stubs' fragments are chunk 12b's; this section
-follows them.
+Written for the node names `lis`, `lab-api`, `lab`, `clinic-api` and the
+partners' shared nodes; the GM renames them as the scenario does. No
+planted fault in any of them (D276).
+
+### `lis`, the information system and the analysers' middleware
+
+@@LIS@@
+
+### `lab-api`, the order API (W3 item 1)
+
+An `api` node in the players' scope, port 8000 under its own hostname,
+connection `lab` as `lab_api` (pool 4, `statement_timeout` 5 s on the
+`db/` side, the players' lever). JSON keys the columns' names, times ISO
+8601 UTC with `Z`; 404 `{"detail": "not found"}`; the brick's 401 and 503.
+
+| Endpoint | Credentials | Route | Answer |
+|---|---|---|---|
+| `orders` | `lab_centre` (purpose 1), `lab_practices` (the practices' stub) | `POST /orders` `{account, client_ref, priority, tests: [{code, request_id?}], animal_id?, consultation_id?, requested_by?, patient_ref?, client_surname?, species?, sex?, born_on?, microchip?, ueln?, ear_tag?, clinical_notes?, withdrawal_ends_on?}` | 201 `{accession, account, client_ref, tests: [{order_test_id, code, request_id}]}`; the same account and `client_ref` again 200, the same body, nothing written; an unknown or closed account, an unknown code 422 |
+| | | `GET /orders/{accession}` | the order (`accession, account, client_ref, priority, state, ordered_at, received_at, completed_at, cancelled_at, animal_id, consultation_id, patient_ref, species`) and its `tests`, each `{order_test_id, code, request_id, routing, status, reason, technical_at, released_at, not_performed_at, cancelled_at, results}`, the results in force whatever the status (a technical result is not final: T43) |
+| | | `GET /orders?account=&released_since=` (both required, else 422) | the feed: the account's order tests released, not performed or cancelled at or after the time, by that time then `order_test_id`, each `{accession, client_ref, order_test_id, request_id, code, status, at, reason, results}`, `results` `[{analyte, numeric_value, text_value, unit, flag, low, high}]` for a released test (its results in force; `low`, `high` the interval it was flagged against), `[]` otherwise. Inclusive: a poller's margin re-reads |
+| `send_outs` | `lab_xlab` (the external lab's stub) | `POST /send-outs/{send_key}/result` `{accession, resulted_at, results: [{analyte, numeric_value?, text_value?, unit?, flag?}]}` | 200 `{send_key, status: "resulted"}`: the send-out `resulted`, `answered_at` now, one result a line (no batch, `measured_at` the `resulted_at`); the same key again 200, nothing written twice (the row locked while read); an unknown key 404; an unknown analyte, both or neither value 422. Matched on the `send_key`, never on the external accession (T51) |
+
+The intake writes what `lis` works on: the order (`ordered_at` now), one
+sample per sample type of its tests (`label` `ALD` and its id on eight
+digits, `collected_at` now), one order test per test, `routing` the
+catalogue's `performed`, `ordered`; no charge, no event (the receipt's).
+Idempotency is the unique `(account_id, client_ref)` (`INSERT ... ON
+CONFLICT DO NOTHING`, then the first post's accession and tests); the feed
+reads each of its three times in its own branch, the released one on
+`lab_order_tests_released_at_idx` (T78, T80's baselines). `lab_api` reads
+the reference intervals for the feed's `low` and `high` (the catalogue's,
+schema.sql). An external answer leaves the test `sent-out` until `lis`
+validates it.
+
+### The two stubs (`producers/partners/`, W3 item 1)
+
+Each a partner folder on the shared nodes (partners/README.md): its
+`api.yaml`, `routes/` and `db/` onto `partners-api`, its `schedule.yaml`
+and `queries.yaml` onto `partners-backend`, its `data.sql` into
+`partners` (its state, planted from `pg_temp.lab_order_tests`).
+
+| Stub | Hostname | Endpoints (credential) | Back end | Calls `lab-api` as |
+|---|---|---|---|---|
+| `xlab`, Northfield Veterinary Laboratories | `northfield-lab` (D370) | `xlab_orders` (`xlab_customer`): `POST /orders` `{send_key, accession, label, test_code, species?, sex?, age?}` → `{send_key, status: "accepted", accession, due_at}`, the same `send_key` again the same accession (`NL` and 400000 + n, continuing the history's), due after its own turnaround for the test; `POST /orders/{send_key}/resend` (a chase) → `{send_key, accession, status, due_at, resends}`, 404 unknown. `xlab_tick` (`partners_backend`): `POST /tick` | `xlab.normal` (1/min), `xlab.answer` (6/h, even, `xlab-hours`: Monday to Saturday 08:00–20:00) calling the tick | `lab_xlab`, `xlab-lab`: each tick posts up to five send-outs past their due time, or chased since their last post, to `POST /send-outs/{send_key}/result`; the answer built once (hormones and lead a number, the molecular tests positive or negative, the rest a report, a hash of the `send_key`), kept in `xlab.orders.answer` with its count of posts, posted again unchanged on a chase; a refused post stays due |
+| `practices`, the region's 120 accounts | `practices` (D293) | `practices_results` (`practices_customer`): `POST /results` `{delivery_key, account, accession, kind, ...}` → `{delivery_key, acknowledged: true, repeats}`, one row a `delivery_key`, a repeat counted (`repeats`, `last_at`), never a second row. `practices_tick` (`partners_backend`): `POST /tick` | `practices.normal` (1/min), `practices.order` (2.9/h, poisson, `practice-hours`) calling the tick | `lab_practices`, `practices-lab`: each tick posts one new order (order `m` after the stub's highest, `client_ref` `<local YYMMDD>-<m>`, a pure function of `m`: account, patient, species mix, one to three of the tests a practice of that species asks most, one in twenty urgent and then in house of four hours or less), its row written before the post, the accession after; an order whose post failed is posted again first, under the same `client_ref` |
+
+Each public route reads its state (`delay_ms`) and returns its session
+before sleeping, as every stub does; the ticks are never slowed. The
+practices' state also holds the customer's `utc_offset` (its `data.sql`),
+for a new order's local date. The fixture `fixture-lab-core` leaves both
+folders out (their state still loaded and checked);
+`tools/tests/test_compose.py` composes them onto the partners' three nodes
+and loads the output.
 
 ## The rules
 

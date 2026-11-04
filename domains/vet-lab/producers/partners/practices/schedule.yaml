@@ -1,0 +1,36 @@
+# schedule.yaml of the region's practices' stub, a fragment for
+# partners-backend (v0.5 master spec 10.2; vet-lab-domain.md, "The partners the
+# lab meets", "The business hours"; capture W2 item 6, W3 item 1;
+# partners/README.md): its baseline stream, upserting its state once a minute
+# as its own role, and its tick, practices.order, on its hostname with the
+# credential partners_backend: each tick one practice's order posted to
+# lab-api, 2.9 an hour on the practices' hours at 1.0 (28 a weekday, 12 on a
+# Saturday). A fault's timeline change of practices.normal to
+# practices.<behaviour> is the scenario's.
+connections:
+  practices-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: practices, pool: {size: 1}}
+  practices-tick:
+    driver: http
+    target: practices:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+streams:
+  - key: practices.normal
+    connection: practices-db
+    rate: 1/min
+    arrivals: even
+  - key: practices.order             # 28 / 12 / 0 a day (Mon-Fri / Sat / Sun)
+    connection: practices-tick
+    rate: 2.9/h
+    arrivals: poisson
+    shape: practice-hours
+shapes:
+  practice-hours:                    # Monday to Friday 08-12 and 14-19, 0.3 over lunch; Saturday 08-12
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-11": 1.0, "12-13": 0.3, "14-18": 1.0, "19-23": 0}
+      sat:
+        hours: {"00-07": 0, "08-11": 1.0, "12-23": 0}
+      sun:
+        hours: {"00-23": 0}

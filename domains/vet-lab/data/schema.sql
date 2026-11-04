@@ -341,11 +341,12 @@ GRANT USAGE ON SEQUENCE lab_orders_id_seq, lab_samples_id_seq, lab_order_tests_i
                         lab_sample_events_id_seq, lab_results_id_seq, lab_critical_calls_id_seq,
                         lab_notifications_id_seq, lab_qc_runs_id_seq, lab_charges_id_seq TO lab_app;
 
--- The order API: the catalogue, the accounts, orders, their tests and
+-- The order API: the catalogue (its intervals too: the feed carries each
+-- result's low and high, W3 item 1), the accounts, orders, their tests and
 -- results; it writes the intake (orders, samples, order tests) and the
 -- external lab's answers (the send-out, its results).
-GRANT SELECT ON lab_tests, lab_test_analytes, lab_analytes, lab_accounts, lab_orders, lab_samples,
-                lab_order_tests, lab_results, lab_send_outs TO lab_api;
+GRANT SELECT ON lab_tests, lab_test_analytes, lab_analytes, lab_reference_intervals, lab_accounts, lab_orders,
+                lab_samples, lab_order_tests, lab_results, lab_send_outs TO lab_api;
 GRANT INSERT ON lab_orders, lab_samples, lab_order_tests, lab_results TO lab_api;
 GRANT UPDATE (status, answered_at) ON lab_send_outs TO lab_api;
 GRANT USAGE ON SEQUENCE lab_orders_id_seq, lab_samples_id_seq, lab_order_tests_id_seq,
