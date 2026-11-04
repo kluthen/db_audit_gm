@@ -4306,3 +4306,37 @@ chunk 15's `runload.sh` (shared scratchpad) against `c15pg`, creating an
 empty database `housing` there and nothing else; chunk 15's owner told.
 
 Chunk 30 takes the slot.
+
+### Documents to as built: machinery and housing (D416–D419), 2026-11-04
+
+`spec-writer`: `e32bcb8` (D416, vet-machinery to 15a as built: the two
+settings tables, `mach_worklist.cancelled_at`, `mach_maint` LOGIN, O227 at
+11, the scale, the loaded counts, growth about 7.3 MB a day; master spec 7
+and `cold-storage.md` figures too), `4f7ae7b` (D417, vet-housing to chunk
+14 as built: grants, columns, the move out of isolation, rule 2 "as soon
+as one is free", about 0.14 million rows and 17 MB, the testing section's
+limits), `952408d` (D418, D419). The driver's rulings on the two points
+`spec-writer` left open:
+- **D418 (O235)**: the `pacs` load keeps the history's studies out of
+  `biomed`'s downtime windows (salts 502, 505, 506), checked inside
+  `pacs`; live, the PACS reads no registry and a story taking a machine
+  down stops its acquisitions itself. Built by chunk 15b (its owner told,
+  with the GM notes' correction: acquire has no machine filter).
+- **D419 (O236)**: T163's witness becomes "an infectious animal outside
+  isolation while an isolation unit of its section has stood clean and
+  free for more than a day" (the waits D417 records are its baseline
+  otherwise). T163 is not among the ten.
+Chunk 21's text gains the W4 points (`mach_archive` SELECT on
+`mach_vitals_settings` and `mach_settings` if `ship-partitions` reads
+them; `mach_orders` reads `cancelled_at` and cancelled because).
+
+**Gate fix listed**: `domains/vet-housing/docs/gm.md` still calls the
+infectious waits "T163's baseline, so a T163 instance is told by its rate
+and its story"; reword to D419 at the wave gate.
+
+Chunk 12b: the executor's dry run committed by the paused owner at
+`13ee9a3` (17 of 18 `lis` keys and `lab.identity` working as their roles;
+`lab.analyser.run` refused as `lab_instruments` on `lab_results`).
+**Driver's ruling**: `GRANT SELECT (order_test_id) ON lab_results TO
+lab_instruments`, a D415-style grant, recorded with 12b's deviations
+after it merges. A fresh owner resumes 12b.
