@@ -343,9 +343,10 @@ may take for a fault: the board statement every second from `ward` (the
 an empty isolation box while a horse waits (isolation is kept for
 infectious animals, but takes one when its section is full); an
 infectious animal waiting in an ordinary unit for an isolation unit to be
-disinfected (the history's, at most a few at once; T163's baseline, so a
-T163 instance is told by its rate and its story, not by one such
-placement); a carer recorded on a day off (not matched against the rota,
+disinfected (the history's, at most a few at once, while every isolation
+unit of its section is held: never T163's witness, which is an infectious
+animal outside isolation while an isolation unit of its section has stood
+clean and free for more than a day, D419); a carer recorded on a day off (not matched against the rota,
 D394). Selecting a game's faults is the GM's.
 
 ## Loading
