@@ -1004,7 +1004,8 @@ temporary foreign server, the sessions unseen), the load order from
 
 ### Chunk 9 — `vet-core`, the medical record
 
-Status: in progress (resumed from WIP 0a3e43b after D372-D380)
+Status: merged (w2, 7f95c5b)
+Record: 9a 86bbc16, 9b ded1b67, merge 7f95c5b; five owners (stopped on spec gaps D372-D380, paused, D384-D391, D393-D394, stopped on load-data's unseen defect, fixed at the gate e5d158c). fixture-core 40/40 (wave log, W2-d).
 Wave: 2
 Depends on: chunks 1, 2, 3 and 5 (wave 1); chunk 6, merged into
 `v0.5-w2` before this chunk's branch is cut (its fragments' weighted

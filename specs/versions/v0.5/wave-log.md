@@ -2855,3 +2855,99 @@ temp-file logging off as well (next fix).
   prelude and asserts only the plain session's temporary file is logged,
   and that `gm_check` logs in with `-1` (the mutation fails as expected).
   Unit suite 1092 OK.
+
+### Chunk 9 — merged (7f95c5b), 2026-11-04
+
+Five owners (stopped on gaps, paused twice on context, stopped on the
+`load-data` defect, finished): 9a `86bbc16` (`domain.yaml`, `data/`,
+`docs/`), 9b `ded1b67` (`producers/`, `variants/`, `fixture-core`, the
+root README's domains row), squashed linear on `f63899a`, merge `7f95c5b`.
+Unit suite 1092 OK (2 skipped); `check_domain_dir` clean.
+`fixture-core` (bastion, records, `clinic-api`, `pms`; composed by
+`gmctl compose`, aging `{minimum: 8h, handover_at: "14:00"}`) under the
+lock after `fit` (2 CPU / 4G / 8G; 4.19G disk, 6.97G with the snapshot):
+**40/40 in 157 s**, deploy 14 s, `load-data` 97 s, 49 MB, the load
+unseen, `clinic_lookup`'s answers (41 current stays, slowest 83 ms, no
+contact ever), `role_vet_app_password` on `pms` only, `pms` started with
+its jobs and no error (quiet at intensity 0.1: its keys were checked as
+`vet_app` in SQL, not live). Done when:
+- the load at +2 (T0 2026-11-04T10:00Z) 88.6 s and at 0 (T0
+  2026-03-18T15:37Z) 89.5 s or 112.7 s, 49 MB, 274 235 and 274 404 rows
+  (exact counts);
+- all 213 columns classed (20 personal, 15 customer-linked, 178
+  internal), 25 tables in seven activities;
+- `pms`' 23 keys (21 streams, 2 jobs) each run as `vet_app`, 0 errors;
+- the lookups answer for loaded animals and never return a contact;
+- the GM notes carry every function and range (`gm.md`, 759 lines);
+- the catalogues' shares measured: analyses 13 584 (routine codes within
+  2.2/3.0/4.7 points of their weights, the gap from distinct codes per
+  consultation; 0 urgent out-of-hours analyses not night-capable),
+  imaging 3 033 (59.5/29.3/11.2; routine DX 44.7, US 31.2, CT 14.9, MR
+  7.0, NM 2.2); the 13 validity checks zero at both shifts;
+- measured administrations 218.6 a day (D393's 210).
+Own decisions: `prescriptions.expire`'s rule (antimicrobials past five
+days; others past their lines' days or validity), matching `load.sql`'s
+`expired`; live staff picked by parameter (as D391); a live transfer
+records the outbound exchange `requested` (purpose 4 sends it); live
+consultations draw no `MINH` and emergencies no referral; `vet_app` gets
+`USAGE` on the owners' and animals' sequences. Risks: the core's load
+about 90 s and every part's load calls the same functions; the shift-0
+time varied by 23 s; the fixture keeps a copied fault
+(`fixture-random-page-cost`); `domains:` scenarios carry no data register
+until chunk 17.
+
+**Capture W2-d — chunk 9 outcomes (`vet-core`'s keys and its lookup API; read by every part and purpose)**
+
+- **The eighteen functions** (`data/keys.sql`, `pg_temp.core_*`; `docs/gm.md`
+  "Core keys" holds their formulas and salts). Id functions take `(n)`:
+  `core_staff`, `core_species`, `core_microchip` ('941' ‖ lpad((7 919 813 n
+  + 104 729) mod 10¹², 12)), `core_ueln` ('941001' ‖ lpad((7 919 n + 1 009)
+  mod 10⁹, 9)), `core_passport` ('XA' ‖ lpad((104 723 n + 7) mod 10¹⁰, 10)),
+  `core_ear_tag` ('XA' ‖ lpad((9 973 n + 31) mod 10¹², 12)), `core_holding`
+  ('XA' ‖ lpad(7 883 h + 100 003, 9)), `core_referring_practice` ((v + 1)/2).
+  Timed functions take `(n, load_epoch, utc_offset)`: `core_animal`,
+  `core_owner`, `core_ownership`, `core_stay`, `core_stay_alert`,
+  `core_death`, `core_consultation`, `core_request`, `core_exchange`,
+  `core_shifts`. All `IMMUTABLE`, no row outside their range or after T0;
+  the `pg_temp.vc_*` helpers are internal (item 0 reserves `core_*`).
+- **Ranges**: sites 1–6; sections 1 horse, 2 farm, 3 domestic; staff
+  1–85 in `core_staff`'s layout (carers 57–60 horse, 61–62 farm, 63–66
+  domestic, D394); owners 1–10 000; herds 1–200 (keeper h+1); animals
+  1–17 000; consultations 1–25 000 (sparse); a referral's id its first
+  consultation's; requests 1–17 000; stays 1–2 500; exchanges 1–700;
+  prescriptions 1–15 000; administrations 1–70 000 (61 241 used). The
+  sequences resume after their ranges.
+- **`clinic-api`'s contract**, as `vet_lookup` (animals without the death
+  columns, ownerships, owners' `id`, `kind`, `name`, stays' census
+  columns), behind `clinic_lookup`: `GET /animals/{id}` (13 columns, ISO
+  8601 UTC with `Z`; 404 `{"detail":"not found"}`); `GET
+  /animals?microchip=|ueln=|ear_tag=` (exactly one, else 422 `{"detail":
+  "exactly one of microchip, ueln or ear_tag"}`; a list, `[]` when none);
+  `GET /animals/{id}/owner` (the current owner's `id`, `kind`, `name`;
+  404); `GET /stays?current=true` (`stay_id`, `animal_id`, `section_id`,
+  `admitted_at`, `name`, `species`; 422 otherwise); `statement_timeout` 5
+  s, pool 4, 401 without the credential, 503 before `load-data`.
+- **Rulings as built**:
+  - D384: one weekend duty vet per section.
+  - D385: per block of 40 consultation ids, 17 places make 27 requests;
+    a one-request place is imaging by a section rate (0.395 / 0.68 /
+    0.41), otherwise one lab order per consultation. At +2: 42.5 % of
+    consultations, 7 432 orders of 1.83 tests.
+  - D386: places, counts, stay sections and outcomes shuffled per block
+    by hashes (`vc_stay_place`/`vc_stay_at`, `vc_stay_outcome`); most
+    stays at once 17/9/23.
+  - D388: nurses' cycle `(n + week) mod 4`, every shift held, 47.3 h a
+    week; `vc_absence`, 633 periods, 90 % leave.
+  - D389: `vc_herd_visit_on`; `withdrawal_ends_on` = visit + 10.
+  - D390: examinations placed in office time inside their interval, ids
+    in time order.
+  - D391: `given_by` by a hash.
+  - D393: the round doses each active ward line at its frequency
+    (measured 218.6 a day, 36 a round).
+  - D394: the carers' split.
+- **`pms`**: 21 streams and 2 jobs (`administrations-round` `0
+  2,6,10,14,18,22 * * *`, `prescriptions-expire` `15 0 * * *`), 23 keys,
+  no builder, each run as `vet_app`.
+- **Load figures**: 88.6 s at +2, 89.5–112.7 s at 0; 49 MB; 274 235 and
+  274 404 rows; through `load-data` on Swarm 91–97 s; `core_consultation`
+  about 41 s, `core_request` about 38 s of it.
