@@ -1,6 +1,10 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v5 (2026-11-04): G9's text correction, pgwatch its latest
+Status: v6 (2026-11-04): the owners' traffic in
+`producers/partners/owners/`, chunk 16's folder choice settled; chunk 17
+refuses a `public/` `data.sql`; G16 records both (spec D369). Chunk 12's
+lab stub folder is its prefix, `xlab` (spec D370).
+v5 (2026-11-04): G9's text correction, pgwatch its latest
 release at the build (6.1.0), not "pgwatch 3"; chunk 10 names G9's
 build conditions (spec D368).
 v4 (2026-11-04): capture W2's ten preflight corrections written
@@ -109,7 +113,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
 | G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, its order settled (O224, spec D343): the exporters kept, pgwatch dropped | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
 | G15 | The owner's judgement at release close: the short tests as run, G13's run, the named known limits and what stays v1.0 gating | The owner | Release close | open |
-| G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`; a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | open |
+| G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -379,9 +383,6 @@ None is decided here and none is a gate; where one touches a chunk:
   the `postgres` brick's `docs/gm.md` at wave 2's gate.
 - **One partner's slow answers never holding another's** (the `api`
   node's workers): chunk 11.
-- **Where the non-business traffic source sits**
-  (`producers/partners/owners/` or `producers/public/owners/`): chunk
-  16, recorded in formats.md's line by `spec-writer` after.
 - **Machine 10's telemetry**, 10 or 11 machines (O227): chunk 15.
 - **CPU against the "one collector" trim**: `pgwatch`'s and the
   exporters' measured reservations (chunk 10) and `fit` on the clinic as
@@ -404,7 +405,7 @@ release gate checks that each is recorded.
 | The core's id functions in its GM notes (names, formulas), and the referring vets' mapping to practices | 9, first deliverable; the mapping 9, read by 12 |
 | The repository form of an HTTP call, and the scripts' HTTP client | 4, the form fixed by capture W1 before chunks 2 and 4 start |
 | Where a purpose's `history.sql` and endpoint material sit beside v0.4's per-part material folders | 18, fixed by capture W4 for 18 to 21 |
-| `producers/partners/<name>/` or `producers/public/<name>/` for the owners' traffic | 16 |
+| `producers/partners/<name>/` or `producers/public/<name>/` for the owners' traffic | settled before the build: `producers/partners/owners/` (spec D369); built by 16, recorded with G16 |
 | The `api` brick's internal layout (`db/` its one writable path, routes importing only from `db/`) | 5 |
 | How the partners' `pg_hba.conf` admits only their own nodes on one Swarm network | 11 |
 | The portal outbox's id order across the load and the derivation | 16 |
@@ -431,7 +432,7 @@ chunk 11's shared nodes:
 | The franchise's head office (monthly figures) | purpose 9 | 20 |
 | The franchise's messaging service | purpose 16 | 21 |
 | Cold storage, with the vault | the catalogue's `partners/coldstore/`, beside the shared nodes' base in `partners/shared/` (master spec 24, W2 item 6) | 11; exercised by 21 (purpose 14) and 23 (s2, s6) |
-| `owners`, the tenth hostname, no business | `vet-portal`, its folder settled by the build | 16 |
+| `owners`, the tenth hostname, no business | `vet-portal`'s `producers/partners/owners/` (spec D369) | 16 |
 
 ## Chunks
 
@@ -1183,7 +1184,8 @@ the partners' stubs' tables on `partners-db`.
   - Out: purposes 1 to 3, 5, 6 and 10 (chunks 18 to 20); s10 (chunk 25).
 - Files: `domains/vet-lab/` (new), as chunk 9's layout, with
   `producers/lis/`, `producers/api/lab-api/` and
-  `producers/partners/{northfield-lab,practices}/`;
+  `producers/partners/{xlab,practices}/` (each folder its prefix, W2
+  item 0; `xlab` serves the hostname `northfield-lab`, spec D370);
   `tools/tests/fixtures/fixture-lab-core/` (new); the root `README.md`'s
   domain table.
 - Spec sections: master spec 9.1, 9.3, 10.2; vet-lab-domain.md whole.
@@ -1314,7 +1316,9 @@ Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunk 12, merged
 into `v0.5-w3` before this chunk's branch is cut; W3
 Architecture capture: W3, for chunk 21 and 25: the copies' tables, the
 row-level security policies and the transaction-local `portal.owner_id`,
-`portal-api`'s endpoints, the outbox.
+`portal-api`'s endpoints, the outbox; and O229 first (the messaging
+stub's planted notices, which W2 item 3's `derive.sql` cannot write into
+`partners`).
 
 - Goal: `domains/vet-portal/` as
   [vet-portal-domain.md](vet-portal-domain.md) and master spec 9.7
@@ -1326,9 +1330,12 @@ row-level security policies and the transaction-local `portal.owner_id`,
   rules; `portal-api`'s endpoints (`producers/api/portal-api/`: login,
   accounts, animals and documents under owner scope, `SECURITY DEFINER`
   pre-login calls); the desk's consent stream on `pms` (an HTTP
-  connection); **the owners' traffic source, its folder settled**
-  (`producers/partners/owners/` or `producers/public/owners/`) and
-  recorded; **the outbox's id order across the load and the
+  connection); **the owners' traffic source in
+  `producers/partners/owners/`** (spec D369): prefix `owners`, its
+  `data.sql` creating the role and schema `owners` and the route's record
+  of visits in `partners` (W2 item 3), with no `partners.md` entry, no
+  contract and no misbehaviour key (no `owners.state`, no
+  `owners.normal` stream; master spec 10.2); **the outbox's id order across the load and the
   derivation**, settled; its coherence queries (published documents
   matching signed consultations and released results); its variant
   manifest; the `portal` fixture's base (`records`, `lab`,
@@ -1336,7 +1343,7 @@ row-level security policies and the transaction-local `portal.owner_id`,
   eight nodes).
   - Out: purposes 15 and 16 (chunk 21); s5 (chunk 25).
 - Files: `domains/vet-portal/` (new) with `data/derive.sql`,
-  `producers/api/portal-api/` and the owners' folder;
+  `producers/api/portal-api/` and `producers/partners/owners/`;
   `tools/tests/fixtures/fixture-portal/` (new); the root `README.md`'s
   domain table.
 - Spec sections: master spec 9.7, 13.1 (owner-scoped access), 8.5 (the
@@ -1346,7 +1353,8 @@ row-level security policies and the transaction-local `portal.owner_id`,
   former owner, a buyer and a keeper with and without consent, each
   `GET /animals` and document list as the rules say, another owner's
   document refused; activation, login, the lock after five failures, an
-  old token refused; load figures recorded.
+  old token refused, each visit in the owners' record in `partners`;
+  load figures recorded.
 - Verification: chunk checks.
 - Split rule: 16a the schema, the policies, the load, the derivation,
   classification, register and rules; 16b `portal-api`, the desk stream,
@@ -1376,7 +1384,11 @@ values (spec D365).
     never another partner (the entrypoint's routes and
     `render.web_routes_value`), and the loader's one exception for that
     route in `model._check_web_routes`, every other third-party node and
-    alias still refused (spec D363); **the partners' documented
+    alias still refused (spec D363); the loader refusing a `data.sql` in
+    `producers/public/<name>/`, naming the file and `partners/<prefix>/`
+    as its home (`_check_fragments`; `model._partner_data_files`, and so
+    `node_creates`, reading `partners/` only), the folder's fragments
+    still accepted (spec D369); **the partners' documented
     credentials handed over with the starter pack** (access model 3 and
     6, master spec 10.2; spec D365): each credential `partners.md`
     documents, the customer's own with that partner, its game value
@@ -1404,7 +1416,8 @@ values (spec D365).
   `.claude/skills/data-register/{SKILL.md,template.md}` (new);
   `.claude/skills/game-master/SKILL.md` (Setup step 2),
   `.claude/skills/scenario-document/{SKILL.md,template.md}`,
-  `.claude/skills/scenario-format/SKILL.md` (the register's items);
+  `.claude/skills/scenario-format/{SKILL.md,templates/layouts.md}` (the
+  register's items; the `public/` folder without `data.sql`);
   `tools/gm/model.py`, `tools/tests/test_model.py`;
   `tools/tests/fixtures/fixture-register/` (new: the six domains
   composed, no deployment).
@@ -1415,7 +1428,8 @@ values (spec D365).
   present and absent otherwise, and the route answering `GET /` and
   `GET /manifests` while refusing `POST /shipments` and every other
   partner's hostname; the loader accepting that route and refusing any
-  other third-party node or alias in `web_routes`; a documented
+  other third-party node or alias in `web_routes`; a `public/`
+  `data.sql` refused; a documented
   credential's value given with `partners.md` and accepted by its
   partner's endpoint, `cold_storage` never given; on the register fixture, the true register and the
   handout generated, about twenty entries and the internal table, the
