@@ -4397,3 +4397,55 @@ other machine) whose downtime covers its whole window stops the `pacs`
 load (loud, not met at any tested epoch).
 
 No chunk ready for the free slot: 13 waits on 30, 16 on 12.
+
+### Chunk 12 — merged (2dc2317), 2026-11-04
+
+12b by a third owner: `0216092` on the WIP `9ef2683` and `13ee9a3`;
+`v0.5-w3` merged in at `8e27f1e` and `564a50a` (chunk 15; the shared
+lists: `parts: [vet-lab, vet-housing, vet-machinery]`); merged `--no-ff`
+at `2dc2317`; worktree and `c12pg` removed. `check_domain_dir` clean on
+vet-lab, vet-core, vet-housing, vet-machinery on the merged branch.
+Composed core + lab + stubs through `load-data` on the fixture: 405 s,
+coherence `pass`; the lab 55 MB, 13 684 orders, 23 406 order tests,
+160 890 results, 8 open send-outs. `fixture-lab-core` 44/44 in 530 s
+(wall 18 min 25 s, mostly the host lock behind chunks 30 and 15b), deploy
+15 s, the slowest API answer 115 ms, the feed 71 ms; `fit` 2 CPU / 4G /
+8G. At T0 (Wed 12:02 local) `lis` loaded 7 jobs; `lab.identity` filled
+the posted order's animal from `clinic-api` within 90 s; one test
+released after T0; an order posted twice with one `client_ref`: 201,
+then 200 with the same body, one row; the feed since a time 34 tests,
+equal to the lab's rows in order (released with results and low/high,
+not performed and cancelled without), 422 without `released_since`; the
+stubs' state equal to the lab's (8 send-outs; 39 orders, 12
+deliveries), each role owning only its schema; `TestLabStubs` passing.
+Unit suite 1137 OK, 2 skipped.
+
+W3-a additions (chunks 16, 18–20): `lis`'s connections `lab` as
+`lab_app` (pool 4), `lab-instruments` as `lab_instruments` (pool 2),
+`clinic-api` over HTTP (`clinic_lookup`); 18 SQL keys plus the script
+key `lab.identity`, 14 streams; jobs `lab-qc-morning` `45 6 * * *`,
+`lab-qc-night` `15 21 * * *`, `lab-samples-dispose` `0 6 * * *`,
+`lab-identity` `* * * * *`; the release rounds on `lab.release.round` as
+three jobs, `lab-release-round` `0 11 * * *` (Sunday's single round
+too), `lab-release-round-14` `0 14 * * 1,2,3,4,5,6`,
+`lab-release-round-18` `0 18 * * 1,2,3,4,5,6` (the loader refuses a day
+of week with ranges or with more than one hour). The intake: `lab-api`
+writes the order, one sample per sample type, one order test per test,
+no charge, no event; `lab.samples.receive` (centre, 15/h) and
+`lab.courier.receive` (practices, 40/h, `courier-waves`, charging)
+accession them; both write a `stored` event for an unfit sample at
+receipt (the document's lifecycle; at `now()`, the history 10 minutes
+after the tests' final time). Written up in `domains/vet-lab/docs/gm.md`.
+
+Deviations, sent to `spec-writer`: `lab_instruments` `SELECT
+(order_test_id)` on `lab_results` (the driver's ruling; on the fixture
+`lab.analyser.run` inserted 108/108/61/61/9/0 results on machines 1–6);
+the release rounds as three jobs; `lab_api` reading
+`lab_reference_intervals`; `practices.state`'s `utc_offset` row; no
+food-chain column on `lab_orders`; the fixture's `partners-db`
+`pg_hba.conf` without a `host partners` line. Risks: the composed load
+405 s (more than the estimate, inside 30 minutes); the run exercises
+releases through `lab.release.urgent`, not the 14:00 round; the ticks
+hold a session while posting over HTTP.
+
+Chunk 16 is cut from `v0.5-w3` now (chunks 12 and 29 merged).

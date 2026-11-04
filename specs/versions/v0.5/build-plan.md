@@ -1204,7 +1204,8 @@ lives.
 
 ### Chunk 12 — `vet-lab`, the centre's laboratory
 
-Status: in progress (29a, 29b first for its composed check)
+Status: merged (w3, 2dc2317)
+Record: 12a 1e6431c, 12b 9ef2683 + 13ee9a3 + 0216092, merged 2dc2317 (three owners and an executor, two rotations); D415 records 12a's figures and grants; deviations sent to `spec-writer` (wave log, chunk 12 merged): `lab_instruments` SELECT (order_test_id) on `lab_results` (the driver's ruling), the release rounds as three jobs (the loader's one-hour day-of-week rule), `lab_api` reading the intervals, `practices.state`'s `utc_offset`, no food-chain column.
 Wave: 3
 Depends on: chunks 4, 6, 8, 9 and 11 (waves 1 and 2); chunk 29 for its
 composed check and fixture only, merged into `v0.5-w3` before them
@@ -1410,7 +1411,7 @@ site.
 
 ### Chunk 16 — `vet-portal`, the owners' portal
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunks 12 and 29,
 merged into `v0.5-w3` before this chunk's branch is cut; W3
