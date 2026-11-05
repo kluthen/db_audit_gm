@@ -16,14 +16,14 @@
 #          skipped, the care log's pace.
 #
 # Time is placed by the shift (whole hours), so the local minute at T0 is
-# the UTC minute, about four minutes after the start: place started at
-# minute 30 to 50 of an hour puts T0 at about 10:35-10:55, when units the
-# history released after 10:00 reach their 30 minutes to clean by the
-# ward's first disinfection call; care started at minute 40 to 50 puts T0 at
-# about 16:45-16:55, so the 17:00 round, and the first nil-by-mouth orders
-# (from the next hour) it meets, fall in the window. Started at another
-# minute, the checks needing those moments are reported as not reached
-# (....), never failed.
+# the UTC minute, two and a half to four minutes after the start: place
+# started at minute 30 to 50 of an hour puts T0 at about 10:35-10:55, when
+# units the history released after 10:00 reach their 30 minutes to clean by
+# the ward's first disinfection call; care started at minute 43 to 50 puts
+# T0 at about 16:45-16:55, so the 17:00 round, and the first nil-by-mouth
+# orders (from the next hour) it meets, fall in the window, which reaches
+# 17:05 local at least. Started at another minute, the checks needing those
+# moments are reported as not reached (....), never failed.
 #
 # On a copy of tools/tests/fixtures/fixture-housing (bastion 0.5.0, records:
 # postgres 0.5.0, clinic-api: api 0.1.0, pms and ward: scheduler 0.3.0 at
@@ -409,7 +409,10 @@ if [ "$MODE" = place ]; then
 else
     f=$(q "SELECT count(*) || ' ' || count(DISTINCT stay_id) FROM housing_care_events WHERE kind = 'feeding' AND done_at >= $since")
     set -- $f
+    # the 17:00 round's feedings: met if the window reached 17:05 local
+    endlt=$(date -u -d "@$(( RESET + ELAPSED + SHIFT * 3600 ))" +%H%M)
     if [ "$1" -gt 0 ]; then pass "care: the round's feedings recorded since T0 ($1 feedings, $2 animals)"
+    elif [ "$endlt" -lt 1705 ]; then info "care: the 17:00 round not reached (T0 $LOCAL local, the window ends at $endlt): its feedings not checked"
     else fail "care: no feeding recorded since T0"; fi
     same "care: no feeding inside a nil-by-mouth order" "0" \
         "$(q "SELECT count(*) FROM housing_care_events e JOIN housing_feeding_plans f ON f.stay_id = e.stay_id
