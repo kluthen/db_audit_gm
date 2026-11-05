@@ -5027,3 +5027,5 @@ Found, not settled by G17:
      the files' header comments corrected. No built fixture is affected.
 - `doc-ids compare main v0.5-w3`: 0 collisions. **Merge**: `v0.5-w3` →
   `main` on the owner's word; then wave 4 in a fresh session.
+
+The owner: "merge". `v0.5-w3` merged into `main` `--no-ff` at `b9fe67e`; its worktree and the wave's branches removed. Wave 4 starts in a fresh session, from `main`.
