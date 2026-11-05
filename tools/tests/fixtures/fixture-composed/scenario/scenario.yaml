@@ -3,7 +3,11 @@
 # scenario.
 id: fixture-composed
 nodes:
-  - {name: records, brick: postgres@0.5.0, role: database, data: {file: data/records.sql}}
+  - name: records
+    brick: postgres@0.5.0
+    role: database
+    data: {file: data/records.sql}
+    seed_files: {postgresql.conf: nodes/records/postgresql.conf}
   - name: partners-db
     brick: postgres@0.5.0
     role: database
@@ -16,6 +20,8 @@ domains:
 purposes:
   - id: fx-weekly
     parts: {source: records/clinic, target: records/office}
+  - id: fx-intake
+    parts: {source: records/clinic, target: records/clinic}
 third_parties:
   - id: xlab
     name: The External Lab

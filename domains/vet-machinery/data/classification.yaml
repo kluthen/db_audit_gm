@@ -1,0 +1,225 @@
+# vet-machinery's classification (v0.5 master spec 9.6; vet-machinery-domain.md,
+# "Classification", ruled D319): every column of every table of the part's
+# three databases, keyed <table>.<column> without the database (master spec
+# 6.1): the names are unique across pacs, vitals and biomed, and the
+# scenario's copy adds each table's database (pacs.mach_worklist.accession).
+# The partitions (mach_vitals_<day>, mach_readings_<day>, mach_events_<month>
+# and the defaults) go with their parent. The domain classifies; a
+# scenario's governance: states each class's rules.
+#
+#   personal         a study names its owner: DICOM's Patient's Name holds the
+#                    owner's family name (PS3.5 6.2) and Responsible Person is
+#                    the owner; the animal's id and the A-<id> patient id beside
+#                    them, and its natural identifiers (D280); a vendor
+#                    engineer's name;
+#   customer-linked  a session's and the census's animal id, with no
+#                    identifier beside it (the core's stay);
+#   internal         everything else: machines are no one; a raw vitals row, a
+#                    chart row, an alarm, a series and a report refer to their
+#                    parent by id (so the shipped vitals stay internal while
+#                    they carry the session's id only, rule 10); an operator's
+#                    staff id is the clinic's work record. Free text (a
+#                    report's findings, an event's message) may name the owner:
+#                    a trap (T213), not a class.
+columns:
+  # --- pacs --------------------------------------------------------------
+  mach_pacs_settings.timezone: internal
+  mach_pacs_settings.utc_offset_hours: internal
+  mach_pacs_settings.turnaround_hours: internal
+  mach_pacs_settings.urgent_hours: internal
+  mach_procedures.id: internal
+  mach_procedures.code: internal
+  mach_procedures.name: internal
+  mach_procedures.modality: internal
+  mach_procedures.species_group: internal
+  mach_procedures.body_part: internal
+  mach_procedures.minutes: internal
+  mach_procedures.under_ga: internal
+  mach_procedures.turnaround_hours: internal
+  mach_reports.id: internal
+  mach_reports.study_id: internal
+  mach_reports.kind: internal
+  mach_reports.author: internal
+  mach_reports.findings: internal
+  mach_reports.conclusion: internal
+  mach_reports.status: internal
+  mach_reports.signed_at: internal
+  mach_reports.supersedes_id: internal
+  mach_reports.why: internal
+  mach_series.id: internal
+  mach_series.study_id: internal
+  mach_series.number: internal
+  mach_series.modality: internal
+  mach_series.body_part: internal
+  mach_series.description: internal
+  mach_series.images: internal
+  mach_studies.id: internal
+  mach_studies.study_uid: internal
+  mach_studies.worklist_id: internal
+  mach_studies.accession: internal
+  mach_studies.machine_id: internal
+  mach_studies.patient_id: personal
+  mach_studies.patient_name: personal
+  mach_studies.performed_by: internal
+  mach_studies.restrained_by: internal
+  mach_studies.companion_present: internal
+  mach_studies.started_at: internal
+  mach_studies.ended_at: internal
+  mach_studies.images: internal
+  mach_studies.size_mb: internal
+  mach_studies.exposure: internal
+  mach_studies.state: internal
+  mach_studies.reconciled_at: internal
+  mach_studies.reconciled_by: internal
+  mach_worklist.id: internal
+  mach_worklist.accession: internal
+  mach_worklist.request_id: internal
+  mach_worklist.consultation_id: internal
+  mach_worklist.animal_id: personal
+  mach_worklist.requested_by: internal
+  mach_worklist.procedure_id: internal
+  mach_worklist.priority: internal
+  mach_worklist.machine_id: internal
+  mach_worklist.scheduled_at: internal
+  mach_worklist.booking_id: internal
+  mach_worklist.patient_id: personal
+  mach_worklist.patient_name: personal
+  mach_worklist.species: internal
+  mach_worklist.breed: internal
+  mach_worklist.sex: internal
+  mach_worklist.born_on: internal
+  mach_worklist.microchip: personal
+  mach_worklist.ueln: personal
+  mach_worklist.ear_tag: personal
+  mach_worklist.responsible_person: personal
+  mach_worklist.identity_at: internal
+  mach_worklist.state: internal
+  mach_worklist.cancelled_because: internal
+  mach_worklist.cancelled_at: internal
+  mach_worklist.created_at: internal
+  # --- vitals ------------------------------------------------------------
+  mach_alarms.id: internal
+  mach_alarms.session_id: internal
+  mach_alarms.at: internal
+  mach_alarms.priority: internal
+  mach_alarms.kind: internal
+  mach_alarms.parameter: internal
+  mach_alarms.value: internal
+  mach_alarms.acknowledged_at: internal
+  mach_alarms.acknowledged_by: internal
+  mach_census.stay_id: internal
+  mach_census.animal_id: customer-linked
+  mach_census.animal_name: internal
+  mach_census.species: internal
+  mach_census.section_id: internal
+  mach_census.admitted_at: internal
+  mach_census.seen_at: internal
+  mach_census.left_at: internal
+  mach_sessions.id: internal
+  mach_sessions.machine_id: internal
+  mach_sessions.kind: internal
+  mach_sessions.stay_id: internal
+  mach_sessions.animal_id: customer-linked
+  mach_sessions.animal_name: internal
+  mach_sessions.species: internal
+  mach_sessions.weight_kg: internal
+  mach_sessions.started_at: internal
+  mach_sessions.started_by: internal
+  mach_sessions.ended_at: internal
+  mach_sessions.ended_by: internal
+  mach_vitals.session_id: internal
+  mach_vitals.at: internal
+  mach_vitals.heart_rate: internal
+  mach_vitals.resp_rate: internal
+  mach_vitals.spo2: internal
+  mach_vitals.etco2: internal
+  mach_vitals.systolic: internal
+  mach_vitals.diastolic: internal
+  mach_vitals.mean_bp: internal
+  mach_vitals.temperature: internal
+  mach_vitals_chart.session_id: internal
+  mach_vitals_chart.at: internal
+  mach_vitals_chart.heart_rate: internal
+  mach_vitals_chart.heart_rate_min: internal
+  mach_vitals_chart.heart_rate_max: internal
+  mach_vitals_chart.resp_rate: internal
+  mach_vitals_chart.resp_rate_min: internal
+  mach_vitals_chart.resp_rate_max: internal
+  mach_vitals_chart.spo2: internal
+  mach_vitals_chart.spo2_min: internal
+  mach_vitals_chart.spo2_max: internal
+  mach_vitals_chart.etco2: internal
+  mach_vitals_chart.etco2_min: internal
+  mach_vitals_chart.etco2_max: internal
+  mach_vitals_chart.systolic: internal
+  mach_vitals_chart.systolic_min: internal
+  mach_vitals_chart.systolic_max: internal
+  mach_vitals_chart.diastolic: internal
+  mach_vitals_chart.diastolic_min: internal
+  mach_vitals_chart.diastolic_max: internal
+  mach_vitals_chart.mean_bp: internal
+  mach_vitals_chart.mean_bp_min: internal
+  mach_vitals_chart.mean_bp_max: internal
+  mach_vitals_chart.temperature: internal
+  mach_vitals_chart.temperature_min: internal
+  mach_vitals_chart.temperature_max: internal
+  mach_vitals_settings.timezone: internal
+  mach_vitals_settings.utc_offset_hours: internal
+  mach_vitals_settings.window_days: internal
+  mach_vitals_settings.chart_anaesthesia_min: internal
+  mach_vitals_settings.chart_icu_min: internal
+  # --- biomed ------------------------------------------------------------
+  mach_downtimes.id: internal
+  mach_downtimes.machine_id: internal
+  mach_downtimes.from_at: internal
+  mach_downtimes.until_at: internal
+  mach_downtimes.reason: internal
+  mach_events.id: internal
+  mach_events.machine_id: internal
+  mach_events.at: internal
+  mach_events.level: internal
+  mach_events.code: internal
+  mach_events.message: internal
+  mach_events.operator_id: internal
+  mach_events.acknowledged_at: internal
+  mach_events.acknowledged_by: internal
+  mach_machines.id: internal
+  mach_machines.code: internal
+  mach_machines.name: internal
+  mach_machines.kind: internal
+  mach_machines.modality: internal
+  mach_machines.ae_title: internal
+  mach_machines.section_id: internal
+  mach_machines.discipline: internal
+  mach_machines.species_group: internal
+  mach_machines.vendor: internal
+  mach_machines.model: internal
+  mach_machines.serial: internal
+  mach_machines.installed_on: internal
+  mach_machines.bookable: internal
+  mach_machines.ionising: internal
+  mach_machines.telemetry: internal
+  mach_machines.status: internal
+  mach_machines.qa_due_on: internal
+  mach_maintenance.id: internal
+  mach_maintenance.machine_id: internal
+  mach_maintenance.kind: internal
+  mach_maintenance.performed_at: internal
+  mach_maintenance.vendor: internal
+  mach_maintenance.engineer: personal
+  mach_maintenance.staff_id: internal
+  mach_maintenance.outcome: internal
+  mach_maintenance.next_due_on: internal
+  mach_maintenance.notes: internal
+  mach_readings.machine_id: internal
+  mach_readings.read_at: internal
+  mach_readings.status: internal
+  mach_readings.channels: internal
+  mach_readings_daily.machine_id: internal
+  mach_readings_daily.day: internal
+  mach_readings_daily.rows: internal
+  mach_readings_daily.channels: internal
+  mach_settings.timezone: internal
+  mach_settings.utc_offset_hours: internal
+  mach_settings.window_days: internal
+  mach_settings.events_retention_months: internal

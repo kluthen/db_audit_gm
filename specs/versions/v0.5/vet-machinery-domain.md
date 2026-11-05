@@ -6,7 +6,14 @@ v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree. Amended in wave 2 of the build (2026-11-04):
 the procedure catalogue and its draw, with the horse-only MR and NM
 codes (D372, D373); the intensive-care sessions (D377); routine imaging
-within two working days, the turnaround three (D376).
+within two working days, the turnaround three (D376). Amended in wave 3
+(2026-11-04) to the build's measures (D416): a settings table in each
+database, `mach_worklist.cancelled_at`, the scale and the load at the
+loaded figures (about two intensive-care sessions a day, 42 700 raw
+vitals a day, 2 980 imaging requests a year), 11 machines reporting
+(O227), `mach_maint` a login role, the history's finals on the core's
+turnaround; the PACS reading no registry, the history kept out of the
+downtimes (D418).
 Steps 1 to 9 of the [procedure](domain-procedure.md) drafted in one pass on
 2026-11-03, on the owner's instruction ("start an agent for each part,
 and let them come back with problems once they're done"); the same day
@@ -265,7 +272,9 @@ The part takes the clinic's one variant, `regional-franchise` (D263),
 and adds no tag. Its own axes go in `variants/regional-franchise.yaml`
 (D301, answer 15). The figures fit `vet-core` at one centre's scale
 (D295): of the core's ~17 000 requests a year and ~55 a day, about one
-in five is imaging, so about 3 400 a year and 11 a day.
+in five is imaging, about 3 000; about 2 980 a year reach the worklist
+(the core's 3 033 less the vet's own cancellations while `requested`)
+and about 10 a day (D416).
 
 **Population**, at load (ruled, D319):
 
@@ -273,7 +282,7 @@ in five is imaging, so about 3 400 a year and 11 a day.
 |---|---|
 | Machines | 28: analysers 1–6 (the lab's, D302), imaging 7–16, anaesthesia monitors 17–20, intensive-care monitors 21–28 |
 | Imaging procedures | 30 study codes over five modalities, by species group |
-| Monitored at once | about 5 animals in intensive care around the clock, up to 4 under anaesthesia on weekdays |
+| Monitored at once | about 4 animals in intensive care around the clock (D416), up to 4 under anaesthesia on weekdays |
 | Imaging staff | 3 imaging specialists, 4 radiographers, 1 biomedical engineer, among the core's 85 (O198) |
 
 **History**: one year, growing as the core grew (D279), each daily
@@ -282,29 +291,34 @@ raw data is not history. Only the on-site window is loaded, today so
 far and the last full day. The days before it exist as the vault's
 manifests and the kept aggregates (cold storage 2, 3, 5).
 
+The build's figures at the reference T0 (D416; chunk 30, D408, moves
+the core-derived ones a few per cent, the wave gate's reruns the
+figures of record):
+
 | What | Over the year |
 |---|---|
-| Worklist entries, studies | about 3 400 and 3 470 (about 70 of them unscheduled, reconciled) |
-| Series, reports | about 8 000 and 3 450 (about 35 addenda) |
-| Monitor sessions | about 3 800: 2.7 a day in intensive care, 10 under anaesthesia |
-| Chart rows | about 90 000 |
-| Alarms | about 21 000 |
-| Machine events (the logs) | about 73 000 |
-| Daily aggregates of the readings | about 4 000 |
-| Maintenance, QA, downtimes | about 190 |
+| Worklist entries, studies | about 2 980 (about 64 cancelled) and 2 915 (about 80 of them unscheduled, reconciled; the six unmatched) |
+| Series, reports | about 6 500 and 3 770 (about 835 preliminaries, 2 905 finals, 31 addenda) |
+| Monitor sessions | about 2 750: about 2 a day in intensive care (750), 10 a weekday under anaesthesia (2 000) |
+| Chart rows | about 82 600 |
+| Alarms | about 17 000 |
+| Machine events (the logs) | about 72 800 |
+| Daily aggregates of the readings | about 4 000 (11 machines, every day before the window) |
+| Maintenance, QA, downtimes | about 170 (134 and 33) |
 
 **Throughput**, in real-world rates during the game:
 
 | What | Rate |
 |---|---|
-| Imaging studies | about 11 a day: 13 on a weekday, 6 on Saturday, 3 on Sunday; urgent around the clock |
-| Raw vitals | about 52 000 rows a day: about 145 monitor-hours at a row every 10 s |
-| Machine readings | about 15 800 rows a day: 11 machines with telemetry, a row a minute holding a batch of channels |
-| Chart rows, alarms, events | about 310, 72 and 250 a day |
+| Imaging studies | about 10 a day: about 12 on a weekday, 6 on Saturday, 3 on Sunday; urgent around the clock |
+| Raw vitals | about 42 700 rows a day (the last full day loaded, D416): about 120 monitor-hours at a row every 10 s |
+| Machine readings | 15 840 rows a day: 11 machines with telemetry (machine 10 a status row with no channel, O227), a row a minute holding a batch of channels |
+| Chart rows, alarms, events | about 280, 60 and 250 a day |
 
-That is about 68 500 rows a day, nearly all of them the two shipped
-types, or about 2 850 an hour, which matches D298's ~3 600 for ten
-machines. About 700 rows a day stay on site for the game.
+That is about 59 000 rows a day, nearly all of them the two shipped
+types, or about 2 500 an hour (the GM notes' measure, D416), within
+D298's ~3 600 for ten machines. About 700 rows a day stay on site for
+the game.
 
 **A few stand for many** (D263): 28 machines for a referral hospital's
 park, three databases for its vendors' systems, one vault for its
@@ -318,7 +332,7 @@ archives.
 | Every minute | a reading per machine with telemetry; each modality's worklist query; the identity job | yes |
 | Every 5 minutes | the census of current stays; the anaesthesia chart (hourly for intensive care) | yes |
 | Imaging hours, Monday to Friday 08:00–18:00, Saturday morning | routine studies; urgent ones around the clock | yes |
-| Reporting hours, 08:30–18:00 on weekdays, Saturday morning | final reports; a night's urgent studies get a preliminary at once | yes |
+| Reporting hours, 08:30–18:00 on weekdays, Saturday morning | final reports in play (the history's follow the core's turnaround, some outside these hours, D416); a night's urgent studies get a preliminary at once | yes |
 | Theatre hours, weekdays 08:00–18:00 | anaesthesia sessions; emergencies at night | yes |
 | Nightly, 00:40 | the shipping to the vault (purpose); partitions created ahead at 22:00 | yes |
 | Monthly | the logs' next month's partition, on the 25th | **no**: created at load |
@@ -403,8 +417,9 @@ carries on with:
    the duty vet's preliminary at once, visible inside the centre and
    marked preliminary. The imaging specialist's final report is signed
    in reporting hours. The request is `resulted` only on the final.
-6. **Unscheduled studies.** About one urgent study in fifty, at night,
-   is acquired before its entry exists, with the animal typed on the
+6. **Unscheduled studies.** About one urgent study in two sent at
+   night (21:00–07:00, by a hash), about 80 a year as loaded (D416), is
+   acquired before its entry exists, with the animal typed on the
    modality. A reconciliation links it to its entry within the day.
    The load also plants six studies that match no animal, extra
    acquisitions typed for animals the record does not hold. That is the
@@ -414,7 +429,7 @@ carries on with:
    intensive care for about one domestic stay in two and one horse
    stay in four, by a hash of the stay's id, on a free monitor of its
    group (21–26 domestic, 27–28 horses and foals; no farm stay, there
-   being no farm monitor), about 2.7 a day and 5 at once; under
+   being no farm monitor), about 2 a day and 4 at once as loaded (D416); under
    anaesthesia for about ten stays a weekday, in theatre hours. An
    intensive-care session ends at the animal's step-down to the ward,
    24 to 72 hours after admission by a hash of the stay's id (`ended_by`
@@ -459,7 +474,7 @@ never deleted from (cold storage 2).
 
 | Table | Key, main columns |
 |---|---|
-| `mach_settings` | one row: the customer's zone and offset (a separate node keeps its own copy, as `lab_settings`); the on-site window (1 full day), the logs' retention (12 months) |
+| `mach_settings` | one row: the customer's zone and offset (a separate node keeps its own copy, as `lab_settings`; each database its own, `pacs` and `vitals` theirs, D416); the on-site window (1 full day), the logs' retention (12 months) |
 | `mach_machines` | `id`; code (`CT-SA-1`), name, `kind` (`analyser`, `ct`, `mri`, `dr`, `us`, `gamma`, `monitor-anaesthesia`, `monitor-icu`), DICOM `modality` (`CT`, `MR`, `DX`, `US`, `NM`; none for analysers and monitors), `ae_title` (the modality's DICOM name), `section_id` (the core's), `discipline` (analysers), `species_group` (`small`, `large`, `horse`, `any`: `horse` for machines 10 and 16, D373), vendor, model, serial, installed on, `bookable`, `ionising`, `telemetry`, `status` (`in-service`, `down`, `retired`), `qa_due_on` (ionising machines) |
 | `mach_maintenance` | `id`; machine, `kind` (`service`, `repair`, `qa-test`, `calibration`, `software-update`), performed at, vendor, `engineer` (the vendor engineer's name) or staff id, outcome (`pass`, `fail`, `done`), next due on, notes |
 | `mach_downtimes` | `id`; machine, from, until (open while down), reason |
@@ -471,8 +486,9 @@ never deleted from (cold storage 2).
 
 | Table | Key, main columns |
 |---|---|
+| `mach_pacs_settings` | one row: the customer's zone and offset, `pacs`' copy; the routine turnaround in working hours (72) and the urgent one (18) (D376, D416) |
 | `mach_procedures` | `id`; `code` (unique: the core's study code), name, modality, `species_group` (`small`, `large`, `horse`, `any`), body part, minutes, `under_ga`, turnaround hours (routine): the 30 rows of [the procedure catalogue](#the-procedure-catalogue-d372-d373) |
-| `mach_worklist` | `id`; `accession` (unique, `I-<request id>`: the idempotency key), `request_id`, `consultation_id`, `animal_id`, `requested_by`, procedure, `priority` (`routine`, `urgent`), `machine_id`, scheduled at, `booking_id` (`vet-scheduling`'s, by id, empty in v0.5); the identity the lookup API answered: `patient_id` (`A-<animal id>`), `patient_name` (`Surname^Name`, PS3.5 6.2), species, breed, sex, born on, `microchip`, `ueln`, `ear_tag`, `responsible_person` (the owner's name, role `OWNER`), identity at; `state`, cancelled because, created at |
+| `mach_worklist` | `id`; `accession` (unique, `I-<request id>`: the idempotency key), `request_id`, `consultation_id`, `animal_id`, `requested_by`, procedure, `priority` (`routine`, `urgent`), `machine_id`, scheduled at, `booking_id` (`vet-scheduling`'s, by id, empty in v0.5); the identity the lookup API answered: `patient_id` (`A-<animal id>`), `patient_name` (`Surname^Name`, PS3.5 6.2), species, breed, sex, born on, `microchip`, `ueln`, `ear_tag`, `responsible_person` (the owner's name, role `OWNER`), identity at; `state`, cancelled because, `cancelled_at` (set exactly when `cancelled`: purpose 13's watermark on cancellations, D416), created at |
 | `mach_studies` | `id`; `study_uid` (unique), `worklist_id` (none while unscheduled), accession as acquired, `machine_id`, `patient_id` and `patient_name` as acquired (from the worklist, or typed), performed by (staff), restrained by (staff, ionising studies), `companion_present`, started at, ended at, images, size in MB, `exposure` (kV and mAs; CT's DLP; none for MR and US), `state`, reconciled at, by |
 | `mach_series` | `id`; study, number, modality, body part, description, images |
 | `mach_reports` | `id`; study, `kind` (`preliminary`, `final`), author (staff), findings, conclusion, `status` (`draft`, `signed`), signed at; `supersedes_id`, why: an addendum is a new row superseding the final, which is kept |
@@ -481,6 +497,7 @@ never deleted from (cold storage 2).
 
 | Table | Key, main columns |
 |---|---|
+| `mach_vitals_settings` | one row: the customer's zone and offset, `vitals`' copy; the on-site window (1 full day), the chart's intervals (5 minutes under anaesthesia, 60 in intensive care) (D416) |
 | `mach_census` | `stay_id`; `animal_id`, animal's name, species, `section_id`, admitted at, seen at, left at: the core's current stays as the lookup API last answered |
 | `mach_sessions` | `id`; `machine_id` (a monitor), `kind` (`anaesthesia`, `icu`), `stay_id`, `animal_id`, animal's name, species, weight, started at, started by, ended at, `ended_by` (`census`, `staff`) |
 | `mach_vitals` | partitioned by day on `at`, shipped: (`session_id`, `at`); heart rate, respiratory rate, SpO2, end-tidal CO2, systolic, diastolic, mean pressure, temperature |
@@ -503,10 +520,10 @@ never deleted from (cold storage 2).
 
 | Key | Range | Layout |
 |---|---|---|
-| `mach_machines.id` | 1–28 | 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation (the on-call analysers at night are 1, 3 and 5, as `vet-lab`'s `lab.qc.night` runs three); 7 CT small animal, 8 CT large bore, 9 MRI 1.5 T (domestic, helium), 10 standing MRI (horses, a permanent low-field magnet: no helium), 11 DR room domestic, 12 DR room horses, 13 portable DR (farm and stables), 14 ultrasound domestic, 15 portable ultrasound (horses and farm), 16 gamma camera (horses); 17–18 anaesthesia monitors of the small-animal theatres, 19 of the equine theatre, 20 the MRI-compatible one; 21–26 intensive-care monitors domestic, 27–28 horses and foals. Bookable: 7–16. Telemetry: 1–9 and 16 (10 machines) and 10 (status only) |
+| `mach_machines.id` | 1–28 | 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation (the on-call analysers at night are 1, 3 and 5, as `vet-lab`'s `lab.qc.night` runs three); 7 CT small animal, 8 CT large bore, 9 MRI 1.5 T (domestic, helium), 10 standing MRI (horses, a permanent low-field magnet: no helium), 11 DR room domestic, 12 DR room horses, 13 portable DR (farm and stables), 14 ultrasound domestic, 15 portable ultrasound (horses and farm), 16 gamma camera (horses); 17–18 anaesthesia monitors of the small-animal theatres, 19 of the equine theatre, 20 the MRI-compatible one; 21–26 intensive-care monitors domestic, 27–28 horses and foals. Bookable: 7–16. Telemetry: 1–10 and 16, 11 machines reporting, machine 10 a status row with no channel (O227, settled at the build, D416) |
 | `mach_procedures.id` | 1–30 | 1–12 small animal, 13–27 large animal (26 and 27 horses only), 28–30 any; DX about 45 % of studies, US 30, CT 15, MR 7, NM 3: [the procedure catalogue](#the-procedure-catalogue-d372-d373) |
-| History, `pacs` | `mach_worklist` 1–3 400 (the k-th imaging request of the core's, in time order), `mach_studies` 1–3 470, `mach_series` 1–8 000, `mach_reports` 1–3 450 | each a function of the request's id and time, documented in the GM notes |
-| History, `vitals` | `mach_sessions` 1–3 800 | intensive-care sessions on the stays a hash of the stay id picks (one domestic stay in two, one horse stay in four, no farm stay), each on a free monitor of its group, until its step-down or the stay's end (D377); anaesthesia sessions on stays by a hash of the day and stay |
+| History, `pacs` | `mach_worklist` 1–3 400 (the k-th imaging request of the core's, in time order; about 2 980 used), `mach_studies` 1–3 464 and the six unmatched 3 465–3 470 (about 2 910 used below), `mach_series` 1–8 000 (about 6 500 used), `mach_reports` as loaded, about 3 770 with the preliminaries, each sequence after the larger of its range and the load (D416) | each a function of the request's id and time, documented in the GM notes |
+| History, `vitals` | `mach_sessions` 1–3 800 (about 2 750 used, D416) | intensive-care sessions on the stays a hash of the stay id picks (one domestic stay in two, one horse stay in four, no farm stay), each on a free monitor of its group, until its step-down or the stay's end (D377); anaesthesia sessions on stays by a hash of the day and stay |
 | Core keys used | imaging `request_id`s among 1–17 000 by the core's function; `animal_id` 1–17 000; `stay_id` 1–2 500 (O197); staff 26–28 and 52–56 (D324) | as the core documents them |
 
 The six unmatched studies are ids 3 465–3 470. Each has a typed
@@ -567,7 +584,15 @@ horse's then the farm animal's; for `any`, the domestic, horse and
 farm animal's);
 `pacs.worklist.schedule` takes it, or, while it is down, another
 in-service machine of the modality and group if there is one (13 for
-12, a horse radiographed in its stable), else none. A
+12, a horse radiographed in its stable), else none. **As built (D418)**: the PACS cannot read `biomed`'s
+registry, another database, so live it schedules on the procedure's
+machine and acquires whatever the registry says; a story that takes an
+imaging machine down stops that machine's acquisitions itself. The load
+keeps the history's studies out of `biomed`'s downtime windows,
+deriving them by `biomed`'s formulas (salts 502, 505 and 506): a study
+falling in one takes the fallback above (13 for 12), else waits for the
+window's end; a check inside `pacs` by the same formulas. Built by
+chunk 15b. A
 study under GA in machine 9 takes the MRI-compatible monitor (20). The
 turnaround of every code is the rule's: urgent 18 hours, the next
 working morning; routine three working days, two to the study and one
@@ -598,50 +623,56 @@ section's imaging requests:
 
 ### Application roles and grants
 
-The login roles carry no password here; `load-data` sets each from its
-secret.
+The roles are created once, in `pacs`' schema; `vitals`' and `biomed`'s
+only grant. The login roles carry no password here; `load-data` sets
+each from its secret.
 
 | Role | Database | Who | Reads | Writes |
 |---|---|---|---|---|
 | `mach` | each | owns everything; no login | | |
-| `mach_pacs_app` | `pacs` | the PACS, its worklist and the modalities (`equipment`) | every table | worklist entries' scheduling, identity and state; studies, series, reports; never the procedures |
+| `mach_pacs_app` | `pacs` | the PACS, its worklist and the modalities (`equipment`) | every table | worklist entries' scheduling, identity and state, a cancellation's reason and time (column grants); studies, series, reports; never the procedures |
 | `mach_vitals_app` | `vitals` | the central station and the monitors | every table | census, sessions, vitals, chart, alarms |
 | `mach_biomed_app` | `biomed` | the biomedical engineering system and the machines' service side | every table | events, readings, maintenance, downtimes; `mach_machines`' `status` and `qa_due_on` (a column grant) |
-| `mach_maint` | `vitals`, `biomed` | the partition jobs on `machines`' `pg_cron` | nothing | `EXECUTE` on `mach_create_partitions(days)` only |
+| `mach_maint` | `vitals`, `biomed` | the partition jobs on `machines`' `pg_cron`; `LOGIN`, since `pg_cron` runs a job only as a role that can log in, its password a secret no node mounts (D416) | nothing | `EXECUTE` on `mach_create_partitions(days)` only |
 | `mach_service` | `biomed` | the vendors' remote service; no producer in v0.5 | machines, events, readings, maintenance | maintenance; never `pacs` or `vitals` (rule 9) |
 
 `CONNECT` on each database goes to its own roles only, revoked from
 `PUBLIC` (the default PostgreSQL leaves, T200). The two partition
 functions, `mach_create_partitions` and `mach_drop_shipped(day)`, are
-`SECURITY DEFINER`, owned by `mach`, with a fixed `search_path`. They
+`SECURITY DEFINER`, owned by `mach`, with a fixed `search_path`
+(`public, pg_temp`), `EXECUTE` revoked from `PUBLIC`. They
 let the jobs create and drop partitions without owning the tables (a
 detach needs the owner). The purposes' roles come with step 7.
 
 ### Reference sizes
 
+The build's counts at the reference T0 (2026-11-04 10:00Z, offset +2;
+D416), the window today to 10:00 local and the last full day:
+
 | What | Rows at load | Live, a day |
 |---|---|---|
-| `biomed`: machines, maintenance, downtimes | about 220 | under 1 |
-| `biomed`: events (a year, monthly partitions) | about 73 000 | about 250 |
-| `biomed`: readings (the window) and daily aggregates | up to 32 000 and about 4 000 | about 15 800 (shipped) and 11 |
-| `pacs`: procedures, worklist, studies, series, reports | 30, 3 400, 3 470, 8 000, 3 450 | about 11, 11, 26, 12 |
-| `vitals`: census, sessions | about 40, 3 800 | 40 kept current, 13 |
-| `vitals`: vitals (the window) | up to 104 000 | about 52 000 (shipped) |
-| `vitals`: chart, alarms | about 90 000, 21 000 | about 310, 72 |
-| **Total** | **about 0.34 million rows**, the window at its widest | **about 68 500**, all but about 700 shipped |
+| `biomed`: machines, maintenance, downtimes | 28, about 135, about 35 | under 1 |
+| `biomed`: events (a year, monthly partitions) | about 72 800 | about 250 |
+| `biomed`: readings (the window) and daily aggregates | about 23 800 (up to 31 700) and about 4 000 | 15 840 (shipped) and 11 |
+| `pacs`: procedures, worklist, studies, series, reports | 30, about 2 980, 2 915, 6 500, 3 770 | about 10, 10, 22, 13 |
+| `vitals`: census, sessions | about 50, 2 750 | 40 kept current, 12 |
+| `vitals`: vitals (the window) | about 62 600 (up to 85 400) | about 42 700 (shipped) |
+| `vitals`: chart, alarms | about 82 600, 17 000 | about 280, 60 |
+| **Total** | **about 0.28 million rows** (282 020; 291 087 at another T0) | **about 59 000**, all but about 700 shipped |
 
-Close to the lab's 0.36 million and the core's 0.28. The raw window is
-about a third of it and varies with T0. On disk: the window is about
-20 MB, the kept rows about 40 MB with indexes. Within the brick's
-2.25G with a wide margin. Load time and size are measured at the build.
+Close to the lab's 0.33 million and the core's 0.28. The raw window is
+about a third of it and varies with T0. On disk, measured: 75 MB with
+indexes (`pacs` 13, `vitals` 34, `biomed` 28), a full day's raw vitals
+4.9 MB and readings 2.4 MB. Within the brick's 2.25G with a wide
+margin. The load takes about 51 s ([Loading](#loading)).
 
 ### Plausibility points (step 4, ruled, D319)
 
 1. **Three databases on one instance**, consolidated vendor systems,
    with the realism costs stated in [Nodes and
    capacity](#nodes-and-capacity-first).
-2. **The monitors carry the volume**: about 52 000 of the 68 500 rows
-   a day. Without them the part is under cold storage's threshold.
+2. **The monitors carry the volume**: about 42 700 of the 59 000 rows
+   a day (D416). Without them the part is under cold storage's threshold.
 3. **No pixel data and no row per image**: series counts and sizes.
    A real PACS keeps a row per image, about half a million a year here.
 4. **The raw data is no history**: the window only, the vault's
@@ -778,7 +809,7 @@ Volume streams:
 
 | Key | Connection | What one call writes | Rate | Shape | A day |
 |---|---|---|---|---|---|
-| `vitals.sample` | `vitals` | one raw row for every open session, set-based, each value its session's baseline varied by a hash of the session and the time | 360/h | even, `flat` | about 52 000 rows |
+| `vitals.sample` | `vitals` | one raw row for every open session, set-based, each value its session's baseline varied by a hash of the session and the time | 360/h | even, `flat` | about 42 700 rows (D416) |
 | `vitals.alarm` | `vitals` | an alarm on an open session: physiological (four in five) or technical, high, medium or low | 3/h | poisson, `flat` | about 72 |
 | `vitals.anaesthesia.start` | `vitals` | a session on a free anaesthesia monitor (17–20, the equine theatre's for horses, 20 for a study under anaesthesia), for a census stay with no open session, picked by a hash | 1/h | poisson, `theatre` | 10 a weekday, 1 a night |
 | `biomed.readings` | `biomed` | one row for every machine with telemetry, set-based, its channels by its kind | 60/h | even, `flat` | about 15 800 rows |
@@ -792,8 +823,8 @@ Work streams:
 
 | Key | Connection | What it takes and writes | Capacity | Shape | Follows |
 |---|---|---|---|---|---|
-| `pacs.worklist.schedule` | `pacs` | the oldest `new` entry with its identity: scheduled on an in-service machine of its modality and species group; urgent at once, routine within two working days (a slot by a hash) | 10/h | `flat` | about 11 a day |
-| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine: its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 52–55, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
+| `pacs.worklist.schedule` | `pacs` | the oldest `new` entry with its identity: scheduled on an in-service machine of its modality and species group (as built, the procedure's machine for the section, status unread: D418); urgent at once, routine within two working days (a slot by a hash) | 10/h | `flat` | about 11 a day |
+| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine (as built, any machine; a story taking one down stops it itself: D418): its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 52–55, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
 | `pacs.study.reconcile` | `pacs` | the oldest unscheduled study: matched to the scheduled entry of the same typed `patient_id` and procedure within the day, `reconciled`, the entry `completed`; no match after a day, `unmatched` | 2/h | `office` | about 1 a week |
 | `pacs.report.preliminary` | `pacs` | an urgent study with no report: the duty vet's preliminary, signed at once | 4/h | `flat` | about 3 a day |
 | `pacs.report.final` | `pacs` | the oldest acquired study with no final: the imaging specialist's report (26–28), signed; the study `reported` | 4/h | `reporting` | about 11 a day |
@@ -848,11 +879,14 @@ As the core's: the year ramps from about 60 % of today's volume to
 today's, on the shapes above. Every imaging request of the core's
 history has its entry, its study and its final report, except the last
 day's: those are `sent` in the core, and here scheduled, acquired or
-reported preliminary, matching. The six unmatched studies are spread
-over the year. Each history session lies on a stay the core's function
+reported preliminary, matching. A history final is signed 1 to 9
+minutes before the core's `resulted_at` (purpose 13 copies within ten
+minutes, IO3), so it follows the core's turnaround draw and some fall
+outside reporting hours (D416; false-alarm material). The six unmatched
+studies are spread over the year. Each history session lies on a stay the core's function
 gives (O197), its chart and alarms loaded, its raw rows only within the
 window. The intensive-care sessions open at T0 are those of the picked
-stays current at T0 and not yet stepped down, about five (D377). The events cover the year in monthly
+stays current at T0 and not yet stepped down, about four (D377; 4 at the reference T0, D416). The events cover the year in monthly
 partitions, and the readings' and vitals' window holds the last full
 day and today up to T0. Partitions exist three days ahead, and next
 month's for the events.
@@ -867,8 +901,8 @@ the day, so the vault's graph shows the year's ramp and its Sundays.
 
 | Type | Rows a day | On site | Waits for | Ships |
 |---|---|---|---|---|
-| `vitals` (`mach_vitals`) | about 52 000 | today and the last full day | the chart (every five minutes, so complete long before) | nightly, 00:40 |
-| `machine-readings` (`mach_readings`) | about 15 800 | today and the last full day | the daily aggregate, computed by the purpose before shipping | nightly, 00:40 |
+| `vitals` (`mach_vitals`) | about 42 700 | today and the last full day | the chart (every five minutes, so complete long before) | nightly, 00:40 |
+| `machine-readings` (`mach_readings`) | 15 840 | today and the last full day | the daily aggregate, computed by the purpose before shipping | nightly, 00:40 |
 | Everything else | about 700 | the whole game | | never |
 
 `vitals` is above the threshold of about 50 000 rows a day (D296).
@@ -883,13 +917,14 @@ At intensity 1.0, on `machines`:
 
 | | Rows | Size |
 |---|---|---|
-| A day, on average | about 68 500 new rows, 67 800 of them shipped the next night; about 100 updates | about 10 MB with indexes |
-| An hour, on average | about 2 850 | about 0.4 MB |
-| The busiest hour, a weekday morning with four theatres | about 4 100 | about 0.6 MB |
+| A day, on average | about 59 000 new rows, 58 500 of them shipped the next night; about 100 updates | about 7.3 MB with indexes (raw vitals 4.9, readings 2.4) |
+| An hour, on average | about 2 500 (1 780 raw vitals, 660 readings) | about 0.3 MB |
+| The busiest hour, a weekday morning with four theatres | about 3 100 (2 400 raw vitals) | about 0.4 MB |
 | A Sunday | about 90 % of a weekday: intensive care and the machines run every day | |
 
-The window holds about 20 MB. **When the shipping stalls**, the disk
-grows by about 10 MB a day, so 2.25G is about 200 days away: the disk
+The window holds up to about 15 MB (two days of raw rows). **When the
+shipping stalls**, the disk grows by about 7 MB a day, so 2.25G is
+about 300 days away (D416): the disk
 is never this part's problem within an aging. The witnesses of a
 stalled shipping are the vault's graph, the partition count and the
 `ops.shipments` trace (T220). The WAL adds about 50 MB a day.
@@ -904,7 +939,7 @@ stalled shipping are the vault's graph, the partition count and the
 3. **The hours**: imaging on weekdays and Saturday mornings, urgent
    around the clock; reporting on weekdays; theatres on weekdays,
    emergencies at night; the monitors and machines every hour.
-4. **The rates**: about 11 studies, 13 sessions and 68 500 rows a day,
+4. **The rates**: about 10 studies, 12 sessions and 59 000 rows a day (D416),
    the monitors at a row every 10 seconds, the machines at one a
    minute.
 
@@ -960,7 +995,8 @@ lookup API, D266).
 
 **Roles**: `vet_interfaces` on `clinic` as ruled (it reads `requests`
 and `consultations`, writes `requests`' state); `mach_orders` on `pacs`,
-new: reads `mach_worklist` (accession, request, state), `mach_reports`
+new: reads `mach_worklist` (accession, request, state, cancelled
+because, `cancelled_at`, the watermark on cancellations, D416), `mach_reports`
 (study, kind, status, signed at, supersedes), `mach_studies` (worklist,
 state); inserts into `mach_worklist`; writes `ops.*`.
 
@@ -1070,7 +1106,7 @@ with machinery's tables.
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
 | T219 | A partition dropped on any answer, the receipt's count unchecked, or on a timeout | with the vault's outage key on, a day missing from the graph or short of declared while its partition is gone: rows lost (CA1) | the graph and the manifests against `ops.shipments`, each night | `ship-partitions`' script | new (cold storage 4) | V |
-| T220 | The shipping stalled: `ship-partitions` at `40 0 1 * *`, or disabled | the graph flat, partitions older than the window piling up; the disk, at 10 MB a day, never reached within an aging | the graph and the partition count, the first night | `jobs.yaml` | new (cold storage 4) | V, M at a short aging |
+| T220 | The shipping stalled: `ship-partitions` at `40 0 1 * *`, or disabled | the graph flat, partitions older than the window piling up; the disk, at about 7 MB a day, never reached within an aging | the graph and the partition count, the first night | `jobs.yaml` | new (cold storage 4) | V, M at a short aging |
 | T221 | A resend under a new shipment id | a day counted twice on the graph (CA2) | two manifests for one type and day, at the first resend | the script | the held `purpose-retry-without-key` (D201) | M |
 | T222 | The window wrong: the day's boundary in UTC, or `<=` for `<` | today's partition shipped while still written, the late rows failing or in the default partition; or a week kept | the shipments' days against the window, each night | the script | new (cold storage 4) | D, M for the week kept |
 | T223 | `DELETE` from the partition instead of detach and drop | bloat, autovacuum busy, the WAL the day's volume again, empty partitions left | dead tuples and WAL at 00:40; partitions with no rows | the script | new (cold storage 4) | M |
@@ -1108,6 +1144,7 @@ with machinery's tables.
 | "The horses' MRI reports no helium" | a permanent low-field magnet | `mach_machines` |
 | "The night's CT reports are only preliminary" | the duty vet's, the final next morning (rule 1) | `mach_reports` |
 | "Six studies match no animal" | planted domain data, a finding to report | the studies' typed ids |
+| "Finals were signed in the night in the history" | the history's finals follow the record's turnaround (D416); in play the specialists report in reporting hours | `mach_reports.signed_at` against the core's `resulted_at` |
 | "The vault's curve dips on Sundays" | fewer theatres on Sundays | the manifests |
 
 ## Testing in v0.5 (D314)
@@ -1117,7 +1154,7 @@ minutes, T0 placed before the job a check needs, never waited for:
 
 | Fixture | Nodes (with the bastion) | T0 | What it proves |
 |---|---|---|---|
-| imaging | `records` (`clinic`), `clinic-api`, `pms`, `machines`, `equipment`, `interfaces`: 7 nodes, about 1.5 CPU and 1.4G | a weekday, 08:50 | the three schemas and loads; the identity and census jobs on `clinic-api`; the round trip: a closed consultation's imaging request `sent`, scheduled, acquired, its final at the reporting hour and `resulted` (IO1–IO4 for urgent ones, the fixture raising emergencies in its profile layer, D264) |
+| imaging | `records` (`clinic`), `clinic-api`, `pms`, `machines`, `equipment`, `interfaces`: 7 nodes, about 1.5 CPU and 1.4G | a weekday, within 30 minutes of 08:50 (the shift moves whole hours; the driver's ruling, wave log, chunk 15) | the three schemas and loads; the identity and census jobs on `clinic-api`; the round trip: a closed consultation's imaging request `sent`, scheduled, acquired, its final at the reporting hour and `resulted` (IO1–IO4 for urgent ones, the fixture raising emergencies in its profile layer, D264) |
 | vault | `machines`, `equipment`, `interfaces`, the partners' `api` node (cold storage's hostname) and database: 6 nodes, about 1.1 CPU and 1.1G | 21:55, the shipping job moved to the next minute (D132) | partitions created ahead; `ship-partitions` shipping the day before the window, its receipt, the drop, the aggregate, the manifest on the vault's page (CA1–CA4); the census left off in the profile layer, the planted sessions sampled |
 
 **Only the whole clinic, once, can show**: every machine's stream
@@ -1149,8 +1186,18 @@ creating the databases and revoking `CONNECT` from `PUBLIC` (O195):
 explicit ids in the documented ranges, each sequence set after its
 range, the core's ids computed by its functions without reading
 `clinic` (D302, O197); partitions for the window and three days ahead
-and the events' months; the sessions unseen (D265). About 0.34 million
-rows; size and time measured at the build. After the sources' loads,
+and the events' months; the sessions unseen (D265). About 0.28 million
+rows, 75 MB, in about 51 s (D416, measured on `postgres` 0.5.0 in a
+throwaway container, the core's `keys.sql` streamed ahead of each
+load): 282 020 rows, 75.4 MB and 50.8 s (`pacs` 40.1, mostly the core's
+`core_request` over its 17 000 ids; `vitals` 9.1; `biomed` 1.6) at
+2026-11-04 10:00Z, offset +2; 291 087 rows, 76.3 MB and 50.3 s at
+2026-03-18 15:37Z, offset 0. The figures of record are the wave gate's
+reruns, after chunk 30 (D408). The three partition jobs
+are scheduled by `data/cron.sql` (`cron.schedule_in_database(...)`
+calls as `mach_maint`, nothing else), which `load-data` runs on
+`machines` after the part's load, once `vitals`, `biomed` and
+`mach_maint` exist (D405). After the sources' loads,
 `cold-storage-archive`'s material plants the history days' manifests in
 the partners' database.
 

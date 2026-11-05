@@ -1,0 +1,6 @@
+# queries.yaml of node interfaces, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from scenario: compose/interfaces/queries.yaml
+  interfaces.idle:
+    call: GET /animals

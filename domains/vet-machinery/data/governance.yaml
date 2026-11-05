@@ -1,0 +1,18 @@
+# vet-machinery's governance: fragment (v0.5 master spec 9.6, 13.1; formats.md
+# "Domain"): where each class of data/classification.yaml may live and who
+# may read it, as docs/policy.md states it (rules 3, 9, 10). The GM merges it
+# into the scenario's governance: beside vet-core's and adapts it: the
+# locations are written for the node machines and its databases pacs, vitals
+# and biomed, renamed as the scenario does. The purposes add their readers
+# (mach_orders on pacs, mach_archive on vitals and biomed) and their outbound
+# flow (the shipped vitals and readings to the vault, internal columns only,
+# rule 10).
+classes:
+  personal:
+    locations: [machines/pacs, machines/biomed]
+    readers: [mach_pacs_app, mach_biomed_app]
+  customer-linked:
+    locations: [machines/vitals]
+    readers: [mach_vitals_app]
+  internal:
+    locations: any

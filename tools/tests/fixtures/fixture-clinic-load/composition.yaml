@@ -1,0 +1,46 @@
+# The clinic load fixture's composition record (tools/tests, v0.5 wave 3
+# gate; spec D407; build plan "Per-wave gate contents", row 3), written by
+# hand: the six clinic domains placed as in their fixtures, the core with its
+# housing and its scheduling in records/clinic (fixture-housing,
+# fixture-bookings), the owners' portal in records/portal and the laboratory
+# in lab/lab (fixture-portal, fixture-lab-core), the machinery's three
+# databases on machines (fixture-imaging); loaded core first, the parts in
+# the plan's order, the portal last, its derivation after the core and the
+# lab. Each part's keys are the ones its fixture lists. Uncomposed: every
+# producer is left out (no producer node, so no compose); the lab's two
+# stubs' and the owners' state still load and are checked on partners-db.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-housing, at: records/clinic, lands_with: vet-core}
+  - {id: vet-scheduling, at: records/clinic}
+  - {id: vet-lab, at: lab/lab}
+  - {id: vet-machinery, at: {pacs: machines/pacs, vitals: machines/vitals, biomed: machines/biomed}}
+  - {id: vet-portal, at: records/portal}
+keys:
+  vet-housing: [stays.id, sections.id, staff.id, core_stay, core_species, core_stay_alert, core_staff]
+  vet-scheduling: [consultations.id, consultations.booking_id, requests.id, exchanges.id, staff.id, animals.id,
+                   core_shifts, core_staff, core_consultation, core_request, core_exchange, core_animal, core_death,
+                   core_referring_practice, vc_agenda]
+  vet-lab: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner]
+  vet-machinery: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner, core_stay]
+  vet-portal: [core_owner, core_ownership]
+scale:
+  checked: true
+  note: "the core and its five parts at one centre's scale, each as its own fixture measured it: the core about 0.27 million rows, housing 0.14, scheduling 0.13, the lab 0.33, the machinery 0.28, the portal 0.20"
+order: [vet-core, vet-housing, vet-scheduling, vet-lab, vet-machinery, vet-portal]
+derive:
+  - {domain: vet-portal, after: [vet-core, vet-lab], reason: "the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404)"}
+left_out:
+  - {domain: vet-core, producer: pms, reason: "load only: no practice software node (spec D407)"}
+  - {domain: vet-core, producer: api/clinic-api, reason: "load only: no lookup API node (spec D407)"}
+  - {domain: vet-housing, producer: pms, reason: "load only: no practice software node (spec D407)"}
+  - {domain: vet-housing, producer: ward, reason: "load only: no ward service node (spec D407)"}
+  - {domain: vet-scheduling, producer: pms, reason: "load only: no practice software node (spec D407)"}
+  - {domain: vet-lab, producer: lis, reason: "load only: no laboratory information system node (spec D407)"}
+  - {domain: vet-lab, producer: api/lab-api, reason: "load only: no lab order API node (spec D407)"}
+  - {domain: vet-lab, producer: partners/xlab, reason: "load only: the external lab's state loaded and checked on partners-db, no partners' node (spec D407)"}
+  - {domain: vet-lab, producer: partners/practices, reason: "load only: the practices' state loaded and checked on partners-db, no partners' node (spec D407)"}
+  - {domain: vet-machinery, producer: equipment, reason: "load only: no machines' producer node (spec D407)"}
+  - {domain: vet-portal, producer: api/portal-api, reason: "load only: no portal API node (spec D407)"}
+  - {domain: vet-portal, producer: partners/owners, reason: "load only: the owners' state loaded and checked on partners-db, no owners' route (spec D407)"}
+  - {domain: vet-portal, producer: pms, reason: "load only: no practice software node, so no desk stream (spec D407)"}

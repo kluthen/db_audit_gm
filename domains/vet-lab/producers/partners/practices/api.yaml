@@ -1,0 +1,20 @@
+# api.yaml of the region's practices' stub, one for the lab's 120 accounts, a
+# fragment for partners-api (v0.5 master spec 9.3, 10.2; vet-lab-domain.md,
+# "The partners the lab meets"; capture W3 items 0 and 1, W2 item 6, W2-f;
+# partners/README.md). Prefix practices, hostname practices: every account's
+# callback http://practices:8000/results (D293). Its results endpoint behind
+# the customer's own key with the practices, practices_customer (purpose 2's;
+# chunk 17 hands it over, D365); its tick behind the back end's
+# partners_backend. The tick posts the practices' orders to lab-api as
+# lab_practices (connection practices-lab), each practice asking only for
+# its own account's (rule 10, the brick telling no caller apart).
+endpoints:
+  practices_results:
+    hosts: [practices]
+    credentials: [practices_customer]
+  practices_tick:
+    hosts: [practices]
+    credentials: [partners_backend]
+connections:
+  practices-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: practices, pool: {size: 2}}
+  practices-lab: {driver: http, target: lab-api:8000, credential: lab_practices, pool: 1, timeout: 10s}

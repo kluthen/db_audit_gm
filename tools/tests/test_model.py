@@ -10,6 +10,7 @@ import yaml
 
 from tools.gm import fit, localimpl, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
+from tools.tests.test_compose import OwnersAloneCase
 
 FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
 FIXTURE_MONITORING = FIXTURES / "fixture-monitoring"
@@ -3450,10 +3451,30 @@ class TestThirdPartyRefusals(V05CopyTest):
         (catalog / "domains/fx/producers/partners/xlab").mkdir(parents=True)
         (catalog / "domains/fx/producers/partners/xlab/data.sql").write_text("SELECT 1;\n")
         model._check_domains_v05({"domains": [{"id": "fx", "at": "db/clinic"}]}, [], third,
-                                 catalog, out)
+                                 None, catalog, out)
         self.assertIn("scenario.yaml: domains[fx]: domains/fx/producers/partners/xlab/data.sql "
                       "plants a partner's state, but no third_parties: entry lists a postgres "
                       "node", "\n".join(out))
+
+    def test_a_left_out_partner_state_needs_no_database(self):
+        """Chunk 29's (b): composition.yaml's left_out names the folder."""
+        out = []
+        catalog = self.tmp / "catalog"
+        (catalog / "domains/fx/producers/partners/xlab").mkdir(parents=True)
+        (catalog / "domains/fx/producers/partners/xlab/data.sql").write_text("SELECT 1;\n")
+        sdir = self.tmp / "composed"
+        sdir.mkdir()
+        (sdir / "composition.yaml").write_text(
+            "left_out:\n  - {domain: fx, producer: partners/xlab, reason: no partner nodes}\n")
+        model._check_domains_v05({"domains": [{"id": "fx", "at": "db/clinic"}]}, [],
+                                 model.ThirdParties(), sdir, catalog, out)
+        self.assertEqual(out, [])
+        (sdir / "composition.yaml").write_text(
+            "left_out:\n  - {domain: fx, producer: partners/ylab, reason: another}\n")
+        model._check_domains_v05({"domains": [{"id": "fx", "at": "db/clinic"}]}, [],
+                                 model.ThirdParties(), sdir, catalog, out)
+        self.assertIn("domains/fx/producers/partners/xlab/data.sql plants a partner's state",
+                      "\n".join(out))
 
 
 class TestHttpRefusals(V05CopyTest):
@@ -3595,6 +3616,82 @@ class TestApiNodeRefusals(V05CopyTest):
                            f"{self.LAB}: connections.back.target: nowhere:8000: nowhere is "
                            "neither a node",
                            f"{self.LAB}: extra: not a key of api.yaml")
+
+
+class TestOwnersAloneLoader(OwnersAloneCase):
+    """The loader with no third_parties: entry listing a scheduler or api
+    node (spec D421; build plan chunk 31): partners-api and partners-backend,
+    composed with a domain's owners' route alone, are the partners' shared
+    nodes, partners-api serving exactly owners, both out of the players'
+    reach; with an entry listing them, every rule as before."""
+
+    API = "nodes/partners-api/api.yaml"
+
+    def setUp(self):
+        super().setUp()
+        self.compose()
+        self.assertEqual(self.problems(), "")
+
+    def edit_api(self, change):
+        path = self.scenario / self.API
+        data = model.strict_load(path.read_text())
+        change(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def test_answering_under_another_hostname(self):
+        self.edit_api(lambda d: d["endpoints"]["owners_tick"].update(hosts=["owners", "practices"]))
+        self.assertIn(f"{self.API}: endpoints answer under practices: the partners' node serving "
+                      "the owners alone (no third_parties: entry lists it) answers under owners "
+                      "only (spec D421)", self.problems())
+
+    def test_not_answering_under_owners(self):
+        self.edit_api(lambda d: d["endpoints"]["owners_tick"].update(hosts=["northfield-lab"]))
+        problems = self.problems()
+        self.assertIn(f"{self.API}: no endpoint answers under owners: the partners' node serving "
+                      "the owners alone (no third_parties: entry lists it) serves exactly owners "
+                      "(spec D421)", problems)
+        self.assertIn(f"{self.API}: endpoints answer under northfield-lab: the partners' node",
+                      problems)
+
+    def test_a_bastion_seed_file_naming_partners_api(self):
+        with (self.scenario / "player" / "README.md").open("a") as f:
+            f.write("\nThe owners' portal traffic comes from partners-api.\n")
+        self.assertIn("player/README.md: names node partners-api, a third party's: the partners' "
+                      "nodes are not among the starter pack's nodes", self.problems())
+
+    def test_a_bastion_route_to_partners_api(self):
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["parameters"].update(
+            web_routes={"owners": "partners-api:8000"}))
+        self.assertIn("scenario.yaml: nodes[bastion].parameters.web_routes.owners: partners-api "
+                      "is a third party's node", self.problems())
+
+    def test_either_node_missing_or_unfit(self):
+        def drop(d):
+            d["nodes"] = [n for n in d["nodes"] if n["name"] != "partners-backend"]
+            d["designed_for"]["placement"].pop("partners-backend")
+        self.scenario_yaml(drop)
+        self.scenario_yaml(lambda d: self.node(d, "partners-api").update(
+            write_policy="read-only"))
+        problems = self.problems()
+        self.assertIn("scenario.yaml: nodes: no node partners-backend: the owners' route "
+                      "(domains/vet-lab/producers/partners/owners/) goes onto the partners' "
+                      "shared nodes partners-backend and partners-api", problems)
+        self.assertIn("scenario.yaml: nodes[partners-api]: write_policy read-only, not "
+                      "no-access", problems)
+        # not the partners' node: in the players' scope, it answers under its own name only
+        self.assertIn(f"{self.API}: endpoints.owners_tick.hosts: ['owners']: a node in the "
+                      "players' scope answers under its own name only", problems)
+
+    def test_with_an_entry_listing_them_every_rule_as_before(self):
+        def list_them(d):
+            for entry in d["third_parties"]:
+                entry["nodes"] = ["partners-api", "partners-backend", "partners-db"]
+        self.scenario_yaml(list_them)
+        problems = self.problems()
+        for host in ("northfield-lab", "practices"):
+            self.assertIn(f"{self.API}: no endpoint answers under {host}, a third party's "
+                          "hostname (third_parties:)", problems)
+        self.assertNotIn("spec D421", problems)
 
 
 class TestRegisterDiffRefusals(V05CopyTest):
@@ -3817,9 +3914,38 @@ class TestPurposeV05Refusals(V05ComposedTest):
                       self.purpose_problems(lambda d: d["jobs"][1].update(feeder="weekly-orders")))
         self.assertIn(f"{self.L}: history: missing (a periodic purpose",
                       self.purpose_problems(lambda d: d.pop("history")))
-        self.assertIn(f"{self.L}: history: only on a periodic purpose",
-                      self.purpose_problems(lambda d: (d.update(history="material/history.sql"),
-                                                       d["jobs"][1].pop("feeder"))))
+        # chunk 29b's (c): a history with no feeder is accepted (spec D366, D404)
+        self.assertNotIn("history",
+                         self.purpose_problems(lambda d: (d.update(history="material/history.sql"),
+                                                          d["jobs"][1].pop("feeder"))))
+
+    def test_a_history_targeting_the_partners_database(self):
+        """Chunk 29b's (c): its target on the partners' database accepted."""
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(
+            target="partners-db/partners"))
+        self.assertEqual(self.load().data["purposes"][0]["parts"]["target"],
+                         "partners-db/partners")
+
+    def test_ddl(self):
+        """Chunk 29b's (e): ddl:, a map of the purpose's database parts to
+        files of material/."""
+        ddl = self.catalog_root / self.PURPOSE / "material/target-ddl.sql"
+        ddl.write_text("CREATE ROLE lab_watch LOGIN;\n")
+        self.assertEqual(self.purpose_problems(lambda d: d.update(
+            ddl={"target": "material/target-ddl.sql"})), "")
+        text = self.purpose_problems(lambda d: d.update(ddl={
+            "target": "material/missing.sql", "runner": "material/target-ddl.sql",
+            "receiver": "material/target-ddl.sql", "source": "checks/e1-results-released.sh"}))
+        self.assertProblems(text,
+                            "purposes/fx-lab-orders/material/missing.sql: missing file "
+                            "(ddl.target, a file of material/)",
+                            f"{self.L}: ddl.runner: not a database part the purpose declares "
+                            "(source, target)",
+                            f"{self.L}: ddl.receiver: not a database part",
+                            "purposes/fx-lab-orders/checks/e1-results-released.sh: missing file "
+                            "(ddl.source, a file of material/)")
+        self.assertIn(f"{self.L}: ddl: [] is not a non-empty map",
+                      self.purpose_problems(lambda d: d.update(ddl=[])))
 
     def test_history_file(self):
         (self.catalog_root / self.PURPOSE / "material/history.sql").unlink()
@@ -3842,6 +3968,43 @@ class TestPurposeV05Refusals(V05ComposedTest):
         self.assertProblems(text, f"{self.L}: classification.columns.lab_orders_sent.client_ref: "
                             "'lab_orders_sent.client_ref' is not <database>.<table>.<column>",
                             "'secret' is not a class")
+
+
+class TestPurposeDdlInScenario(V05ComposedTest):
+    """A purpose's ddl: in a scenario (chunk 29b's (e), capture W3 addendum):
+    only for a part mapped to a database a domains: entry's at: holds; its
+    roles counted by node_creates on that node."""
+
+    def setUp(self):
+        super().setUp()
+        (self.catalog_root / self.PURPOSE / "material/target-ddl.sql").write_text(
+            "DO $g$ BEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lab_watch') "
+            "THEN\n    CREATE ROLE lab_watch LOGIN;\n  END IF;\nEND $g$;\n"
+            "CREATE SCHEMA IF NOT EXISTS ops;\n")
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
+                          lambda d: d.update(ddl={"target": "material/target-ddl.sql"}))
+
+    def test_in_a_composed_domains_database(self):
+        sc = self.load()
+        created = model.node_creates(self.scenario, sc.data, "db", self.catalog_root)
+        self.assertIn("lab_watch", created.logins)
+        self.assertIn("purposes/fx-lab-orders/material/target-ddl.sql", created.sources)
+        self.assertNotIn("purposes/fx-lab-orders/material/target-ddl.sql",
+                         model.node_creates(self.scenario, sc.data, "partners-db",
+                                            self.catalog_root).sources)
+
+    def test_refused_in_a_database_no_domain_holds(self):
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(target="db/shop"))
+        self.assertRefused("scenario.yaml: purposes[fx-lab-orders].parts.target: db/shop: purpose "
+                           "fx-lab-orders's ddl.target runs only in a database a domains: "
+                           "entry's at: holds; for a database no domain holds, its DDL stays in "
+                           "the node's data file")
+
+    def test_purpose_ddl_in_parts_order(self):
+        self.assertEqual(model.purpose_ddl({"parts": {"source": "s", "target": "t"},
+                                            "ddl": {"target": "material/t.sql",
+                                                    "source": "material/s.sql"}}),
+                         [("source", "material/s.sql"), ("target", "material/t.sql")])
 
 
 class TestDomainV05Refusals(V05ComposedTest):
@@ -3887,6 +4050,25 @@ class TestDomainV05Refusals(V05ComposedTest):
                             "producers/partners/north-lab/: north-lab is not a partner's prefix")
         self.assertNotIn("xlab/data.sql: not a fragment", text)
 
+    def test_cron_file(self):
+        """Chunk 29's (d): data/cron.sql holds cron.schedule_in_database calls
+        only, at least one."""
+        rel = "domains/fx-clinic/data/cron.sql"
+        self.write("data/cron.sql", "-- jobs\nSELECT cron.schedule_in_database('a', '0 3 * * *',"
+                   " $$DELETE FROM x; DELETE FROM y$$, 'clinic', 'clinic_app');\n"
+                   "select cron . schedule_in_database('b', '5 3 * * *', 'SELECT 1;', 'clinic');\n")
+        self.assertEqual(self.domain_problems(), "")
+        self.write("data/cron.sql", "SELECT cron.schedule('a', '0 3 * * *', 'SELECT 1');\n"
+                   "\\connect clinic\nSELECT cron.schedule_in_database('b', '* * * * *', "
+                   "'SELECT 1', 'clinic');\nDELETE FROM cron.job;\n")
+        text = self.domain_problems()
+        self.assertProblems(text, f"{rel}:1: SELECT cron.schedule('a', '0 3 * * *', 'SELECT 1'): "
+                            "a cron.sql holds SELECT cron.schedule_in_database(...) calls only",
+                            f"{rel}:2: \\connect clinic SELECT cron.schedule_in_database",
+                            f"{rel}:4: DELETE FROM cron.job: a cron.sql holds")
+        self.write("data/cron.sql", "-- nothing\n")
+        self.assertIn(f"{rel}: schedules no job", self.domain_problems())
+
     def test_partners_is_no_domain_id(self):
         folder = self.catalog_root / "domains/partners"
         shutil.copytree(self.catalog_root / self.DOMAIN, folder)
@@ -3896,6 +4078,161 @@ class TestDomainV05Refusals(V05ComposedTest):
                       "partners' database (a coherence check's reads), never a domain (W2 item "
                       "0)", text)
         self.assertNotIn("is not the folder name", text)
+
+
+class TestPartKeys(unittest.TestCase):
+    """A part's data/keys.sql (capture W3 item 0, chunk 29's (a)), on a copy
+    of fixture-composed's catalogue: pg_temp.<its prefix>_* only."""
+
+    def setUp(self):
+        tmp = Path(tempfile.mkdtemp(prefix="gmtest-partkeys."))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        self.catalog = tmp / "catalog"
+        shutil.copytree(FIXTURES / "fixture-composed" / "catalog", self.catalog)
+        self.keys = self.catalog / "domains/fx-docs/data/keys.sql"
+
+    def problems(self, domain="fx-docs"):
+        return "\n".join(model.check_domain_dir(self.catalog / "domains" / domain))
+
+    def test_valid(self):
+        self.assertTrue(self.keys.is_file())
+        self.assertEqual(self.problems(), "")
+
+    def test_refusals(self):
+        rel = "domains/fx-docs/data/keys.sql"
+        self.keys.write_text(
+            "CREATE FUNCTION pg_temp.docs_a(n integer) RETURNS integer LANGUAGE sql IMMUTABLE "
+            "AS 'SELECT n';\n"
+            "CREATE TABLE docs_seen (n integer);\n"
+            "CREATE FUNCTION public.docs_b(n integer) RETURNS integer LANGUAGE sql AS 'SELECT n';\n"
+            "create or replace function pg_temp.dox_c(n integer) returns integer language sql "
+            "as 'SELECT n';\n"
+            "CREATE FUNCTION pg_temp.core_d(n integer) RETURNS integer LANGUAGE sql AS 'SELECT n';\n"
+            "-- CREATE TABLE in a comment\n")
+        text = self.problems()
+        for fragment in (f"{rel}:2: CREATE TABLE docs_seen (n integer);: a part's keys.sql "
+                         "creates pg_temp.<its prefix>_* functions only",
+                         f"{rel}:3: CREATE FUNCTION public.docs_b",
+                         f"{rel}: functions under 3 prefixes (docs, dox, core)",
+                         f"{rel}: pg_temp.core_*: the core's prefix"):
+            self.assertIn(fragment, text)
+        self.assertNotIn(":6:", text)
+
+    def test_a_prefix_of_the_cores_keys(self):
+        core = self.catalog / "domains/fx-core/data/keys.sql"
+        core.write_text(core.read_text() + "CREATE FUNCTION pg_temp.docs_x(n integer) RETURNS "
+                        "integer LANGUAGE sql IMMUTABLE AS 'SELECT n';\n")
+        self.assertIn("domains/fx-docs/data/keys.sql: pg_temp.docs_*: the core's prefix; a "
+                      "part's keys take its own", self.problems())
+        self.assertEqual(self.problems("fx-core"), "")     # a core's keys.sql: unchecked
+
+    def test_a_part_without_keys(self):
+        self.keys.unlink()
+        self.assertEqual(self.problems(), "")
+
+
+class TestLeftOut(unittest.TestCase):
+    """composition.yaml's left_out: (capture W3 item 0, chunk 29's (b)), on a
+    copy of fixture-composed: each a producer folder of a composed domain."""
+
+    def setUp(self):
+        tmp = Path(tempfile.mkdtemp(prefix="gmtest-leftout."))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        shutil.copytree(FIXTURES / "fixture-composed", tmp / "fixture")
+        self.fixture = tmp / "fixture"
+        self.record = self.fixture / "scenario/composition.yaml"
+        self.data = yaml.safe_load((self.fixture / "scenario/scenario.yaml").read_text())
+
+    def problems(self, left_out):
+        content = yaml.safe_load(self.record.read_text())
+        content["left_out"] = left_out
+        self.record.write_text(yaml.safe_dump(content, sort_keys=False))
+        return "\n".join(model.check_composition(self.data, self.fixture / "scenario",
+                                                 self.fixture / "catalog"))
+
+    def test_valid(self):
+        self.assertEqual(self.problems([
+            {"domain": "fx-docs", "producer": "desk", "reason": "no desk node"},
+            {"domain": "fx-core", "producer": "partners/xlab", "reason": "no partner nodes"}]),
+            "")
+        self.assertEqual(model.left_out_of(yaml.safe_load(self.record.read_text())),
+                         {("fx-docs", "desk"), ("fx-core", "partners/xlab")})
+
+    def test_refusals(self):
+        text = self.problems([
+            {"domain": "fx-lab", "producer": "desk", "reason": "not composed"},
+            {"domain": "fx-docs", "producer": "pms", "reason": "no such folder"},
+            {"domain": "fx-core", "producer": "partners", "reason": "a reserved folder"},
+            {"domain": "fx-core", "producer": "partners/ylab", "reason": "no such partner"},
+            {"domain": "fx-ward", "producer": "desk"},
+            {"domain": "fx-ward", "producer": "desk", "reason": "twice", "why": "unknown"},
+            "desk"])
+        for fragment in ("composition.yaml: left_out[0].domain: fx-lab is not a domain of "
+                         "domains:",
+                         "composition.yaml: left_out[1].producer: pms: not a folder of "
+                         "domains/fx-docs/producers/ (a producer folder of the composed domain)",
+                         "composition.yaml: left_out[2].producer: 'partners' is not a producer "
+                         "folder (<node>, api/<node>, partners/<prefix> or public/<name>)",
+                         "left_out[3].producer: partners/ylab: not a folder of",
+                         "composition.yaml: left_out[4].reason: missing or empty",
+                         "composition.yaml: left_out[5]: fx-ward desk left out twice",
+                         "left_out[5].why",
+                         "composition.yaml: left_out[6]: not a mapping"):
+            self.assertIn(fragment, text)
+        self.assertIn("composition.yaml: left_out: [] is not a non-empty list",
+                      self.problems([]))
+
+
+class TestDomainCron(V05ComposedTest):
+    """A composed domain's data/cron.sql on a node that preloads pg_cron and
+    whose data file creates it (chunk 29's (d), spec D405)."""
+
+    CONF = "nodes/db/postgresql.conf"
+
+    def setUp(self):
+        super().setUp()
+        (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
+            "SELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', 'clinic', "
+            "'clinic_app');\n")
+
+    def preload(self, extension=True):
+        with (self.scenario / self.CONF).open("a") as f:
+            f.write("shared_preload_libraries = 'pg_cron'\ncron.database_name = 'shop'\n"
+                    "cron.timezone = 'UTC'\n")
+        if extension:
+            self.append("data/db.sql", "\\connect shop\nCREATE EXTENSION pg_cron;\n")
+
+    def test_refused_without_the_preload(self):
+        self.assertRefused("scenario.yaml: domains[fx-clinic]: domains/fx-clinic/data/cron.sql "
+                           "schedules pg_cron jobs on node db, which does not preload pg_cron "
+                           "(its seed postgresql.conf (nodes/db/postgresql.conf); "
+                           "shared_preload_libraries")
+
+    def test_refused_without_the_extension(self):
+        self.preload(extension=False)
+        self.assertRefused("domains/fx-clinic/data/cron.sql schedules pg_cron jobs on node db, "
+                           "whose data file does not create the extension pg_cron")
+
+    def test_accepted_on_a_node_preloading_it(self):
+        self.preload()
+        sc = self.load()
+        self.assertEqual(model.node_pg_cron(sc.node("db"), self.scenario),
+                         (True, "shop", "nodes/db/postgresql.conf"))
+
+
+class TestPartsNodeCreates(V05ComposedTest):
+    """model.node_creates counts a left-out partner's data.sql on the
+    partners' node (chunk 29's (b)): it still runs there."""
+
+    def test_a_left_out_partner_still_counted(self):
+        record = yaml.safe_load((self.scenario / "composition.yaml").read_text())
+        record["left_out"] = [{"domain": "fx-clinic", "producer": "partners/xlab",
+                               "reason": "no partner nodes"}]
+        (self.scenario / "composition.yaml").write_text(yaml.safe_dump(record))
+        sc = self.load()
+        partners = model.node_creates(self.scenario, sc.data, "partners-db", self.catalog_root)
+        self.assertIn("domains/fx-clinic/producers/partners/xlab/data.sql", partners.sources)
+        self.assertIn("xlab", partners.roles)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+# queries.yaml of the owners' traffic, a fragment for partners-backend (v0.5
+# master spec 9.7, 10.2; capture W3 item 5; spec D369): its six ticks, each
+# POST /tick on the hostname owners with its kind in the body (a one-value
+# choice: the loader takes only generators as parameters).
+queries:
+  owners.visit:
+    call: POST /tick
+    params: {kind: {choice: [visit]}}
+  owners.activate:
+    call: POST /tick
+    params: {kind: {choice: [activate]}}
+  owners.reset:
+    call: POST /tick
+    params: {kind: {choice: [reset]}}
+  owners.unsubscribe:
+    call: POST /tick
+    params: {kind: {choice: [unsubscribe]}}
+  owners.keeper:
+    call: POST /tick
+    params: {kind: {choice: [keeper]}}
+  owners.close:
+    call: POST /tick
+    params: {kind: {choice: [close]}}

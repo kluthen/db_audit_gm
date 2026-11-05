@@ -1,0 +1,112 @@
+# vet-scheduling's coherence queries (v0.5 master spec 8.5, 9.4, 15; capture
+# W2 item 3; vet-scheduling-domain.md, "In flight at T0", "Tests in v0.5";
+# spec D408): the part's agenda against the core's record. load-data runs
+# them once after the loads, before any fault, as postgres in clinic,
+# read-only, the core reached through gm_src_vet_core (the same database, as
+# every check reads its core). Any row is a design error caught before
+# hand-over (the composition reloaded), never a fault.
+checks:
+  - id: attended-bookings
+    what: every scheduled consultation of the core has its attended booking by id, of its animal, arrived at its start, with its vet; every booking of the attended range is one
+    reads: [vet-core]
+    sql: |
+      SELECT c.id AS consultation_id, b.id AS booking_id
+        FROM (SELECT * FROM gm_src_vet_core.consultations WHERE kind = 'scheduled') AS c
+        FULL JOIN (SELECT * FROM sched_bookings WHERE id <= 25000) AS b ON b.id = c.booking_id
+       WHERE b.id IS NULL OR c.id IS NULL OR c.booking_id <> c.id OR b.animal_id <> c.animal_id
+          OR b.state <> 'arrived' OR b.arrived_at <> c.started_at
+          OR NOT EXISTS (SELECT 1 FROM sched_allocations AS a
+                          WHERE a.booking_id = b.id AND a.role = 'vet' AND a.staff_id = c.vet_id)
+       ORDER BY 1, 2
+  - id: no-overlap
+    what: no vet in two overlapping scheduled consultations of the core, no staff member, room, machine or teaching animal in two live allocations at once
+    reads: [vet-core]
+    sql: |
+      SELECT 'consultation' AS what, c1.vet_id AS resource, c1.id AS first, c2.id AS second
+        FROM gm_src_vet_core.consultations AS c1
+        JOIN gm_src_vet_core.consultations AS c2
+          ON c2.vet_id = c1.vet_id AND c2.id <> c1.id AND c2.kind = 'scheduled'
+         AND c2.started_at >= c1.started_at AND c2.started_at < coalesce(c1.ended_at, c1.started_at + interval '30 minutes')
+       WHERE c1.kind = 'scheduled' AND (c2.started_at > c1.started_at OR c2.id > c1.id)
+      UNION ALL
+      SELECT 'staff', a.staff_id, a.id, b.id
+        FROM sched_allocations AS a
+        JOIN sched_allocations AS b ON b.staff_id = a.staff_id AND b.staff_id IS NOT NULL AND b.released_at IS NULL
+                                   AND b.during && a.during AND b.id > a.id
+       WHERE a.staff_id IS NOT NULL AND a.released_at IS NULL
+      UNION ALL
+      SELECT 'room', a.room_id, a.id, b.id
+        FROM sched_allocations AS a
+        JOIN sched_allocations AS b ON b.room_id = a.room_id AND b.room_id IS NOT NULL AND b.released_at IS NULL
+                                   AND b.during && a.during AND b.id > a.id
+       WHERE a.room_id IS NOT NULL AND a.released_at IS NULL
+      UNION ALL
+      SELECT 'machine', a.machine_id, a.id, b.id
+        FROM sched_allocations AS a
+        JOIN sched_allocations AS b ON b.machine_id = a.machine_id AND b.machine_id IS NOT NULL AND b.released_at IS NULL
+                                   AND b.during && a.during AND b.id > a.id
+       WHERE a.machine_id IS NOT NULL AND a.released_at IS NULL
+      UNION ALL
+      SELECT 'animal', a.animal_id, a.id, b.id
+        FROM sched_allocations AS a
+        JOIN sched_allocations AS b ON b.animal_id = a.animal_id AND b.animal_id IS NOT NULL AND b.released_at IS NULL
+                                   AND b.during && a.during AND b.id > a.id
+       WHERE a.animal_id IS NOT NULL AND a.released_at IS NULL
+       ORDER BY 1, 2, 3
+  - id: vets-on-shift
+    what: every scheduled consultation's vet on a day shift of the rota covering it, on no absence; every live staff allocation on a shift covering it (on call for an operator only)
+    reads: [vet-core]
+    sql: |
+      SELECT 'consultation' AS what, c.id, c.vet_id AS staff_id
+        FROM gm_src_vet_core.consultations AS c
+       WHERE c.kind = 'scheduled'
+         AND (NOT EXISTS (SELECT 1 FROM sched_shifts AS h
+                           WHERE h.staff_id = c.vet_id AND h.kind = 'day' AND h.starts_at <= c.started_at
+                             AND h.ends_at >= coalesce(c.ended_at, c.started_at))
+              OR EXISTS (SELECT 1 FROM sched_absences AS ab
+                          WHERE ab.staff_id = c.vet_id AND ab.from_at <= c.started_at AND ab.until_at > c.started_at))
+      UNION ALL
+      SELECT 'allocation', a.id, a.staff_id
+        FROM sched_allocations AS a
+       WHERE a.staff_id IS NOT NULL AND a.released_at IS NULL
+         AND a.ends_at <= (SELECT max(ends_at) FROM sched_shifts)
+         AND NOT EXISTS (SELECT 1 FROM sched_shifts AS h
+                          WHERE h.staff_id = a.staff_id AND h.starts_at <= a.starts_at AND h.ends_at >= a.ends_at
+                            AND (h.kind <> 'on-call' OR a.role = 'operator'))
+       ORDER BY 1, 2
+  - id: within-hours
+    what: every room's or machine's allocation within that resource's opening hours (local, the settings' zone)
+    sql: |
+      SELECT a.id, a.room_id, a.machine_id, a.starts_at
+        FROM sched_settings AS s, sched_allocations AS a
+       WHERE s.id = 1 AND (a.room_id IS NOT NULL OR a.machine_id IS NOT NULL)
+         AND NOT EXISTS (SELECT 1 FROM sched_hours AS h
+                          WHERE h.resource_kind = CASE WHEN a.room_id IS NOT NULL THEN 'room' ELSE 'machine' END
+                            AND h.resource_id = coalesce(a.room_id, a.machine_id)
+                            AND h.weekday = extract(isodow FROM a.starts_at AT TIME ZONE s.timezone)
+                            AND a.starts_at AT TIME ZONE s.timezone
+                                >= (a.starts_at AT TIME ZONE s.timezone)::date + h.opens
+                            AND a.ends_at AT TIME ZONE s.timezone
+                                <= (a.starts_at AT TIME ZONE s.timezone)::date + h.closes)
+       ORDER BY a.id
+  - id: imaging-bookings
+    what: every imaging request the core sent booked once, 30 000 + its id, for its animal; no booking for another request
+    reads: [vet-core]
+    sql: |
+      SELECT r.id AS request_id, b.id AS booking_id
+        FROM (SELECT * FROM gm_src_vet_core.requests WHERE kind = 'imaging' AND sent_at IS NOT NULL) AS r
+        FULL JOIN (SELECT * FROM sched_bookings WHERE request_id IS NOT NULL) AS b ON b.request_id = r.id
+       WHERE b.id IS NULL OR r.id IS NULL OR b.id <> 30000 + r.id OR b.animal_id <> r.animal_id
+       ORDER BY 1, 2
+  - id: exchange-bookings
+    what: every inbound examination the centre accepted booked once, 28 000 + its id, on or after its accepted date
+    reads: [vet-core]
+    sql: |
+      SELECT x.id AS exchange_id, b.id AS booking_id
+        FROM (SELECT * FROM gm_src_vet_core.exchanges
+               WHERE direction = 'in' AND kind = 'examination' AND state IN ('accepted', 'reported')) AS x
+        FULL JOIN (SELECT * FROM sched_bookings WHERE exchange_id IS NOT NULL) AS b ON b.exchange_id = x.id
+        LEFT JOIN sched_settings AS s ON s.id = 1
+       WHERE b.id IS NULL OR x.id IS NULL OR b.id <> 28000 + x.id
+          OR (b.starts_at AT TIME ZONE s.timezone)::date < x.accepted_for
+       ORDER BY 1, 2

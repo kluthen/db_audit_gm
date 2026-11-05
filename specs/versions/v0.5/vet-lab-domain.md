@@ -7,7 +7,14 @@ passages corrected to the master spec at approval (R16, D339).
 where the two disagree. Amended in wave 2 of the build (2026-11-04):
 the test catalogue's layout, its named codes and the centre's draw
 (D372); the centre's orders at about 7 700 (D385), `MINH`'s line
-(D389). Steps 2 to 8 are done: the business sketch ruled, every default
+(D389). Amended in wave 3 (2026-11-04) to the build's measures: the
+samples about 20 800 and their range as loaded, results, batches,
+intervals in force and open send-outs at the load's figures, two
+roles' reads (D415); then to chunk 12b's: `lab_instruments` reading
+`lab_results (order_test_id)`, `lab_api` the reference intervals, the
+release rounds as three jobs, the practices' stub keeping the
+customer's offset, no food-chain status on an order (D420). Steps 2 to 8 are done: the business sketch
+ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
 set by the clinic's split (D279, D293, D294); the data model and the
 default policy ruled (D302, closing O152), `lab_app`'s grants amended
@@ -195,14 +202,14 @@ volume ramping from about 60 % of today's rate to today's:
 | What | Over the year |
 |---|---|
 | Orders (accessions) | about 14 000: 7 700 from the centre, 6 300 from the practices |
-| Samples | about 18 000 |
+| Samples | about 20 800: one a container, the centre's 11 800 (its orders' blood count and profile take two) (D415) |
 | Tests ordered | about 24 000: 13 600 from the centre (the core's analysis requests, four in five of its 17 000), 10 000 from the practices |
-| Results, one per analyte | about 190 000 |
-| Instrument batch uploads | about 22 000 |
+| Results, one per analyte | about 161 000 (D415) |
+| Instrument batch uploads | about 9 800, one per analyser-hour with results (D415) |
 | Quality-control runs | about 7 000: every analyser once a day, two or three levels, and before a night run |
 | Send-outs | about 2 000 |
 | Outside charges | about 17 000 charge rows |
-| Custody and storage events | about 54 000, three a sample |
+| Custody and storage events | about 63 000, three a sample (D415) |
 
 **Throughput**, in real-world rates during the game:
 
@@ -216,7 +223,7 @@ volume ramping from about 60 % of today's rate to today's:
 | Send-outs | about 7 a day, Monday to Friday |
 | Critical values called | two or three a day |
 
-About **0.36 million rows** at load and **1 300 a day** live (step 4's count; the sketch first gave 0.35 and 1 200), against
+About **0.33 million rows** at load (the build's, D415; step 4 counted 0.36, the sketch 0.35) and **1 300 a day** live (the sketch first gave 1 200), against
 the core's 0.28 million and 760 (570 main rows) ([vet-core](vet-core-domain.md#reference-sizes)):
 the results, one per analyte, are the bulk. Far below cold storage's
 threshold of about 50 000 rows a day (D296): nothing of the lab's ships;
@@ -519,10 +526,10 @@ The load writes these ids, each sequence resuming after its range
 |---|---|---|
 | `lab_analytes.id` | 1–70 | |
 | `lab_tests.id` | 1–180 | 1–150 tests, 151–180 panels; about 36 sent out: [the test catalogue](#the-test-catalogue-d372) |
-| `lab_reference_intervals.id` | 1–460 | 1–60 the intervals the January review replaced, 61–460 those in force |
+| `lab_reference_intervals.id` | 1–460 | 1–60 the intervals the January review replaced, 61–456 those in force (66 numeric analytes × 6 species), 457–460 unused (D415) |
 | `lab_prices.id` | 1–360 | test `t`'s price `t` until 1 January, `180 + t` from it |
 | `lab_accounts.id` | 1–121 | 1 the centre (`internal`); account `a` from 2 to 121 is referring practice `3 × (a − 1)` (3, 6, … 360) |
-| History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, the others as loaded | in time order over the year |
+| History | `lab_orders` 1–14 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000 (about 161 000 loaded), the others, `lab_samples` among them (about 20 800), as loaded (D415) | in time order over the year |
 | Core keys used | `request_id` among the core's analysis requests (1–17 000); `animal_id` 1–17 000; lab staff 71–80 | as the core documents them (D302) |
 | Machines | `machine_id` 1–6, the lab's analysers | `vet-machinery`'s range (D302, D319): 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation; the on-call analysers at night 1, 3 and 5 |
 
@@ -664,9 +671,9 @@ secret.
 |---|---|---|---|
 | `lab` | owns everything; no login | | |
 | `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs, charges (D304, amending D302: charged at accession, billable at release, voided on a cancellation or an unfit sample); never the reference tables |
-| `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
-| `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs | batches, results |
-| `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`), notifications' sent columns |
+| `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status); the reference intervals, for the feed's `low` and `high` (D420) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
+| `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs; `lab_orders (id, species, priority)` and `lab_tests (id, code, discipline)`, to flag a result and pick a bench's tests (D415); `lab_results (order_test_id)`, to pick the tests no run has resulted yet (D420) | batches, results |
+| `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples, the catalogue (tests, analytes), and the callbacks, send-outs and notifications it updates (D415) | callbacks, send-outs, sample events (`sent-out`), notifications' sent columns |
 | `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
 
 The purposes' roles (the results' return to the core, the
@@ -682,15 +689,15 @@ lab's tables are unchanged.
 | What | Rows at load | Live, a day |
 |---|---|---|
 | Reference (settings, analytes, tests and their analytes, intervals, prices, accounts) | about 2 100 | none |
-| Orders, samples | 14 000, 18 000 | 50, 65 |
+| Orders, samples | 14 000, about 20 800 | 50, 65 |
 | Tests ordered | 24 000 | 85 |
-| Results | about 192 000, a thousand of them amendments | about 700 |
-| Sample events | about 54 000 | about 200 |
-| Batches, QC runs | 22 000, 7 000 | 75, 20 |
+| Results | about 161 000, a thousand of them amendments | about 700 |
+| Sample events | about 63 000 | about 200 |
+| Batches, QC runs | about 9 800, 7 000 | 75, 20 |
 | Send-outs, callbacks | 2 000, about 10 000 | 7, 40 |
 | Critical calls, notifications | about 900, about 30 | 2 or 3; a few a month |
 | Charges | about 17 000 | about 60 |
-| **Total** | **about 0.36 million rows** | **about 1 300 rows** |
+| **Total** | **about 0.33 million rows** (D415) | **about 1 300 rows** |
 
 Under the shop's 1.3 million rows and close to the core's 0.28 million,
 on a node of its own: within "the data schema stays simple and the
@@ -948,9 +955,9 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 |---|---|---|
 | `lab.qc.morning` | `45 6 * * *` | QC on every analyser before the bench opens: three levels for haematology, two for the others, about 15 runs; one in fifty fails, by a hash of the run's id |
 | `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (machines 1, 3 and 5: one haematology, one biochemistry, the blood gas, D319): about 7 runs |
-| `lab.release.round` | `0 11,14,18 * * 1-6` and `0 11 * * 0` | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
+| `lab.release.round` | three jobs: `0 11 * * *` (every day, Sunday's one round included), `0 14 * * 1,2,3,4,5,6` and `0 18 * * 1,2,3,4,5,6`; the loader takes no day-of-week range, nor one with more than one hour (D420) | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
 | `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until disposed, a `disposed` event; a custody sample kept until its case closes (rule 12) |
-| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
+| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers and the owner's surname written on the order (`lab_orders` has no food-chain column: the lab keeps no food-chain status, D420); a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
 
 `lab.samples.dispose` is light, set-based work, the database node's
 `pg_cron` a placement the GM may choose (D206, D207). `lab.identity`
@@ -993,7 +1000,7 @@ fragments holding its normal behaviour (D303).
 
 | Key or endpoint | What | Rate | Shape |
 |---|---|---|---|
-| `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref`), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
+| `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref` `<local YYMMDD>-<m>`, its date local by the customer's offset, kept as a `utc_offset` row of `practices.state`, D420), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
 | `POST /results` (its routes) | takes a delivery (interim, final or amended), acknowledges each `delivery_key` once, a repeat acknowledged again without a second record | | answers the dispatch's calls: about 40 a day |
 
 **The external reference lab** (D268):
@@ -1054,8 +1061,9 @@ lab:
 - cultures incubating, two to five days old, about fifteen;
 - samples stored for add-ons, a week or two: about 600 not yet disposed;
 - send-outs sent within their turnaround and not yet answered, about
-  twenty; the external lab's stub holds the same send-outs, by the same
-  `send_key`, in the partners' database;
+  eight, all the practices' (the core's state rule leaves the centre's
+  older send-outs answered, D415); the external lab's stub holds the
+  same send-outs, by the same `send_key`, in the partners' database;
 - outside tests not yet released, their charges pending.
 
 The partners' database is planted from the same documented functions
@@ -1153,8 +1161,8 @@ is [clinic-test-selection.md](clinic-test-selection.md).
 `lab` node as `postgres`, as for the core: explicit ids in the documented
 ranges, each sequence set after its range, the core's ids computed by
 its documented functions without reading `clinic` (D302), so the two
-loads are independent; the load's sessions unseen (D265). About 0.36
-million rows; size and time measured at the build (procedure 3). The
+loads are independent; the load's sessions unseen (D265). About 0.33
+million rows as built (D415); size and time measured at the build (procedure 3). The
 partners' database is planted from the same functions, so the external
 lab's stub knows every send-out the history left open and the
 practices' stub every order not yet received (D304). After the sources'

@@ -1,0 +1,16 @@
+# The imaging fixture's composition record (tools/tests, v0.5 chunk 15b): the
+# core in records/clinic and its part vet-machinery in its three databases on
+# machines, loaded core first; no derivation. The keys vet-machinery relies on
+# are the core's functions, by the names vet-core's docs/gm.md ("Core keys")
+# gives them (vet-machinery docs/gm.md, "Core keys used"); the scale check is
+# the part's history against the core's requests and stays.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-machinery, at: {pacs: machines/pacs, vitals: machines/vitals, biomed: machines/biomed}}
+keys:
+  vet-machinery: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner, core_stay]
+scale:
+  checked: true
+  note: "the machinery's worklist from the core's sent imaging requests (about 2 980), its sessions on the core's stays; about 0.28 million rows, 75 MB beside the core's 0.27 million"
+order: [vet-core, vet-machinery]
+# derive: none (the machinery computes the core's keys; no sanctioned derivation)

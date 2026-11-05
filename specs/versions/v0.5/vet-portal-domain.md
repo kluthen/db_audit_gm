@@ -17,7 +17,13 @@ comes from a GM-sanctioned derivation step after the sources' loads
 vaccination reminders only, with consent (D321). T270 replaces s5 in
 the test selection (D325). Step 8 has no owner checkpoint (D309). The
 changes this part asked of the shared pages are applied ([Changes
-needed in shared pages](#changes-needed-in-shared-pages)).
+needed in shared pages](#changes-needed-in-shared-pages)). Brought to as
+built after chunk 16 (2026-11-04, D423): the keeper's clause, the
+functions, status codes, grants, id ranges and figures the build needed,
+the GM notes (`domains/vet-portal/docs/gm.md`) holding the detail; the
+desk's refusal of a closed account's owner kept with a false-alarm line
+(D426) and T274's witness at the rate as built (D427), as the driver
+ruled.
 
 `vet-portal` is the owners' portal of the centre a scenario deploys
 (D285), the centre's own (D293), a **part**: it requires `vet-core`
@@ -173,20 +179,20 @@ figures follow `vet-core` at one centre's scale (D295).
 
 | What | How many |
 |---|---|
-| Accounts | 9 999, one per core owner but the clinic itself (owners 2 to 10 000): about 6 500 active, 3 200 invited and never activated, 300 closed |
-| Owners with the reminders' consent | about 5 200 |
-| Keepers granted access to a horse | about 250 grants in force |
-| Animals, ownerships, herds copied from the core | 17 000, about 20 000, 200 |
+| Accounts | 9 999, one per core owner but the clinic itself (owners 2 to 10 000): about 6 700 active, 3 000 invited and never activated, 300 closed (6 682, 3 018, 299 as built, D423) |
+| Owners with the reminders' consent | about 5 100 (5 087) |
+| Keepers granted access to a horse | about 230 grants in force (232) |
+| Animals, ownerships, herds copied from the core | 17 000, about 18 600, 200 |
 
 **History**: one year, growing as the core grew (D279), each daily
 volume ramping from about 60 % of today's rate to today's:
 
 | What | Over the year |
 |---|---|
-| Documents published | about 41 600: 25 000 consultations, 13 600 centre results (the core's analysis requests), 2 300 discharges, 400 amended results |
-| Documents opened | about 70 000 |
-| Messages | about 36 000: 23 000 document notices, 8 000 reminders, 3 800 invitations, 1 500 password resets |
-| Consent events | about 8 000 |
+| Documents published | about 39 000 as built (D423): 23 900 consultations, 12 700 centre results (the core's analysis requests) with 470 amended versions, 2 400 discharges; fewer than the 41 600 first counted, the core's agenda (D408) leaving about 4 % of the scheduled consultations without a row |
+| Documents opened | about 65 000 |
+| Messages | about 38 200: 25 700 document notices, 6 700 reminders, 4 000 invitations, 1 600 password resets, 130 closures |
+| Consent events | about 7 300 |
 | Sessions kept | the last 30 days', about 4 500 |
 
 **Throughput**, in real-world rates during the game:
@@ -371,7 +377,7 @@ the purposes' tables in a schema `ops` (D307). `pgcrypto` is created in
 | Table | Key, main columns |
 |---|---|
 | `portal_settings` | one row: the customer's zone and offset (as the core's `business_settings`), the session's idle limit (30 minutes) and its longest life (12 hours), the lock-out (5 failures, 30 minutes), the invitation's life (14 days), the reminders' lead (14 days) and hours (08:00–20:00) |
-| `portal_accounts` | `id`; `owner_id` (the core's, unique), `kind`, `display_name`, `email` (the login and the address), `phone`, `status` (`invited`, `active`, `closed`), invited at, `invite_hash` and its expiry, activated at, `password_hash`, `failed_logins`, `locked_until`, last login at, `notify_by` (`email`, `sms`, `none`), `reminders` (the flag beside the events, the shop's `marketing_opt_in`), closed at, synced at |
+| `portal_accounts` | `id`; `owner_id` (the core's, unique), `kind`, `display_name`, `email` (the login and the address), `phone`, `status` (`invited`, `active`, `closed`), invited at, `invite_hash` and its expiry (`invite_expires_at`: the one link slot, an invitation's or a reset's, 14 days either; D423), activated at, `password_hash`, `failed_logins`, `locked_until`, last login at, `notify_by` (`email`, `sms`, `none`), `reminders` (the flag beside the events, the shop's `marketing_opt_in`), closed at, synced at |
 | `portal_sessions` | `id`; account, `token_hash` (SHA-256 of the token, unique), created at, last seen at, expires at, ended at, `ended_by` (`logout`, `idle`, `expiry`, `closure`) |
 
 **Copies of the core** (written by `vet-portal-release` only)
@@ -417,11 +423,11 @@ Each sequence resumes after its range (D276).
 | Key | Range | Layout |
 |---|---|---|
 | `portal_accounts.id` | 2–10 000, the sequence set at 20 000 | the account of owner `o` is `o`: the accounts migrated from the old portal kept their owner's number, and accounts created since take 20 001 on. A query joining an account's id to an owner's id is right for every loaded account and wrong for every new one (a trap, T261) |
-| Account status at load | by a hash of the id | about 65 % active, 32 % invited (180 of them within their 14 days), 3 % closed |
-| History | `portal_documents` 1–41 600, `portal_views` 1–70 000, `portal_outbox` 1–36 000, `portal_consent_events` 1–8 000, in time order; `portal_sessions` the last 30 days' only, their ids where the year left them | |
+| Account status at load | by a hash of the id | as built (D423) 6 682 active, 3 018 invited (193 open links: the last 14 days' invitations and the older invited accounts' renewals), 299 closed; 5 087 with the reminders' consent |
+| History | `portal_documents` 1–about 39 000, `portal_views` 1–about 65 000, `portal_outbox` 1–about 38 200, `portal_consent_events` 1–about 7 300, in time order (the outbox by `queued_at`, ties by `message_key`); `portal_sessions` the last 30 days' only, their ids where the year left them, from 39 301 | as built (D423): 38 973 documents, 65 032 views, 38 169 messages, 7 285 consent events, 4 507 sessions at the reference T0, after the core's agenda (D408) left about 4 % of the scheduled consultations without a row |
 | Core and lab keys | `owner_id` 2–10 000, `animal_id` 1–17 000, `herd_id` 1–200 as the core documents them; documents' `source_ref` the core's consultations and stays and the lab's of the lab's order tests of account 1 | the keys computed by the sources' documented functions at load (D249); the documents' ids, in order of their gate and reference, and their content from the derivation step (D322) |
 | A vaccination's due day | day of the year `1 + (animal_id × 211) mod 365` | for domestic animals and horses; farm animals have herd visits instead |
-| Passwords and links (the owners' route) | each active account's password, and each invitation's and reset's token, an HMAC of the account's id and the game's seed | so the owners' route logs in and activates without the partners' database storing a password; the load stores bcrypt hashes and SHA-256 hashes of the tokens |
+| Passwords and links (the owners' route) | each active account's password, and each invitation's and reset's token, an HMAC of the account's id and a key computed from the load's `load_epoch`, kept only in `owners`' schema on the partners' database (D406) | so the owners' route logs in and activates without the partners' database storing a password; the load stores bcrypt hashes and SHA-256 hashes of the tokens |
 
 ### Who sees what: row-level security (ruled, D320)
 
@@ -449,7 +455,8 @@ desk), the API calls `SECURITY DEFINER` functions owned by `portal`,
 their `search_path` pinned: `portal_login(email, password)` checks the
 hash and the lock and returns a token, its hash stored;
 `portal_session(token)` returns the account if the session is open and
-neither idle nor expired; `portal_activate(token, password,
+neither idle nor expired; `portal_logout(token)` ends it (a function,
+since the sessions have no grant; D423); `portal_activate(token, password,
 reminders)`, `portal_request_reset(email)`, `portal_reset(token,
 password)`, `portal_unsubscribe(message_key)`, `portal_close()`,
 `portal_desk_consent(owner_id, purpose, granted)`. They are the API's
@@ -458,35 +465,64 @@ the routes.
 
 The purposes' roles see every row (a policy `USING (true)` for each).
 
+**As built (D423).** The policies are `<table>_scope`, for `portal_api`,
+and `portal_sessions_purge` for `portal_housekeeping`; the asker is
+`NULLIF(current_setting('portal.owner_id', true), '')::integer`, so an
+unset owner sees no row. The keeper's clause and the documents' start
+need rows the own-rows policies hide from a keeper, so two `SECURITY
+DEFINER` helpers owned by `portal` (`STABLE`, `search_path` pinned,
+`EXECUTE` for `portal_api` only) read them:
+`portal_keeper_granted(animal, keeper)`, the current owner's latest
+`keeper-access` event for that keeper and animal being a grant, and
+`portal_owner_since(animal)`, the current owner's `from_at`.
+`portal_animals_scope` has an owner branch (`until_at IS NULL`, which
+T270 drops) and a keeper branch (the keeping current and
+`portal_keeper_granted`); `portal_documents_scope` reads the animal
+through `portal_animals` and `record_at >= portal_owner_since(animal)`
+(which T271 drops). A `keeper-access` event is inserted only for an
+animal the asker owns now; a view only for a document the asker sees.
+The one link slot (`invite_hash`, `invite_expires_at`) holds an
+invitation's or a reset's link, both 14 days; an `activation` consent
+event is written only when the reminders are granted. Row-level
+security binds every role but `portal` and superusers: `gm_check`'s
+`pg_read_all_data` reads no portal row, so a GM read of `portal`
+through `gm_src_*` needs a way in, open for W4's capture (O243).
+
 ### Application roles and grants
 
 | Role | Who | Reads | Writes |
 |---|---|---|---|
-| `portal` | owns everything; no login | | |
+| `portal` | owns everything; no login; `BYPASSRLS`, so its `SECURITY DEFINER` functions reach every row (D423) | | |
 | `portal_api` | the portal's API, `portal-api` (D267, D270) | through the policies above: animals, ownerships, herds, documents, its own account (no hashes) and consent events; `portal_settings` | views, consent events (its own), its account's `notify_by` and `reminders`; everything else through the functions |
-| `portal_housekeeping` | the sessions' purge on `records`' `pg_cron` (D206, D207) | `portal_sessions` | deletes sessions ended 30 days ago |
+| `portal_housekeeping` | the sessions' purge on `records`' `pg_cron` (D206, D207); a login role, since `pg_cron` runs a job only as one with `CONNECT` (D423) | `portal_sessions` | deletes sessions ended 30 days ago |
 
 The purposes' roles (`portal_sync`, `portal_dispatch`) come with step 7
 ([below](#the-roles-the-purposes-add)). The API's connection admits
 `portal` only: `pg_hba.conf` names the database for `portal_api`, over
 `hostssl`, and the seed revokes `CONNECT` on `clinic` and `office` from
-`PUBLIC` (both a trap when missing, T253).
+`PUBLIC` (both a trap when missing, T253); `schema.sql` grants `CONNECT`
+on `portal` by name, revoked from `PUBLIC` (D423).
 
 ### Reference sizes
 
 | What | Rows at load | Live, a day |
 |---|---|---|
-| Settings, accounts | about 10 000 | 13 new; about 30 updates (logins, activations) |
-| Animals, ownerships, herds (copies) | 17 000, about 20 000, 200 | 20 animals, 26 ownerships, a few deaths |
-| Documents | about 41 600 | about 140 |
-| Views | about 70 000 | about 240 |
-| Consent events | about 8 000 | about 11 |
-| Outbox | about 36 000 | about 120 |
-| Sessions | about 4 500 | about 150 |
-| **Total** | **about 0.21 million rows** | **about 720 rows** |
+As built (D423; at the reference T0, `load_epoch` 2026-11-04T08:50Z):
 
-About 80 MB with the documents' bodies and indexes, within `records`'
-2.25G volume; load time and size measured at the build (procedure 3).
+| What | Rows at load | Live, a day |
+|---|---|---|
+| Settings, accounts | 1, 9 999 | 13 new; about 30 updates (logins, activations) |
+| Animals, ownerships, herds (copies) | 17 000, 18 569, 200 | 20 animals, 26 ownerships, a few deaths |
+| Documents | 38 973 (23 922 consultations, 12 673 results with 467 later versions, 2 378 discharges) | about 140 |
+| Views | 65 032 | about 240 |
+| Consent events | 7 285 (232 keeper grants in force) | about 11 |
+| Outbox | 38 169 (25 728 notices, 6 675 reminders, 4 000 invitations, 1 633 resets, 133 closures) | about 120 |
+| Sessions | 4 507 (15 open) | about 150 |
+| **Total** | **199 735 rows, about 0.20 million** | **about 720 rows** |
+
+77 MB with the documents' bodies and indexes, within `records`' 2.25G
+volume. (Summing `n_live_tup` gives 237 904: it reads `portal_outbox`
+double; `count(*)` is the figure.)
 
 ### Plausibility points (step 4, ruled, D320)
 
@@ -620,7 +656,9 @@ off (`pgaudit.log_parameter = off`), since passwords pass through SQL.
 
 **Logs.** No password, token or personal data in the server's logs: on
 `portal` no statement logging (`log_statement = none`), parameters
-never logged (core rule 10).
+never logged (core rule 10). As built (D423) `schema.sql` sets both as
+the database's settings (`log_statement`, `pgaudit.log_parameter`), the
+ones T250 and T251 change; `pgaudit.log` is the seed's.
 
 **Reach.** The portal's API reaches the `portal` database only, over
 TLS; never `clinic` or `office` (`pg_hba.conf`, `CONNECT`).
@@ -692,18 +730,18 @@ set locally first for those after login):
 
 | Endpoint | What |
 |---|---|
-| `POST /login` | `portal_login`: a session token (201), 401, or 423 while locked |
-| `POST /logout` | the session ended |
-| `GET /me`, `PUT /me/preferences` | the account (no hashes), its channel and its consents; the channel changed |
-| `POST /me/consents` | a grant or a withdrawal: `reminders`, or `keeper-access` for an animal and a keeper; the event, and the flag for `reminders` |
+| `POST /login` | `portal_login`: a session token (201, the HttpOnly cookie `portal_session`), 401, or 423 while locked |
+| `POST /logout` | `portal_logout`: the session ended, 204, the cookie cleared |
+| `GET /me`, `PUT /me/preferences` | the account (no hashes), its channel and its consents; the channel changed (422 a channel not `email`, `sms`, `none`) |
+| `POST /me/consents` | a grant or a withdrawal: `reminders`, or `keeper-access` for an animal and a keeper; the event (201), and the flag for `reminders`; 403 a `keeper-access` for an animal not owned now (the policy's check) |
 | `GET /animals` | the asker's animals, by the policies |
-| `GET /animals/{id}/documents` | that animal's documents, newest first, 50 at most |
-| `GET /documents/{id}` | one document; a `portal_views` row in the same transaction |
-| `POST /accounts/activate` | `portal_activate`: the password set, `active`, the reminders' consent offered (an `activation` event) |
-| `POST /password-reset`, `POST /password-reset/{token}` | `portal_request_reset` queues a `password-reset` message; `portal_reset` sets the password and renews an expired invitation |
+| `GET /animals/{id}/documents` | that animal's documents, newest first, 50 at most, superseded versions included (`superseded_at`); 404 an animal the asker does not see. No herd listing: a herd's keeper opens a herd's document by its id |
+| `GET /documents/{id}` | one document; a `portal_views` row in the same transaction; 404 one the asker does not see |
+| `POST /accounts/activate` | `portal_activate`: the password set, `active`, the reminders' consent offered (an `activation` event when granted); 200, 401 a link unknown, used or expired |
+| `POST /password-reset`, `POST /password-reset/{token}` | `portal_request_reset` queues a `password-reset` message, 202 whatever the address; `portal_reset` sets the password and renews an expired invitation, 200 or 401 |
 | `POST /unsubscribe/{message_key}` | `portal_unsubscribe`: the reminders withdrawn (`message-link`), no login |
 | `POST /me/close` | `portal_close` |
-| `POST /desk/consents` | the desk's credential: `portal_desk_consent` (`desk`) |
+| `POST /desk/consents` | the desk's credential: `portal_desk_consent` (`desk`), 201; 422 refused (another purpose, or the owner's account closed: about one desk call in thirty, kept, D426); 401 without the credential |
 
 ### Rates at intensity 1.0
 
@@ -715,11 +753,22 @@ writing):
 | Key | What one tick does | Rate | Shape | A day |
 |---|---|---|---|---|
 | `owners.visit` | picks an active account, 70 % among the recipients of a message in the last 24 hours (from the messaging stub's record), the rest at random; logs in (one in 25 mistypes once first; one in 300 five times, locked); one in 50 first tries a token from a past session, a bookmarked link; lists the animals, opens one or two documents (1.6 on average); one in ten changes its channel or the reminders' consent; logs out half the time; records what each call returned | 9.3/h, poisson | `owners-day` | about 150 |
-| `owners.activate` | the oldest invitation in the messaging stub whose activation delay (0 to 3 days, by a hash of the account's id; 30 % never) has passed: activated with its token and the account's password, the reminders' consent granted by 80 % | 4/h (a capacity) | `owners-day` | about 9, following the invitations |
-| `owners.reset` | an active account asks a reset, then uses the message's token | 0.31/h, poisson | `owners-day` | about 5 |
+| `owners.activate` | the oldest planted invitation whose activation delay has passed (`owners.accounts`' `activates_at`, D423), else the oldest made in play, from the messaging stub, whose delay (0 to 3 days, by a hash of the account's id; 30 % never) has passed: activated with its token and the account's password, the reminders' consent granted by 80 % | 4/h (a capacity) | `owners-day` | about 9, following the invitations |
+| `owners.reset` | an active account asks a reset, then uses the message's token (from the messaging stub: without it, as in chunk 16's fixture, resets are asked and never used) | 0.31/h, poisson | `owners-day` | about 5 |
 | `owners.unsubscribe` | a reminder received, one in twenty by a hash of its key, withdrawn through its link a few hours later | 2/h (a capacity) | `owners-day` | about 1 |
 | `owners.keeper` | a horse owner grants a keeper of the horse access (three in four) or withdraws it | 0.08/h, poisson | `owners-day` | about 1.3 |
 | `owners.close` | an active account closed | 0.015/h, poisson | `owners-day` | one every four days |
+
+As built (D423), the route keeps its state in `owners`' `data.sql`:
+`owners.settings` (`password_key`, the key's one copy) and
+`owners.accounts (account_id, email, status, link, activates_at)`, the
+load's open accounts as each browser remembers its own login
+(`account_id` the account's id and its owner's), updated by its own
+activations and closures, since the route cannot read `portal`; every
+call recorded in `owners.visits (id, at, account_id, call, status,
+animal_ids, document_ids)`. Its constants are one-value `choice`s (D303).
+About half the `owners.keeper` ticks find a consent to change (222 of
+the 414 active horse owners hold one; T274's witness, D427).
 
 On `pms`, as the desk's credential over HTTP:
 
@@ -754,7 +803,8 @@ amendments as versions. In flight at T0, as a night leaves the portal:
 
 - the night's signed consultations and urgent results published, their
   notices sent (notices go at any hour; reminders wait for 09:00);
-- about 180 invitations within their 14 days, their tokens in the
+- about 190 open links (193 as built: the invitations within their 14
+  days and the older invited accounts' renewals), their tokens in the
   messaging stub's record, so the owners activate them over the next
   days;
 - a few sessions from the late evening, idle;
@@ -762,8 +812,19 @@ amendments as versions. In flight at T0, as a night leaves the portal:
 - the planted messages of the last day in the messaging stub, so the
   morning's visits follow them.
 
-The partners' database is planted from the same functions (the tokens,
-the messages of the last 14 days), as the lab's stubs are (D304).
+As built (D423) the load writes no outbox row: the derivation writes
+the year's outbox numbered 1..n by `queued_at`, ties by `message_key`,
+the sequence set after (the coherence check `outbox-order` holds it);
+`message_key` is `md5('<template>:<account>:<reference>')::uuid`, a
+sent row's `provider_id` `md5('messaging:' || message_key)::uuid`; one
+message in fifty took two attempts (a 503, then the same key); the last
+two minutes' are unsent.
+
+The messaging stub's messages of the last 14 days (the invitations'
+tokens among them) are planted after the derivation by
+`vet-portal-messages`' history, copying `portal_outbox`'s sent rows;
+the derivation writes `portal` only (D404). The owners' route's key is
+planted by `owners`' `data.sql` (D406).
 
 ### Cold storage (D297)
 
@@ -876,6 +937,14 @@ as standing behaviour, so retries have a witness (D214's precedent); it
 keeps what it received (the owners' route reads it for its tokens and
 recent recipients).
 
+**History** (D404): the purpose's `history` plants what the stub
+received in the last 14 days, its `target` the partners' database,
+`portal` its source: `portal_outbox`'s sent rows, read through
+`gm_src_source` after the derivation, the 193 open links' tokens
+among them (read as `gm_check`, which row-level security binds: the
+read needs a way in, open for W4's capture, O243). The stub's DDL is its receiver material, copied into the
+partners' node's data file, with `SELECT` granted to `owners`.
+
 **Jobs** (on `interfaces`, `portal` as `portal_dispatch`):
 
 | Job | Cadence | What it computes |
@@ -983,7 +1052,7 @@ point 3); T80, the release time unindexed on `lab`, slows
 | T271 | The documents' policy without the ownership's start (`record_at` against `from_at`) | a new owner reads the records from before the sale, the former owner's name with them (rule 1) | an animal sold in the year: its earlier documents returned to the buyer | the policy | new | M |
 | T272 | Row-level security bypassed for the API: `portal_api` owning the tables (a migration run as it) without `FORCE`, or granted `BYPASSRLS` for a support script | every owner sees every animal, the queries relying on the policies | every visit, at once: the owners' recorded visits, owners calling | the tables' owner, `FORCE`, the role | new | D |
 | T273 | No policy on `portal_documents` (the animals' only), while `GET /documents/{id}` reads by id | any owner opens any document by changing the number in the link | `pg_policies`, at once; the visits never probe, the story's complaint does ("I changed the number") | the policy | new | D with the story, M without |
-| T274 | The keeper's clause without the withdrawal, or without the keeping's end | a livery yard still seeing a horse after the owner withdrew, or after it left (rule 1) | about one withdrawal every three days; the planted history | the policy | new | M |
+| T274 | The keeper's clause without the withdrawal, or without the keeping's end | a livery yard still seeing a horse after the owner withdrew, or after it left (rule 1) | about one withdrawal every five or six days (as built, D427); the planted history | `portal_keeper_granted` (the withdrawal) or `portal_animals_scope` (the keeping's end) | new | M |
 | T275 | The consent lookup inside the policy unindexed (`portal_consent_events (animal_id, keeper_id, at)`; the shop's `consent_events (customer_id, at)`) | every `GET /animals` scanning the events, the evening peak slowing | `pg_stat_statements` on `records`, at once and at each peak | an index | adapts `pg-join-index-missing` | M |
 
 ### 4. Accounts and sessions (`portal-api`'s `db/` side)
@@ -1034,6 +1103,7 @@ Complaints with no fault behind them, each answerable from the trace
 | "The livery yard lost access to my horse" | the owner withdrew it, or the horse moved yard | the latest `keeper-access` event, the keeping's end |
 | "No reminder for my cows" | farm animals have herd visits, no reminders | the reminders' rule |
 | "The reminder came two weeks early" | 14 days ahead, by design | the due day's function and the lead |
+| "The desk's consent call fails now and then" (a 422 in `pms`' log) | the owner's account is closed: the desk tried a client who left, about one call in thirty (D426) | the account's `status` |
 
 ## Testing in v0.5 (D314): the minimal fixture
 
@@ -1091,15 +1161,24 @@ which the master spec carries):
    at T0; the documents of every signed consultation, released centre
    test and ended stay of the year, numbered in order of their gate and
    reference, their versions; the views and the notices that hang off
-   them; the messaging stub's planted notices of the last 14 days. The
+   them. It writes `portal` only, the whole outbox included (D404). The
    step is recorded in the scenario's composition record, beside
    `merge.yaml`, with its order (after `vet-core` and `vet-lab`); the
    post-load coherence check then reads every published document
    against a signed consultation, a released result or an ended stay
-   ([procedure](domain-procedure.md) 10). About 0.21 million rows and 6 500
-bcrypt hashes at cost 6 (about 30 seconds); size and time measured at
-the build. The partners' database is planted from the same functions
-(the last 14 days' messages and tokens).
+   ([procedure](domain-procedure.md) 10). Measured at the build (D423),
+the same at shift 0 and +2: the keys and `load.sql` 17 to 18 s (21 792
+rows, 6 682 bcrypt hashes at cost 6), `derive.sql` 121 s, 77 MB and
+about 0.20 million rows in all; through `load-data` in the portal
+fixture, the core, the lab, the portal, the owners' state, the purge and
+the derivation 603 to 632 s. The partners' database gets the owners' route's key from
+`owners`' `data.sql` (D406) and the messaging stub's messages of the
+last 14 days, their tokens among them, from `vet-portal-messages`'
+history after the derivation (D404). The sessions' purge is scheduled
+by `data/cron.sql` (`cron.schedule_in_database('portal', ...)` as
+`portal_housekeeping`, nothing else), which `load-data` runs on
+`records` after the part's load, once `portal` and its roles exist
+(D405).
 
 ## Questions for the owner
 

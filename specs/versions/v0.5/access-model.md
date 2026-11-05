@@ -8,7 +8,8 @@ ruling (5). Amended on 2026-11-04 after chunk 11, a wording made
 exact against what was built: the GM check role is kept off the
 partners' database from the network, and reads it on its node (8; spec
 D383); and a known gap added, the partner credentials the starter pack
-hands over, kept and tracked (13; spec D395, O231). Revises the [v0.4 access model](../v0.4/access-model.md),
+hands over, kept and tracked (13; spec D395, O231); after chunk 16, the portal's answers to a closed account as built
+(9.3; spec D428). Revises the [v0.4 access model](../v0.4/access-model.md),
 which it replaces for v0.5 games; "Changes from v0.4" at the end lists
 what moved.
 
@@ -433,10 +434,12 @@ token. An expired, idle or ended token yields no account (`401`). An
 insert outside the asker's scope fails the policy's check and answers an
 error (`403`). A keeper-access grant by an account that is not the
 animal's current owner is refused the same way, not stored. A closed
-account cannot log in, reset or unsubscribe (`401`, as for no account);
-an `invited` account logs in only after activation. A reset for an
-unknown e-mail answers as for a known one, so the portal never confirms
-an address.
+account cannot log in (`401`, as for no account); a reset asked for its
+address answers `202`, as for any address, and sends nothing; its
+reminder's unsubscribe link answers `404`, as an unknown key does
+(spec D428). An `invited` account logs in only after activation. A reset
+for an unknown e-mail answers as for a known one, so the portal never
+confirms an address.
 
 Owner 1, the clinic itself, has no account. Vets and pathologists never
 use the portal.

@@ -1,0 +1,356 @@
+# schedule.yaml of node pms, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/pms/schedule.yaml
+intensity: 1.0
+connections:
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_app
+    pool:
+      size: 6
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  sched:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: sched_app
+    pool:
+      size: 3
+streams:
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: owners.register
+    connection: clinic
+    rate: 1.6/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: animals.register
+    connection: clinic
+    rate: 0.86/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: referrals.receive
+    connection: clinic
+    rate: 1.82/h
+    arrivals: poisson
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: consultations.emergency
+    connection: clinic
+    rate: 0.42/h
+    arrivals: poisson
+    shape: around-the-clock
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: consultations.herd-visit
+    connection: clinic
+    rate: 2.1/h
+    arrivals: even
+    shape: herd-days
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: consultations.ward
+    connection: clinic
+    rate: 3/h
+    arrivals: poisson
+    shape: ward-rounds
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: stays.admit
+    connection: clinic
+    rate: 0.34/h
+    arrivals: poisson
+    shape: around-the-clock
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: stays.discharge
+    connection: clinic
+    rate: 2.67/h
+    arrivals: even
+    shape: discharges
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: alerts.record
+    connection: clinic
+    rate: 0.6/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: ownerships.transfer
+    connection: clinic
+    rate: 0.37/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: requests.cancel
+    connection: clinic
+    rate: 0.12/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: exchanges.request
+    connection: clinic
+    rate: 0.1/h
+    arrivals: poisson
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: consultations.close
+    connection: clinic
+    rate: 40/h
+    arrivals: even
+    shape: flat
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: consultations.sign
+    connection: clinic
+    rate: 20/h
+    arrivals: even
+    shape: signing
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: referrals.accept
+    connection: clinic
+    rate: 6/h
+    arrivals: even
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: referrals.close
+    connection: clinic
+    rate: 4/h
+    arrivals: even
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: exchanges.decide
+    connection: clinic
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: exchanges.report
+    connection: clinic
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: animals.file
+    connection: clinic
+    rate: 60/h
+    arrivals: poisson
+    shape: clinic-day
+    concurrency: 4
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: wards.list
+    connection: clinic
+    rate: 12/h
+    arrivals: even
+    shape: flat
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  - key: requests.pending
+    connection: clinic
+    rate: 15/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.bookings.make
+    connection: sched
+    rate: 8.4/h
+    arrivals: poisson
+    shape: reception
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.bookings.cancel
+    connection: sched
+    rate: 0.85/h
+    arrivals: poisson
+    shape: reception
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.surgery.plan
+    connection: sched
+    rate: 0.6/h
+    arrivals: poisson
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.trainees.enrol
+    connection: sched
+    rate: 0.38/h
+    arrivals: poisson
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.enrolments.cancel
+    connection: sched
+    rate: 0.04/h
+    arrivals: poisson
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.absences.record
+    connection: sched
+    rate: 0.04/h
+    arrivals: poisson
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.bookings.arrive
+    connection: sched
+    rate: 40/h
+    arrivals: even
+    shape: flat
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.bookings.no-show
+    connection: sched
+    rate: 10/h
+    arrivals: even
+    shape: flat
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.bookings.move
+    connection: sched
+    rate: 4/h
+    arrivals: even
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.shifts.clock
+    connection: sched
+    rate: 30/h
+    arrivals: even
+    shape: flat
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.sessions.attend
+    connection: sched
+    rate: 20/h
+    arrivals: even
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.sessions.close
+    connection: sched
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.sessions.open
+    connection: sched
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.slots.find
+    connection: sched
+    rate: 12/h
+    arrivals: poisson
+    shape: reception
+    concurrency: 2
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.agenda.day
+    connection: sched
+    rate: 30/h
+    arrivals: poisson
+    shape: clinic-day
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.theatre.board
+    connection: sched
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  - key: sched.rota.week
+    connection: sched
+    rate: 2/h
+    arrivals: poisson
+    shape: office
+shapes:
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  clinic-day:
+    days:
+      mon-fri:
+        hours:
+          00-07: 0
+          08-09: 0.8
+          10-11: 1.0
+          '12': 0.4
+          '13': 0.6
+          14-16: 1.0
+          17-18: 1.2
+          '19': 0.6
+          20-23: 0
+      sat:
+        hours:
+          00-07: 0
+          08-12: 0.8
+          13-23: 0
+      sun:
+        hours:
+          00-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  office:
+    days:
+      mon-fri:
+        hours:
+          00-07: 0
+          08-17: 1.0
+          18-23: 0
+      sat-sun:
+        hours:
+          00-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  herd-days:
+    days:
+      mon:
+        hours:
+          00-23: 0
+      tue:
+        hours:
+          00-07: 0
+          08-12: 1.0
+          13-23: 0
+      wed:
+        hours:
+          00-23: 0
+      thu:
+        hours:
+          00-07: 0
+          08-12: 1.0
+          13-23: 0
+      fri-sun:
+        hours:
+          00-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  ward-rounds:
+    hours:
+      00-08: 0
+      09-11: 1.0
+      12-15: 0
+      16-17: 0.5
+      18-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  around-the-clock:
+    hours:
+      00-07: 0.8
+      08-21: 1.1
+      22-23: 0.9
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  discharges:
+    hours:
+      00-09: 0
+      10-12: 1.0
+      13-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  signing:
+    hours:
+      00-07: 0
+      08-20: 1.0
+      21-23: 0
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/schedule.yaml
+  flat:
+    hours:
+      00-23: 1.0
+  # from vet-scheduling@regional-franchise: domains/vet-scheduling/producers/pms/schedule.yaml
+  reception:
+    days:
+      mon-fri:
+        hours:
+          00-07: 0
+          08-09: 1.2
+          10-11: 1.0
+          12-13: 0.6
+          14-16: 1.0
+          17-18: 0.8
+          19-23: 0
+      sat:
+        hours:
+          00-07: 0
+          08-11: 0.8
+          12-23: 0
+      sun:
+        hours:
+          00-23: 0

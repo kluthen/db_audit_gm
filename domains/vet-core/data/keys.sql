@@ -10,7 +10,8 @@
 --
 -- The contract is the eighteen pg_temp.core_* functions. The pg_temp.vc_*
 -- functions are their shared formulas (a hash, the calendar, the rota's
--- duties, a vet's or a patient's pick); a part calls only the eighteen.
+-- duties, the agenda, a vet's or a patient's pick); a part calls only the
+-- eighteen.
 --
 -- Signatures (D379): an id function takes (n integer); a function computing
 -- a time takes (n integer, load_epoch timestamptz, utc_offset integer), the
@@ -333,6 +334,33 @@ on_shift AS MATERIALIZED (
 SELECT coalesce((SELECT v FROM on_shift WHERE sec = section ORDER BY pg_temp.vc_u(salt * 32 + v, 21) LIMIT 1),
                 (SELECT v FROM on_shift ORDER BY pg_temp.vc_u(salt * 32 + v, 22) LIMIT 1),
                 (SELECT CASE WHEN tm < time '08:00' THEN nv1 ELSE nv0 END FROM p))
+$$;
+
+-- The section vets' shifts starting on local day d (vets 1-25; core_shifts'
+-- rules in closed form, the same formula as vc_vet_at's): the weekday day
+-- shifts, absent when vc_absence covers them; the night (20:00-08:00); the
+-- weekend's duties (08:00-20:00) and Saturday's two domestic consulting
+-- vets (08:00-13:00), kind 'day'.
+CREATE FUNCTION pg_temp.vc_vet_shifts(d date)
+  RETURNS TABLE (v integer, sec integer, kind text, s timestamp, e timestamp, absent boolean)
+  LANGUAGE sql IMMUTABLE STRICT AS $$
+WITH p AS MATERIALIZED (SELECT dn, dn / 7 AS wk, dn % 7 + 1 AS dow,
+                  pg_temp.vc_night_vet(d) AS nv0, pg_temp.vc_night_vet(d - 1) AS nv1,
+                  CASE WHEN dn % 7 >= 5 THEN pg_temp.vc_weekend_vets(d) END AS we
+             FROM (SELECT d - date '2000-01-03' AS dn) AS a),
+x (v, kind, s, e, absent) AS MATERIALIZED (
+  SELECT g, 'day', d + CASE WHEN g >= 18 AND g % 2 = 1 THEN time '10:00' ELSE time '08:00' END,
+         d + CASE WHEN g >= 18 AND g % 2 = 1 THEN time '20:00' ELSE time '18:00' END,
+         pg_temp.vc_absence(g, dn) IS NOT NULL
+    FROM p, generate_series(1, 25) AS g
+   WHERE dow <= 5 AND (g + wk) % 5 <> dow - 1 AND g <> nv0 AND g <> nv1
+  UNION ALL
+  SELECT nv0, 'night', d + time '20:00', d + 1 + time '08:00', false FROM p
+  UNION ALL
+  SELECT g, 'day', d + time '08:00', d + time '20:00', false FROM p, unnest(we[1:3]) AS g WHERE dow >= 6
+  UNION ALL
+  SELECT g, 'day', d + time '08:00', d + time '13:00', false FROM p, unnest(we[4:5]) AS g WHERE dow = 6)
+SELECT x.v, CASE WHEN x.v <= 10 THEN 1 WHEN x.v <= 17 THEN 2 ELSE 3 END, x.kind, x.s, x.e, x.absent FROM x
 $$;
 
 -- --- Animals, their identifiers, owners and herds --------------------------------
@@ -691,13 +719,110 @@ $$;
 
 -- --- Consultations -------------------------------------------------------------
 
--- consultation n (1-25 000 in start order, 589 a week at 1.0, 84 a day): its
--- kind and section drawn among the streams' rates at its hour; a scheduled
--- one's booking_id its own id (D317), one in five carrying a referral
--- (referral_id its own id), an emergency one in ten; an in-hospital one on
--- a stay current then (else an emergency); a herd visit on a herd; its vet
--- on shift then (vc_vet_at); closed 25 to 45 minutes after its start;
--- signed within the day, a night's the next morning. Times null after T0.
+-- The agenda (D408, D410): the half-hour slot (on the hour or the half-hour,
+-- local) holding local time t.
+CREATE FUNCTION pg_temp.vc_slot(t timestamp) RETURNS timestamp
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+$$ SELECT date_trunc('hour', t) + CASE WHEN extract(minute FROM t) >= 30 THEN interval '30 minutes'
+                                       ELSE interval '0' END $$;
+
+-- A section's consultation spaces: domestic the consulting rooms 1-4, horse
+-- the stalls 8, 9 and the arena 10, farm the crush 12 and theatre 13.
+CREATE FUNCTION pg_temp.vc_spaces(section integer) RETURNS integer
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+$$ SELECT CASE section WHEN 3 THEN 4 WHEN 1 THEN 3 WHEN 2 THEN 2 END $$;
+
+-- Slot s0's scheduled consultations: the ids of the slot (vc_before at its
+-- start and end) whose kind and section draw (core_consultation's, by u1
+-- among the hour's rates) is scheduled, each with its rank in its section
+-- in id order (0 first). The draws alone: no time, no patient computed.
+CREATE FUNCTION pg_temp.vc_slot_rank(s0 timestamp, load_epoch timestamptz, utc_offset integer)
+  RETURNS TABLE (c integer, sec integer, rk integer)
+  LANGUAGE sql IMMUTABLE STRICT AS $$
+WITH r AS MATERIALIZED (
+  SELECT pg_temp.vc_before(s0, 589, pg_temp.vc_shape('consult'), load_epoch, utc_offset) AS lo,
+         pg_temp.vc_before(s0 + interval '30 minutes', 589, pg_temp.vc_shape('consult'), load_epoch, utc_offset) AS hi,
+         pg_temp.vc_rate('sched-domestic', dow, h) AS sd, pg_temp.vc_rate('sched-horse', dow, h) AS sh,
+         pg_temp.vc_rate('sched-farm', dow, h) AS sf, pg_temp.vc_weight('consult', dow, h) AS w
+    FROM (SELECT extract(isodow FROM s0)::integer AS dow, extract(hour FROM s0)::integer AS h) AS a)
+SELECT y.c, y.sec, (row_number() OVER (PARTITION BY y.sec ORDER BY y.c) - 1)::integer
+  FROM (SELECT g::integer AS c,
+               CASE WHEN x < r.sd THEN 3 WHEN x < r.sd + r.sh THEN 1 WHEN x < r.sd + r.sh + r.sf THEN 2 END AS sec
+          FROM r, generate_series(r.lo + 1, least(r.hi, 25000)) AS g,
+               LATERAL (SELECT r.w * pg_temp.vc_u(g, 1) AS x) AS z) AS y
+ WHERE y.sec IS NOT NULL
+$$;
+
+-- Slot s0's vets by section: the section's vets on a day shift covering the
+-- whole slot with no absence, in an order hashed by the slot (u23).
+CREATE FUNCTION pg_temp.vc_slot_vets(s0 timestamp) RETURNS TABLE (sec integer, vets integer[])
+  LANGUAGE sql IMMUTABLE STRICT AS $$
+SELECT x.sec, array_agg(x.v ORDER BY pg_temp.vc_u((extract(epoch FROM s0)::bigint / 1800) * 32 + x.v, 23), x.v)
+  FROM pg_temp.vc_vet_shifts(s0::date) AS x
+ WHERE x.kind = 'day' AND NOT x.absent AND x.s <= s0 AND x.e >= s0 + interval '30 minutes'
+ GROUP BY x.sec
+$$;
+
+-- A placed scheduled consultation's start and close from its drawn local
+-- time t: started in its slot's first five minutes, at a sixth of its drawn
+-- offset in the slot (so the slot keeps its id order), closed 25 minutes
+-- after its start or later (u6) and by the slot's end.
+CREATE FUNCTION pg_temp.vc_slot_times(t timestamp, n integer) RETURNS TABLE (s timestamp, e timestamp)
+  LANGUAGE sql IMMUTABLE AS $$
+SELECT st, st + interval '25 minutes' + pg_temp.vc_u(n, 6) * (s0 + interval '5 minutes' - st)
+  FROM (SELECT s0, s0 + (t - s0) / 6 AS st FROM (SELECT pg_temp.vc_slot(t) AS s0) AS a) AS b
+$$;
+
+-- Slot s0's agenda: its placed scheduled consultations, the section's of
+-- rank rk taking the slot's vet rk + 1 while rk is below both the slot's
+-- vets and the section's spaces; past that, the agenda is full (no row).
+CREATE FUNCTION pg_temp.vc_agenda(s0 timestamp, load_epoch timestamptz, utc_offset integer)
+  RETURNS TABLE (c integer, sec integer, vet integer, started timestamp, closed timestamp)
+  LANGUAGE sql IMMUTABLE STRICT AS $$
+WITH q AS MATERIALIZED (SELECT * FROM pg_temp.vc_slot_rank(s0, load_epoch, utc_offset)),
+v AS MATERIALIZED (SELECT * FROM pg_temp.vc_slot_vets(s0) WHERE EXISTS (SELECT 1 FROM q))
+SELECT q.c, q.sec, v.vets[q.rk + 1], tt.s, tt.e
+  FROM q JOIN v ON v.sec = q.sec,
+       LATERAL (SELECT pg_temp.vc_cal(q.c, 589, pg_temp.vc_shape('consult'), load_epoch, utc_offset) AS t OFFSET 0) AS ct,
+       LATERAL pg_temp.vc_slot_times(ct.t, q.c) AS tt
+ WHERE q.rk < least(cardinality(v.vets), pg_temp.vc_spaces(q.sec)) AND ct.t IS NOT NULL
+$$;
+
+-- An unbooked consultation's vet (emergency, in hospital, herd visit) from
+-- local time t to its close e: a vet on shift at t with no absence (as
+-- vc_vet_at's) and no placed scheduled consultation over t to e, of the
+-- section first, else any section vet, drawn by the salt (vc_vet_at's
+-- hashes); when there is none, vc_vet_at's draw.
+CREATE FUNCTION pg_temp.vc_free_vet(section integer, t timestamp, e timestamp, load_epoch timestamptz,
+                                    utc_offset integer, salt bigint)
+  RETURNS integer LANGUAGE sql IMMUTABLE AS $$
+WITH busy AS MATERIALIZED (
+  SELECT a.vet FROM generate_series(pg_temp.vc_slot(t), e, interval '30 minutes') AS s0,
+                    LATERAL pg_temp.vc_agenda(s0, load_epoch, utc_offset) AS a
+   WHERE a.started < e AND a.closed > t),
+on_shift AS MATERIALIZED (
+  SELECT x.v, x.sec FROM (SELECT y.v, y.sec, y.s, y.e, y.absent FROM pg_temp.vc_vet_shifts(t::date) AS y
+                          UNION ALL  -- the night started the day before (vc_vet_shifts' night row)
+                          SELECT nv, CASE WHEN nv <= 10 THEN 1 WHEN nv <= 17 THEN 2 ELSE 3 END,
+                                 t::date - 1 + time '20:00', t::date + time '08:00', false
+                            FROM (SELECT pg_temp.vc_night_vet(t::date - 1) AS nv) AS z) AS x
+   WHERE x.s <= t AND t < x.e AND NOT x.absent AND x.v NOT IN (SELECT vet FROM busy))
+SELECT coalesce((SELECT v FROM on_shift WHERE sec = section ORDER BY pg_temp.vc_u(salt * 32 + v, 21) LIMIT 1),
+                (SELECT v FROM on_shift ORDER BY pg_temp.vc_u(salt * 32 + v, 22) LIMIT 1),
+                pg_temp.vc_vet_at(section, t, utc_offset, salt))
+$$;
+
+-- consultation n (1-25 000 in drawn-time order, 589 a week at 1.0, 84 a
+-- day): its kind and section drawn among the streams' rates at its hour; a
+-- scheduled one on the agenda (D408): in its slot, placed by its rank among
+-- the slot's scheduled ones of its section (vc_agenda's rule), its vet the
+-- slot's of that rank, started and closed in the slot (vc_slot_times), no
+-- row when the agenda is full; its booking_id its own id (D317), one in five
+-- carrying a referral (referral_id its own id), an emergency one in ten; an
+-- in-hospital one on a stay current then (else an emergency); a herd visit
+-- on a herd; an unbooked one's vet vc_free_vet's, closed 25 to 45 minutes
+-- after its start; signed within the day, a night's the next morning. Times
+-- null after T0.
 CREATE FUNCTION pg_temp.core_consultation(n integer, load_epoch timestamptz, utc_offset integer)
   RETURNS TABLE (kind text, section_id integer, vet_id integer, animal_id integer, herd_id integer,
                  stay_id integer, referral_id integer, started_at timestamptz, closed_at timestamptz,
@@ -717,28 +842,39 @@ d AS MATERIALIZED (SELECT t, CASE WHEN x < sd + sh + sf THEN 'scheduled' WHEN x 
                                                        WHEN pg_temp.vc_u(n, 2) < 0.90 THEN 1 ELSE 2 END
                   ELSE 2 END AS sec
         FROM w),
-s AS MATERIALIZED (SELECT d.*,
+a AS MATERIALIZED (SELECT d.*, ag.vet AS a_vet, ag.st AS a_start, ag.cl AS a_close
+        FROM d LEFT JOIN LATERAL (
+               SELECT vv.vets[rr.rk + 1] AS vet, tt.s AS st, tt.e AS cl
+                 FROM pg_temp.vc_slot_rank(pg_temp.vc_slot(d.t), load_epoch, utc_offset) AS rr,
+                      pg_temp.vc_slot_vets(pg_temp.vc_slot(d.t)) AS vv,
+                      pg_temp.vc_slot_times(d.t, n) AS tt
+                WHERE d.kd = 'scheduled' AND rr.c = n AND vv.sec = rr.sec
+                  AND rr.rk < least(cardinality(vv.vets), pg_temp.vc_spaces(rr.sec))) AS ag ON true
+       WHERE d.kd <> 'scheduled' OR ag.vet IS NOT NULL),
+s AS MATERIALIZED (SELECT a.*,
              CASE WHEN kd = 'in-hospital' THEN
-               (SELECT c.sn FROM (SELECT pg_temp.vc_before(d.t - interval '7 days', 58, pg_temp.vc_shape('stay'), load_epoch, utc_offset) AS lo,
-                                         pg_temp.vc_before(d.t, 58, pg_temp.vc_shape('stay'), load_epoch, utc_offset) AS hi) AS r,
+               (SELECT c.sn FROM (SELECT pg_temp.vc_before(a.t - interval '7 days', 58, pg_temp.vc_shape('stay'), load_epoch, utc_offset) AS lo,
+                                         pg_temp.vc_before(a.t, 58, pg_temp.vc_shape('stay'), load_epoch, utc_offset) AS hi) AS r,
                                  generate_series(0, 7) AS g,
                                  LATERAL (SELECT (r.lo + 1 + floor((r.hi - r.lo) * pg_temp.vc_u(n * 8 + g, 3)))::integer AS sn) AS c,
                                  LATERAL pg_temp.core_stay(c.sn, load_epoch, utc_offset) AS st
-                 WHERE r.hi > r.lo AND st.admitted_at <= pg_temp.vc_utc(d.t, utc_offset) - interval '1 hour'
-                   AND coalesce(st.discharged_at, 'infinity') > pg_temp.vc_utc(d.t, utc_offset)
+                 WHERE r.hi > r.lo AND st.admitted_at <= pg_temp.vc_utc(a.t, utc_offset) - interval '1 hour'
+                   AND coalesce(st.discharged_at, 'infinity') > pg_temp.vc_utc(a.t, utc_offset)
                  LIMIT 1) END AS stay
-        FROM d),
-f AS MATERIALIZED (SELECT s.t, CASE WHEN kd = 'in-hospital' AND stay IS NULL THEN 'emergency' ELSE kd END AS kind,
+        FROM a),
+f AS MATERIALIZED (SELECT coalesce(s.a_start, s.t) AS t, s.a_vet, s.a_close,
+             CASE WHEN kd = 'in-hospital' AND stay IS NULL THEN 'emergency' ELSE kd END AS kind,
              st.section_id AS stay_sec, st.animal_id AS stay_animal, s.sec, s.stay
         FROM s LEFT JOIN LATERAL pg_temp.core_stay(s.stay, load_epoch, utc_offset) AS st ON s.stay IS NOT NULL),
-g AS MATERIALIZED (SELECT f.t, f.kind, coalesce(f.stay_sec, f.sec) AS sec, f.stay,
+g AS MATERIALIZED (SELECT f.t, f.kind, coalesce(f.stay_sec, f.sec) AS sec, f.stay, f.a_vet,
              CASE WHEN f.kind = 'herd-visit' THEN NULL
                   WHEN f.stay IS NOT NULL THEN f.stay_animal
                   ELSE pg_temp.vc_patient(f.sec, pg_temp.vc_utc(f.t, utc_offset), load_epoch, utc_offset, n) END AS animal,
              CASE WHEN f.kind = 'herd-visit' THEN 1 + floor(200 * pg_temp.vc_u(n, 5))::integer END AS herd,
-             f.t + (25 + 20 * pg_temp.vc_u(n, 6)) * interval '1 minute' AS closed
+             coalesce(f.a_close, f.t + (25 + 20 * pg_temp.vc_u(n, 6)) * interval '1 minute') AS closed
         FROM f)
-SELECT g.kind, g.sec, pg_temp.vc_vet_at(g.sec, g.t, utc_offset, n), g.animal, g.herd, g.stay,
+SELECT g.kind, g.sec, coalesce(g.a_vet, pg_temp.vc_free_vet(g.sec, g.t, g.closed, load_epoch, utc_offset, n)),
+       g.animal, g.herd, g.stay,
        CASE WHEN (g.kind = 'scheduled' AND pg_temp.vc_u(n, 7) < 0.21) OR (g.kind = 'emergency' AND pg_temp.vc_u(n, 7) < 0.10)
             THEN n END,
        pg_temp.vc_utc(g.t, utc_offset),
@@ -961,11 +1097,15 @@ $$ SELECT 25 * k + floor(25 * pg_temp.vc_u(k, 92))::integer $$;
 -- within minutes; the partner answers within a working day, an examination
 -- declined one in ten, accepted for 1 to 10 days later, reported 1 to 3
 -- days after. An inbound one's animal is the partner's (partner_patient),
--- not registered here.
+-- not registered here. Its reason (D413): a transfer's, or an examination's
+-- drawn by u393 among six; an inbound one's partner patient's species by
+-- u391 among four; the values load.sql writes in exchanges.reason and
+-- partner_patient.
 CREATE FUNCTION pg_temp.core_exchange(n integer, load_epoch timestamptz, utc_offset integer)
   RETURNS TABLE (direction text, kind text, site_id integer, animal_id integer, stay_id integer,
                  exchange_key uuid, requested_at timestamptz, sent_at timestamptz, state text, answer text,
-                 accepted_for date, answered_at timestamptz, reported_at timestamptz)
+                 accepted_for date, answered_at timestamptz, reported_at timestamptz, reason text,
+                 partner_species text)
   LANGUAGE sql IMMUTABLE AS $$
 WITH b AS MATERIALIZED (SELECT (n - 1) / 7 AS k, (n - 1) % 7 AS r WHERE n BETWEEN 1 AND 700),
 an AS MATERIALIZED (SELECT b.*,
@@ -1022,6 +1162,10 @@ SELECT dir, kd,
        CASE WHEN ans < load_epoch THEN CASE WHEN declined THEN 'declined' ELSE 'accepted' END END,
        CASE WHEN ans < load_epoch AND NOT declined THEN acc END,
        CASE WHEN ans < load_epoch THEN ans END,
-       CASE WHEN ans < load_epoch AND rep < load_epoch THEN rep END
+       CASE WHEN ans < load_epoch AND rep < load_epoch THEN rep END,
+       CASE WHEN kd = 'transfer' THEN 'transfer for specialist care'
+            ELSE (ARRAY['CT examination', 'MRI examination', 'scintigraphy', 'second opinion', 'endoscopy',
+                        'cardiology examination'])[1 + floor(6 * pg_temp.vc_u(n, 393))::integer] END,
+       CASE WHEN dir = 'in' THEN (ARRAY['dog', 'cat', 'horse', 'cow'])[1 + floor(4 * pg_temp.vc_u(n, 391))::integer] END
   FROM w
 $$;

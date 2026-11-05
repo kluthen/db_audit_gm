@@ -170,14 +170,20 @@ handed over all the same.
      whose seed postgresql.conf preloads pg_cron. The second exception to
      "only scenario.yaml and the answer key": read the node's seed crontab
      (nodes/<node>/crontab), its seed postgresql.conf (cron.database_name,
-     cron.timezone) and its data file's cron.schedule_in_database calls,
-     for this alone. repeat: one row per crontab entry, then per pg_cron
-     job, in file order. Job: the entry's log name (<job> of
-     /var/log/postgresql/cron/<job>.log), or the pg_cron job name. Schedule:
-     its five fields as written, scenario time. Runs as: the entry's -U
-     role (or "postgres by peer", or the OS user when no psql), the pg_cron
-     username. What: the statement or command, shortened. -->
-Jobs on the node (<"cron daemon on" when it seeds a crontab><, ><"pg_cron on, metadata in `<cron.database_name>`, cron.timezone `<cron.timezone as written>`" when its seed preloads pg_cron>):
+     cron.timezone), its data file's cron.schedule_in_database calls, and
+     (from v0.5) the cron.schedule_in_database calls of the catalog's
+     domains/<id>/data/cron.sql of every entry of scenario.yaml's domains:
+     whose at: places it on this node (a domain shipping one sits on one
+     node), for this alone. repeat: one row per crontab entry, then per
+     pg_cron job of the data file, then per pg_cron job of each domain's
+     cron.sql in domains: order, each in file order. Job: the entry's log
+     name (<job> of /var/log/postgresql/cron/<job>.log), or the pg_cron job
+     name. Schedule: its five fields as written, scenario time. Runs as:
+     the entry's -U role (or "postgres by peer", or the OS user when no
+     psql), the pg_cron username. Database: as written, a domain's
+     database renamed as its at: maps it. What: the statement or command,
+     shortened. -->
+Jobs on the node (<"cron daemon on" when it seeds a crontab><, ><"pg_cron on, metadata in `<cron.database_name>`, cron.timezone `<cron.timezone as written>`" when its seed preloads pg_cron>)<if: a composed domain's data/cron.sql schedules jobs on the node: ", scheduled by `load-data` from the domain `<id>`'s `data/cron.sql` after its load", one per domain joined by " and "; then, when its data file schedules none, " (its data file schedules none)">:
 
 | Kind | Job | Schedule (scenario time) | Runs as | Database | What |
 |---|---|---|---|---|---|

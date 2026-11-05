@@ -1,0 +1,215 @@
+# vet-lab's classification (v0.5 master spec 9.3; vet-lab-domain.md,
+# "Classification", D302): every column of every table of the lab's database,
+# schema public, keyed <table>.<column> without the database (master spec
+# 6.1): the scenario's copy adds it (lab.<table>.<column>).
+#
+# Classes (v0.4's three, as vet-core applies them, D280):
+#   personal         a direct identifier, or a person's id stored beside one:
+#                    the centre's animal's id beside its natural identifiers
+#                    (microchip, UELN, ear tag); a practice's patient reference,
+#                    its client's surname (or the centre's owner's, lab.identity's);
+#                    the other party of a custody handover; a person called at
+#                    a practice;
+#   customer-linked  none: every order holding an animal's id holds an
+#                    identifier beside it;
+#   internal         everything else: the reference tables, a practice's id,
+#                    account and callback (a business), child rows (samples,
+#                    tests, results: they refer to their order and carry no
+#                    identifier), the core's request and consultation ids, staff
+#                    ids. Animal health is no special category (O112).
+# Two traps follow (docs/gm.md, "The traps"): free text (clinical notes, a
+# test's comment, a report) may name the owner or the client, though classed
+# internal; and a send-out or a callback carrying more than its rule allows.
+columns:
+  # lab_settings
+  lab_settings.timezone: internal
+  lab_settings.utc_offset_hours: internal
+  lab_settings.handling_fee: internal
+  lab_settings.urgent_surcharge_pct: internal
+  lab_settings.critical_call_minutes: internal
+  lab_settings.retention_years: internal
+  # lab_analytes
+  lab_analytes.id: internal
+  lab_analytes.code: internal
+  lab_analytes.name: internal
+  lab_analytes.unit: internal
+  lab_analytes.kind: internal
+  # lab_tests
+  lab_tests.id: internal
+  lab_tests.code: internal
+  lab_tests.name: internal
+  lab_tests.is_panel: internal
+  lab_tests.discipline: internal
+  lab_tests.sample_type: internal
+  lab_tests.turnaround_hours: internal
+  lab_tests.performed: internal
+  lab_tests.external_code: internal
+  lab_tests.diagnosis_code: internal
+  # lab_test_analytes
+  lab_test_analytes.test_id: internal
+  lab_test_analytes.analyte_id: internal
+  lab_test_analytes.position: internal
+  # lab_reference_intervals
+  lab_reference_intervals.id: internal
+  lab_reference_intervals.analyte_id: internal
+  lab_reference_intervals.species: internal
+  lab_reference_intervals.low: internal
+  lab_reference_intervals.high: internal
+  lab_reference_intervals.critical_low: internal
+  lab_reference_intervals.critical_high: internal
+  lab_reference_intervals.valid_from: internal
+  lab_reference_intervals.valid_until: internal
+  # lab_prices
+  lab_prices.id: internal
+  lab_prices.test_id: internal
+  lab_prices.price: internal
+  lab_prices.valid_from: internal
+  lab_prices.valid_until: internal
+  # lab_accounts
+  lab_accounts.id: internal
+  lab_accounts.kind: internal
+  lab_accounts.practice_id: internal
+  lab_accounts.callback_url: internal
+  lab_accounts.opened_on: internal
+  lab_accounts.closed_on: internal
+  # lab_orders
+  lab_orders.id: internal
+  lab_orders.account_id: internal
+  lab_orders.client_ref: internal
+  lab_orders.priority: internal
+  lab_orders.animal_id: personal
+  lab_orders.consultation_id: internal
+  lab_orders.requested_by: internal
+  lab_orders.patient_ref: personal
+  lab_orders.client_surname: personal
+  lab_orders.species: internal
+  lab_orders.sex: internal
+  lab_orders.born_on: internal
+  lab_orders.microchip: personal
+  lab_orders.ueln: personal
+  lab_orders.ear_tag: personal
+  lab_orders.clinical_notes: internal
+  lab_orders.withdrawal_ends_on: internal
+  lab_orders.ordered_at: internal
+  lab_orders.received_at: internal
+  lab_orders.completed_at: internal
+  lab_orders.cancelled_at: internal
+  # lab_samples
+  lab_samples.id: internal
+  lab_samples.order_id: internal
+  lab_samples.label: internal
+  lab_samples.sample_type: internal
+  lab_samples.collected_at: internal
+  lab_samples.collected_by: internal
+  lab_samples.received_at: internal
+  lab_samples.condition: internal
+  lab_samples.custody: internal
+  lab_samples.keep_until: internal
+  lab_samples.disposed_at: internal
+  # lab_order_tests
+  lab_order_tests.id: internal
+  lab_order_tests.order_id: internal
+  lab_order_tests.sample_id: internal
+  lab_order_tests.test_id: internal
+  lab_order_tests.request_id: internal
+  lab_order_tests.routing: internal
+  lab_order_tests.add_on: internal
+  lab_order_tests.status: internal
+  lab_order_tests.not_performed_reason: internal
+  lab_order_tests.not_performed_at: internal
+  lab_order_tests.technical_by: internal
+  lab_order_tests.technical_at: internal
+  lab_order_tests.released_by: internal
+  lab_order_tests.released_at: internal
+  lab_order_tests.cancelled_at: internal
+  lab_order_tests.comment: internal
+  # lab_sample_events
+  lab_sample_events.id: internal
+  lab_sample_events.sample_id: internal
+  lab_sample_events.kind: internal
+  lab_sample_events.at: internal
+  lab_sample_events.recorded_by: internal
+  lab_sample_events.place: internal
+  lab_sample_events.other_party: personal
+  lab_sample_events.condition: internal
+  lab_sample_events.seal_number: internal
+  # lab_qc_runs
+  lab_qc_runs.id: internal
+  lab_qc_runs.machine_id: internal
+  lab_qc_runs.level: internal
+  lab_qc_runs.control_lot: internal
+  lab_qc_runs.run_at: internal
+  lab_qc_runs.run_by: internal
+  lab_qc_runs.outcome: internal
+  lab_qc_runs.rule_broken: internal
+  lab_qc_runs.action: internal
+  # lab_batches
+  lab_batches.id: internal
+  lab_batches.machine_id: internal
+  lab_batches.qc_run_id: internal
+  lab_batches.started_at: internal
+  lab_batches.uploaded_at: internal
+  lab_batches.result_count: internal
+  # lab_results
+  lab_results.id: internal
+  lab_results.order_test_id: internal
+  lab_results.analyte_id: internal
+  lab_results.batch_id: internal
+  lab_results.numeric_value: internal
+  lab_results.text_value: internal
+  lab_results.flag: internal
+  lab_results.interval_id: internal
+  lab_results.measured_at: internal
+  lab_results.supersedes_id: internal
+  lab_results.amended_by: internal
+  lab_results.amended_at: internal
+  lab_results.amendment_reason: internal
+  # lab_critical_calls
+  lab_critical_calls.id: internal
+  lab_critical_calls.result_id: internal
+  lab_critical_calls.called_at: internal
+  lab_critical_calls.called_by: internal
+  lab_critical_calls.called_staff_id: internal
+  lab_critical_calls.called_person: personal
+  lab_critical_calls.read_back: internal
+  # lab_notifications
+  lab_notifications.id: internal
+  lab_notifications.order_test_id: internal
+  lab_notifications.diagnosis_code: internal
+  lab_notifications.category: internal
+  lab_notifications.suspected_at: internal
+  lab_notifications.notified_at: internal
+  lab_notifications.channel: internal
+  lab_notifications.authority_ref: internal
+  lab_notifications.forwarded_sample_id: internal
+  lab_notifications.official_lab_ref: internal
+  # lab_send_outs
+  lab_send_outs.id: internal
+  lab_send_outs.order_test_id: internal
+  lab_send_outs.send_key: internal
+  lab_send_outs.external_accession: internal
+  lab_send_outs.packed_at: internal
+  lab_send_outs.sent_at: internal
+  lab_send_outs.accepted_at: internal
+  lab_send_outs.answered_at: internal
+  lab_send_outs.due_by: internal
+  lab_send_outs.status: internal
+  # lab_callbacks
+  lab_callbacks.id: internal
+  lab_callbacks.order_id: internal
+  lab_callbacks.kind: internal
+  lab_callbacks.delivery_key: internal
+  lab_callbacks.attempt: internal
+  lab_callbacks.posted_at: internal
+  lab_callbacks.http_status: internal
+  lab_callbacks.acknowledged_at: internal
+  # lab_charges
+  lab_charges.id: internal
+  lab_charges.account_id: internal
+  lab_charges.order_id: internal
+  lab_charges.order_test_id: internal
+  lab_charges.kind: internal
+  lab_charges.price: internal
+  lab_charges.amount: internal
+  lab_charges.billable_on: internal
+  lab_charges.voided_at: internal

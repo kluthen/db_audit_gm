@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from tools.gm import build_parser, compose, model
+from tools.gm import build_parser, compose, localimpl, model
 from tools.tests import FIXTURES
 
 FIXTURE_COMPOSE = FIXTURES / "fixture-compose"
@@ -281,6 +281,378 @@ class TestRefusedInputs(ComposeCopyTest):
         args = build_parser().parse_args(["compose", "scenarios/x", "--check"])
         self.assertEqual((args.command, args.scenario_dir, args.check),
                          ("compose", "scenarios/x", True))
+
+
+class TestLeftOut(ComposeCopyTest):
+    """composition.yaml's left_out: (capture W3 item 0, chunk 29's (b)): no
+    unit merged from a left-out producer folder, in either layer, and no
+    node needed for it."""
+
+    def leave_out(self, *producers):
+        self.edit("scenario/composition.yaml", lambda d: d.update(left_out=[
+            {"domain": did, "producer": producer, "reason": "a fixture's least environment"}
+            for did, producer in producers]))
+
+    def test_nothing_merged_and_no_node_needed(self):
+        self.leave_out(("fx-part", "desk"), ("fx-core", "api/core-api"),
+                       ("fx-core", "partners/practices"))
+        self.edit("scenario/scenario.yaml", lambda d: (
+            d.update(nodes=[n for n in d["nodes"] if n["name"] not in ("core-api",
+                                                                       "partners-api")]),
+            [t.update(nodes=[n for n in t["nodes"] if n != "partners-api"])
+             for t in d["third_parties"]]))
+        self.assertEqual(self.composition_problems(), "")
+        result = self.compose()
+        self.assertEqual(list(self.output("desk", "queries.yaml")["queries"]),
+                         ["owners.lookup", "owners.new"])
+        self.assertEqual(list(self.output("desk", "schedule.yaml")["connections"]), ["app"])
+        written = sorted(str(p.relative_to(self.scenario)) for p in result.files)
+        self.assertFalse([p for p in written if "core-api" in p or "practices" in p], written)
+        backend = (self.scenario / "nodes/partners-backend/schedule.yaml").read_text()
+        self.assertNotIn("fx-core@big: domains/fx-core/producers/partners/practices", backend)
+
+    def test_the_variant_layer_left_out_too(self):
+        self.leave_out(("fx-core", "desk"))
+        self.compose()
+        text = (self.scenario / "nodes/desk/schedule.yaml").read_text()
+        self.assertNotIn("domains/fx-core/variants/big/producers/desk", text)
+        self.assertNotIn("domains/fx-core/producers/desk", text)
+        self.assertIn("domains/fx-part/producers/desk", text)
+
+    def test_a_left_out_folder_still_needs_composing_without_the_entry(self):
+        self.edit("scenario/scenario.yaml", lambda d: d.update(
+            nodes=[n for n in d["nodes"] if n["name"] != "core-api"]))
+        self.assertIn("domains/fx-core/producers/api/core-api/: targets node core-api, which "
+                      "scenario.yaml has no api node of that name", self.refused())
+
+    def test_a_malformed_entry_refused(self):
+        self.leave_out(("fx-core", "api/nowhere"))
+        text = self.refused()
+        self.assertIn("composition.yaml: left_out: cannot be applied", text)
+        self.assertIn("composition.yaml: left_out[0].producer: api/nowhere: not a folder of "
+                      "domains/fx-core/producers/", text)
+
+
+
+class TestLabStubs(unittest.TestCase):
+    """vet-lab's two stubs' fragments composed onto the partners' three shared
+    nodes (spec D403; capture W3 item 1): fixture-lab-core, its left-out
+    partner folders put back, partners-api and partners-backend added as
+    partners/shared/nodes.yaml declares them, the back end's base its scenario
+    layer; gmctl compose from the repository's catalogue, then the output
+    loaded with the scenario. No deployment."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-lab-stubs-")
+        self.addCleanup(tmp.cleanup)
+        self.scenario = Path(tmp.name) / "fixture-lab-core"
+        shutil.copytree(FIXTURES / "fixture-lab-core", self.scenario,
+                        ignore=shutil.ignore_patterns("nodes"))
+        shutil.copytree(FIXTURES / "fixture-lab-core" / "nodes", self.scenario / "nodes",
+                        ignore=shutil.ignore_patterns("clinic-api", "lis", "lab-api"))
+        record = self.scenario / "composition.yaml"
+        data = yaml.safe_load(record.read_text())
+        data["left_out"] = [e for e in data["left_out"] if not e["producer"].startswith("partners/")]
+        record.write_text(yaml.safe_dump(data, sort_keys=False))
+        shared = model.REPO_ROOT / "partners" / "shared"
+        declared = yaml.safe_load((shared / "nodes.yaml").read_text())["nodes"]
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        for node in declared[:2]:            # partners-api, partners-backend
+            node["seed_files"] = {k: v.replace(f"<nodes/{node['name']}/>", f"nodes/{node['name']}/")
+                                  for k, v in node["seed_files"].items()}
+            data["nodes"].append(node)
+            data["designed_for"]["placement"][node["name"]] = "laptop"
+        for entry in data["third_parties"]:
+            entry["nodes"] = ["partners-api", "partners-backend", "partners-db"]
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        hba = self.scenario / "nodes" / "partners-db" / "pg_hba.conf"
+        hba.write_text(hba.read_text().replace(
+            "host    all       all", "host    partners  practices,xlab        samenet     scram-sha-256\n"
+            "host    all       all"))
+        layer = self.scenario / "compose" / "partners-backend"
+        layer.mkdir(parents=True)
+        base = yaml.safe_load((shared / "partners-backend" / "schedule.yaml").read_text())
+        (layer / "schedule.yaml").write_text(f"intensity: {base['intensity']}\n")
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def output(self, node, fname):
+        return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
+
+    def test_the_stubs_on_the_shared_nodes(self):
+        api = self.output("partners-api", "api.yaml")
+        self.assertEqual(api["endpoints"], {
+            "practices_results": {"hosts": ["practices"], "credentials": ["practices_customer"]},
+            "practices_tick": {"hosts": ["practices"], "credentials": ["partners_backend"]},
+            "xlab_orders": {"hosts": ["northfield-lab"], "credentials": ["xlab_customer"]},
+            "xlab_tick": {"hosts": ["northfield-lab"], "credentials": ["partners_backend"]}})
+        self.assertEqual(sorted(api["connections"]), ["practices-db", "practices-lab", "xlab-db", "xlab-lab"])
+        self.assertEqual({n: c["credential"] for n, c in api["connections"].items() if c["driver"] == "http"},
+                         {"practices-lab": "lab_practices", "xlab-lab": "lab_xlab"})
+        for name in api["endpoints"]:
+            for folder in ("routes", "db"):
+                self.assertTrue((self.scenario / "nodes" / "partners-api" / folder / f"{name}.py").is_file())
+        backend = self.output("partners-backend", "schedule.yaml")
+        self.assertEqual(backend["intensity"], 1.0)
+        self.assertEqual([(s["key"], s["connection"]) for s in backend["streams"]],
+                         [("practices.normal", "practices-db"), ("practices.order", "practices-tick"),
+                          ("xlab.normal", "xlab-db"), ("xlab.answer", "xlab-tick")])
+        self.assertEqual({n: (c["target"], c["credential"]) for n, c in backend["connections"].items()
+                          if c["driver"] == "http"},
+                         {"practices-tick": ("practices:8000", "partners_backend"),
+                          "xlab-tick": ("northfield-lab:8000", "partners_backend")})
+        self.assertEqual(sorted(backend["shapes"]), ["practice-hours", "xlab-hours"])
+        queries = self.output("partners-backend", "queries.yaml")["queries"]
+        self.assertEqual(queries["practices.order"], {"call": "POST /tick"})
+        self.assertEqual(queries["xlab.answer"], {"call": "POST /tick"})
+        self.assertEqual(self.output("partners-backend", "jobs.yaml"), {"jobs": []})
+
+    def test_the_output_loads(self):
+        scenario = model.load_scenario(self.scenario)
+        self.assertEqual([t["hostname"] for t in scenario.data["third_parties"]],
+                         ["northfield-lab", "practices"])
+        self.assertEqual(self.result.overrides, [])
+
+
+class TestPortalDesk(unittest.TestCase):
+    """vet-portal's desk stream on the practice software (capture W3 item 5):
+    fixture-portal, its two left-out pms folders put back (vet-core's and
+    vet-portal's) and a pms node added; gmctl compose from the repository's
+    catalogue. The desk's connection and stream join the core's on pms, the
+    core's shape named, never written by the portal. No deployment."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-portal-desk-")
+        self.addCleanup(tmp.cleanup)
+        self.scenario = Path(tmp.name) / "fixture-portal"
+        shutil.copytree(FIXTURES / "fixture-portal", self.scenario, ignore=shutil.ignore_patterns("nodes"))
+        shutil.copytree(FIXTURES / "fixture-portal" / "nodes", self.scenario / "nodes",
+                        ignore=shutil.ignore_patterns("portal-api", "interfaces", "partners-api",
+                                                      "partners-backend"))
+        record = self.scenario / "composition.yaml"
+        data = yaml.safe_load(record.read_text())
+        data["left_out"] = [e for e in data["left_out"] if e["producer"] != "pms"]
+        record.write_text(yaml.safe_dump(data, sort_keys=False))
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["nodes"].append({
+            "name": "pms", "brick": {"id": "scheduler", "version": "0.3.0"}, "role": "producer",
+            "stateful": True, "networks": ["backend"], "write_policy": "no-access", "parameters": {},
+            "resources": {"limits": {"cpu": 0.25, "memory": "128M"},
+                          "reservations": {"cpu": 0.1, "memory": "64M", "disk": "128M"}},
+            "published_ports": [],
+            "seed_files": {f: f"nodes/pms/{f}" for f in ("queries.yaml", "jobs.yaml", "schedule.yaml")},
+            "knobs": []})
+        data["designed_for"]["placement"]["pms"] = "laptop"
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        layer = self.scenario / "compose" / "pms"
+        layer.mkdir(parents=True)
+        (layer / "schedule.yaml").write_text("intensity: 1.0\n")
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def output(self, node, fname):
+        return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
+
+    def test_the_desk_on_pms(self):
+        schedule = self.output("pms", "schedule.yaml")
+        self.assertEqual(schedule["connections"]["portal"],
+                         {"driver": "http", "target": "portal-api:8000", "credential": "portal_desk",
+                          "pool": 1, "timeout": "10s"})
+        self.assertEqual(schedule["connections"]["clinic"]["role"], "vet_app")
+        desk = [s for s in schedule["streams"] if s["key"] == "portal.desk-consent"]
+        self.assertEqual(desk, [{"key": "portal.desk-consent", "connection": "portal", "rate": "0.28/h",
+                                 "arrivals": "poisson", "shape": "clinic-day"}])
+        self.assertIn("clinic-day", schedule["shapes"])
+        queries = self.output("pms", "queries.yaml")["queries"]
+        self.assertEqual(queries["portal.desk-consent"], {
+            "call": "POST /desk/consents",
+            "params": {"owner_id": {"int": [2, 10000]}, "purpose": {"choice": ["reminders"]},
+                       "granted": {"choice": {True: 2, False: 1}}}})
+        self.assertEqual(self.result.overrides, [])
+
+    def test_the_desk_endpoint_takes_the_credential(self):
+        api = self.output("portal-api", "api.yaml")
+        self.assertEqual(api["endpoints"]["desk"], {"hosts": ["portal-api"], "credentials": ["portal_desk"]})
+        self.assertEqual([n for n, e in api["endpoints"].items() if "credentials" not in e],
+                         ["session", "me", "animals", "documents", "accounts"])
+
+
+# A test-local owners' route (vet-portal's shape, D369): one tick on the
+# hostname owners behind the back end's credential.
+OWNERS_FILES = {
+    "api.yaml": "endpoints:\n  owners_tick:\n    hosts: [owners]\n"
+                "    credentials: [partners_backend]\n",
+    "schedule.yaml": "connections:\n  owners-tick: {driver: http, target: owners:8000, "
+                     "credential: partners_backend, pool: 1, timeout: 30s}\n"
+                     "streams:\n  - key: owners.visit\n    connection: owners-tick\n"
+                     "    rate: 6/h\n    arrivals: poisson\n",
+    "queries.yaml": "queries:\n  owners.visit:\n    call: POST /tick\n",
+    "routes/owners_tick.py": '"""The owners\' tick (a test-local owners\' route)."""\n\n'
+                             "from fastapi import APIRouter\n\nfrom db import owners_tick\n\n"
+                             "router = APIRouter()\n\n\n@router.post(\"/tick\")\ndef tick():\n"
+                             "    return owners_tick.tick()\n",
+    "db/owners_tick.py": '"""The owners\' tick, its database side (test-local)."""\n\n\n'
+                         "def tick():\n    return {\"visits\": 1}\n",
+}
+OWNERS_ROUTE = "domains/vet-lab/producers/partners/owners/"
+
+
+class OwnersAloneCase(unittest.TestCase):
+    """The partners' shared nodes serving the owners alone (spec D421;
+    build plan chunk 31): fixture-lab-core, whose third parties list
+    [partners-db] only and whose lab partner folders are left out, with
+    partners-api and partners-backend added as partners/shared/nodes.yaml
+    declares them, and a test catalog whose vet-lab (a copy) carries a
+    test-local owners' route; the repository's other units linked. No
+    deployment. Holds no test: test_compose's and test_model's derive."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-owners-alone-")
+        self.addCleanup(tmp.cleanup)
+        self.catalog = Path(tmp.name) / "catalog"
+        (self.catalog / "domains").mkdir(parents=True)
+        for unit in ("bricks", "faults", "purposes", "partners"):
+            (self.catalog / unit).symlink_to(model.REPO_ROOT / unit)
+        for domain in sorted((model.REPO_ROOT / "domains").iterdir()):
+            if domain.name == "vet-lab":
+                shutil.copytree(domain, self.catalog / "domains" / domain.name)
+            elif domain.is_dir():
+                (self.catalog / "domains" / domain.name).symlink_to(domain)
+        for rel, text in OWNERS_FILES.items():
+            path = self.catalog / OWNERS_ROUTE / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        self.scenario = Path(tmp.name) / "fixture-lab-core"
+        shutil.copytree(FIXTURES / "fixture-lab-core", self.scenario,
+                        ignore=shutil.ignore_patterns("nodes"))
+        shutil.copytree(FIXTURES / "fixture-lab-core" / "nodes", self.scenario / "nodes",
+                        ignore=shutil.ignore_patterns("clinic-api", "lis", "lab-api"))
+        declared = yaml.safe_load((model.REPO_ROOT / "partners" / "shared" / "nodes.yaml")
+                                  .read_text())["nodes"]
+        def add(data):
+            for node in declared[:2]:        # partners-api, partners-backend
+                node["seed_files"] = {k: v.replace(f"<nodes/{node['name']}/>",
+                                                   f"nodes/{node['name']}/")
+                                      for k, v in node["seed_files"].items()}
+                data["nodes"].append(node)
+                data["designed_for"]["placement"][node["name"]] = "laptop"
+        self.scenario_yaml(add)
+        layer = self.scenario / "compose" / "partners-backend"
+        layer.mkdir(parents=True)
+        (layer / "schedule.yaml").write_text("intensity: 1.0\n")
+
+    def scenario_yaml(self, change):
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        change(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def node(self, data, name):
+        return next(n for n in data["nodes"] if n["name"] == name)
+
+    def compose(self):
+        return compose.compose(self.scenario, self.catalog)
+
+    def refused(self):
+        with self.assertRaises(compose.ComposeRefused) as cm:
+            self.compose()
+        return str(cm.exception)
+
+    def problems(self):
+        return "\n".join(model.check_scenario(self.scenario, self.catalog)[1])
+
+    def output(self, node, fname):
+        return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
+
+
+class TestOwnersAlone(OwnersAloneCase):
+    """compose with no third_parties: entry listing a scheduler or api node
+    (spec D421): a domain's owners' route alone onto partners-backend and
+    partners-api; every other refusal as before."""
+
+    def test_the_owners_route_alone_composes_and_loads(self):
+        result = self.compose()
+        api = self.output("partners-api", "api.yaml")
+        self.assertEqual(api["endpoints"], {"owners_tick": {"hosts": ["owners"],
+                                                            "credentials": ["partners_backend"]}})
+        for folder in ("routes", "db"):
+            self.assertTrue((self.scenario / "nodes/partners-api" / folder / "owners_tick.py")
+                            .is_file())
+        backend = self.output("partners-backend", "schedule.yaml")
+        self.assertEqual([(s["key"], s["connection"]) for s in backend["streams"]],
+                         [("owners.visit", "owners-tick")])
+        self.assertEqual(self.output("partners-backend", "queries.yaml")["queries"],
+                         {"owners.visit": {"call": "POST /tick"}})
+        self.assertIn(f"vet-lab@regional-franchise: {OWNERS_ROUTE}api.yaml",
+                      (self.scenario / "nodes/partners-api/api.yaml").read_text())
+        self.assertEqual(result.overrides, [])
+        scenario = model.load_scenario(self.scenario, self.catalog)
+        self.assertEqual({t["id"]: t["nodes"] for t in scenario.data["third_parties"]},
+                         {"northfield-lab": ["partners-db"],
+                          "regional-practices": ["partners-db"]})
+        self.assertEqual(localimpl.node_aliases(scenario, self.node(scenario.data,
+                                                                    "partners-api")),
+                         ["owners"])
+
+    def test_the_helper_names_both_nodes(self):
+        data = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        found = model.owners_alone_nodes(data, set(), self.catalog)
+        self.assertEqual((found.scheduler, found.api, found.routes, found.problems),
+                         ("partners-backend", "partners-api", [OWNERS_ROUTE], []))
+        self.assertIsNone(model.owners_alone_nodes(data, {("vet-lab", "partners/owners")},
+                                                   self.catalog))
+        for entry in data["third_parties"]:
+            entry["nodes"] = ["partners-api", "partners-backend", "partners-db"]
+        self.assertIsNone(model.owners_alone_nodes(data, set(), self.catalog))
+
+    def test_another_partner_folder_refused_as_before(self):
+        path = self.scenario / "composition.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["left_out"] = [e for e in data["left_out"] if e["producer"] != "partners/xlab"]
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        self.assertEqual(self.refused(), "domains/vet-lab/producers/partners/xlab/: partner "
+                         "material, but no third_parties: entry lists a scheduler node")
+
+    def test_either_node_missing(self):
+        for name in ("partners-backend", "partners-api"):
+            with self.subTest(node=name):
+                self.setUp()
+                self.scenario_yaml(lambda d: d.update(
+                    nodes=[n for n in d["nodes"] if n["name"] != name]))
+                self.assertEqual(self.refused(), (
+                    f"scenario.yaml: nodes: no node {name}: the owners' route ({OWNERS_ROUTE}) "
+                    "goes onto the partners' shared nodes partners-backend and partners-api, as "
+                    "no third_parties: entry lists a scheduler or api node (spec D421)"))
+
+    def test_a_node_of_another_brick(self):
+        self.scenario_yaml(lambda d: self.node(d, "partners-backend").update(
+            brick={"id": "api", "version": "0.1.0"}))
+        self.assertIn("scenario.yaml: nodes[partners-backend]: brick api, not scheduler: the "
+                      f"owners' route ({OWNERS_ROUTE}) goes onto the partners' shared nodes",
+                      self.refused())
+
+    def test_a_node_not_no_access(self):
+        self.scenario_yaml(lambda d: self.node(d, "partners-api").update(
+            write_policy="read-only"))
+        self.assertIn("scenario.yaml: nodes[partners-api]: write_policy read-only, not "
+                      "no-access: the owners' route", self.refused())
+
+
+class TestSharedNodeRefusals(ComposeCopyTest):
+    """compose's scheduler and api refusals with no owners' route, unchanged
+    by spec D421: a partner folder composed with no entry listing the node."""
+
+    def test_no_scheduler_node_listed(self):
+        self.edit("scenario/scenario.yaml", lambda d: d["third_parties"][0].update(
+            nodes=["partners-db"]))
+        self.assertEqual(self.refused(), "domains/fx-core/producers/partners/practices/: "
+                         "partner material, but no third_parties: entry lists a scheduler node")
+
+    def test_no_api_node_listed(self):
+        self.edit("scenario/scenario.yaml", lambda d: d["third_parties"][0].update(
+            nodes=["partners-backend", "partners-db"]))
+        self.assertEqual(self.refused(), "domains/fx-core/producers/partners/practices/: "
+                         "partner endpoints, but no third_parties: entry lists an api node")
 
 
 class TestComposition(ComposeCopyTest):

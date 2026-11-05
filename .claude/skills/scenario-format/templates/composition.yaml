@@ -35,6 +35,15 @@ derive:                             # optional: the sanctioned derivation steps,
   - domain: <vet-portal>
     after: [<vet-core>, <vet-lab>]  # the domain's declared derive.after
     reason: <one line>
+left_out:                           # optional: producers a fixture leaves out (capture W3 item 0,
+                                    # chunk 29); gmctl compose merges nothing from them and needs
+                                    # no node for them; a game composes every producer
+  - domain: <vet-lab>               # a domains: entry's id
+    producer: <partners/xlab>       # a folder under that domain's producers/: <node>,
+                                    # api/<node>, partners/<prefix> or public/<name>, once; a
+                                    # left-out partner's data.sql still runs into the partners'
+                                    # database when the scenario has one, skipped when it has none
+    reason: <one line>
 coherence:                          # optional: the post-load coherence check, once, at setup
   run_at: <setup time>              # (written at setup)
   result: <pass>

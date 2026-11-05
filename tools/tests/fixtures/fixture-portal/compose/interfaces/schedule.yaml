@@ -1,0 +1,14 @@
+# The scenario layer of node interfaces (v0.5 master spec 8.4), the
+# integration engine: idle in v0.5 chunk 16's fixture, as in chunk 15's.
+# Chunk 21 adds the portal's two purposes' material here (vet-portal-domain.md,
+# "Purposes that fit"). Until then the scheduler holds one connection it
+# never opens (the program needs one), portal-api, whose public endpoints need
+# no credential, no stream and no job.
+intensity: 1.0
+connections:
+  portal-api:
+    driver: http
+    target: portal-api:8000
+    pool: 1
+    timeout: 10s
+streams: []

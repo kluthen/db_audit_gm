@@ -38,7 +38,19 @@ traffic in `producers/partners/owners/` (9.7, 24; spec D369). On
 2026-11-04, the owner's ruling on the restore: a restart from the
 hand-over snapshot gives back every node as it was meant to run, a
 standby streaming from its primary again (7.1, 15, 18.2; spec D397,
-superseding D352's known limit).
+superseding D352's known limit). On 2026-11-04, two corrections chunk
+13 found, each settling the text against the rest of it: the history's
+scheduled consultations on the agenda's half-hour slots, never two of a
+vet at once, about 16 700 attended (9.4; spec D408); the rota planned to
+the booking horizon ahead of its publication, shifts 1–24 000 (9.4;
+spec D411). On 2026-11-04, chunk 12's measures of the lab's load: about
+20 800 samples, one a container, their ids as loaded; about 161 000
+results and 9 800 batches; intervals 61–456 in force; about eight
+send-outs open at T0; and the middleware's and the dispatch jobs' reads
+as granted (9.3; spec D415). On 2026-11-04, chunk 12b's: the
+middleware's read of the results' `order_test_id`, the order API's of
+the reference intervals, the release rounds as three jobs, no
+food-chain status on an order (9.3; spec D420).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -261,9 +273,10 @@ bricks/
   grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
   vet-portal/           new: the clinic's six domains (9); the core's key
-                        functions in data/keys.sql, a part's coherence
-                        queries in data/coherence.yaml, a partner's state in
-                        producers/partners/<prefix>/data.sql (6.1)
+                        functions in data/keys.sql, a part's own beside them,
+                        a part's coherence queries in data/coherence.yaml,
+                        its pg_cron jobs in data/cron.sql, a partner's state
+                        in producers/partners/<prefix>/data.sql (6.1)
 domains/shop/           its classification rekeyed, its register fragment, its
                         one variant (8.6), its fragments in producers/producer/
 partners/               new: a catalogue folder beside domains/ and purposes/:
@@ -286,7 +299,9 @@ tools/tests/fixtures/   the fixtures of the short tests (18)
                                    scenario's data register (13.3)
 specs/formats.md        draft v28: the domain format, composition, the register;
                         v29 after wave 2: the composed load's files and the
-                        partners/ folder, as built
+                        partners/ folder, as built; v31 after wave 3: a part's
+                        keys, cron.sql, left_out:, the purposes' ddl: and the
+                        owners alone on the shared nodes, as built
 ```
 
 ## 6. Format changes
@@ -294,8 +309,10 @@ specs/formats.md        draft v28: the domain format, composition, the register;
 The cross-version [formats.md](../../formats.md) states the rules for
 every version. Its draft v28 states v0.5's domain format, the
 composition of domains, the data register's files and the purpose
-format's extensions in full, and its v29 the composed load's files and
-the partners' folder as wave 2 built them; this section lists what v0.5 changes and
+format's extensions in full, its v29 the composed load's files and
+the partners' folder as wave 2 built them, and its v31 wave 3's (a
+part's keys, `cron.sql`, `left_out:`, `ddl:`, the owners alone on the
+shared nodes); this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -313,22 +330,27 @@ As [formats.md](../../formats.md) "Domain" states it:
   role, schema, keys, endpoints and connections), `variants/<variant>.yaml`
   and `variants/<variant>/producers/`; as built in wave 2, a core's
   `data/keys.sql`, a part's `data/coherence.yaml` and a partner's
-  `data.sql` (below). The owners' traffic is
+  `data.sql` (below); as built in wave 3, a part's own `data/keys.sql`
+  and any domain's `data/cron.sql` (below). The owners' traffic is
   `producers/partners/owners/`; `producers/public/` holds no `data.sql`.
 - **A composed domain's data files are read, not copied** (formats.md
   "Domain", "Loading a composed domain"): `load-data` reads the schema,
-  load, keys, derivation, partner and coherence files from the
+  load, keys, derivation, partner, coherence and cron files from the
   catalogue at every load, as it reads a purpose's history; `gmctl
   compose` writes the fragments into the scenario, and the GM copies the
   classification, policy and governance fragment as before. `load-data`
   creates each `at:` database, so a domain's schema and load never
   create a database nor `\connect`, and name it `:"DBNAME"`; every file
   it runs gets `load_epoch`, the run's start, its one "now"; the core's
-  `keys.sql` (`pg_temp.core_*`) is streamed ahead of each load, partner
-  file and derivation in the same session; a partner's `data.sql` runs
-  into `partners`; `coherence.yaml` holds the post-load coherence
-  queries (8.5), a check reading `partners` running on the partners'
-  node.
+  `keys.sql` (`pg_temp.core_*` and its own helpers) is streamed ahead of each load, partner
+  file and derivation in the same session, a part's own
+  (`pg_temp.<its prefix>_*`, one prefix, never the core's) after it; a
+  partner's `data.sql` runs into `partners`; `coherence.yaml` holds the
+  post-load coherence queries (8.5), a check reading `partners` running
+  on the partners' node; `cron.sql` holds the domain's
+  `cron.schedule_in_database` calls, run last of its load on its one
+  node, in the node's `cron.database_name`, each job's role `LOGIN`
+  with `CONNECT` on its database (D405).
 - **The partners' catalogue folder**, `partners/` (formats.md
   "Partners"): `shared/`, the three shared nodes' declarations and
   seeds, and `coldstore/`, cold storage laid out as a partner folder,
@@ -351,7 +373,14 @@ As [formats.md](../../formats.md) "Domain" states it:
   databases) and, beside the core, its `variant:`; `domain:
   <id>` stays the one-domain form. Checked as 8.5 says.
 - **`composition.yaml`**, the composition record, and **`merge.yaml`**,
-  the merge's resolutions, beside `scenario.yaml` (8.4, 8.5).
+  the merge's resolutions, beside `scenario.yaml` (8.4, 8.5); as built in
+  wave 3, the record's optional `left_out:` names producer folders not
+  composed (`{domain, producer, reason}`), a left-out partner's
+  `data.sql` still running where the game has a partners' database.
+- **The owners alone** (D421): with no `third_parties:` entry listing a
+  scheduler or `api` node, a composed owners' route goes onto the
+  `no-access` nodes `partners-backend` and `partners-api`, the latter
+  serving exactly `owners`.
 - **The data register**: `governance.register: player/data-register.md`,
   the handout, mapped to the bastion's optional seed file
   `data-register.md`; `gm/data-register.yaml`, the true register; both
@@ -437,7 +466,12 @@ round-trip kind and its `round_trips:` block; the `api` and `partner`
 parts; HTTP connections; endpoint material; periodic purposes with a
 feeder and `material/history.sql`; `judged:` (`runs`, `triggers`,
 `end-to-end`, `code`, `definition`); a purpose's own `classification:`;
-the `ops` schema and `ops.runs` (12.1).
+the `ops` schema and `ops.runs` (12.1). As built in wave 3: a history
+needs no feeder, and may target the partners' database, running there;
+`ddl:` maps a database part to its DDL under `material/`, run by
+`load-data` at the composed load's step (2b), after the domains' loads
+and before the derivations, only in a database a `domains:` entry
+holds.
 
 ### 6.7 Versions and pins
 
@@ -978,7 +1012,7 @@ type, rows, dates) and discards the payload. The GM decides per type,
 use first, volume second (about 50 000 rows a day at intensity 1.0 only
 marks a candidate). The housing displays log action events only, about
 520 a day, kept all game; the machines read every ten seconds while
-running, about 68 500 rows a day, `vitals` and `machine-readings`
+running, about 59 000 rows a day, `vitals` and `machine-readings`
 shipped nightly, the last full day kept in daily partitions. **Every
 domain's GM notes state each producer's growth an hour at intensity
 1.0**, rows and megabytes, and for each shipped type its retention on
@@ -1347,10 +1381,10 @@ loader checks that the core's variant names the part.
 | Axis | `regional-franchise` |
 |---|---|
 | Population | 6 analysers (`vet-machinery`'s machines 1–6), about 150 tests and 30 panels over 70 analytes, about 400 reference intervals in force (dog, cat, horse, cattle, sheep, goat; adults), 10 lab staff, 120 customer accounts, one price list revised each 1 January |
-| History | one year on the core's growth curve: 14 000 orders (7 700 the centre's, 6 300 the practices'), 18 000 samples, 24 000 tests, 192 000 results (one per analyte, a thousand amendments), 22 000 batches, 7 000 QC runs, 2 000 send-outs, 10 000 callbacks, 17 000 charge rows; about 0.36 million rows |
+| History | one year on the core's growth curve: 14 000 orders (7 700 the centre's, 6 300 the practices'), about 20 800 samples (one a container), 24 000 tests, about 161 000 results (one per analyte, a thousand amendments), about 9 800 batches (one per analyser-hour with results), 7 000 QC runs, 2 000 send-outs, 10 000 callbacks, 17 000 charge rows; about 0.33 million rows |
 | Throughput | about 85 tests a day (45 the centre's, around the clock; 25 practice orders a working day at 1.6 tests), 700 results, 75 batch uploads, 20 QC runs, 7 send-outs (Monday to Friday), two or three critical calls; about 1 300 rows and 400 updates a day |
 
-The lab outweighs the core, the results more than half of it; nothing ships to
+The lab outweighs the core, the results about half of it; nothing ships to
 cold storage. The bench works 07:00–21:00 Monday to Saturday, an on-call
 technician running the centre's urgent haematology, biochemistry and blood
 gases otherwise; the courier returns at about 10:45 and 16:45; the
@@ -1371,10 +1405,10 @@ pathologist's rounds are at 11:00, 14:00 and 18:00 (11:00 on Sundays).
 | Key | Range and layout |
 |---|---|
 | `lab_analytes.id`, `lab_tests.id` | 1–70; 1–180: 1–150 tests, 151–180 panels, about 36 sent out |
-| `lab_reference_intervals.id` | 1–460: 1–60 replaced by the January review, 61–460 in force |
+| `lab_reference_intervals.id` | 1–460: 1–60 replaced by the January review, 61–456 in force, 457–460 unused |
 | `lab_prices.id` | 1–360: test `t`'s price `t` until 1 January, `180 + t` from it |
 | `lab_accounts.id` | 1–121: 1 the centre (`internal`); account `a` (2–121) is referring practice `3 × (a − 1)` (3, 6, … 360) |
-| History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, in time order |
+| History | `lab_orders` 1–14 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000 (about 161 000 loaded), `lab_samples` as loaded (about 20 800), in time order |
 | Machines | `machine_id` 1–6: 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation; 1, 3 and 5 on call at night |
 | Core keys used | analysis `request_id`s among 1–17 000 by the core's requests function, a consultation's grouped into one order (1.8 tests); `animal_id` 1–17 000 and its identifiers by the core's functions; lab staff 71–80 |
 
@@ -1388,9 +1422,9 @@ and run logs are `vet-machinery`'s, with no row-level match to `lab_batches`.
 |---|---|
 | `lab` | own everything; no login |
 | `lab_app` | the information system: read every table; write orders, samples, order tests, sample events, results (bench, amendments), critical calls, notifications, QC runs, charges; never the reference tables |
-| `lab_api` | the order API: read the catalogue, accounts, orders, tests, results; write orders, samples and order tests at intake, send-outs' answers and their results |
-| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs; write batches and results |
-| `lab_dispatch` | the dispatch jobs: read orders, tests, results, accounts, samples; write callbacks, send-outs, `sent-out` events, notifications' sent columns |
+| `lab_api` | the order API: read the catalogue, accounts, orders, tests, results, and the reference intervals (the feed's `low`, `high`); write orders, samples and order tests at intake, send-outs' answers and their results |
+| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs, and an order's `id`, `species`, `priority`, a catalogue test's `id`, `code`, `discipline` and a result's `order_test_id` (the tests no run has resulted yet); write batches and results |
+| `lab_dispatch` | the dispatch jobs: read orders, tests, results, accounts, samples, the catalogue, and the callbacks, send-outs and notifications they update; write callbacks, send-outs, `sent-out` events, notifications' sent columns |
 | `lab_reports` | the reports and statements: read every table, write nothing |
 
 The purposes add `lab_watch` (the critical calls' `pg_cron` job) and
@@ -1431,8 +1465,9 @@ each test released or not performed within its turnaround plus the next round.
 **Identity from the core.** `lab.identity`, a job on `lis` every minute with a
 `lab` connection and an HTTP one to `clinic-api`, reads each new centre order's
 animal (`GET /animals/{id}`, `/owner`) and writes species, sex, birth date,
-identifiers, food-chain status and the owner's surname on the order: the
-lookup API's first traffic, a producer's job, not a purpose.
+identifiers and the owner's surname on the order (no food-chain status: an
+order has no column for it): the lookup API's first traffic, a producer's
+job, not a purpose.
 
 #### The outside customers and billing
 
@@ -1473,7 +1508,7 @@ each result when due to `lab-api`'s `POST /send-outs/{send_key}/result`. Past
 `POST /orders/{send_key}/resend` (the stub posts its answer again), then becomes
 an incident. The test is validated and released as the lab's own. The partners'
 database is planted from the lab's functions, so the stub knows every send-out
-the history left open (about twenty).
+the history left open (about eight, all the practices').
 
 #### The default policy: thirteen rules
 
@@ -1519,12 +1554,12 @@ work streams, their rates capacities:
 |---|---|
 | Work streams | `lab.samples.receive` 15/h (about 97 % fit by a hash of the sample's id), `lab.courier.receive` 40/h in `courier-waves`, `lab.analyser.run` 5.7/h as `lab_instruments` (nothing while the analyser's last QC failed), `lab.bench.result` 8/h, `lab.validate.technical` 30/h, `lab.release.urgent` 10/h, `lab.critical.call` 6/h, `lab.notify` 2/h, `lab.qc.rerun` 4/h |
 | Volume streams | `lab.amend` 0.25/h, `lab.orders.cancel` 0.08/h, `lab.add-on` 0.1/h |
-| Jobs | `lab.qc.morning` `45 6 * * *` (one in fifty fails), `lab.qc.night` `15 21 * * *` (machines 1, 3, 5), `lab.release.round` `0 11,14,18 * * 1-6` and `0 11 * * 0`, `lab.samples.dispose` `0 6 * * *` (may go to `pg_cron`), `lab.identity` every minute |
+| Jobs | `lab.qc.morning` `45 6 * * *` (one in fifty fails), `lab.qc.night` `15 21 * * *` (machines 1, 3, 5), `lab.release.round` as three jobs, `0 11 * * *` (Sundays' round included), `0 14 * * 1,2,3,4,5,6` and `0 18 * * 1,2,3,4,5,6`, `lab.samples.dispose` `0 6 * * *` (may go to `pg_cron`), `lab.identity` every minute |
 | Shapes | `bench` (Monday–Saturday 07:00–21:00 at 1.0, 0.1 otherwise), `courier-waves` (11:00–12:00, 17:00–18:00), `flat`; the stubs' `practice-hours` and `xlab-hours` |
 
 **In flight at T0**: the night's urgent orders, the practices' late orders not
-yet received, about fifteen cultures, 600 stored samples, twenty open
-send-outs, outside tests not yet released with their charges pending.
+yet received, about fifteen cultures, 600 stored samples, about eight open
+send-outs (all the practices'), outside tests not yet released with their charges pending.
 
 #### Purposes, loading, and what the build verifies
 
@@ -1630,13 +1665,15 @@ day after two (game values).
 | Key | Range, layout |
 |---|---|
 | `sched_rooms.id` | 1–16: 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 training |
-| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 17 600, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
-| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–21 000, sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
+| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 16 700, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 28 001–28 700 inbound examinations, `28 000 + exchange id`; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
+| others | types 1–45 (1–12 consultations, 13–24 imaging, 25–27 surgeries, 28–29 blocks, 30–45 session days), courses 1–16, allocations 1–60 000, shifts 1–about 24 300 (planned to the horizon; past 24 000 from a T0 between Friday noon and Sunday, the sequence resuming after both), sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
 
 Of the core it computes, never reads: the staff layout within the 85;
 each history consultation's kind, section, vet and start as functions
-of its id, a scheduled one's `booking_id` its own id, its vet on shift
-by the rota's pattern; the teaching animals; the history's deaths by
+of its id, each half-hour slot's placed ones by the core's `vc_agenda`, a scheduled one's `booking_id` its own id, its vet on shift
+by the rota's pattern, the scheduled ones on the agenda's half-hour
+slots within the section's vets and consultation spaces, never two of a
+vet at once; the teaching animals; the history's deaths by
 animal id; the imaging requests' study code and priority by request
 id. The core gains a partial unique index on `consultations.booking_id`
 and loses its `consultations.open` stream: scheduled consultations open
@@ -1645,16 +1682,19 @@ from bookings checked in.
 #### Scale, roles, classification, rules
 
 One variant, `regional-franchise`, no tag added. A year growing from
-about 60 % of today's rate: 20 600 consultation bookings (17 600
-attended, 2 100 cancelled, 900 no-shows), 3 400 imaging, 1 250 theatre
-plans, 360 blocks, 100 sessions, 1 000 enrolments, 20 600 shifts, 600
-absences; about 0.11 million rows and 30 MB, 330 new rows and 200
-updates a day.
+about 60 % of today's rate: 19 700 consultation bookings (16 700
+attended, 2 100 cancelled, 900 no-shows), 2 900 imaging, 800 theatre
+plans (the domestic surgeons consulting most of the day), 370 blocks,
+100 sessions, 1 200 enrolments, 23 800 shifts, 800 absences (the
+planned weeks' among them); about 0.10 million rows and 20 MB, 330 new
+rows and 200 updates a day. The bookable machines' hours: the CTs, the
+radiography units and the ultrasounds around the clock; the two MRIs and
+the gamma camera Monday to Friday 08:00–18:00.
 
 | Role | May |
 |---|---|
 | `sched` | own everything; no login |
-| `sched_app` | the module on `pms`: read all, execute the slot function, write bookings, allocations, shifts, absences, sessions, trainees, enrolments; never the reference tables |
+| `sched_app` | the module on `pms`: read all, execute the slot function (`EXECUTE` revoked from `PUBLIC`), write bookings, allocations, absences, trainees, enrolments, shifts (insert, delete, their publication and clocked times only), sessions' state; never the reference tables |
 | `sched_reports` | purpose 12, on the standby: read every `sched_` table |
 | `sched_interfaces` | purpose 11: read bookings, allocations, types, machines, hours, shifts, absences, settings; execute the slot function; write bookings and allocations |
 
@@ -1682,9 +1722,11 @@ one statement calling the slot function; cancellations 0.85/h, theatre
 plans 0.6/h, enrolments 0.38/h. Work streams check arrivals in (about
 75 a day, one in twenty left a no-show by a hash), mark no-shows, move
 bookings under a new absence, clock shifts (about 110 clockings a day),
-and run sessions. `sched.rota.publish` at `0 12 * * 5` writes the week
-after next's shifts and the machines' weekly blocks, idempotent on
-staff and start (movable to `pg_cron`). Variation is by a hash of the
+and run sessions. `sched.rota.publish` at `0 12 * * 5`, one statement,
+plans the seventh week's shifts, publishes the week after next's (those
+an absence covers removed) and books its seven weekly blocks,
+idempotent on staff and start and on the blocks' start and note
+(movable to `pg_cron`). Variation is by a hash of the
 row's id. Arrivals lag bookings by ten days, so another intensity shows
 in arrivals only over two weeks, which the story says.
 
@@ -1696,14 +1738,15 @@ every minute on `interfaces`, holding `clinic` as `vet_interfaces` and
 the allocated vet, started at the arrival, `booking_id`) for each
 arrived booking, once, its ledger row (`ops.booking_consultations`) in
 the same transaction; `book-requests` books each new imaging request on
-its study's machine (an urgent one today, a routine one within two
-working days) and each accepted inbound examination on its date, or the
+its study's machine (an urgent one at the machine's first free slot:
+the same day around the clock, otherwise the next imaging day's
+opening; a routine one within two working days) and each accepted inbound examination on its date, or the
 next free slot with an incident; `cancel-deceased` cancels a dead
 animal's future bookings. `vet_interfaces` gains `INSERT` on
 `consultations`' open columns and `SELECT` on `animals`' `id`, `status`,
 `died_at`. Invariants within 2 minutes: every arrived booking has its
 consultation (BS1), never two (BS2); every imaging request one live
-booking, urgent ones today (BS3); no dead animal's booking left (BS4);
+booking, an urgent one at its machine's first free slot (BS3); no dead animal's booking left (BS4);
 every accepted examination booked or an incident (BS5).
 
 **12, `vet-working-time`**, pulled, periodic: on `backoffice`, the
@@ -1760,14 +1803,18 @@ section's units in service), so about 62 % occupancy.
   (open while placed), reason, placed by; partial unique indexes on
   `unit_id` and on `stay_id` where open: one animal per unit, one unit
   per stay. A move ends one and opens the next at one instant, in one
-  transaction; one stay in five moves once. About 3 000 a year.
+  transaction; an animal moves out of intensive care, into isolation
+when its alert comes (as soon as a unit is free) and back to an
+ordinary unit when it ends. About 3 030 a year, 454 stays moving, 157
+of them twice.
 - **`housing_feeding_plans`**: a diet per species list or a
-  `nil-by-mouth` order overriding it, from, until. About 2 900.
+  `nil-by-mouth` order overriding it, from, until. About 2 800.
 - **`housing_care_events`**: unit, the occupant's `stay_id` (none for
   an emptied unit), kind (`feeding` with `eaten` all, part or none,
   `water`, `mucking-out`, `bedding`, `walk`, `grooming`, `check`,
   `disinfection`), at, by; written once. Never a dose: medicines are the
-  core's `administrations`. About 150 000 a year, 520 a day.
+  core's `administrations`. About 133 000 a year (the stays' ramp), 520
+a day.
 
 **`housing_unit_board`**, a view owned by `housing`, one row per unit,
 is what a display shows: the unit, its open placement, the stay and its
@@ -1795,7 +1842,10 @@ units against 40 current stays.
 
 The history follows the core's year: each stay placed ten minutes after
 admission in the lowest-id free unit that fits (isolation when
-infectious), one in five moved, released at its end, disinfected 30 to
+infectious, an ordinary unit while the section's isolation units are
+held, then in at the first one disinfected, and out when the alert
+ends: about one infectious stay in five waits, a few never get in),
+moved out of intensive care, released at its end, disinfected 30 to
 90 minutes later; diets, a nil-by-mouth order for one stay in six, the
 care log day by day, times and carers by hashes. At T0, as a night
 leaves the wards: 40 stays placed once each, the night's checks done,
@@ -1803,16 +1853,16 @@ units released in the last hour `to-clean`. The build fails if a stay
 finds no fitting unit; the GM's post-load coherence check then reads
 every placement on a real stay and every current stay placed, a
 mismatch being a design error caught before hand-over, never a fault.
-About 0.16 million rows and 50 MB; 540 a day; nothing ships to cold
-storage.
+About 0.14 million rows and 17 MB, loaded in about 7.5 s after the
+core; 540 a day; nothing ships to cold storage.
 
 #### Roles, classification, rules
 
 | Role | May |
 |---|---|
-| `housing` | own the tables and the view; no login |
+| `housing` | own the tables and the view; no login; for the view, read `animal_board`, `business_settings`, `stays` (reason) and `animals` (`born_on`) |
 | `housing_app` | the housing screens on `pms`: read housing's tables and the core's `stays`, `animals` (species), `alerts`, `staff` (kind) by column; write placements, plans, and units' `state` only |
-| `housing_ward` | the ward service's writes: insert care events, set units' `state`; nothing else |
+| `housing_ward` | the ward service's writes: insert care events (with `USAGE` on their sequence), set units' `state`; nothing else |
 | `vet_display` (core's) | the displays' reads: `animal_board` and `housing_unit_board` only |
 | `vet_reports` (core's) | the back office on the standby: every housing table |
 
@@ -1821,8 +1871,8 @@ table holds personal data; the board's `animal_id` is
 `customer-linked`; notes are `internal` and may name the owner (a
 trap). Rules (game values): the board shows no owner, contact or
 natural identifier; an animal with a current `infectious` alert is in
-isolation, every emptied unit disinfected before the next, isolation
-always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
+isolation as soon as one is free, every emptied unit disinfected
+before the next, isolation always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
 start, no feeding while in force (eight hours before an anaesthetic,
 twelve for horses and ruminants); checks every four hours, feeding at
 the species' rounds (horses 06, 12, 17, 21; ruminants 07, 16; dogs 08,
@@ -1888,9 +1938,12 @@ infectious animals outside isolation) and governance (the owner's
 contact on the board, read auditing on). The `housing` fixture
 (`records`, `pms`, `ward`, bastion; about 0.8 CPU and 0.75G) proves in
 under 30 minutes each the load's placements, the board (64 calls a
-minute, no owner), placement and release (T0 10:00), the care log (T0
-before 17:00), and T150 present, reported, cleared by the test turning
-the display's key off. Loading: into `clinic` as `postgres` after the
+minute, no owner), placement and release (T0 in the 10:00 hour, the
+shift moving whole hours; a unit released live is not seen disinfected
+within the run, the ward taking a unit after 30 minutes to clean), the
+care log (T0 in the 16:00 hour), and T150 present, reported, cleared by
+the test turning the display's key off; its hand-over rendered at least
+nine hours out, past the aging floor. Loading: into `clinic` as `postgres` after the
 core's schema, every time following the core's shifted stays. Capacity:
 `ward` (`scheduler`, 0.1 CPU, 64M, 128M disk, armenelos); a few
 hundredths of `records`' CPU.
@@ -1943,11 +1996,17 @@ the databases and revokes `CONNECT` from `PUBLIC`.
   acknowledged), partitioned monthly; `mach_readings` (a row a minute
   per machine, channels in `jsonb`), partitioned daily and shipped;
   `mach_readings_daily`, the kept aggregate.
+- **Each database keeps its one-row settings** (the customer's zone and
+  offset, the window): `mach_settings` in `biomed`, `mach_pacs_settings`
+  (with the turnarounds) in `pacs`, `mach_vitals_settings` (with the
+  chart's intervals) in `vitals`, the names unique across the part.
 - **`pacs`**: 30 procedures (study codes by modality and species
   group); `mach_worklist` (accession `I-<request id>`, unique, the
   idempotency key; the identity the lookup API answered, in DICOM's
   form: `patient_id` `A-<animal id>`, `patient_name` "owner's
-  surname^animal's name", the owner as Responsible Person); studies
+  surname^animal's name", the owner as Responsible Person; a
+  cancellation's reason and `cancelled_at`, purpose 13's watermark);
+  studies
   (operator, restrainer, companion present, images, size, exposure),
   series; reports, `preliminary` or `final`, an addendum a new row
   superseding the final, which is kept.
@@ -1971,15 +2030,19 @@ the census or by staff; a machine `in-service` ⇄ `down` → `retired`.
 
 | Key | Range, layout |
 |---|---|
-| `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–9 and 16 |
+| `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–10 and 16, 11 machines, machine 10 a status row with no channel |
 | `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal (26 standing MRI and 27 scintigraphy horses only), 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
-| History | worklist 1–3 400 (the k-th imaging request of the core, in time order), studies 1–3 470, series 1–8 000, reports 1–3 450, sessions 1–3 800, functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
+| History | worklist 1–3 400 (the k-th imaging request of the core, in time order; about 2 980 loaded), studies 1–3 470 (about 2 915), series 1–8 000 (about 6 500), reports as loaded (about 3 770, preliminaries included), sessions 1–3 800 (about 2 750), functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
 | Core keys used | imaging requests by the core's request function (study code drawn among these 30 by species group); animals 1–17 000; stays 1–2 500 by the stay function; staff 26–28 imaging specialists, 52–55 radiographers, 56 the biomedical engineer |
 
-About 0.34 million rows at load, the raw window a third of it. Live, about 68 500 rows a day: 52 000 raw vitals
-(about five animals in intensive care around the clock, up to four
-under anaesthesia on weekdays), 15 800 readings, about 700 that stay;
-about 11 studies a day (13 a weekday, 6 Saturday, 3 Sunday).
+About 0.28 million rows at load (75 MB, about 51 s), the raw window a
+third of it. Live, about 59 000 rows a day: 42 700 raw vitals (about
+two intensive-care sessions a day by the census's rule, about four
+animals in intensive care around the clock, up to four under
+anaesthesia on weekdays), 15 840 readings, about 700 that stay; about
+10 studies a day (12 a weekday, 6 Saturday, 3 Sunday), from about
+2 980 imaging requests a year reaching the worklist. The build's
+figures, chunk 30's reruns at the wave gate the figures of record.
 
 #### Roles
 
@@ -1989,9 +2052,9 @@ about 11 studies a day (13 a weekday, 6 Saturday, 3 Sunday).
 | `mach_pacs_app` | `pacs` | write worklist scheduling, identity and state, studies, series, reports; never the procedures |
 | `mach_vitals_app` | `vitals` | write census, sessions, vitals, chart, alarms |
 | `mach_biomed_app` | `biomed` | write events, readings, maintenance, downtimes, the machines' `status` and `qa_due_on` only |
-| `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only |
+| `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only; `LOGIN` (`pg_cron` runs a job only as a role that can log in), its password a secret no node mounts |
 | `mach_service` | `biomed` | the vendors' remote service (no producer in v0.5): read machines, events, readings, maintenance; write maintenance |
-| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states and the reports |
+| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states, cancellations (reason, `cancelled_at`) and the reports |
 | `mach_archive` | `vitals`, `biomed` | purpose 14: read raw rows, write aggregates, `EXECUTE` on `mach_drop_shipped`; no ownership |
 
 `CONNECT` on each database goes to its own roles only. The two
@@ -2034,7 +2097,7 @@ included as long as they carry a session's id only.
 `equipment` holds three connections (each database as its `_app` role)
 and an HTTP one to `clinic-api`; the partition jobs run on `machines`'
 `pg_cron` as `mach_maint`. At intensity 1.0: `vitals.sample` 360/h
-(set-based, about 52 000 rows a day), `biomed.readings` 60/h (15 800),
+(set-based, about 42 700 rows a day), `biomed.readings` 60/h (15 840),
 `biomed.events` 10.4/h, `vitals.alarm` 3/h, `vitals.anaesthesia.start`
 1/h on `theatre`; rare flows (unscheduled studies and cancellations
 weekly, addenda every three days); work streams, at capacities, schedule, acquire,
@@ -2056,7 +2119,7 @@ machinery) ship nightly at 00:40, the last full day and today kept;
 both are the GM's call per scenario; nothing else ships. `machines` has
 no standby and no WAL archive: a nightly base backup to the vault, so
 recovery goes back to last night. A stalled shipping grows the disk by
-10 MB a day, never a problem within an aging; it shows on the vault's
+about 7 MB a day, never a problem within an aging; it shows on the vault's
 graph and the partition count.
 
 #### Purposes 13 and 14
@@ -2100,7 +2163,8 @@ without reading `clinic`, partitions for the window and ahead, sessions
 unseen), then purpose 14's manifests. **The build verifies** the
 partition functions' fixed `search_path` and, after load, sessions on
 core stays and entries on imaging requests. Two fixtures under 30
-minutes: *imaging* (7 nodes, T0 a weekday 08:50), a request through to
+minutes: *imaging* (7 nodes, T0 a weekday within 30 minutes of 08:50,
+the shift moving whole hours), a request through to
 `resulted`; *vault* (6 nodes, T0 21:55), a night's shipment to the drop.
 
 ### 9.7 `vet-portal`, the owners' portal
@@ -2161,15 +2225,18 @@ Account `o` belongs to owner `o` (2–10 000, migrated from an old
 portal); the sequence is set at 20 000, so accounts created in play
 take 20 001 on, and joining an account's id to an owner's id is right
 for every loaded account and wrong for every new one (trap T261). At
-load about 65 % active, 32 % invited, 3 % closed, by a hash of the id;
-5 200 owners with the reminders' consent, 250 keeper grants; documents
-1–41 600 and the other history in time order. A vaccination is
+load about 67 % active, 30 % invited, 3 % closed, by a hash of the id;
+5 100 owners with the reminders' consent, 230 keeper grants; documents
+1–about 39 000 and the other history in time order, the outbox by
+`queued_at`; sessions from 39 301. A vaccination is
 due on day `1 + (animal_id × 211) mod 365`, for domestic animals and
-horses only. Passwords and tokens are HMACs of the account's id and the
-game's seed, so the owners' route logs in without the partners'
-database storing one; the load stores bcrypt (cost 6, *gv*) and SHA-256
-hashes. About 0.21 million rows at load; live about 720 a day: 140
-documents, 150 visits (mostly 18:00–22:00), 120 messages.
+horses only. Passwords and tokens are HMACs of the account's id and a
+key computed from the load's `load_epoch`, kept only in `owners`'
+schema on the partners' database, so the owners' route logs in without
+the partners' database storing one; the load stores bcrypt (cost 6, *gv*) and SHA-256
+hashes. About 0.20 million rows and 77 MB at load (the load 17 s, the
+derivation about two minutes); live about 720 a day: 140 documents, 150
+visits (mostly 18:00–22:00), 120 messages.
 
 #### Who may do what, and how a session is scoped
 
@@ -2194,17 +2261,21 @@ account's id).
 | sessions, outbox | no grant: through the functions only |
 
 Before anyone is known, the API calls `SECURITY DEFINER` functions
-owned by `portal`, `search_path` pinned: `portal_login(email,
-password)`, `portal_session(token)`, `portal_activate(token, password,
-reminders)`, `portal_request_reset(email)`, `portal_reset(token,
+owned by `portal` (`BYPASSRLS`), `search_path` pinned: `portal_login(email,
+password)`, `portal_session(token)`, `portal_logout(token)`,
+`portal_activate(token, password, reminders)`, `portal_request_reset(email)`, `portal_reset(token,
 password)`, `portal_unsubscribe(message_key)`, `portal_close()`,
-`portal_desk_consent(owner_id, purpose, granted)`. They and the queries
-are the API's `db/` side, which players may fix; never the routes.
+`portal_desk_consent(owner_id, purpose, granted)`. The keeper's clause
+and the documents' start read rows the own-rows policies hide from a
+keeper, through two such helpers the policies call,
+`portal_keeper_granted(animal, keeper)` and `portal_owner_since(animal)`.
+They and the queries are the API's `db/` side, which players may fix;
+never the routes.
 
 - **An owner** activates from the invitation's one-time link (sets a
   password, is offered the reminders' consent), logs in and out, lists
   their animals, lists an animal's documents (newest first, 50 at
-  most), opens one (a view recorded in the same transaction), changes
+  most, superseded versions included; a herd's are opened by id), opens one (a view recorded in the same transaction), changes
   their channel, grants or withdraws the reminders' consent or a named
   keeper's access to one animal, unsubscribes from a reminder's link
   without logging in, resets the password, closes the account (personal
@@ -2221,13 +2292,15 @@ are the API's `db/` side, which players may fix; never the routes.
   Vets and pathologists never use the portal.
 
 Refusals: a wrong password answers `401`, a locked account (five
-failures, 30 minutes) `423`, success `201` with a token. Out of scope
-is absent, not forbidden: the policies return no row, so a list is
-shorter or empty and another owner's document is not returned. An
-insert outside the asker's scope fails the policy's check with an
-error. An expired, idle or ended token yields no account.
+failures, 30 minutes) `423`, success `201` with a token in an HttpOnly
+cookie; activation `200`, logout `204`, a reset asked `202` whatever the
+address. Out of scope is absent, not forbidden: the policies return no
+row, so a list is shorter or empty and another owner's document is
+`404`. An insert outside the asker's scope fails the policy's check with
+an error (`403` for a `keeper-access` consent); the desk's refused call
+`422`. An expired, idle or ended token yields no account.
 
-Other roles: `portal_housekeeping` purges sessions ended 30 days ago
+Other roles: `portal_housekeeping`, a login role, purges sessions ended 30 days ago
 (03:30, `records`' `pg_cron` via `cron.schedule_in_database`); purpose
 15's `portal_sync` (accounts, never a closed one's; copies; documents)
 reading `clinic` as `vet_portal_sync` and `lab` as `lab_release`, both
@@ -2261,7 +2334,8 @@ hashes, a document's vet's name, the outbox's address and payload.
    password; reminders 08:00–20:00, never for a dead animal, a former
    owner or a closed account, each with a withdrawal link.
 8. **Audit**: every opening recorded; pgaudit without parameters.
-9. **Logs**: `log_statement = none` on `portal`.
+9. **Logs**: `log_statement = none` on `portal`, a database setting
+   `schema.sql` makes, as `pgaudit.log_parameter = off`.
 10. **Reach**: the API on `portal` only, over TLS.
 11. **Retention** (*gv*): documents five years, views and messages two,
     sessions 30 days, consent events five years after the account.
@@ -2310,7 +2384,9 @@ regenerate it a third time: `data/derive.sql` runs after those loads as
 `postgres` through a temporary foreign server it then drops, sessions
 unseen, and derives content only: the copies at T0, the year's
 documents in order of gate and reference, their versions, views and
-notices, and the stub's notices of the last 14 days. The post-load
+notices, writing `portal` only. Purpose 16's history (its `target` the
+partners' database, `portal` its source) then plants the messaging
+stub's messages of the last 14 days. The post-load
 coherence check reads every document against its gate; the pre-login
 functions' `search_path` is checked at the build. The `portal` fixture
 (eight nodes, T0 a weekday 08:50, the test writing the gates as
@@ -2472,7 +2548,7 @@ back.
   each producer's growth an hour and, per shipped type, its retention
   on site and the consumers it waits for; the node is sized for the
   retention on site plus the aging's slack.
-- **The clinic's types**: `vitals` (the monitors' readings, about 52 000
+- **The clinic's types**: `vitals` (the monitors' readings, about 42 700
   rows a day) and `machine-readings` (the machines' telemetry, shipped by
   the owner's direction), the last full day kept on site, shipped nightly
   at 00:40; and the vault's `wal` and `basebackup` (11.2).

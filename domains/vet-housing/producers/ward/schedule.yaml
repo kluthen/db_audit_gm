@@ -1,0 +1,57 @@
+# Schedule of the ward service, ward (v0.5 master spec 9.5;
+# vet-housing-domain.md, "The applications and their nodes", "Rates at
+# intensity 1.0"; D287): the displays' back end, a scheduler node of its own
+# in the players' scope, so its sessions show ward as application_name, apart
+# from the practice software's pms. Two connections holding a pool, as real
+# ward services do: ward-board, the displays' reads as the core's
+# vet_display, four sessions for some sixty displays; ward-care, the carers'
+# actions as housing_ward, two. In scenario time. On its own node it writes
+# every shape it uses (capture W3 item 0), flat copied unchanged from
+# vet-core's. One intensity a node: at another intensity the displays
+# refresh faster or slower (D32; docs/gm.md).
+connections:
+  ward-board:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_display
+    pool: {size: 4}
+  ward-care:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: housing_ward
+    pool: {size: 2}
+streams:
+  - key: ward.board                  # each display once a minute: 64 a minute, no row (D298)
+    connection: ward-board
+    rate: 3840/h
+    arrivals: even
+    shape: flat
+    concurrency: 4
+  - key: ward.feed                   # the rounds' feedings: about 110 a day
+    connection: ward-care
+    rate: 60/h
+    arrivals: even
+    shape: feeding-rounds
+  - key: ward.check                  # about 240 a day
+    connection: ward-care
+    rate: 10/h
+    arrivals: poisson
+    shape: flat
+  - key: ward.care                   # about 160 a day
+    connection: ward-care
+    rate: 10/h
+    arrivals: poisson
+    shape: care-day
+  - key: ward.disinfect              # follows the releases: about 8 a day
+    connection: ward-care
+    rate: 4/h
+    arrivals: even
+    shape: care-day
+shapes:
+  flat:
+    hours: {"00-23": 1.0}
+  feeding-rounds:                    # the hour after each round: 06, 07, 08, 12, 13, 16, 17, 18, 21
+    hours: {"00-05": 0, "06-08": 1.0, "09-11": 0, "12-13": 1.0, "14-15": 0, "16-18": 1.0, "19-20": 0,
+            "21": 1.0, "22-23": 0}
+  care-day:                          # 06:00-22:00; at night only checks are done
+    hours: {"00-05": 0, "06-21": 1.0, "22-23": 0}

@@ -1,0 +1,18 @@
+# api.yaml of the external reference lab's stub, Northfield Veterinary
+# Laboratories, a fragment for partners-api (v0.5 master spec 9.3, 10.2;
+# vet-lab-domain.md, "The partners the lab meets"; capture W3 items 0 and 1,
+# W2 item 6, W2-f; partners/README.md). Prefix xlab, hostname northfield-lab
+# (D370). Its orders endpoint (a send-out taken, a chase) behind the
+# customer's own account key with it, xlab_customer (purpose 3's; chunk 17
+# hands it over, D365); its tick behind the back end's partners_backend. The
+# tick posts each answer back to lab-api as lab_xlab (connection xlab-lab).
+endpoints:
+  xlab_orders:
+    hosts: [northfield-lab]
+    credentials: [xlab_customer]
+  xlab_tick:
+    hosts: [northfield-lab]
+    credentials: [partners_backend]
+connections:
+  xlab-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: xlab, pool: {size: 2}}
+  xlab-lab: {driver: http, target: lab-api:8000, credential: lab_xlab, pool: 1, timeout: 10s}

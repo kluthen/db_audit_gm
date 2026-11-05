@@ -1,0 +1,114 @@
+# Schedule of the practice-management software, vet-scheduling's fragment
+# (v0.5 master spec 9.4; vet-scheduling-domain.md, "Rates at intensity 1.0",
+# "The business hours"): the connection sched, as sched_app, beside the
+# core's clinic (D276; capture W3 item 0: connections unique per node), its
+# streams and its one shape, reception. In scenario time. The other shapes
+# are the core's (clinic-day, office, flat), named, never written here:
+# compose merges them from vet-core's fragment on the same node. A volume
+# stream's rate makes the daily volume; a work stream takes the oldest item
+# waiting, its rate a capacity.
+connections:
+  sched:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: sched_app
+    pool: {size: 3}
+streams:
+  # --- volume streams ---
+  - key: sched.bookings.make         # 92 / 34 / 0 a day (Mon-Fri / Sat / Sun), 71 on average
+    connection: sched
+    rate: 8.4/h
+    arrivals: poisson
+    shape: reception
+  - key: sched.bookings.cancel       # 9 / 3.5 / 0
+    connection: sched
+    rate: 0.85/h
+    arrivals: poisson
+    shape: reception
+  - key: sched.surgery.plan          # 6 a weekday
+    connection: sched
+    rate: 0.6/h
+    arrivals: poisson
+    shape: office
+  - key: sched.trainees.enrol        # 3.8 a weekday
+    connection: sched
+    rate: 0.38/h
+    arrivals: poisson
+    shape: office
+  - key: sched.enrolments.cancel     # 0.4 a weekday
+    connection: sched
+    rate: 0.04/h
+    arrivals: poisson
+    shape: office
+  - key: sched.absences.record       # 0.4 a weekday
+    connection: sched
+    rate: 0.04/h
+    arrivals: poisson
+    shape: office
+  # --- work streams ---
+  - key: sched.bookings.arrive       # about 75 arrivals a day, 60 of them consultations
+    connection: sched
+    rate: 40/h
+    arrivals: even
+    shape: flat
+  - key: sched.bookings.no-show      # about 3 a day
+    connection: sched
+    rate: 10/h
+    arrivals: even
+    shape: flat
+  - key: sched.bookings.move         # under one a day
+    connection: sched
+    rate: 4/h
+    arrivals: even
+    shape: office
+  - key: sched.shifts.clock          # about 55 shifts, 110 clockings a day
+    connection: sched
+    rate: 30/h
+    arrivals: even
+    shape: flat
+  - key: sched.sessions.attend       # about 10 a session day
+    connection: sched
+    rate: 20/h
+    arrivals: even
+    shape: office
+  - key: sched.sessions.close        # two a week
+    connection: sched
+    rate: 2/h
+    arrivals: even
+    shape: office
+  - key: sched.sessions.open         # two a week
+    connection: sched
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # --- reads ---
+  - key: sched.slots.find            # reception's search over two weeks
+    connection: sched
+    rate: 12/h
+    arrivals: poisson
+    shape: reception
+    concurrency: 2
+  - key: sched.agenda.day            # a section's day
+    connection: sched
+    rate: 30/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: sched.theatre.board         # today's theatre plans
+    connection: sched
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  - key: sched.rota.week             # a team's week
+    connection: sched
+    rate: 2/h
+    arrivals: poisson
+    shape: office
+shapes:
+  reception:                         # reception's hours: weekdays 08:00-19:00, Saturday mornings
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-09": 1.2, "10-11": 1.0, "12-13": 0.6, "14-16": 1.0, "17-18": 0.8, "19-23": 0}
+      sat:
+        hours: {"00-07": 0, "08-11": 0.8, "12-23": 0}
+      sun:
+        hours: {"00-23": 0}

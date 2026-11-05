@@ -83,9 +83,10 @@ moments would disagree with itself.
 
 **The contract is the eighteen `pg_temp.core_*` functions.** The
 `pg_temp.vc_*` functions beside them are their shared formulas (a hash,
-the calendar, the rota's duties, a vet's or a patient's pick): internal,
-free to change while the eighteen return the same rows. A part calls
-only the eighteen. `pg_temp.core_*` is reserved to the core (W2 item 0).
+the calendar, the rota's duties, the agenda, a vet's or a patient's
+pick): internal, free to change while the eighteen return the same rows.
+A part calls only the eighteen. `pg_temp.core_*` is reserved to the core
+(W2 item 0).
 
 ### The ranges
 
@@ -106,7 +107,7 @@ no row in the table.
 | `referring_practices.id` | 1–400 | |
 | `referring_vets.id` | 1–800 | two a practice: `core_referring_practice(v) = (v + 1) / 2` |
 | `medicines.id` | 1–400 | 40 products, ten presentations each: `id = 10 × (product − 1) + presentation` |
-| `consultations.id` | 1–25 000, sparse | in start order over the year; `core_consultation` |
+| `consultations.id` | 1–25 000, sparse | in drawn-time order over the year; `core_consultation`; a scheduled one past its slot's agenda has no row (about 4 %, D408) |
 | `referrals.id` | within 1–25 000, sparse | a referral's id is its first consultation's (`core_consultation`'s `referral_id`) |
 | `requests.id` | 1–17 000, sparse | in their consultation's order; `core_request` |
 | `stays.id` | 1–2 500, sparse | in admission order; `core_stay` |
@@ -241,13 +242,22 @@ With `dn = day − 2000-01-03` (a Monday), `wk = dn / 7`, `dow = dn mod 7
   section without its nurse about 150 times a year (the pattern holds it,
   the absence takes it).
 
-**A consultation's vet** (`vc_vet_at(section, t, utc_offset, salt)`) is
-the same rules in closed form for the section vets at one local instant:
-the vets 1–25 on a `day` or `night` shift at `t` with no absence, the
-weekend's duty and Saturday's consulting vets included, on-call
-excluded; among them one of the section, the first by
-`u₂₁(32 salt + v)`; else any section vet on shift, by `u₂₂`; else the
-night vet. `core_consultation` passes its own id as the salt.
+**A consultation's vet** is the same rules in closed form for the
+section vets 1–25, twice: `vc_vet_shifts(d)` lists the section vets'
+shifts starting on local day `d` (the weekday `day` shifts with their
+absence, the night, the weekend's duty and Saturday's consulting vets as
+`day` shifts; on-call excluded), and `vc_vet_at(section, t, utc_offset,
+salt)` picks a vet at one local instant: the vets on a `day` or `night`
+shift at `t` with no absence; among them one of the section, the first
+by `u₂₁(32 salt + v)`; else any section vet on shift, by `u₂₂`; else the
+night vet. Both are `core_shifts`' rules (the check compares
+`vc_vet_shifts` with `core_shifts` for every section vet and day of the
+year, no difference), so the three texts are one formula. A scheduled
+consultation takes its slot's vet (the agenda, under `core_consultation`);
+an unbooked one takes `vc_free_vet`, which is `vc_vet_at`'s draw among
+the vets with no scheduled consultation over its time;
+`vc_vet_at` itself stays the stays' admitting vet (the load's, salt
+`3 000 000 + id`). `core_consultation` passes its own id as the salt.
 
 ### Animals
 
@@ -386,15 +396,34 @@ The teaching animals never die.
 
 ### `core_consultation(n, load_epoch, utc_offset)`
 
-Consultations 1–25 000 in start order, `b = 589`. Returns `kind`,
-`section_id`, `vet_id`, `animal_id`, `herd_id`, `stay_id`, `referral_id`,
-`started_at`, `closed_at`, `signed_at`, `booking_id`:
+Consultations 1–25 000 in the order of their drawn time `t = vc_cal(n,
+589, 'consult')`, `b = 589`. Returns `kind`, `section_id`, `vet_id`,
+`animal_id`, `herd_id`, `stay_id`, `referral_id`, `started_at`,
+`closed_at`, `signed_at`, `booking_id`:
 
-- `started_at = vc_cal(n, 589, 'consult')`; the kind and section drawn
-  by `u₁(n) × (the hour's total rate)` among the streams' rates at that
-  hour (scheduled domestic, horse, farm; emergency; in-hospital; herd
-  visit); an emergency's section by `u₂`: domestic below 0.65, horse
-  below 0.90, else farm;
+- the kind and section drawn by `u₁(n) × (the hour's total rate)` among
+  the streams' rates at `t`'s hour (scheduled domestic, horse, farm;
+  emergency; in-hospital; herd visit); an emergency's section by `u₂`:
+  domestic below 0.65, horse below 0.90, else farm;
+- **a `scheduled` one is on the agenda** (D408, D410): its slot `s` is
+  the half-hour (on the hour or the half-hour, local) holding `t`
+  (`vc_slot`). The slot's ids are `vc_before(s) + 1 … vc_before(s + 30
+  min)` (exact: the check finds every consultation inside its slot's
+  range); its scheduled ones are those whose `u₁` draw is scheduled, each
+  with its rank `r` (0 first) among its section's in id order
+  (`vc_slot_rank`), by the draws alone, so the function stays closed
+  form. The slot's vets of a section are its vets on a `day` shift
+  covering the whole slot with no absence, ordered by `u₂₃(32 ×
+  (epoch(s) / 1 800) + v)` (`vc_slot_vets`). The consultation is
+  **placed** while `r` is below both the count of those vets and the
+  section's consultation spaces (domestic 4, horse 3, farm 2,
+  `vc_spaces`), and takes the vet of rank `r`; past that it has **no
+  row**, the agenda being full. A placed one starts at `s + (t − s) / 6`
+  (its slot's first five minutes, the slot's id order kept) and closes
+  at `start + 25 min + u₆ × (s + 5 min − start)`, so by the slot's end
+  (`vc_slot_times`). `vc_agenda(s)` lists a slot's placed ones with
+  their vets, start and close: `vet-scheduling`'s attended bookings are
+  its rows (the slot, the vet, the space of rank `r`);
 - an `in-hospital` one is on a stay current at its start and admitted at
   least an hour before: the first of eight stays drawn (`u₃(8 n + g)`)
   among those admitted in the seven days before, by `vc_before`, else
@@ -403,19 +432,43 @@ Consultations 1–25 000 in start order, `b = 589`. Returns `kind`,
 - any other's animal is `vc_patient`: the first of six drawn in the
   section's patients (`u₅₁(8 n + g)`) registered an hour before and
   alive at the start (no row when none);
-- `vet_id = vc_vet_at(section, start, utc_offset, n)`: a vet on shift by
-  the rota, never on an absence;
+- an unbooked one's vet (emergency, in hospital, herd visit) is
+  `vc_free_vet(section, t, close)`: the vets on shift at `t` with no
+  absence (`vc_vet_at`'s set), less those with a placed scheduled
+  consultation over `t` to its close (`vc_agenda` of every slot from
+  `t`'s to the close's); of the section the first by `u₂₁(32 n + v)`,
+  else any by `u₂₂`; when none is free, `vc_vet_at`'s draw (the evening
+  peak's emergencies, below). Never on an absence;
 - `referral_id = n` for one scheduled consultation in about five
   (`u₇ < 0.21`) and one emergency in ten (`u₇ < 0.10`);
 - `booking_id = n` when `scheduled` (D317), else null;
-- `closed_at` 25 to 45 minutes after the start (`u₆`); `signed_at`
-  within the day (`u₈`): closed 08:00–19:59, 0.5 to 3.5 hours later but
-  by 21:00; closed at night, the morning after, 08:00–10:00; times at or
-  after T0 null.
+- an unbooked one starts at `t` and closes 25 to 45 minutes after
+  (`u₆`); `signed_at` within the day (`u₈`): closed 08:00–19:59, 0.5 to
+  3.5 hours later but by 21:00; closed at night, the morning after,
+  08:00–10:00; times at or after T0 null. A patient (`vc_patient`) is
+  registered an hour before the consultation's start and alive at it.
 
-At the reference T0: 24 633 consultations, 70.7 % scheduled (54.1 %
-domestic), 13.9 % in hospital, 12.1 % emergencies, 3.3 % herd visits;
-4 034 carrying a referral.
+At the reference T0: 23 966 consultations, 69.9 % scheduled (53.0 %
+domestic), 14.3 % in hospital, 12.4 % emergencies, 3.4 % herd visits;
+3 898 carrying a referral. **The agenda** (D408): 16 747 scheduled
+consultations placed, against 17 414 drawn before the agenda, 667 fewer
+(3.8 %: domestic 616, horse 36, farm 15), the domestic evening and
+Saturday peaks (at 07:50Z, the T0 of `spec-writer`'s measurement in the
+wave log's W3 item 2 revised: 16 729 against 17 395, its 666); 1 799 of
+the 6 684 section slots holding one are full. Of the 7 219 unbooked
+consultations, 98 (all emergencies, the domestic evening peak) have a
+vet with a scheduled consultation over them, `vc_vet_at`'s draw finding
+no free vet on shift. At offset 0 (T0 2026-03-18 15:37Z): 16 698 placed,
+734 fewer than drawn (4.2 %), 96 such emergencies. The chunk's check
+(wave log, W3-g) finds on each load: no vet twice in a slot nor in two
+overlapping consultations; every scheduled one started in its slot's
+first five minutes and closed 25 minutes on or later and by the slot's
+end; no section slot over its covering vets or its spaces; every
+scheduled one's vet of its section on a `day` shift covering its slot
+with no absence (by `core_shifts`); every one within its section's
+rooms' hours (domestic Monday to Friday 08:00–20:00 and Saturday
+08:00–13:00, horse Monday to Friday 08:00–17:00, farm Monday to Friday
+08:00–16:00, D410).
 
 ### `core_request(n, load_epoch, utc_offset)` (D375)
 
@@ -440,7 +493,7 @@ Requests 1–17 000 in their consultation's order. Returns `kind`, `code`,
   about four consultations in ten make requests, 0.675 each; three in
   ten a lab order of 1.83 tests; one in eight an imaging study, the
   imaging mix about 60 % domestic, 30 % horses, 10 % farm (at the
-  reference T0: 42.5 %, 7 432 orders of 1.83, 3 033 studies, 59.5/29.3/11.2).
+  reference T0: 42.5 %, 7 214 orders of 1.83, 2 971 studies, 58.9/29.8/11.4).
 - **Its code**, from the parts' catalogues (D372):
   [the lab's tests](../../../specs/versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372)
   and [the machinery's procedures](../../../specs/versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
@@ -486,15 +539,16 @@ The parts fit their own times inside these: a lab release or an imaging
 final report before `resulted_at` by the copying purpose's lag, within
 the turnaround from `sent_at`; a part's cancellation before
 `cancelled_at`. Only the sent requests reach a part's load. At the
-reference T0: 16 617 requests, 13 584 analyses, 3 033 imaging; 22 milk
-inhibitor tests.
+reference T0: 16 167 requests, 13 196 analyses, 2 971 imaging; 22 milk
+inhibitor tests. A consultation with no row (the agenda full) has no
+request: its block's places stay where they are.
 
 ### `core_exchange(n, load_epoch, utc_offset)` (D306)
 
 Exchanges 1–700, in blocks of seven around the transfers. Returns
 `direction`, `kind`, `site_id`, `animal_id`, `stay_id`, `exchange_key`,
 `requested_at`, `sent_at`, `state`, `answer`, `accepted_for`,
-`answered_at`, `reported_at`:
+`answered_at`, `reported_at`, `reason`, `partner_species`:
 
 - block `k = (n − 1) / 7`, place `r = (n − 1) mod 7`; `r = 3` is the
   transfer of block `k`'s transferred stay (`vc_transfer_stay(k) = 25 k +
@@ -518,7 +572,19 @@ Exchanges 1–700, in blocks of seven around the transfers. Returns
   after the answer, reported 1 to 3 days after that, 10:00–17:00; a
   transfer accepted for the answer's day;
 - `state` at T0: `requested`, `sent` or `received` while unanswered,
-  then `declined`, `accepted`, or `reported`.
+  then `declined`, `accepted`, or `reported`;
+- `reason` (D413): a transfer's `transfer for specialist care`; an
+  examination's the `1 + floor(6 u₃₉₃)`-th of `CT examination`, `MRI
+  examination`, `scintigraphy`, `second opinion`, `endoscopy`,
+  `cardiology examination`, outbound and inbound alike;
+- `partner_species` (D413), an inbound one's patient: the `1 + floor(4
+  u₃₉₁)`-th of `dog`, `cat`, `horse`, `cow`; null outbound. The load
+  writes `reason` in `exchanges.reason` and `partner_species` in
+  `partner_patient` (`partner record <site code>/<100 000 + id>:
+  <species>, <1 + floor(14 u₃₉₂)> years`), so `vet-scheduling` books an
+  inbound examination's machine by the two without reading the core
+  (its "An inbound examination's booking"), as purpose 11's
+  `book-requests` does from the table.
 
 At the reference T0: 664 exchanges loaded.
 
@@ -547,7 +613,7 @@ The core's own load writes beside the functions, and no part reads:
 - the referrals, their dates and reasons; diagnoses, procedures,
   prescriptions and lines, administrations, dispensings, batches and the
   other alerts; the staff's names; owners' addresses; inbound
-  exchanges' `partner_patient`, reasons and reports.
+  exchanges' partner record number and age, and the reports.
 
 ### The reference T0
 
@@ -563,19 +629,19 @@ Measured at the reference T0 (the same at shift 0 within a tenth of a
 point), against the two catalogues' draws ([vet-lab](../../../specs/versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372),
 [vet-machinery](../../../specs/versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373)):
 
-- **Analyses**: 13 584, 10 042 routine and 3 542 urgent. Every routine
-  code is within 2.2 points of its weight in the domestic section, 3.0 on
-  the farm and 4.7 with the horses: a consultation's codes are distinct,
+- **Analyses**: 13 196, 9 654 routine and 3 542 urgent. Every routine
+  code is within 2.1 points of its weight in the domestic section, 3.0 on
+  the farm and 4.8 with the horses: a consultation's codes are distinct,
   so the heaviest codes give way when an order has two or three tests
-  (`CBC` 19.8 % against 22 domestic, 22.3 against 27 horse; `CHEMEQ` 15.2
+  (`CBC` 19.9 % against 22 domestic, 22.2 against 27 horse; `CHEMEQ` 15.0
   against 18), and the farm's cattle-only codes (`CALFD`, `HERDB`) and
   `MINH` (22 requests, 2.0 % against 5, D389) are renormalised away from
   sheep and goats. 9.2 % of the routine analyses go out, none of the
   urgent ones; of the 1 019 urgent analyses outside the bench's hours, none
   is a code that is not night-capable.
-- **Imaging**: 3 033 studies, 59.5 % domestic, 29.3 % horses, 11.2 % farm.
-  Routine: DX 44.7 %, US 31.2, CT 14.9, MR 7.0, NM 2.2; urgent: DX 50.5,
-  US 32.4, CT 13.8, MR 3.3, none NM; overall DX 46.4, US 31.6, CT 14.6, MR
+- **Imaging**: 2 971 studies, 58.9 % domestic, 29.8 % horses, 11.4 % farm.
+  Routine: DX 44.8 %, US 31.3, CT 14.7, MR 7.1, NM 2.1; urgent: DX 50.5,
+  US 32.4, CT 13.8, MR 3.3, none NM; overall DX 46.4, US 31.6, CT 14.4, MR
   6.0, NM 1.5.
 - **Validity**, every check at zero: no urgent 26 or 27; no farm animal
   with a horse-only code, no domestic animal with a large or horse code, no
@@ -600,20 +666,20 @@ with `count(*)`:
 | `animals` | 17 000 | 8 105 dogs, 5 762 cats, 424 rabbits, 309 ferrets, 1 400 horses, 600 cattle, 250 sheep, 150 goats; the dozen mistyped chips (T13) |
 | `ownerships` | 18 569 | 17 962 owner rows, 608 keeper rows, 962 sales; one current owner per animal |
 | `referring_practices`, `referring_vets` | 400, 800 | |
-| `referrals` | 4 034 | received, accepted, closed by the vet's letter |
-| `consultations` | 24 633 | 70.7 % scheduled, 13.9 % in hospital, 12.1 % emergencies, 3.3 % herd visits |
-| `diagnoses`, `diagnosis_codes` | 29 486, 50 | a listed disease one in 250, never category A |
-| `procedures` | 6 885 | three in ten closed consultations |
-| `requests` | 16 617 | 13 584 analyses, 3 033 imaging studies; the last day's `sent` |
+| `referrals` | 3 898 | received, accepted, closed by the vet's letter |
+| `consultations` | 23 966 | 69.9 % scheduled (16 747, on the agenda), 14.3 % in hospital, 12.4 % emergencies, 3.4 % herd visits |
+| `diagnoses`, `diagnosis_codes` | 28 693, 50 | a listed disease one in 250, never category A |
+| `procedures` | 6 706 | three in ten closed consultations |
+| `requests` | 16 167 | 13 196 analyses, 2 971 imaging studies; the last day's `sent` |
 | `stays` | 2 421 | 38 current at T0 |
 | `alerts` | 1 692 | allergies, dangerous, infectious (one stay in ten), other |
 | `exchanges` | 664 | out and in, a few in flight |
 | `medicines`, `medicine_batches` | 400, 699 | 40 products of ten presentations |
-| `prescriptions` | 14 732 | 13 431 dispensed, 1 084 expired, 182 cancelled, 35 issued |
-| `prescription_lines` | 38 597 | withdrawal periods and their end for food-producing animals |
-| `administrations` | 61 241 | the ward lines' doses at their frequency; the next round's `scheduled` |
-| `dispensings` | 25 020 | an outpatient's lines, to the owner or the herd's keeper |
-| **Total** | **274 235** | 49 MB on disk |
+| `prescriptions` | 14 379 | 13 150 dispensed, 1 047 expired, 162 cancelled, 20 issued |
+| `prescription_lines` | 37 744 | withdrawal periods and their end for food-producing animals |
+| `administrations` | 60 372 | the ward lines' doses at their frequency; the next round's `scheduled` |
+| `dispensings` | 24 482 | an outpatient's lines, to the owner or the herd's keeper |
+| **Total** | **269 397** | 49 MB on disk |
 
 `animal_board` (a view) is what a ward display reads: an animal's
 identity, its current stay, its current alerts and today's doses, no
@@ -745,16 +811,20 @@ on an absence (146 times a year). Selecting a game's faults is the GM's.
 
 ## Loading
 
-`gmctl load-data` runs `schema.sql`, then `keys.sql` and `load.sql` in one
-session into the `at:` database (`clinic`), as `postgres`, with
-`customer_timezone`, `customer_utc_offset` and `load_epoch` set; the load
-stops at once when one is missing or the zone is not UTC plus the offset,
-and checks its own caps (prescriptions ≤ 15 000, administrations ≤ 70 000,
-every `MINH` request's line) before it commits. Measured on `postgres`
-0.5.0 in a throwaway container (2 GB, `fsync` off): **89 s** at offset +2
-(T0 2026-11-04 10:00Z), **89 to 113 s** at offset 0 (T0 2026-03-18 15:37Z;
-two runs), **49 MB**,
-274 235 and 274 404 rows; most of it `core_consultation` (about 41 s) and
-`core_request` (about 38 s), and every part's load calling them pays its
-share. The fixture `tools/tests/fixtures/fixture-core/` loads it through
-`load-data` on Swarm (its figure in its short test).
+`gmctl load-data` runs `schema.sql`, then `keys.sql` and `load.sql` in
+one session into the `at:` database (`clinic`), as `postgres`, with
+`customer_timezone`, `customer_utc_offset` and `load_epoch` set; the
+load stops at once when one is missing or the zone is not UTC plus the
+offset, and checks its own caps (prescriptions ≤ 15 000, administrations
+≤ 70 000, every `MINH` request's line) before it commits. Measured on
+`postgres` 0.5.0 in a throwaway container (2 GB, `fsync` off), with the
+agenda (D408): **122 to 131 s** at offset +2 (T0 2026-11-04 10:00Z; two
+runs), **134 to 137 s** at offset 0 (T0 2026-03-18 15:37Z; two runs),
+**49 MB**, 269 397 and 270 260 rows; before it, 89 s (94 to 95 s on the
+same host the same day), 274 235 and 274 404 rows. Most of it is
+`core_consultation` and `core_request`, which computes its consultations
+again; the agenda adds about 30 to 40 s, the slots' vets and, for each
+unbooked consultation, the agenda of the slots over it (`vc_free_vet`),
+and every part's load calling `core_consultation` or `core_request` pays
+its share of it. The fixture `tools/tests/fixtures/fixture-core/` loads
+it through `load-data` on Swarm (its figure in its short test).

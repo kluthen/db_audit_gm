@@ -1,0 +1,10 @@
+# A test purpose of tools/tests (v0.5 chunk 29b): only its ddl: is read
+# (load-data's composed plan, step (2b)); not a complete purpose.
+id: fx-intake
+title: The intake desk's watch on the current stays, in the clinic's database
+domains: [fx-core]
+parts:
+  source: the clinic's database
+  target: the clinic's database
+ddl:
+  target: material/target-ddl.sql

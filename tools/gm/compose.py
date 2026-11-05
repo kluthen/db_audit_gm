@@ -13,9 +13,15 @@ files under `nodes/<node>/`: a scheduler node's `queries.yaml`,
   `producers/<node>/` and `producers/api/<node>/`, and each
   `producers/partners/<partner>/` or `producers/public/<name>/` onto the
   shared nodes, the scheduler and `api` nodes every `third_parties:` entry
-  lists), the variant layer (the same under `variants/<variant>/producers/`),
-  the scenario layer (`compose/<node>/`, holding the purposes' material the
-  GM adds and each scheduler node's `intensity` and `timeline`).
+  lists; with no entry listing either, a domain's
+  `producers/partners/owners/` alone onto `partners-backend` and
+  `partners-api`, spec D421, `model.owners_alone_nodes`), the variant layer
+  (the same under `variants/<variant>/producers/`), the scenario layer
+  (`compose/<node>/`, holding the purposes' material the GM adds and each
+  scheduler node's `intensity` and `timeline`). A producer
+  folder `composition.yaml`'s `left_out:` names (`pms`, `api/clinic-api`,
+  `partners/xlab`; capture W3 item 0, v0.5 chunk 29) is merged from in
+  neither layer, and needs no node.
 - **Merge units**: `connections.<name>`, `shapes.<name>`, `streams.<key>`,
   `intensity`, `timeline`; `queries.<key>`; `jobs.<name>`; `api.yaml`'s
   `endpoints.<name>` and `connections.<name>`; a file under `builders/`,
@@ -39,6 +45,7 @@ from .model import GmError
 
 SCENARIO_LAYER = "compose"
 MERGE_FILE = "merge.yaml"
+COMPOSITION_FILE = "composition.yaml"
 LAYER_NAMES = ("domain", "variant", "scenario")
 SCHEDULER_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
 SCHEDULER_FOLDERS = ("builders", "scripts")
@@ -122,22 +129,12 @@ def _read_yaml(path, shown):
         raise ComposeRefused(f"{shown}: cannot be read: {' '.join(str(exc).split())}") from None
 
 
-def _brick_id(node):
-    """A node's brick id: from the mapping the loader reads (`brick: {id:
-    api, version: 0.1.0}`, model._check_node), or from the `api@0.1.0`
-    shorthand; None for neither."""
-    brick = node.get("brick")
-    if isinstance(brick, dict):
-        return brick.get("id") if isinstance(brick.get("id"), str) else None
-    return brick.split("@", 1)[0] if isinstance(brick, str) else None
-
-
 def _target_nodes(data):
     """node name -> scheduler | api, from scenario.yaml's nodes."""
     kinds = {}
     for node in data.get("nodes") or []:
         if isinstance(node, dict):
-            brick = _brick_id(node)
+            brick = model.node_brick_id(node)
             if brick == model.SCHEDULER_BRICK:
                 kinds[node.get("name")] = "scheduler"
             elif brick == "api":
@@ -169,13 +166,36 @@ def _shared_nodes(data, kinds):
     return tuple(names[0] if names else None for names in shared)
 
 
+def _left_out(sdir, found, catalog_root):
+    """{(domain, producer)} composition.yaml's left_out: names (capture W3
+    item 0, chunk 29's (b)); ComposeRefused for a malformed list."""
+    path = sdir / COMPOSITION_FILE
+    if not path.is_file():
+        return set()
+    content = _read_yaml(path, COMPOSITION_FILE)
+    if not isinstance(content, dict):
+        return set()                         # check_composition's to report
+    problems = []
+    model.check_left_out(content, found, catalog_root, COMPOSITION_FILE, problems)
+    if problems:
+        raise ComposeRefused(f"{COMPOSITION_FILE}: left_out: cannot be applied:\n"
+                             + "\n".join(f"  - {p}" for p in problems))
+    return model.left_out_of(content)
+
+
 def _sources(data, sdir, catalog_root, kinds):
-    """node -> its sources, in layer order."""
+    """node -> its sources, in layer order; nothing from a producer folder
+    composition.yaml's left_out: names, in either layer."""
     found, problems = model.check_domains_entries(data, catalog_root)
     if problems:
         raise ComposeRefused("scenario.yaml's domains: cannot be composed:\n"
                              + "\n".join(f"  - {p}" for p in problems))
+    left_out = _left_out(sdir, found, catalog_root)
     shared_scheduler, shared_api = _shared_nodes(data, kinds)
+    owners = model.owners_alone_nodes(data, left_out, catalog_root) \
+        if shared_scheduler is None and shared_api is None else None
+    if owners is not None and owners.problems:
+        raise ComposeRefused("\n".join(owners.problems))
     catalog = Path(catalog_root)
     by_node = {}
 
@@ -205,24 +225,31 @@ def _sources(data, sdir, catalog_root, kinds):
                 shown = f"{shown_root}/{folder.name}"
                 if folder.name == "api":
                     for sub in sorted(p for p in folder.iterdir() if p.is_dir()):
+                        if (did, f"api/{sub.name}") in left_out:
+                            continue
                         add(sub.name, "api", (name, layer, sub, f"{shown}/{sub.name}"),
                             f"{shown}/{sub.name}/")
                 elif folder.name in PARTNER_FOLDERS:
                     for sub in sorted(p for p in folder.iterdir() if p.is_dir()):
+                        if (did, f"{folder.name}/{sub.name}") in left_out:
+                            continue
                         where = f"{shown}/{sub.name}/"
                         args = (f"{name}", layer, sub, f"{shown}/{sub.name}")
+                        to_scheduler, to_api = (owners.scheduler, owners.api) \
+                            if owners is not None and where in owners.routes \
+                            else (shared_scheduler, shared_api)
                         if any((sub / f).exists() for f in SCHEDULER_FILES + SCHEDULER_FOLDERS):
-                            if shared_scheduler is None:
+                            if to_scheduler is None:
                                 raise ComposeRefused(f"{where}: partner material, but no "
                                                      "third_parties: entry lists a scheduler "
                                                      "node")
-                            add(shared_scheduler, "scheduler", args, where)
+                            add(to_scheduler, "scheduler", args, where)
                         if any((sub / f).exists() for f in API_FILES + API_FOLDERS):
-                            if shared_api is None:
+                            if to_api is None:
                                 raise ComposeRefused(f"{where}: partner endpoints, but no "
                                                      "third_parties: entry lists an api node")
-                            add(shared_api, "api", args, where)
-                else:
+                            add(to_api, "api", args, where)
+                elif (did, folder.name) not in left_out:
                     add(folder.name, "scheduler", (name, layer, folder, shown), f"{shown}/")
     layer_root = sdir / SCENARIO_LAYER
     if layer_root.is_dir():

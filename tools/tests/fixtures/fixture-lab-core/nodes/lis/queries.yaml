@@ -1,0 +1,698 @@
+# queries.yaml of node lis, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.samples.receive:
+    sql: |-
+      WITH pick AS (
+        SELECT o.id FROM lab_orders AS o
+         WHERE o.account_id = 1 AND o.received_at IS NULL AND o.cancelled_at IS NULL
+           AND o.ordered_at > now() - interval '7 days'
+           AND (SELECT max(s.collected_at) FROM lab_samples AS s WHERE s.order_id = o.id) <= now() - interval '15 minutes'
+         ORDER BY o.ordered_at, o.id LIMIT 1 FOR UPDATE SKIP LOCKED),
+      sc AS (
+        SELECT s.id, s.sample_type,
+               CASE WHEN (hashint8extended(s.id, 7116) & 2147483647)::float8 / 2147483648 < 0.97 THEN 'fit'
+                    ELSE (ARRAY['haemolysed', 'lipaemic', 'clotted', 'under-filled', 'unlabelled', 'icteric'])
+                         [1 + floor(6 * (hashint8extended(s.id, 7117) & 2147483647)::float8 / 2147483648)::integer] END
+                 AS condition
+          FROM lab_samples AS s JOIN pick ON s.order_id = pick.id
+         WHERE s.received_at IS NULL),
+      tt AS (
+        SELECT t.id, t.routing, sc.condition FROM lab_order_tests AS t JOIN sc ON sc.id = t.sample_id
+         WHERE t.status = 'ordered'),
+      o AS (
+        UPDATE lab_orders AS x
+           SET received_at = now(),
+               completed_at = CASE WHEN EXISTS (SELECT 1 FROM tt)
+                                    AND NOT EXISTS (SELECT 1 FROM tt WHERE tt.condition = 'fit') THEN now() END
+          FROM pick WHERE x.id = pick.id),
+      s AS (
+        UPDATE lab_samples AS x
+           SET received_at = now(), condition = sc.condition,
+               keep_until = CASE WHEN sc.condition <> 'fit'
+                                 THEN now() + CASE WHEN sc.sample_type = 'serum' THEN interval '14 days'
+                                                   ELSE interval '7 days' END END
+          FROM sc WHERE x.id = sc.id),
+      ev AS (
+        INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place)
+        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc
+        UNION ALL
+        SELECT sc.id, 'stored', now(), %(tech)s, 'fridge ' || (1 + mod(sc.id, 4)) FROM sc
+         WHERE sc.condition <> 'fit')
+      UPDATE lab_order_tests AS x
+         SET status = CASE WHEN tt.condition <> 'fit' THEN 'not-performed'
+                           WHEN tt.routing = 'sent-out' THEN 'sent-out' ELSE 'in-progress' END,
+             not_performed_reason = CASE WHEN tt.condition <> 'fit' THEN tt.condition END,
+             not_performed_at = CASE WHEN tt.condition <> 'fit' THEN now() END
+        FROM tt WHERE x.id = tt.id
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.courier.receive:
+    sql: |-
+      WITH env AS (
+        SELECT (now() AT TIME ZONE 'UTC') + utc_offset_hours * interval '1 hour' AS l, utc_offset_hours AS h,
+               handling_fee, urgent_surcharge_pct
+          FROM lab_settings),
+      pick AS (
+        SELECT o.id, o.account_id, o.priority, o.ordered_at FROM lab_orders AS o
+         WHERE o.account_id > 1 AND o.received_at IS NULL AND o.cancelled_at IS NULL
+           AND o.ordered_at > now() - interval '7 days'
+           AND o.ordered_at < (SELECT (CASE WHEN env.l::time >= time '16:45' THEN env.l::date + time '15:30'
+                                            WHEN env.l::time >= time '10:45' THEN env.l::date + time '09:30'
+                                            ELSE env.l::date - 1 + time '15:30' END
+                                       - env.h * interval '1 hour') AT TIME ZONE 'UTC' FROM env)
+         ORDER BY o.ordered_at, o.id LIMIT 1 FOR UPDATE SKIP LOCKED),
+      sc AS (
+        SELECT s.id, s.sample_type,
+               CASE WHEN (hashint8extended(s.id, 7116) & 2147483647)::float8 / 2147483648 < 0.97 THEN 'fit'
+                    ELSE (ARRAY['haemolysed', 'lipaemic', 'clotted', 'under-filled', 'unlabelled', 'icteric'])
+                         [1 + floor(6 * (hashint8extended(s.id, 7117) & 2147483647)::float8 / 2147483648)::integer] END
+                 AS condition
+          FROM lab_samples AS s JOIN pick ON s.order_id = pick.id
+         WHERE s.received_at IS NULL),
+      tt AS (
+        SELECT t.id, t.test_id, t.routing, sc.condition FROM lab_order_tests AS t JOIN sc ON sc.id = t.sample_id
+         WHERE t.status = 'ordered'),
+      o AS (
+        UPDATE lab_orders AS x
+           SET received_at = now(),
+               completed_at = CASE WHEN EXISTS (SELECT 1 FROM tt)
+                                    AND NOT EXISTS (SELECT 1 FROM tt WHERE tt.condition = 'fit') THEN now() END
+          FROM pick WHERE x.id = pick.id),
+      s AS (
+        UPDATE lab_samples AS x
+           SET received_at = now(), condition = sc.condition,
+               keep_until = CASE WHEN sc.condition <> 'fit'
+                                 THEN now() + CASE WHEN sc.sample_type = 'serum' THEN interval '14 days'
+                                                   ELSE interval '7 days' END END
+          FROM sc WHERE x.id = sc.id),
+      ev AS (
+        INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place)
+        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc
+        UNION ALL
+        SELECT sc.id, 'stored', now(), %(tech)s, 'fridge ' || (1 + mod(sc.id, 4)) FROM sc
+         WHERE sc.condition <> 'fit'),
+      ch AS (
+        INSERT INTO lab_charges (account_id, order_id, order_test_id, kind, price, amount, voided_at)
+        SELECT pick.account_id, pick.id, tt.id, k.kind, p.price,
+               CASE k.kind WHEN 'test' THEN p.price ELSE round(p.price * env.urgent_surcharge_pct / 100.0, 2) END,
+               CASE WHEN tt.condition <> 'fit' THEN now() END
+          FROM pick CROSS JOIN env JOIN tt ON true
+          JOIN lab_prices AS p ON p.test_id = tt.test_id
+               AND p.valid_from <= ((pick.ordered_at AT TIME ZONE 'UTC') + env.h * interval '1 hour')::date
+               AND coalesce(p.valid_until, 'infinity') > ((pick.ordered_at AT TIME ZONE 'UTC') + env.h * interval '1 hour')::date
+          JOIN (VALUES ('test'), ('urgent')) AS k (kind) ON k.kind = 'test' OR pick.priority = 'urgent'
+         WHERE pick.account_id > 1
+           AND NOT EXISTS (SELECT 1 FROM lab_charges AS y
+                            WHERE y.account_id = pick.account_id AND y.order_test_id = tt.id AND y.kind = k.kind)
+        UNION ALL
+        SELECT pick.account_id, pick.id, NULL, 'handling', env.handling_fee, env.handling_fee, NULL
+          FROM pick CROSS JOIN env
+         WHERE pick.account_id > 1 AND EXISTS (SELECT 1 FROM tt)
+           AND NOT EXISTS (SELECT 1 FROM lab_charges AS y
+                            WHERE y.account_id = pick.account_id AND y.order_id = pick.id AND y.kind = 'handling')),
+      vc AS (
+        UPDATE lab_charges AS y SET voided_at = now()
+          FROM pick JOIN tt ON tt.condition <> 'fit'
+         WHERE y.account_id = pick.account_id AND y.order_test_id = tt.id AND y.voided_at IS NULL)
+      UPDATE lab_order_tests AS x
+         SET status = CASE WHEN tt.condition <> 'fit' THEN 'not-performed'
+                           WHEN tt.routing = 'sent-out' THEN 'sent-out' ELSE 'in-progress' END,
+             not_performed_reason = CASE WHEN tt.condition <> 'fit' THEN tt.condition END,
+             not_performed_at = CASE WHEN tt.condition <> 'fit' THEN now() END
+        FROM tt WHERE x.id = tt.id
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.analyser.run:
+    sql: |-
+      WITH m AS (
+        SELECT %(machine)s::integer AS machine_id,
+               CASE WHEN %(machine)s <= 2 THEN 'haematology' WHEN %(machine)s <= 4 THEN 'biochemistry'
+                    WHEN %(machine)s = 5 THEN 'blood-gas' ELSE 'coagulation' END AS discipline),
+      qc AS (
+        SELECT (SELECT q.id FROM lab_qc_runs AS q WHERE q.machine_id = m.machine_id AND q.outcome = 'pass'
+                 ORDER BY q.run_at DESC, q.id DESC LIMIT 1) AS id
+          FROM m
+         WHERE NOT EXISTS (SELECT 1 FROM lab_qc_runs AS f
+                            WHERE f.machine_id = m.machine_id AND f.outcome = 'fail'
+                              AND NOT EXISTS (SELECT 1 FROM lab_qc_runs AS p
+                                               WHERE p.machine_id = f.machine_id AND p.outcome = 'pass'
+                                                 AND p.run_at > f.run_at))),
+      pend AS (
+        SELECT t.id AS order_test_id, t.test_id, o.species
+          FROM m JOIN lab_tests AS c ON c.discipline = m.discipline
+          JOIN lab_order_tests AS t ON t.test_id = c.id
+          JOIN lab_samples AS s ON s.id = t.sample_id
+          JOIN lab_orders AS o ON o.id = t.order_id
+         WHERE t.status = 'in-progress' AND t.routing = 'in-house'
+           AND EXISTS (SELECT 1 FROM qc WHERE qc.id IS NOT NULL)
+           AND NOT EXISTS (SELECT 1 FROM lab_results AS r WHERE r.order_test_id = t.id)
+         ORDER BY o.priority = 'urgent' DESC, s.received_at, t.id
+         LIMIT 20),
+      v AS (
+        SELECT p.order_test_id, ta.analyte_id, a.kind, m.discipline, i.id AS interval_id,
+               i.low, i.high, i.critical_low, i.critical_high,
+               coalesce(i.low, d.low) AS blo, coalesce(i.high, d.high) AS bhi,
+               coalesce(i.critical_low, d.critical_low) AS clo, coalesce(i.critical_high, d.critical_high) AS chi,
+               ((hashint8extended(p.order_test_id::bigint * 128 + ta.analyte_id, 7160) & 2147483647)::float8
+                / 2147483648)::numeric AS u1,
+               ((hashint8extended(p.order_test_id::bigint * 128 + ta.analyte_id, 7161) & 2147483647)::float8
+                / 2147483648)::numeric AS u2
+          FROM pend AS p CROSS JOIN m
+          JOIN lab_test_analytes AS ta ON ta.test_id = p.test_id
+          JOIN lab_analytes AS a ON a.id = ta.analyte_id
+          LEFT JOIN lab_reference_intervals AS i
+            ON a.kind = 'numeric' AND i.analyte_id = ta.analyte_id AND i.species = p.species AND i.valid_until IS NULL
+          LEFT JOIN lab_reference_intervals AS d
+            ON a.kind = 'numeric' AND d.analyte_id = ta.analyte_id AND d.species = 'dog' AND d.valid_until IS NULL),
+      x AS (
+        SELECT v.*,
+               CASE WHEN v.kind = 'text' THEN NULL
+                    WHEN v.clo IS NOT NULL AND v.u2 < 0.0175 THEN round(v.clo * (0.6 + 0.35 * v.u1), 3)
+                    WHEN v.chi IS NOT NULL AND v.u2 < 0.035 THEN round(v.chi * (1.05 + 0.35 * v.u1), 3)
+                    ELSE greatest(round(v.blo + (v.bhi - v.blo)
+                                        * CASE WHEN v.u1 < 0.82 THEN 0.05 + 0.9 * v.u1 / 0.82
+                                               WHEN v.u1 < 0.91 THEN 1.05 + 0.6 * (v.u1 - 0.82) / 0.09
+                                               WHEN v.blo > 0 THEN -0.05 - 0.4 * (v.u1 - 0.91) / 0.09
+                                               ELSE 0.05 + 0.9 * v.u2 END, 3), 0) END AS val
+          FROM v),
+      b AS (
+        INSERT INTO lab_batches (machine_id, qc_run_id, started_at, uploaded_at, result_count)
+        SELECT m.machine_id, qc.id, now() - interval '6 minutes', now(), (SELECT count(*) FROM x)
+          FROM m CROSS JOIN qc WHERE EXISTS (SELECT 1 FROM x)
+        RETURNING id)
+      INSERT INTO lab_results (order_test_id, analyte_id, batch_id, numeric_value, text_value, flag, interval_id,
+                               measured_at)
+      SELECT x.order_test_id, x.analyte_id, b.id, x.val,
+             CASE WHEN x.kind = 'numeric' THEN NULL
+                  WHEN x.analyte_id = 69 THEN CASE WHEN x.u1 < 0.10 THEN 'positive' WHEN x.u1 < 0.12 THEN 'suspect'
+                                                   ELSE 'negative' END
+                  WHEN x.discipline = 'haematology'
+                       THEN (ARRAY['normal morphology', 'mild anisocytosis', 'toxic neutrophils seen',
+                                   'platelet clumps; count may be underestimated', 'polychromasia'])
+                            [1 + floor(5 * x.u2)::integer]
+                  ELSE (ARRAY['within the reference range', 'above the reference range', 'below the reference range',
+                              'equivocal; repeat advised'])[1 + floor(4 * x.u2)::integer] END,
+             CASE WHEN x.kind = 'text' OR x.interval_id IS NULL THEN NULL
+                  WHEN x.critical_low IS NOT NULL AND x.val < x.critical_low THEN 'critical-low'
+                  WHEN x.critical_high IS NOT NULL AND x.val > x.critical_high THEN 'critical-high'
+                  WHEN x.val < x.low THEN 'low' WHEN x.val > x.high THEN 'high' ELSE 'normal' END,
+             x.interval_id, now() - interval '2 minutes'
+        FROM x CROSS JOIN b
+    params:
+      machine:
+        choice:
+          1: 2
+          2: 2
+          3: 2
+          4: 2
+          5: 1
+          6: 1
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.bench.result:
+    sql: |-
+      WITH env AS (
+        SELECT (now() AT TIME ZONE 'UTC') + utc_offset_hours * interval '1 hour' AS l FROM lab_settings),
+      due AS (
+        SELECT t.id AS order_test_id, ta.analyte_id, a.kind, c.discipline, c.diagnosis_code, o.species, r.at
+          FROM lab_order_tests AS t
+          JOIN lab_tests AS c ON c.id = t.test_id
+          JOIN lab_samples AS s ON s.id = t.sample_id
+          JOIN lab_orders AS o ON o.id = t.order_id
+          JOIN lab_test_analytes AS ta ON ta.test_id = t.test_id
+          JOIN lab_analytes AS a ON a.id = ta.analyte_id
+          CROSS JOIN LATERAL (
+            SELECT s.received_at + CASE ta.analyte_id WHEN 67 THEN 48 + 24 * h.u WHEN 68 THEN 96 + 48 * h.u
+                                                      ELSE c.turnaround_hours * (0.3 + 0.5 * h.u) END
+                                   * interval '1 hour' AS at
+              FROM (SELECT (hashint8extended(t.id, 7123) & 2147483647)::float8 / 2147483648 AS u) AS h) AS r
+         WHERE t.status = 'in-progress' AND t.routing = 'in-house'
+           AND c.discipline IN ('urinalysis', 'cytology', 'microbiology', 'serology', 'residue')
+           AND r.at <= now()
+           AND NOT EXISTS (SELECT 1 FROM lab_results AS x WHERE x.order_test_id = t.id AND x.analyte_id = ta.analyte_id)
+           AND EXISTS (SELECT 1 FROM env WHERE extract(isodow FROM env.l) <= 6 AND extract(hour FROM env.l) BETWEEN 7 AND 20)),
+      pick AS (SELECT order_test_id FROM due ORDER BY at, order_test_id LIMIT 1), v AS (
+        SELECT due.*, i.id AS interval_id, i.low, i.high, i.critical_low, i.critical_high,
+               coalesce(i.low, d.low) AS blo, coalesce(i.high, d.high) AS bhi,
+               coalesce(i.critical_low, d.critical_low) AS clo, coalesce(i.critical_high, d.critical_high) AS chi,
+               ((hashint8extended(due.order_test_id::bigint * 128 + due.analyte_id, 7160) & 2147483647)::float8
+                / 2147483648)::numeric AS u1,
+               ((hashint8extended(due.order_test_id::bigint * 128 + due.analyte_id, 7161) & 2147483647)::float8
+                / 2147483648)::numeric AS u2
+          FROM due JOIN pick USING (order_test_id)
+          LEFT JOIN lab_reference_intervals AS i
+            ON due.kind = 'numeric' AND i.analyte_id = due.analyte_id AND i.species = due.species AND i.valid_until IS NULL
+          LEFT JOIN lab_reference_intervals AS d
+            ON due.kind = 'numeric' AND d.analyte_id = due.analyte_id AND d.species = 'dog' AND d.valid_until IS NULL),
+      x AS (
+        SELECT v.*,
+               CASE WHEN v.kind = 'text' THEN NULL
+                    WHEN v.clo IS NOT NULL AND v.u2 < 0.0175 THEN round(v.clo * (0.6 + 0.35 * v.u1), 3)
+                    WHEN v.chi IS NOT NULL AND v.u2 < 0.035 THEN round(v.chi * (1.05 + 0.35 * v.u1), 3)
+                    ELSE greatest(round(v.blo + (v.bhi - v.blo)
+                                        * CASE WHEN v.u1 < 0.82 THEN 0.05 + 0.9 * v.u1 / 0.82
+                                               WHEN v.u1 < 0.91 THEN 1.05 + 0.6 * (v.u1 - 0.82) / 0.09
+                                               WHEN v.blo > 0 THEN -0.05 - 0.4 * (v.u1 - 0.91) / 0.09
+                                               ELSE 0.05 + 0.9 * v.u2 END, 3), 0) END AS val
+          FROM v)
+      INSERT INTO lab_results (order_test_id, analyte_id, numeric_value, text_value, flag, interval_id, measured_at) SELECT x.order_test_id, x.analyte_id, x.val,
+             CASE WHEN x.kind = 'numeric' THEN NULL
+                  WHEN x.analyte_id = 67 THEN
+                    CASE WHEN x.u1 < 0.55 THEN 'no growth'
+                         ELSE (ARRAY['Escherichia coli', 'Staphylococcus pseudintermedius',
+                                     'Streptococcus equi subsp. zooepidemicus', 'Pseudomonas aeruginosa', 'Proteus mirabilis',
+                                     'Staphylococcus aureus', 'Streptococcus uberis', 'Klebsiella pneumoniae',
+                                     'Trueperella pyogenes', 'Pasteurella multocida', 'Malassezia pachydermatis',
+                                     'Microsporum canis'])[1 + floor(12 * x.u2)::integer] END
+                  WHEN x.analyte_id = 68 THEN
+                    (ARRAY['amoxicillin-clavulanate S; enrofloxacin S; tetracycline R; trimethoprim-sulfonamide S',
+                           'amoxicillin-clavulanate R; cefalexin R; enrofloxacin S; gentamicin S',
+                           'penicillin S; ceftiofur S; oxytetracycline S; florfenicol S',
+                           'ampicillin R; enrofloxacin I; marbofloxacin S; doxycycline S',
+                           'no isolate to test'])[1 + floor(5 * x.u2)::integer]
+                  WHEN x.analyte_id = 69 THEN
+                    CASE WHEN x.diagnosis_code IN ('D-FM01', 'D-AH01', 'D-SP01', 'D-LS01') THEN 'negative'
+                         WHEN x.diagnosis_code IS NOT NULL THEN CASE WHEN x.u1 < 0.09 THEN 'positive'
+                                                                     WHEN x.u1 < 0.12 THEN 'suspect' ELSE 'negative' END
+                         WHEN x.u1 < 0.10 THEN 'positive' WHEN x.u1 < 0.12 THEN 'suspect' ELSE 'negative' END
+                  WHEN x.discipline = 'cytology' THEN
+                    (ARRAY['inflammatory, neutrophilic; no neoplastic cells seen', 'lipoma consistent; adipocytes only',
+                           'mast cell tumour suspected; histopathology advised', 'reactive lymph node',
+                           'non-diagnostic, poorly cellular'])[1 + floor(5 * x.u2)::integer]
+                  WHEN x.discipline = 'microbiology' THEN
+                    CASE WHEN x.u1 < 0.7 THEN 'no parasites seen'
+                         ELSE 'strongyle-type eggs, ' || (50 + floor(1500 * x.u2))::integer || ' per gram' END
+                  WHEN x.discipline = 'urinalysis' THEN
+                    (ARRAY['inactive sediment', 'struvite crystals, few', 'pyuria and bacteriuria',
+                           'calcium oxalate crystals', 'haematuria, moderate'])[1 + floor(5 * x.u2)::integer]
+                  ELSE (ARRAY['within the reference range', 'above the reference range', 'below the reference range',
+                              'equivocal; repeat advised'])[1 + floor(4 * x.u2)::integer] END,
+             CASE WHEN x.kind = 'text' OR x.interval_id IS NULL THEN NULL
+                  WHEN x.critical_low IS NOT NULL AND x.val < x.critical_low THEN 'critical-low'
+                  WHEN x.critical_high IS NOT NULL AND x.val > x.critical_high THEN 'critical-high'
+                  WHEN x.val < x.low THEN 'low' WHEN x.val > x.high THEN 'high' ELSE 'normal' END,
+             x.interval_id, now()
+        FROM x
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.validate.technical:
+    sql: |-
+      WITH pick AS (
+        SELECT t.id, t.sample_id
+          FROM lab_order_tests AS t JOIN lab_orders AS o ON o.id = t.order_id
+         WHERE t.status IN ('in-progress', 'sent-out')
+           AND EXISTS (SELECT 1 FROM lab_results AS r WHERE r.order_test_id = t.id)
+           AND NOT EXISTS (SELECT 1 FROM lab_test_analytes AS ta
+                            WHERE ta.test_id = t.test_id
+                              AND NOT EXISTS (SELECT 1 FROM lab_results AS r
+                                               WHERE r.order_test_id = t.id AND r.analyte_id = ta.analyte_id))
+           AND NOT EXISTS (SELECT 1 FROM lab_results AS r JOIN lab_batches AS b ON b.id = r.batch_id
+                             LEFT JOIN lab_qc_runs AS q ON q.id = b.qc_run_id
+                            WHERE r.order_test_id = t.id AND q.outcome IS DISTINCT FROM 'pass')
+           AND (t.status = 'in-progress'
+                OR EXISTS (SELECT 1 FROM lab_send_outs AS so WHERE so.order_test_id = t.id AND so.status = 'resulted'))
+         ORDER BY o.priority = 'urgent' DESC, t.id
+         LIMIT 1 FOR UPDATE OF t SKIP LOCKED),
+      st AS (
+        SELECT s.id FROM lab_samples AS s JOIN pick ON s.id = pick.sample_id
+         WHERE s.disposed_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM lab_order_tests AS y
+                            WHERE y.sample_id = s.id AND y.id <> pick.id
+                              AND y.status IN ('ordered', 'in-progress', 'sent-out'))
+           AND NOT EXISTS (SELECT 1 FROM lab_sample_events AS e WHERE e.sample_id = s.id AND e.kind = 'stored')),
+      ev AS (
+        INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place)
+        SELECT st.id, 'stored', now(), %(tech)s, 'fridge ' || (1 + mod(st.id, 4)) FROM st),
+      ku AS (
+        UPDATE lab_samples AS s
+           SET keep_until = coalesce(s.received_at, now())
+                            + CASE WHEN s.sample_type = 'serum' THEN interval '14 days' ELSE interval '7 days' END
+          FROM st WHERE s.id = st.id AND s.keep_until IS NULL)
+      UPDATE lab_order_tests AS x
+         SET status = 'technical', technical_by = %(tech)s, technical_at = now()
+        FROM pick WHERE x.id = pick.id
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.release.urgent:
+    sql: |-
+      WITH env AS (
+        SELECT ((now() AT TIME ZONE 'UTC') + utc_offset_hours * interval '1 hour')::date AS d FROM lab_settings),
+      pick AS (
+        SELECT t.id, t.order_id, o.account_id
+          FROM lab_order_tests AS t JOIN lab_orders AS o ON o.id = t.order_id
+         WHERE t.status = 'technical' AND o.priority = 'urgent'
+           AND NOT EXISTS (
+                 SELECT 1 FROM lab_results AS r JOIN lab_batches AS b ON b.id = r.batch_id
+                   JOIN lab_qc_runs AS f ON f.machine_id = b.machine_id AND f.outcome = 'fail'
+                    AND f.run_at > coalesce((SELECT q.run_at FROM lab_qc_runs AS q WHERE q.id = b.qc_run_id), '-infinity')
+                  WHERE r.order_test_id = t.id
+                    AND NOT EXISTS (SELECT 1 FROM lab_qc_runs AS p
+                                     WHERE p.machine_id = f.machine_id AND p.outcome = 'pass' AND p.run_at > f.run_at))
+         ORDER BY t.technical_at, t.id LIMIT 1 FOR UPDATE OF t SKIP LOCKED),
+      done AS (
+        SELECT pick.order_id, pick.account_id FROM pick
+         WHERE NOT EXISTS (SELECT 1 FROM lab_order_tests AS y
+                            WHERE y.order_id = pick.order_id AND y.id <> pick.id
+                              AND y.status NOT IN ('released', 'not-performed', 'cancelled'))),
+      oc AS (
+        UPDATE lab_orders AS o SET completed_at = now()
+          FROM done WHERE o.id = done.order_id AND o.completed_at IS NULL AND o.cancelled_at IS NULL),
+      tc AS (
+        UPDATE lab_charges AS c SET billable_on = env.d
+          FROM pick CROSS JOIN env
+         WHERE c.account_id = pick.account_id AND c.billable_on IS NULL AND c.order_test_id = pick.id
+           AND c.voided_at IS NULL),
+      hc AS (
+        UPDATE lab_charges AS c SET billable_on = env.d
+          FROM done CROSS JOIN env
+         WHERE c.account_id = done.account_id AND c.billable_on IS NULL AND c.order_id = done.order_id
+           AND c.kind = 'handling' AND c.voided_at IS NULL)
+      UPDATE lab_order_tests AS x
+         SET status = 'released', released_by = %(pathologist)s, released_at = now()
+        FROM pick WHERE x.id = pick.id
+    params:
+      pathologist:
+        int:
+        - 79
+        - 80
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.critical.call:
+    sql: |-
+      WITH c AS (
+        SELECT r.id, o.account_id, o.requested_by
+          FROM lab_results AS r JOIN lab_order_tests AS t ON t.id = r.order_test_id
+          JOIN lab_orders AS o ON o.id = t.order_id
+         WHERE r.flag IN ('critical-low', 'critical-high') AND r.measured_at > now() - interval '2 days'
+           AND NOT EXISTS (SELECT 1 FROM lab_critical_calls AS k WHERE k.result_id = r.id)
+         ORDER BY r.measured_at, r.id LIMIT 1)
+      INSERT INTO lab_critical_calls (result_id, called_at, called_by, called_staff_id, called_person, read_back) SELECT c.id, now(), %(tech)s, CASE WHEN c.account_id = 1 THEN c.requested_by END,
+             CASE WHEN c.account_id > 1
+                  THEN 'Dr ' || (ARRAY['Moreau', 'Bauer', 'Lindqvist', 'Costa', 'Hartmann', 'Byrne', 'Vermeulen',
+                                       'Kowalski'])[%(person)s] END,
+             true
+        FROM c
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+      person:
+        int:
+        - 1
+        - 8
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.notify:
+    sql: |-
+      WITH n AS (
+        SELECT t.id, c.diagnosis_code, t.technical_at,
+               c.diagnosis_code IN ('D-FM01', 'D-AH01', 'D-SP01', 'D-LS01') AS category_a
+          FROM lab_order_tests AS t JOIN lab_tests AS c ON c.id = t.test_id
+         WHERE c.diagnosis_code IS NOT NULL AND t.status IN ('technical', 'released')
+           AND t.technical_at > now() - interval '7 days'
+           AND EXISTS (SELECT 1 FROM lab_results AS r
+                        WHERE r.order_test_id = t.id AND r.text_value IN ('positive', 'suspect'))
+           AND NOT EXISTS (SELECT 1 FROM lab_notifications AS x WHERE x.order_test_id = t.id)
+         ORDER BY 4 DESC, t.technical_at, t.id LIMIT 1)
+      INSERT INTO lab_notifications (order_test_id, diagnosis_code, category, suspected_at) SELECT n.id, n.diagnosis_code, CASE WHEN n.category_a THEN 'A' ELSE 'other' END, n.technical_at FROM n
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.qc.rerun:
+    sql: |-
+      INSERT INTO lab_qc_runs (machine_id, level, control_lot, run_at, run_by, outcome, action) SELECT f.machine_id, f.level, f.control_lot, now(), %(tech)s, 'pass', 'none'
+        FROM lab_qc_runs AS f
+       WHERE f.outcome = 'fail'
+         AND NOT EXISTS (SELECT 1 FROM lab_qc_runs AS p
+                          WHERE p.machine_id = f.machine_id AND p.outcome = 'pass' AND p.run_at > f.run_at)
+       ORDER BY f.run_at, f.id LIMIT 1
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.amend:
+    sql: |-
+      WITH t AS (
+        SELECT t.id, t.test_id FROM lab_order_tests AS t
+         WHERE t.released_at > now() - interval '48 hours' AND t.released_at <= now() - interval '1 hour'
+           AND t.status = 'released' AND t.routing = 'in-house'
+           AND EXISTS (SELECT 1 FROM lab_results AS r WHERE r.order_test_id = t.id AND r.numeric_value IS NOT NULL)
+           AND NOT EXISTS (SELECT 1 FROM lab_results AS r WHERE r.order_test_id = t.id AND r.supersedes_id IS NOT NULL)
+         ORDER BY hashint8extended(t.id, %(pick)s) LIMIT 1),
+      r AS (
+        SELECT r.id, r.order_test_id, r.analyte_id, r.interval_id,
+               round(r.numeric_value * (0.85 + 0.3 * (hashint8extended(r.order_test_id, 7162) & 2147483647)::float8
+                                                   / 2147483648)::numeric, 3) AS val
+          FROM t JOIN lab_results AS r ON r.order_test_id = t.id
+          JOIN lab_test_analytes AS ta ON ta.test_id = t.test_id AND ta.analyte_id = r.analyte_id
+         WHERE r.numeric_value IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM lab_results AS n WHERE n.supersedes_id = r.id)
+         ORDER BY ta.position LIMIT 1)
+      INSERT INTO lab_results (order_test_id, analyte_id, numeric_value, flag, interval_id, measured_at, supersedes_id,
+                               amended_by, amended_at, amendment_reason)
+      SELECT r.order_test_id, r.analyte_id, r.val,
+             CASE WHEN i.id IS NULL THEN NULL
+                  WHEN i.critical_low IS NOT NULL AND r.val < i.critical_low THEN 'critical-low'
+                  WHEN i.critical_high IS NOT NULL AND r.val > i.critical_high THEN 'critical-high'
+                  WHEN r.val < i.low THEN 'low' WHEN r.val > i.high THEN 'high' ELSE 'normal' END,
+             r.interval_id, now(), r.id, %(pathologist)s, now(),
+             (ARRAY['transcription error corrected', 'repeat on the stored sample', 'dilution factor not applied',
+                    'wrong analyser channel', 'sample identity confirmed, value corrected'])
+               [1 + floor(5 * (hashint8extended(r.order_test_id, 7165) & 2147483647)::float8 / 2147483648)::integer]
+        FROM r LEFT JOIN lab_reference_intervals AS i ON i.id = r.interval_id
+    params:
+      pick:
+        int:
+        - 1
+        - 1000000
+      pathologist:
+        int:
+        - 79
+        - 80
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.orders.cancel:
+    sql: |-
+      WITH o AS (
+        SELECT o.id, o.account_id FROM lab_orders AS o
+         WHERE o.ordered_at > now() - interval '2 days' AND o.cancelled_at IS NULL AND o.completed_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM lab_order_tests AS t
+                            WHERE t.order_id = o.id
+                              AND (t.status NOT IN ('ordered', 'in-progress', 'sent-out')
+                                   OR EXISTS (SELECT 1 FROM lab_results AS r WHERE r.order_test_id = t.id)
+                                   OR EXISTS (SELECT 1 FROM lab_send_outs AS so WHERE so.order_test_id = t.id)))
+         ORDER BY hashint8extended(o.id, %(pick)s) LIMIT 1 FOR UPDATE SKIP LOCKED),
+      t AS (
+        UPDATE lab_order_tests AS t SET status = 'cancelled', cancelled_at = now()
+          FROM o WHERE t.order_id = o.id AND t.status IN ('ordered', 'in-progress', 'sent-out')),
+      c AS (
+        UPDATE lab_charges AS c SET voided_at = now()
+          FROM o WHERE c.account_id = o.account_id AND c.order_id = o.id AND c.voided_at IS NULL),
+      s AS (
+        UPDATE lab_samples AS s
+           SET keep_until = s.received_at
+                            + CASE WHEN s.sample_type = 'serum' THEN interval '14 days' ELSE interval '7 days' END
+          FROM o WHERE s.order_id = o.id AND s.received_at IS NOT NULL AND s.keep_until IS NULL)
+      UPDATE lab_orders AS x SET cancelled_at = now() FROM o WHERE x.id = o.id
+    params:
+      pick:
+        int:
+        - 1
+        - 1000000
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.add-on:
+    sql: |-
+      WITH env AS (
+        SELECT ((now() AT TIME ZONE 'UTC') + utc_offset_hours * interval '1 hour')::date AS d FROM lab_settings),
+      s AS (
+        SELECT s.id, s.order_id, s.sample_type, o.account_id
+          FROM lab_samples AS s JOIN lab_orders AS o ON o.id = s.order_id
+         WHERE s.keep_until > now() + interval '1 hour' AND s.disposed_at IS NULL AND s.condition = 'fit'
+           AND s.received_at IS NOT NULL AND o.account_id > 1 AND o.cancelled_at IS NULL
+         ORDER BY hashint8extended(s.id, %(pick)s) LIMIT 1),
+      c AS (
+        SELECT c.id, s.id AS sample_id, s.order_id, s.account_id
+          FROM s JOIN lab_tests AS c ON c.sample_type = s.sample_type AND c.performed = 'in-house'
+         WHERE (c.id BETWEEN 1 AND 39 OR c.id = 42 OR c.id BETWEEN 44 AND 52 OR c.id BETWEEN 61 AND 71
+                OR c.id IN (73, 74))
+           AND NOT EXISTS (SELECT 1 FROM lab_order_tests AS y WHERE y.order_id = s.order_id AND y.test_id = c.id)
+         ORDER BY hashint8extended(c.id, %(test)s) LIMIT 1),
+      t AS (
+        INSERT INTO lab_order_tests (order_id, sample_id, test_id, routing, add_on, status)
+        SELECT c.order_id, c.sample_id, c.id, 'in-house', true, 'in-progress' FROM c
+        RETURNING id, order_id, test_id),
+      o AS (
+        UPDATE lab_orders AS o SET completed_at = NULL FROM t WHERE o.id = t.order_id AND o.completed_at IS NOT NULL)
+      INSERT INTO lab_charges (account_id, order_id, order_test_id, kind, price, amount) SELECT c.account_id, t.order_id, t.id, 'test', p.price, p.price
+        FROM t JOIN c ON c.id = t.test_id CROSS JOIN env
+        JOIN lab_prices AS p ON p.test_id = t.test_id AND p.valid_from <= env.d
+             AND coalesce(p.valid_until, 'infinity') > env.d
+       WHERE c.account_id > 1
+    params:
+      pick:
+        int:
+        - 1
+        - 1000000
+      test:
+        int:
+        - 1
+        - 1000000
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.worklist:
+    sql: |-
+      SELECT t.id, s.label, c.code, o.priority, s.received_at, t.add_on,
+             (SELECT count(*) FROM lab_results AS r WHERE r.order_test_id = t.id) AS results
+        FROM lab_order_tests AS t JOIN lab_tests AS c ON c.id = t.test_id
+        JOIN lab_samples AS s ON s.id = t.sample_id
+        JOIN lab_orders AS o ON o.id = t.order_id
+       WHERE t.status = 'in-progress'
+         AND c.discipline = (ARRAY['haematology', 'biochemistry', 'blood-gas', 'coagulation', 'urinalysis', 'cytology',
+                                   'microbiology', 'serology', 'residue'])[%(bench)s]
+       ORDER BY o.priority = 'urgent' DESC, s.received_at, t.id
+       LIMIT 50
+    params:
+      bench:
+        choice:
+          1: 3
+          2: 3
+          3: 1
+          4: 1
+          5: 2
+          6: 2
+          7: 2
+          8: 2
+          9: 1
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.order.view:
+    sql: |-
+      SELECT o.id, o.client_ref, o.priority, o.patient_ref, o.species, o.received_at, o.completed_at,
+             o.cancelled_at, t.id AS order_test_id, c.code, t.status, t.technical_at, t.released_at,
+             t.not_performed_reason, a.code AS analyte, r.numeric_value, r.text_value, a.unit, r.flag, i.low, i.high,
+             r.supersedes_id IS NOT NULL AS amended
+        FROM lab_orders AS o JOIN lab_order_tests AS t ON t.order_id = o.id
+        JOIN lab_tests AS c ON c.id = t.test_id
+        LEFT JOIN lab_results AS r ON r.order_test_id = t.id
+             AND NOT EXISTS (SELECT 1 FROM lab_results AS n WHERE n.supersedes_id = r.id)
+        LEFT JOIN lab_analytes AS a ON a.id = r.analyte_id
+        LEFT JOIN lab_reference_intervals AS i ON i.id = r.interval_id
+       WHERE o.id = (SELECT x.id FROM lab_orders AS x
+                      WHERE x.ordered_at <= now() - %(back)s * interval '1 minute'
+                      ORDER BY x.ordered_at DESC LIMIT 1)
+       ORDER BY t.id, r.analyte_id
+    params:
+      back:
+        int:
+        - 0
+        - 4320
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.qc.morning:
+    sql: |-
+      INSERT INTO lab_qc_runs (id, machine_id, level, control_lot, run_at, run_by, outcome, rule_broken, action) SELECT k.id, k.machine_id, k.level,
+             'L' || to_char((now() AT TIME ZONE 'UTC') + st.utc_offset_hours * interval '1 hour', 'YYMM') || '-'
+               || k.machine_id || k.level,
+             now(), %(tech)s,
+             CASE WHEN k.u < 0.02 THEN 'fail' ELSE 'pass' END,
+             CASE WHEN k.u < 0.02
+                  THEN (ARRAY['1-3s', '2-2s', 'R-4s', '4-1s', '10-x'])
+                       [1 + floor(5 * (hashint8extended(k.id, 7170) & 2147483647)::float8 / 2147483648)::integer] END,
+             CASE WHEN k.u < 0.02 THEN 'rerun' ELSE 'none' END
+        FROM (SELECT n.id, n.machine_id, n.level, (hashint8extended(n.id, 7167) & 2147483647)::float8 / 2147483648 AS u
+                FROM (SELECT nextval(pg_get_serial_sequence('lab_qc_runs', 'id'))::integer AS id, m.machine_id, lv.level
+                        FROM (VALUES (1), (2), (3), (4), (5), (6)) AS m (machine_id),
+                             LATERAL generate_series(1, CASE WHEN m.machine_id <= 2 THEN 3 ELSE 2 END) AS lv (level)) AS n
+             ) AS k CROSS JOIN lab_settings AS st
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.qc.night:
+    sql: |-
+      INSERT INTO lab_qc_runs (id, machine_id, level, control_lot, run_at, run_by, outcome, rule_broken, action) SELECT k.id, k.machine_id, k.level,
+             'L' || to_char((now() AT TIME ZONE 'UTC') + st.utc_offset_hours * interval '1 hour', 'YYMM') || '-'
+               || k.machine_id || k.level,
+             now(), %(tech)s,
+             CASE WHEN k.u < 0.02 THEN 'fail' ELSE 'pass' END,
+             CASE WHEN k.u < 0.02
+                  THEN (ARRAY['1-3s', '2-2s', 'R-4s', '4-1s', '10-x'])
+                       [1 + floor(5 * (hashint8extended(k.id, 7170) & 2147483647)::float8 / 2147483648)::integer] END,
+             CASE WHEN k.u < 0.02 THEN 'rerun' ELSE 'none' END
+        FROM (SELECT n.id, n.machine_id, n.level, (hashint8extended(n.id, 7167) & 2147483647)::float8 / 2147483648 AS u
+                FROM (SELECT nextval(pg_get_serial_sequence('lab_qc_runs', 'id'))::integer AS id, m.machine_id, lv.level
+                        FROM (VALUES (1), (3), (5)) AS m (machine_id),
+                             LATERAL generate_series(1, CASE WHEN m.machine_id <= 2 THEN 3 ELSE 2 END) AS lv (level)) AS n
+             ) AS k CROSS JOIN lab_settings AS st
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.release.round:
+    transaction:
+      isolation: read committed
+    steps:
+    - sql: |-
+        UPDATE lab_order_tests AS t
+           SET status = 'released', released_by = %(pathologist)s, released_at = now()
+         WHERE t.status = 'technical'
+           AND NOT EXISTS (
+                 SELECT 1 FROM lab_results AS r JOIN lab_batches AS b ON b.id = r.batch_id
+                   JOIN lab_qc_runs AS f ON f.machine_id = b.machine_id AND f.outcome = 'fail'
+                    AND f.run_at > coalesce((SELECT q.run_at FROM lab_qc_runs AS q WHERE q.id = b.qc_run_id), '-infinity')
+                  WHERE r.order_test_id = t.id
+                    AND NOT EXISTS (SELECT 1 FROM lab_qc_runs AS p
+                                     WHERE p.machine_id = f.machine_id AND p.outcome = 'pass' AND p.run_at > f.run_at))
+      params:
+        pathologist:
+          int:
+          - 79
+          - 80
+    - sql: |-
+        UPDATE lab_orders AS o SET completed_at = now()
+         WHERE o.completed_at IS NULL AND o.cancelled_at IS NULL AND o.received_at IS NOT NULL
+           AND EXISTS (SELECT 1 FROM lab_order_tests AS t WHERE t.order_id = o.id AND t.status <> 'cancelled')
+           AND NOT EXISTS (SELECT 1 FROM lab_order_tests AS t
+                            WHERE t.order_id = o.id AND t.status NOT IN ('released', 'not-performed', 'cancelled'))
+    - sql: |-
+        UPDATE lab_charges AS c
+           SET billable_on = ((now() AT TIME ZONE 'UTC') + st.utc_offset_hours * interval '1 hour')::date
+          FROM lab_order_tests AS t CROSS JOIN lab_settings AS st
+         WHERE t.released_at = now() AND c.order_test_id = t.id AND c.billable_on IS NULL AND c.voided_at IS NULL
+    - sql: |-
+        UPDATE lab_charges AS c
+           SET billable_on = ((now() AT TIME ZONE 'UTC') + st.utc_offset_hours * interval '1 hour')::date
+          FROM lab_orders AS o CROSS JOIN lab_settings AS st
+         WHERE o.completed_at = now() AND c.order_id = o.id AND c.kind = 'handling' AND c.billable_on IS NULL
+           AND c.voided_at IS NULL
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.samples.dispose:
+    sql: |-
+      WITH d AS (
+        UPDATE lab_samples AS s SET disposed_at = now()
+         WHERE s.disposed_at IS NULL AND NOT s.custody AND s.keep_until < now()
+           AND NOT EXISTS (SELECT 1 FROM lab_order_tests AS t
+                            WHERE t.sample_id = s.id AND t.status IN ('ordered', 'in-progress', 'sent-out'))
+        RETURNING s.id)
+      INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place) SELECT d.id, 'disposed', now(), %(tech)s, 'clinical waste' FROM d
+    params:
+      tech:
+        int:
+        - 71
+        - 78
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/queries.yaml
+  lab.identity:
+    script: scripts/lab_identity.py:run
+    options:
+      batch: 20

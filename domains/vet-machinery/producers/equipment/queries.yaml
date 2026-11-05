@@ -1,0 +1,454 @@
+# Query repository of the machines and their systems, vet-machinery's
+# fragment (v0.5 master spec 9.6, "Producer profiles"; vet-machinery-domain.md,
+# "The producer profiles"): the keys equipment sends to pacs as
+# mach_pacs_app, to vitals as mach_vitals_app and to biomed as
+# mach_biomed_app, one per stream of schedule.yaml and job of jobs.yaml, and
+# the two script jobs reading the core's lookup API. Every value is SQL's: a
+# draw is a parameter (an int or a weighted choice), per-row variation a hash
+# of the row's ids (hashint8extended), never random(); the model is the
+# history's (data/*/load.sql). The PACS reads no registry (biomed is another
+# database): its schedule takes each procedure's machine for the animal's
+# section. Staff ids by the core's layout: radiographers 52-55, imaging
+# specialists 26-28, the biomedical engineer 56, nurses 29-51 by section, the
+# lab's technicians 71-78. Written for the databases pacs, vitals and biomed;
+# no planted fault.
+queries:
+  # --- vitals: the central station ----------------------------------------------------
+  # A raw row for every open session at the 10-second tick, its measures about
+  # the session's baselines by species (lower under anaesthesia), as the load's.
+  vitals.sample:
+    sql: >-
+      INSERT INTO mach_vitals (session_id, at, heart_rate, resp_rate, spo2, etco2, systolic, diastolic, mean_bp,
+                               temperature)
+      SELECT s.id, t.at, round(b.hr * k.f * m.v[1]), round(b.rr * k.r * m.v[2]),
+             least(100, round(97 * m.v[3] * 0.4 + 58)),
+             CASE WHEN s.kind = 'anaesthesia' THEN round(40 * m.v[4]) END,
+             round(b.sys * m.v[5]), round(b.dia * m.v[6]), round((2 * b.dia * m.v[6] + b.sys * m.v[5]) / 3),
+             round((b.temp + 0.3 * sin(extract(epoch FROM t.at) / 3600 + s.id))::numeric, 1)
+        FROM (SELECT to_timestamp(floor(extract(epoch FROM now()) / 10) * 10) AS at) AS t,
+             mach_sessions AS s,
+             LATERAL (SELECT CASE s.kind WHEN 'anaesthesia' THEN 0.85 ELSE 1 END AS f,
+                             CASE s.kind WHEN 'anaesthesia' THEN 0.7 ELSE 1 END AS r) AS k,
+             LATERAL (SELECT CASE s.species WHEN 'dog' THEN 90 WHEN 'cat' THEN 170 WHEN 'rabbit' THEN 200
+                                            WHEN 'ferret' THEN 220 WHEN 'horse' THEN 38 WHEN 'cattle' THEN 70
+                                            ELSE 80 END AS hr,
+                             CASE s.species WHEN 'dog' THEN 18 WHEN 'cat' THEN 28 WHEN 'rabbit' THEN 45
+                                            WHEN 'ferret' THEN 35 WHEN 'horse' THEN 12 ELSE 25 END AS rr,
+                             CASE s.species WHEN 'horse' THEN 115 WHEN 'rabbit' THEN 110 ELSE 125 END AS sys,
+                             CASE s.species WHEN 'horse' THEN 70 ELSE 75 END AS dia,
+                             CASE s.species WHEN 'horse' THEN 37.8 WHEN 'dog' THEN 38.5 WHEN 'cat' THEN 38.6
+                                            WHEN 'sheep' THEN 39.2 WHEN 'goat' THEN 39.2 ELSE 38.8 END AS temp) AS b,
+             LATERAL (SELECT array_agg(1 + 0.05 * sin(extract(epoch FROM t.at) / 900 + s.id + salt)
+                                       + 0.06 * ((hashint8extended(extract(epoch FROM t.at)::bigint * 64 + mod(s.id, 64),
+                                                                   salt) & 2147483647) / 2147483648.0 - 0.5)
+                                       ORDER BY salt) AS v
+                        FROM generate_series(551, 556) AS salt) AS m
+       WHERE s.ended_at IS NULL
+      ON CONFLICT DO NOTHING
+  # An alarm on an open session picked by a hash: physiological four in five.
+  vitals.alarm:
+    sql: >-
+      INSERT INTO mach_alarms (session_id, at, priority, kind, parameter, value)
+      SELECT s.id, now(), %(priority)s, %(kind)s,
+             CASE %(kind)s WHEN 'physiological'
+                  THEN (ARRAY['heart rate', 'SpO2', 'respiratory rate', 'blood pressure', 'temperature'])[%(parameter)s]
+                  ELSE (ARRAY['leads off', 'SpO2 probe off', 'cuff error', 'battery low'])[least(%(parameter)s, 4)] END,
+             CASE WHEN %(kind)s = 'physiological'
+                  THEN (ARRAY['high', 'low', 'low', 'low', 'high'])[%(parameter)s] || ' limit crossed' END
+        FROM mach_sessions AS s
+       WHERE s.ended_at IS NULL
+       ORDER BY hashint8extended(s.id, %(pick)s), s.id
+       LIMIT 1
+    params:
+      priority: {choice: {high: 15, medium: 45, low: 40}}
+      kind: {choice: {physiological: 4, technical: 1}}
+      parameter: {int: [1, 5]}
+      pick: {int: [1, 1000000]}
+  # A session on a free anaesthesia monitor for a census stay with no open
+  # session, picked by a hash: 17 or 18 for a domestic animal (20 for one in
+  # eight, an MRI under anaesthesia), 19 for horses and farm animals.
+  vitals.anaesthesia.start:
+    sql: >-
+      INSERT INTO mach_sessions (machine_id, kind, stay_id, animal_id, animal_name, species, weight_kg, started_at,
+                                 started_by)
+      SELECT m.id, 'anaesthesia', c.stay_id, c.animal_id, c.animal_name, c.species,
+             round((CASE c.species WHEN 'dog' THEN 4 + 41 * w.u WHEN 'cat' THEN 3 + 4 * w.u WHEN 'rabbit' THEN 1 + 2 * w.u
+                                   WHEN 'ferret' THEN 0.6 + 1.4 * w.u WHEN 'horse' THEN 350 + 300 * w.u
+                                   WHEN 'cattle' THEN 250 + 500 * w.u ELSE 30 + 60 * w.u END)::numeric, 1),
+             now(), CASE c.section_id WHEN 3 THEN 21 ELSE (ARRAY[4, 10])[1 + %(pick)s %% 2] END
+        FROM (SELECT * FROM mach_census AS c
+               WHERE c.left_at IS NULL AND c.admitted_at < now() - interval '30 minutes'
+                 AND NOT EXISTS (SELECT 1 FROM mach_sessions AS x WHERE x.stay_id = c.stay_id AND x.ended_at IS NULL)
+               ORDER BY hashint8extended(c.stay_id, %(pick)s), c.stay_id
+               LIMIT 1) AS c,
+             LATERAL (SELECT (hashint8extended(c.animal_id, 547) & 2147483647) / 2147483648.0 AS u) AS w,
+             LATERAL (SELECT i AS id FROM unnest(CASE WHEN c.section_id = 3
+                                                      THEN CASE WHEN %(mri)s = 1 THEN ARRAY[20] ELSE ARRAY[17, 18] END
+                                                      ELSE ARRAY[19] END) AS i
+                       WHERE NOT EXISTS (SELECT 1 FROM mach_sessions AS x WHERE x.machine_id = i AND x.ended_at IS NULL)
+                       ORDER BY i LIMIT 1) AS m
+    params:
+      pick: {int: [1, 1000000]}
+      mri: {choice: {1: 1, 0: 7}}
+  # The oldest unacknowledged alarm raised a minute ago or more, acknowledged by
+  # a nurse of the session's section.
+  vitals.alarm.ack:
+    sql: >-
+      UPDATE mach_alarms AS a SET acknowledged_at = now(),
+             acknowledged_by = CASE WHEN s.machine_id IN (19, 27, 28) THEN 29 + %(nurse)s %% 8 ELSE 43 + %(nurse)s %% 9 END
+        FROM mach_sessions AS s
+       WHERE s.id = a.session_id
+         AND a.id = (SELECT id FROM mach_alarms WHERE acknowledged_at IS NULL AND at <= now() - interval '1 minute'
+                      ORDER BY at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      nurse: {int: [0, 71]}
+  # The oldest anaesthesia session started 90 minutes ago or more (a hash adds
+  # up to an hour), ended by staff.
+  vitals.anaesthesia.end:
+    sql: >-
+      UPDATE mach_sessions SET ended_at = now(), ended_by = 'staff'
+       WHERE id = (SELECT id FROM mach_sessions
+                    WHERE kind = 'anaesthesia' AND ended_at IS NULL
+                      AND started_at + (90 + 60 * ((hashint8extended(id, 544) & 2147483647) / 2147483648.0))
+                                       * interval '1 minute' <= now()
+                    ORDER BY started_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+  # The central station's screen: every open session's last minute.
+  vitals.station:
+    sql: >-
+      SELECT s.id, s.machine_id, s.animal_name, v.at, v.heart_rate, v.spo2, v.mean_bp
+        FROM mach_sessions AS s
+        JOIN mach_vitals AS v ON v.session_id = s.id AND v.at >= now() - interval '1 minute'
+       WHERE s.ended_at IS NULL
+       ORDER BY s.machine_id, v.at
+  # The chart (jobs.yaml, every five minutes): every open anaesthesia
+  # session's last five minutes, and at minute 0 every intensive-care
+  # session's last hour, set-based from the raw rows.
+  vitals.chart:
+    sql: >-
+      INSERT INTO mach_vitals_chart
+      SELECT s.id, t.at,
+             round(avg(v.heart_rate)), min(v.heart_rate), max(v.heart_rate),
+             round(avg(v.resp_rate)), min(v.resp_rate), max(v.resp_rate),
+             round(avg(v.spo2)), min(v.spo2), max(v.spo2),
+             round(avg(v.etco2)), min(v.etco2), max(v.etco2),
+             round(avg(v.systolic)), min(v.systolic), max(v.systolic),
+             round(avg(v.diastolic)), min(v.diastolic), max(v.diastolic),
+             round(avg(v.mean_bp)), min(v.mean_bp), max(v.mean_bp),
+             round(avg(v.temperature), 1), min(v.temperature), max(v.temperature)
+        FROM (SELECT to_timestamp(floor(extract(epoch FROM now()) / 300) * 300) AS at) AS t
+        JOIN mach_sessions AS s
+          ON s.started_at < t.at AND (s.ended_at IS NULL OR s.ended_at > t.at - interval '1 hour')
+         AND (s.kind = 'anaesthesia' OR extract(minute FROM t.at) = 0)
+        JOIN mach_vitals AS v
+          ON v.session_id = s.id AND v.at < t.at
+         AND v.at >= t.at - CASE s.kind WHEN 'anaesthesia' THEN interval '5 minutes' ELSE interval '1 hour' END
+       GROUP BY s.id, t.at
+      ON CONFLICT DO NOTHING
+
+  # --- biomed: the registry, the logs, the telemetry -------------------------------------
+  # A reading for every machine with telemetry at the minute, its channels by
+  # kind (machine 10, a permanent magnet: a status row with no channel).
+  biomed.readings:
+    sql: >-
+      INSERT INTO mach_readings (machine_id, read_at, status, channels)
+      SELECT m.id, t.at, CASE WHEN m.status = 'down' THEN 'down' WHEN m.id <> 10 AND h.u < 0.001 THEN 'warning' ELSE 'ok' END,
+             CASE
+               WHEN m.id IN (1, 2) THEN jsonb_build_object('temp_c', round((24 + 1.5 * h.u)::numeric, 1),
+                                                            'reagent_pct', round((95 - 70 * t.f)::numeric, 0))
+               WHEN m.id IN (3, 4) THEN jsonb_build_object('incubator_c', round((37 + 0.2 * (h.u - 0.5))::numeric, 2),
+                                                            'reagent_pct', round((90 - 60 * t.f)::numeric, 0),
+                                                            'lamp_hours', 1800 + (t.at::date - date '2026-01-01') * 24 / 7)
+               WHEN m.id = 5 THEN jsonb_build_object('temp_c', round((37 + 0.1 * (h.u - 0.5))::numeric, 2),
+                                                      'cartridge_pct', round((100 - 90 * t.f)::numeric, 0))
+               WHEN m.id = 6 THEN jsonb_build_object('temp_c', round((37 + 0.2 * (h.u - 0.5))::numeric, 2),
+                                                      'reagent_pct', round((85 - 40 * t.f)::numeric, 0))
+               WHEN m.id IN (7, 8) THEN jsonb_build_object('tube_heat_pct', round((10 + 50 * h.u)::numeric, 0),
+                                                            'gantry_temp_c', round((24 + 2 * h.v)::numeric, 1))
+               WHEN m.id = 9 THEN jsonb_build_object('helium_pct', 78.3, 'cold_head_k', round((4.15 + 0.1 * h.u)::numeric, 2),
+                                                      'shield_k', round((41 + 2 * h.v)::numeric, 1), 'compressor', 'on')
+               WHEN m.id = 10 THEN '{}'::jsonb
+               ELSE jsonb_build_object('detector_temp_c', round((21 + h.u)::numeric, 1),
+                                       'humidity_pct', round((40 + 8 * h.v)::numeric, 0))
+             END
+        FROM (SELECT date_trunc('minute', now()) AS at,
+                     extract(epoch FROM now() - date_trunc('day', now())) / 86400 AS f) AS t,
+             mach_machines AS m,
+             LATERAL (SELECT (hashint8extended((extract(epoch FROM t.at)::bigint / 60) * 32 + m.id, 522) & 2147483647)
+                               / 2147483648.0 AS u,
+                             (hashint8extended((extract(epoch FROM t.at)::bigint / 60) * 32 + m.id, 523) & 2147483647)
+                               / 2147483648.0 AS v) AS h
+       WHERE m.telemetry AND m.status <> 'retired'
+      ON CONFLICT DO NOTHING
+  # A machine's event: info 80 %%, warning 15 %%, error 4.7 %%, critical 0.3 %%;
+  # an operator for imaging (52-55) and the analysers (71-78), never a name.
+  biomed.events:
+    sql: >-
+      INSERT INTO mach_events (machine_id, at, level, code, message, operator_id)
+      SELECT m.id, now(), %(level)s,
+             CASE %(level)s WHEN 'info' THEN 'STATUS' WHEN 'warning' THEN 'WARN-' || upper(m.kind)
+                            WHEN 'error' THEN 'ERR-' || upper(m.kind) ELSE 'CRIT-' || upper(m.kind) END,
+             CASE %(level)s WHEN 'info' THEN 'self-test passed' WHEN 'warning' THEN 'parameter near its limit'
+                            WHEN 'error' THEN 'operation failed, retried' ELSE 'critical alert: service required' END,
+             CASE WHEN m.id BETWEEN 7 AND 16 THEN 52 + %(operator)s %% 4 WHEN m.id <= 6 THEN 71 + %(operator)s %% 8 END
+        FROM mach_machines AS m
+       WHERE m.id = %(machine)s
+    params:
+      level: {choice: {info: 800, warning: 150, error: 47, critical: 3}}
+      machine: {choice: {1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 1, 7: 3, 8: 2, 9: 3, 10: 1, 11: 3, 12: 2, 13: 1, 14: 2,
+                         15: 1, 16: 2, 17: 1, 18: 1, 19: 1, 20: 1, 21: 1, 22: 1, 23: 1, 24: 1, 25: 1, 26: 1,
+                         27: 1, 28: 1}}
+      operator: {int: [0, 1000]}
+  # The oldest unacknowledged critical event, acknowledged by the biomedical
+  # engineer (rule 7).
+  biomed.events.ack:
+    sql: >-
+      UPDATE mach_events SET acknowledged_at = now(), acknowledged_by = 56
+       WHERE (id, at) = (SELECT id, at FROM mach_events WHERE level = 'critical' AND acknowledged_at IS NULL
+                          ORDER BY at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+  # A service visit, a calibration or a QA test on the machine most overdue,
+  # by its vendor's engineer or the biomedical engineer.
+  biomed.maintenance:
+    sql: >-
+      INSERT INTO mach_maintenance (machine_id, kind, performed_at, vendor, engineer, staff_id, outcome, next_due_on,
+                                    notes)
+      SELECT x.machine_id, x.kind, now(), CASE WHEN x.kind = 'service' AND x.machine_id BETWEEN 7 AND 16 THEN m.vendor END,
+             CASE WHEN x.kind = 'service' AND x.machine_id BETWEEN 7 AND 16 THEN 'vendor engineer ' || %(engineer)s END,
+             CASE WHEN NOT (x.kind = 'service' AND x.machine_id BETWEEN 7 AND 16) THEN 56 END,
+             'pass', current_date + CASE x.kind WHEN 'calibration' THEN 30 WHEN 'qa-test' THEN 365 ELSE 91 END,
+             'routine ' || x.kind
+        FROM (SELECT DISTINCT ON (machine_id) machine_id, kind, next_due_on FROM mach_maintenance
+               WHERE next_due_on IS NOT NULL
+               ORDER BY machine_id, performed_at DESC) AS x
+        JOIN mach_machines AS m ON m.id = x.machine_id
+       WHERE x.next_due_on <= current_date + 7 AND m.status = 'in-service'
+       ORDER BY x.next_due_on, x.machine_id
+       LIMIT 1
+    params:
+      engineer: {int: [1, 9]}
+  # Biomedical engineering's dashboard: each machine's latest reading and its
+  # open critical events.
+  biomed.dashboard:
+    sql: >-
+      SELECT m.id, m.code, m.status, r.read_at, r.status AS reading, r.channels,
+             (SELECT count(*) FROM mach_events AS e WHERE e.machine_id = m.id AND e.level = 'critical'
+                 AND e.acknowledged_at IS NULL AND e.at > now() - interval '7 days') AS open_critical
+        FROM mach_machines AS m
+        LEFT JOIN LATERAL (SELECT read_at, status, channels FROM mach_readings
+                            WHERE machine_id = m.id AND read_at > now() - interval '10 minutes'
+                            ORDER BY read_at DESC LIMIT 1) AS r ON true
+       ORDER BY m.id
+
+  # --- pacs: the worklist, the modalities, the reports ------------------------------------
+  # The oldest new entry with its identity: on its procedure's machine for the
+  # animal's section; urgent at once, routine on an imaging-day slot within two
+  # working days (local Monday-Friday 08:00-17:30, by a parameter).
+  pacs.worklist.schedule:
+    sql: >-
+      UPDATE mach_worklist AS w
+         SET state = 'scheduled',
+             machine_id = (SELECT CASE WHEN w.species = 'horse' THEN mp.horse
+                                       WHEN w.species IN ('cattle', 'sheep', 'goat') THEN mp.farm ELSE mp.dom END
+                             FROM (VALUES (1, 11, NULL, NULL), (2, 11, NULL, NULL), (3, 11, NULL, NULL),
+                                          (4, 11, NULL, NULL), (5, 14, NULL, NULL), (6, 14, NULL, NULL),
+                                          (7, 14, NULL, NULL), (8, 7, NULL, NULL), (9, 7, NULL, NULL),
+                                          (10, 7, NULL, NULL), (11, 9, NULL, NULL), (12, 9, NULL, NULL),
+                                          (13, NULL, 12, 13), (14, NULL, 12, 13), (15, NULL, 12, 13), (16, NULL, 12, 13),
+                                          (17, NULL, 12, 13), (18, NULL, 12, 13), (19, NULL, 12, 13), (20, NULL, 15, 15),
+                                          (21, NULL, 15, 15), (22, NULL, 15, 15), (23, NULL, 15, 15), (24, NULL, 8, 8),
+                                          (25, NULL, 8, 8), (26, NULL, 10, NULL), (27, NULL, 16, NULL),
+                                          (28, 11, 12, 13), (29, 14, 15, 15), (30, 11, 12, 13))
+                                  AS mp (procedure_id, dom, horse, farm)
+                            WHERE mp.procedure_id = w.procedure_id),
+             scheduled_at = CASE WHEN w.priority = 'urgent' THEN date_trunc('minute', now())
+                                 ELSE (SELECT ((d + interval '8 hours' + %(slot)s * interval '5 minutes')
+                                               - make_interval(hours => st.utc_offset_hours)) AT TIME ZONE 'UTC'
+                                         FROM mach_pacs_settings AS st,
+                                              LATERAL (SELECT d FROM generate_series(
+                                                         ((now() AT TIME ZONE 'UTC') + make_interval(hours => st.utc_offset_hours))::date + 1,
+                                                         ((now() AT TIME ZONE 'UTC') + make_interval(hours => st.utc_offset_hours))::date + 4,
+                                                         interval '1 day') AS d
+                                                        WHERE extract(isodow FROM d) <= 5
+                                                        ORDER BY d OFFSET %(day)s LIMIT 1) AS x) END
+       WHERE w.id = (SELECT id FROM mach_worklist WHERE state = 'new' AND identity_at IS NOT NULL
+                      ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      slot: {int: [0, 113]}
+      day: {int: [0, 1]}
+  # The oldest scheduled entry due: its study (the entry's identity, the
+  # procedure's minutes, images by modality, the radiographer, an ionising
+  # study's exposure and restrainer, a companion in one in ten) and its
+  # series; the entry completed.
+  pacs.study.acquire:
+    sql: >-
+      WITH e AS (
+        UPDATE mach_worklist SET state = 'completed'
+         WHERE id = (SELECT id FROM mach_worklist WHERE state = 'scheduled' AND scheduled_at <= now()
+                      ORDER BY scheduled_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id, accession, machine_id, patient_id, patient_name, species, procedure_id),
+      p AS (
+        SELECT e.*, mp.modality, mp.minutes, mp.body_part, mp.modality IN ('CT', 'DX', 'NM') AS ionising,
+               CASE mp.modality WHEN 'DX' THEN 2 + %(images)s %% 5 WHEN 'US' THEN 20 + %(images)s %% 40
+                                WHEN 'CT' THEN 300 + %(images)s * 9 WHEN 'MR' THEN 200 + %(images)s * 4
+                                ELSE 20 + %(images)s %% 40 END AS images,
+               CASE mp.modality WHEN 'DX' THEN 1 + %(series)s %% 3 WHEN 'US' THEN 1 + %(series)s %% 3
+                                WHEN 'CT' THEN 2 + %(series)s %% 3 WHEN 'MR' THEN 3 + %(series)s %% 3
+                                ELSE 2 + %(series)s %% 2 END AS series
+          FROM e JOIN mach_procedures AS mp ON mp.id = e.procedure_id),
+      s AS (
+        INSERT INTO mach_studies (study_uid, worklist_id, accession, machine_id, patient_id, patient_name, performed_by,
+                                  restrained_by, companion_present, started_at, ended_at, images, size_mb, exposure)
+        SELECT '1.2.826.0.1.3680043.9.7433.2.' || p.id, p.id, p.accession, p.machine_id, p.patient_id, p.patient_name,
+               52 + %(radiographer)s %% 4,
+               CASE WHEN p.ionising THEN CASE WHEN p.species = 'horse' THEN 29 + %(nurse)s %% 8
+                                              WHEN p.species IN ('cattle', 'sheep', 'goat') THEN 37 + %(nurse)s %% 6
+                                              ELSE 43 + %(nurse)s %% 9 END END,
+               p.ionising AND %(companion)s = 1, now(), now() + p.minutes * interval '1 minute', p.images,
+               round((p.images * CASE p.modality WHEN 'DX' THEN 12 WHEN 'US' THEN 0.6 WHEN 'CT' THEN 0.5
+                                                 WHEN 'MR' THEN 0.25 ELSE 1 END)::numeric, 1),
+               CASE p.modality WHEN 'DX' THEN (55 + %(kv)s) || ' kV, ' || (4 + %(kv)s %% 16) || ' mAs'
+                               WHEN 'CT' THEN 'DLP ' || (150 + 25 * %(kv)s) || ' mGy.cm'
+                               WHEN 'NM' THEN 'Tc-99m HDP ' || (3500 + 40 * %(kv)s) || ' MBq' END
+          FROM p
+        RETURNING id, images)
+      INSERT INTO mach_series (study_id, number, modality, body_part, description, images)
+      SELECT s.id, n, p.modality, p.body_part, 'series ' || n,
+             CASE WHEN n < p.series THEN s.images / p.series ELSE s.images - (p.series - 1) * (s.images / p.series) END
+        FROM s, p, generate_series(1, p.series) AS n
+    params:
+      images: {int: [0, 100]}
+      series: {int: [0, 5]}
+      radiographer: {int: [0, 99]}
+      nurse: {int: [0, 71]}
+      companion: {choice: {1: 1, 0: 9}}
+      kv: {int: [0, 35]}
+  # A modality's worklist for today, the C-FIND each runs.
+  pacs.mwl.query:
+    sql: >-
+      SELECT w.accession, w.patient_id, w.patient_name, w.species, w.scheduled_at, mp.code
+        FROM mach_worklist AS w JOIN mach_procedures AS mp ON mp.id = w.procedure_id
+       WHERE w.machine_id = %(machine)s AND w.state = 'scheduled'
+         AND w.scheduled_at >= date_trunc('day', now()) AND w.scheduled_at < date_trunc('day', now()) + interval '1 day'
+       ORDER BY w.scheduled_at
+    params:
+      machine: {int: [7, 16]}
+  # A vet reading a study of the last fortnight: its series and reports.
+  pacs.viewer.open:
+    sql: >-
+      SELECT st.id, st.patient_name, se.number, se.description, se.images, r.kind, r.status, r.conclusion
+        FROM (SELECT id, patient_name FROM mach_studies WHERE started_at > now() - interval '14 days'
+               ORDER BY hashint8extended(id, %(pick)s), id LIMIT 1) AS st
+        JOIN mach_series AS se ON se.study_id = st.id
+        LEFT JOIN mach_reports AS r ON r.study_id = st.id
+       ORDER BY se.number, r.id
+    params:
+      pick: {int: [1, 1000000]}
+  # An urgent study with no report: the duty vet's preliminary, signed at once.
+  pacs.report.preliminary:
+    sql: >-
+      INSERT INTO mach_reports (study_id, kind, author, findings, conclusion, status, signed_at)
+      SELECT st.id, 'preliminary', w.requested_by, 'Preliminary reading, final report to follow.',
+             'See final report.', 'signed', now()
+        FROM mach_studies AS st JOIN mach_worklist AS w ON w.id = st.worklist_id
+       WHERE w.priority = 'urgent' AND st.ended_at <= now()
+         AND NOT EXISTS (SELECT 1 FROM mach_reports AS r WHERE r.study_id = st.id)
+       ORDER BY st.started_at, st.id
+       LIMIT 1
+  # The oldest acquired (or reconciled) study with no final: the imaging
+  # specialist's report, signed; the study reported.
+  pacs.report.final:
+    sql: >-
+      WITH st AS (
+        UPDATE mach_studies SET state = 'reported'
+         WHERE id = (SELECT id FROM mach_studies
+                      WHERE state IN ('acquired', 'reconciled') AND ended_at <= now() AND worklist_id IS NOT NULL
+                        AND NOT EXISTS (SELECT 1 FROM mach_reports AS r WHERE r.study_id = mach_studies.id
+                                           AND r.kind = 'final')
+                      ORDER BY started_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id)
+      INSERT INTO mach_reports (study_id, kind, author, findings, conclusion, status, signed_at)
+      SELECT st.id, 'final', 26 + %(author)s %% 3,
+             (ARRAY['No abnormality detected in the regions examined.', 'Mild degenerative changes, consistent with age.',
+                    'Focal soft-tissue swelling; no bony involvement.',
+                    'Findings consistent with the clinical suspicion; see conclusion.'])[1 + %(text)s %% 4],
+             (ARRAY['Normal study.', 'Mild changes, clinical correlation advised.', 'Abnormal: see findings.',
+                    'Recheck in four to six weeks advised.'])[1 + %(text)s %% 4],
+             'signed', now()
+        FROM st
+    params:
+      author: {int: [0, 299]}
+      text: {int: [0, 399]}
+  # An addendum superseding a final of the last month, kept beside it (rule 2).
+  pacs.report.addendum:
+    sql: >-
+      INSERT INTO mach_reports (study_id, kind, author, findings, conclusion, status, signed_at, supersedes_id, why)
+      SELECT f.study_id, 'final', f.author, f.findings || ' Addendum: measurement corrected after review.',
+             f.conclusion, 'signed', now(), f.id, 'measurement corrected after review'
+        FROM mach_reports AS f
+       WHERE f.kind = 'final' AND f.signed_at > now() - interval '30 days'
+         AND NOT EXISTS (SELECT 1 FROM mach_reports AS a WHERE a.supersedes_id = f.id)
+       ORDER BY hashint8extended(f.id, %(pick)s), f.id
+       LIMIT 1
+    params:
+      pick: {int: [1, 1000000]}
+  # An urgent study acquired at night before its entry exists, the animal typed
+  # from a recent urgent entry's id (its reconciliation matches it).
+  pacs.study.unscheduled:
+    sql: >-
+      INSERT INTO mach_studies (study_uid, machine_id, patient_id, patient_name, performed_by, started_at, ended_at,
+                                images, size_mb)
+      SELECT '1.2.826.0.1.3680043.9.7433.3.' || (extract(epoch FROM now())::bigint), coalesce(w.machine_id, 11),
+             w.patient_id, w.patient_name, 52 + %(radiographer)s %% 4, now(), now() + interval '20 minutes', 3, 36
+        FROM mach_worklist AS w
+       WHERE w.priority = 'urgent' AND w.created_at > now() - interval '7 days'
+       ORDER BY hashint8extended(w.id, %(pick)s), w.id
+       LIMIT 1
+    params:
+      radiographer: {int: [0, 99]}
+      pick: {int: [1, 1000000]}
+  # The oldest unscheduled study: matched to a scheduled entry of the same
+  # typed patient id created within the day, reconciled and the entry
+  # completed; no match after a day, unmatched.
+  pacs.study.reconcile:
+    sql: >-
+      WITH st AS (
+        SELECT id, patient_id, started_at FROM mach_studies
+         WHERE worklist_id IS NULL AND state = 'acquired'
+         ORDER BY started_at, id LIMIT 1 FOR UPDATE SKIP LOCKED),
+      m AS (
+        SELECT w.id FROM mach_worklist AS w, st
+         WHERE w.patient_id = st.patient_id AND w.state IN ('new', 'scheduled')
+           AND w.created_at BETWEEN st.started_at - interval '1 hour' AND st.started_at + interval '1 day'
+         ORDER BY w.created_at, w.id LIMIT 1),
+      done AS (
+        UPDATE mach_worklist SET state = 'completed' WHERE id = (SELECT id FROM m) RETURNING id)
+      UPDATE mach_studies AS s
+         SET worklist_id = (SELECT id FROM done),
+             state = CASE WHEN (SELECT id FROM done) IS NOT NULL THEN 'reconciled' ELSE 'unmatched' END,
+             reconciled_at = CASE WHEN (SELECT id FROM done) IS NOT NULL THEN now() END,
+             reconciled_by = CASE WHEN (SELECT id FROM done) IS NOT NULL THEN 52 + %(radiographer)s %% 4 END
+        FROM st
+       WHERE s.id = st.id AND ((SELECT id FROM done) IS NOT NULL OR st.started_at < now() - interval '1 day')
+    params:
+      radiographer: {int: [0, 99]}
+  # An entry still scheduled cancelled by the imaging team, its reason.
+  pacs.worklist.cancel:
+    sql: >-
+      UPDATE mach_worklist SET state = 'cancelled', cancelled_at = now(), cancelled_because = %(reason)s
+       WHERE id = (SELECT id FROM mach_worklist WHERE state = 'scheduled' AND scheduled_at > now()
+                    ORDER BY hashint8extended(id, %(pick)s), id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      reason: {choice: ['animal discharged before the study', 'study no longer indicated after review',
+                        'owner declined the study', 'animal unfit for anaesthesia']}
+      pick: {int: [1, 1000000]}
+
+  # --- the script jobs on the core's lookup API ------------------------------------------
+  # mach.identity: the new entries lacking identity, each animal and its
+  # current owner read from clinic-api (D266, D303).
+  mach.identity:
+    script: scripts/lookup.py:identity
+    options: {batch: 20}
+  # mach.census: the core's current stays upserted into mach_census, those no
+  # longer current marked left; intensive-care sessions opened and ended
+  # (D377).
+  mach.census:
+    script: scripts/lookup.py:census

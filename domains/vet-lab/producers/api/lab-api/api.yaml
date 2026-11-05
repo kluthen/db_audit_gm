@@ -1,0 +1,20 @@
+# lab-api's fragment (v0.5 master spec 9.3; vet-lab-domain.md, "The
+# applications and their nodes"; capture W3 items 0 and 1; template:
+# .claude/skills/scenario-format/templates/api.yaml): the lab's order API, an
+# api node in the players' scope, only answering. Two endpoints under the
+# node's own hostname: orders (the intake, an order's state and the released
+# results feed), sent by the centre's purpose 1 as lab_centre and by the
+# practices' stub as lab_practices; send_outs (the external lab's answer),
+# sent by its stub as lab_xlab. The brick tells no caller apart, so the
+# account is the request's and trusted (docs/gm.md, "The roles"). Read and
+# written as lab_api. Written for the node names lab-api and lab and the
+# database lab; the GM renames them as the scenario does.
+endpoints:
+  orders:
+    hosts: [lab-api]
+    credentials: [lab_centre, lab_practices]
+  send_outs:
+    hosts: [lab-api]
+    credentials: [lab_xlab]
+connections:
+  lab: {driver: sql/postgresql, target: lab:5432/lab, role: lab_api, pool: {size: 4}}

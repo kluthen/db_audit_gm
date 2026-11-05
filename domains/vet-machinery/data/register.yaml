@@ -1,0 +1,50 @@
+# vet-machinery's register fragment (v0.5 master spec 6.1, 13.1, D334;
+# template register.yaml): one entry per processing activity, every table of
+# the three databases' schemas in exactly one (a partition with its parent),
+# transcribed from the classification and docs/policy.md's rules (D319).
+# Retention: images, reports and the chart five years (rule 8); raw vitals
+# and readings the on-site window, then the vault; logs twelve months (rule
+# 4); maintenance the machine's life and five years. Game values stated as
+# such. The scenario's data register (a player handout, chunks 17 and 27) is
+# built from it.
+activities:
+  - id: vet-machinery-imaging
+    name: Imaging studies and their reports
+    purpose: Scheduling and performing the imaging studies the vets order, archiving their images and reporting them, with the owner's family name and the animal's name in the study as the DICOM standard puts them (rules 1 to 3) and each ionising study's radiation record (rule 5)
+    people: [owners, staff]
+    tables: [mach_pacs_settings, mach_procedures, mach_worklist, mach_studies, mach_series, mach_reports]
+    retention:
+      period: 5 years from the study (rule 8; the professional code's five years for findings and technical records)
+      then: erased
+  - id: vet-machinery-monitoring
+    name: Monitoring animals in theatre and intensive care
+    purpose: Watching the vital signs of the animals under anaesthesia and in intensive care on the central station, charting them as the clinical record and raising alarms, from the core's current stays
+    people: [owners]
+    tables: [mach_vitals_settings, mach_census, mach_sessions, mach_vitals, mach_vitals_chart, mach_alarms]
+    retention:
+      period: the chart, sessions and alarms 5 years (rule 8); the raw vitals today and the last full day on site, then the vault (cold storage, a game value)
+      then: erased
+  - id: vet-machinery-equipment
+    name: The machine registry and its maintenance
+    purpose: Keeping the registry of the centre's machines, their service visits, quality-assurance tests, calibrations and downtimes (rule 6), with the vendors' engineers who visit
+    people: [vendors' service engineers, staff]
+    tables: [mach_settings, mach_machines, mach_maintenance, mach_downtimes]
+    retention:
+      period: the machine's life and 5 years (rule 8, a game value)
+      then: erased
+  - id: vet-machinery-logs
+    name: The machines' logs
+    purpose: Collecting every machine's events to keep it safe and serviceable, naming an operator by staff id only, critical alerts acknowledged within four hours (rules 4, 7)
+    people: [staff]
+    tables: [mach_events]
+    retention:
+      period: 12 months on site (rule 4, a game value)
+      then: erased
+  - id: vet-machinery-telemetry
+    name: The machines' telemetry
+    purpose: Recording each machine's status channels a minute at a time, keeping a daily aggregate of each day before it ships to cold storage (rule 11)
+    people: []
+    tables: [mach_readings, mach_readings_daily]
+    retention:
+      period: raw readings today and the last full day on site, then the vault; the daily aggregates 5 years (game values)
+      then: erased

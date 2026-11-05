@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337, D341 and D371 were reserved and never used). Take the next number from
+D337, D341, D359, D371 and D392 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -1026,3 +1026,234 @@ D337, D341 and D371 were reserved and never used). Take the next number from
 - **D400 (2026-11-04, the owner on G8's open point): pgBadger stays
   unpinned, as is.** Now in:
   [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).
+- **D401 (2026-11-04, capture W3's corrections 1 and 4, the wave
+  driver): Chunk 29 is inserted into wave 3, for a `coding-executor`:
+  W3 item 6's (a) to (d) and a `load-data` step running the purposes'
+  target DDL in the composed domains' databases; G17 carries its format
+  items into formats.md.** It is the only chunk holding `inject.py`
+  before wave 4, which cannot be built without it. Now in: [build plan](versions/v0.5/build-plan.md)
+  chunk 29, G17, waves, chunks 12, 15, 16, 18 to 21, release gate item 6.
+- **D402 (2026-11-04, the edges D401 adds): Wave 3 keeps a three-chunk
+  completion chain (29, 12, 16), past the model's two.** `29 ──> 12`
+  holds back only chunk 12's composed check and fixture, so no start is
+  delayed, and W3 items 0 and 6 fix the interfaces it crosses. Now in:
+  [build plan](versions/v0.5/build-plan.md) ("Waves", wave 3).
+- **D403 (2026-11-04, capture W3's correction 2): The fixtures meet
+  compose's rule: chunks 13 and 14 add `clinic-api`, chunks 12 and 16
+  use `left_out:` (W3 items 1 and 5), and chunk 12's stubs are composed
+  by a unit test in `test_compose.py`.** Chunks 18 to 21 carry W4's
+  counts to make. Now in: [build plan](versions/v0.5/build-plan.md) chunks 12 to 14, 16, 18 to 21.
+- **D404 (2026-11-04, capture W3's correction 3): `derive.sql` writes
+  `portal` only; purpose 16's `history` plants the messaging stub's
+  messages, `target` the partners' database, source `portal`, the stub's
+  DDL its receiver material in `partners-db`'s data file, `SELECT`
+  granted to `owners`.** T0's state is the same either way, and only a
+  history writes `partners` from a source. Closes O229. Now in:
+  [master spec](versions/v0.5/master-spec.md) 9.7;
+  [vet-portal](versions/v0.5/vet-portal-domain.md#loading) ("Loading",
+  "The history before T0", `vet-portal-messages`); [build plan](versions/v0.5/build-plan.md) chunks 16, 21.
+- **D405 (2026-11-04, capture W3's correction 5): A composed domain's
+  `pg_cron` jobs go in its `data/cron.sql`, which `load-data` runs on
+  its node after the part's load (chunk 29's (d)).** The node's data file
+  runs before their databases and roles exist; chunk 29 first checks
+  that pg_cron refuses such a job, and may drop (d) if it accepts one. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#loading) and
+  [vet-portal](versions/v0.5/vet-portal-domain.md#loading) "Loading";
+  [build plan](versions/v0.5/build-plan.md) chunks 15, 16, 29.
+- **D406 (2026-11-04, capture W3's correction 6): Text correction: the
+  portal's passwords and tokens use a key computed from the load's
+  `load_epoch`, kept only in `owners`' schema on the partners' database,
+  not "the game's seed",** which reaches neither the load nor the
+  owners' route. Now in: [master spec](versions/v0.5/master-spec.md) 9.7
+  "Keys and scale";
+  [vet-portal](versions/v0.5/vet-portal-domain.md#deterministic-key-ranges-d249-d266);
+  [build plan](versions/v0.5/build-plan.md) chunk 16.
+- **D407 (2026-11-04, capture W3's correction 7): Wave 3's gate loads the
+  six domains on `fixture-clinic-load`, uncomposed, built at the gate's
+  start by a `coding-executor` from the merged parts, and reruns
+  `fixture-lab-core` with the other four.** No chunk's Files held that
+  fixture; chunk 27 changes it later. Now in: [build plan](versions/v0.5/build-plan.md) ("Per-wave gate
+  contents", wave 3), chunk 27.
+- **D408 (2026-11-04, chunk 13's stop, point 1): The history's scheduled
+  consultations follow the agenda: on half-hour slots, the section's
+  vets on a covering shift and its consultation spaces taken in id
+  order, none past them; an unbooked consultation takes a vet with no
+  booking over it when one is on shift.** The approved demand puts more
+  domestic consultations at the evening and Saturday peaks than the rota
+  has vets (1 474 unplaceable even optimally), so no free-vet pick, nor
+  a booking's vet differing, can meet "no overlap"; this cap is the one
+  draw within the figures: about 4 % fewer (16 700 attended). T100's
+  witness reads scheduled consultations only. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  ("The history on the agenda", T100); master spec 9.4; wave log "W3
+  item 2, revised" (a), (b).
+- **D409 (2026-11-04): Chunk 30 inserted into wave 3 for a
+  `coding-executor`, ahead of chunk 13 (`30 ──> 13`, in-wave): D408's
+  rule in `core_consultation` and D413's columns in `core_exchange`.**
+  Wave 3 holds seven chunks, past the model's six: both insertions are
+  small and came mid-wave. Chunks 12, 14, 15 and 16 call the core's
+  functions, so none changes; the gate's loads supersede their figures.
+  Chunk 13 gains a split rule. Now in: [build plan](versions/v0.5/build-plan.md)
+  ("Waves", chunks 13, 30).
+- **D410 (2026-11-04, point 2): Consultation types take 30 minutes on
+  their room's half-hour grid, in their section's consultation spaces
+  (domestic rooms 1–4, horse 8–10, farm 12 and 13); the farm's rooms
+  open Monday to Friday 08:00–16:00.** One crush could not take the
+  farm's concurrent bookings, nor two stalls the horses'; the core's
+  farm consultations run to 16:00. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#entities)
+  (`sched_types`, Cadences).
+- **D411 (2026-11-04, point 3): Shifts are planned to the horizon ahead
+  of their publication: the load and each Friday's job keep the rota
+  planned to the end of the seventh week ahead, publishing the week
+  after next; the slot function reads both; shifts 1–24 000.** The
+  approved lifecycle already has planned shifts, and a 42-day horizon
+  needs a rota to meet. Now in: [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#lifecycle-states)
+  (lifecycle, ranges, `sched.rota.publish`); master spec 9.4; wave log
+  "W3 item 2, revised" (d).
+- **D412 (2026-11-04, points 4 and 5): `sched_free_slots` copies the
+  core's staff layout into its text, one formula with `core_staff`; for
+  a session type it checks enough teaching animals free and returns
+  none, the caller picking them.** The schema must run without the
+  core's tables; the signature stays W3's. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#entities)
+  ("Logic in the database").
+- **D413 (2026-11-04, point 6): `core_exchange` returns the reason and
+  the partner patient's species its load writes; an inbound
+  examination's machine follows them (CT, MRI, gamma camera,
+  ultrasound by species; a second opinion or endoscopy a consultation).**
+  A part's own draw would book an "MRI examination" on a CT. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  ("An inbound examination's booking"); build plan chunks 21, 30.
+- **D414 (2026-11-04, point 7): Scheduling's schema grants `vet_reports`
+  every `sched_` table, guarded on the role existing; W3 item 0 stands.**
+  Master spec 9.2 and vet-core's grants say so; the domain document's
+  table had left the row out. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#application-roles-and-grants).
+- **D415 (2026-11-04, chunk 12a, documents to as-built): `vet-lab`'s
+  figures and grants are the build's: `lab_samples` as loaded, about
+  20 800 (one a container, the centre's 11 777); about 161 000 results,
+  9 800 batches, 8 send-outs open at T0; intervals 61–456 in force,
+  457–460 unused; `lab_instruments` reads `lab_orders (id, species,
+  priority)` and `lab_tests (id, code, discipline)`, `lab_dispatch` the
+  catalogue.** Measured by the load, within the approved spec; chunk 30
+  (D408) moves them a few per cent, the wave gate's reruns the figures
+  of record. Now in: [vet-lab](versions/v0.5/vet-lab-domain.md#deterministic-key-ranges-d249-d266)
+  (the variant, ranges, grants, sizes, T0); master spec 9.3.
+- **D416 (2026-11-04, chunk 15a, documents to as-built): `vet-machinery`
+  as built: a settings row per database; `mach_worklist.cancelled_at`,
+  read by `mach_orders`; `mach_maint` `LOGIN` for `pg_cron`; 11 machines
+  reporting (O227); about 2 intensive-care sessions, 42 700 raw vitals
+  and 59 000 rows a day, 2 980 imaging requests a year, 0.28 million
+  rows, 75 MB, 51 s; the history's finals on the core's turnaround.**
+  Measured within the approved rules; the PACS reading no registry is
+  O235's. Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#reference-sizes);
+  master spec 9.6, 10.4; [purposes](versions/v0.5/clinic-purposes.md#the-roles-the-purposes-add).
+- **D417 (2026-11-04, chunk 14, documents to as-built): `vet-housing`
+  as built: `housing` reads `stays.reason`, `animals.born_on` and
+  `business_settings` for the board, `housing_ward` has `USAGE` on the
+  care log's sequence; an animal moves into isolation as soon as one is
+  free and out when its alert ends (157 stays moving twice, 47 of 249
+  infectious ones waiting, 5 never in); about 0.14 million rows, 17 MB,
+  7.5 s; the short test's limits (T0 to the hour, a live release's
+  disinfection unseen, the hand-over nine hours out).** Measured within
+  the approved rules; T163's witness against the waits is O236's. Now
+  in: [vet-housing](versions/v0.5/vet-housing-domain.md#reference-sizes); master spec 9.5.
+- **D418 (2026-11-04, the driver, closes O235): The `pacs` load keeps
+  the history's studies out of `biomed`'s downtime windows, derived by
+  its formulas (salts 502, 505, 506), checked inside `pacs`; live, the
+  PACS reads no registry, and a story taking a machine down stops its
+  acquisitions itself.** As recommended; chunk 15b builds it. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  [build plan](versions/v0.5/build-plan.md) chunk 21 (`mach_archive`'s
+  settings reads, for W4).
+- **D419 (2026-11-04, the driver, closes O236): T163's witness is an
+  infectious animal outside isolation while an isolation unit of its
+  section has stood clean and free for more than a day.** As
+  recommended: the history's waits, every isolation unit held, no
+  longer fire it. Now in:
+  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity) (T163, false alarms).
+- **D420 (2026-11-04, chunk 12b, documents to as-built): `vet-lab` as
+  built: `lab_instruments` reads `lab_results (order_test_id)` (the
+  driver's ruling), `lab_api` the reference intervals; the release
+  rounds three jobs (`0 11 * * *`, `0 14`/`0 18` on days 1–6), the
+  loader taking no day-of-week range nor two hours; the practices'
+  `client_ref` on the local date, `practices.state`'s `utc_offset`; no
+  food-chain status on an order (no trap reads one).** Grants and job
+  layout the build needed, the times unchanged; 9.3's and SO4's
+  "twenty" send-outs at T0 corrected to D415's eight. Now in:
+  [vet-lab](versions/v0.5/vet-lab-domain.md#application-roles-and-grants)
+  (grants, jobs, the practices); master spec 9.3; [purposes](versions/v0.5/clinic-purposes.md) (SO4).
+- **D421 (2026-11-04, chunk 16b's stop, the driver's ruling (a)): Chunk
+  31 inserted into wave 3 for a `coding-executor`, ahead of 16b's
+  restart (`31 ──> 16`): with no `third_parties:` entry listing a
+  scheduler or `api` node, `compose` and the loader take the `no-access`
+  nodes `partners-backend` and `partners-api` as the partners' shared
+  nodes when the only partner material composed onto them is a domain's
+  `producers/partners/owners/`, serving `owners` alone.** The names are
+  the plan's (chunk 11's nodes): the scenario says nothing else that finds
+  them. Rejected: (b) `lab-api` and the lab's stubs composed for real
+  changes the fixture chunk 21 builds on; (c) a placeholder messaging
+  party builds chunk 21's material early. Now in: [build plan](versions/v0.5/build-plan.md)
+  ("Waves", chunks 16, 31).
+- **D422 (2026-11-04, chunk 13, documents to as-built): `vet-scheduling`
+  as built: W3-b's columns (`sched_rooms.consultation_space`,
+  `sched_types.staff` and `course_id`, `sched_machines.around_the_clock`,
+  the generated `during`, `sched_shifts_staff_start_key`); types 1–12,
+  13–24, 25–27, 28–29, 30–45; machines 7, 8, 11–15 around the clock, 9,
+  10, 16 the imaging day; `sched_app`'s column grants on shifts and
+  sessions; inbound examinations 28 001–28 700; shift ids past 24 000
+  from a weekend T0; the load reading `vc_agenda`, a session six weeks
+  from its target else the next course; about 800 theatre plans, 2 900
+  imaging, 23 800 shifts, 800 absences, 0.10 million rows, 20 MB.**
+  Measured within the approved rules, the inbound range the owner's
+  choice; an urgent study after the imaging day is O239's, the load's
+  future absences O240's. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  (entities, ranges, placement, grants, sizes); master spec 9.4.
+- **D423 (2026-11-04, chunk 16, documents to as-built): `vet-portal` as
+  built: the keeper's clause and the documents' start through two
+  `SECURITY DEFINER` helpers the policies call (`portal_keeper_granted`,
+  `portal_owner_since`); `portal_logout`; one link slot, an invitation's
+  or a reset's, 14 days; an `activation` event only on a grant; the
+  logging settings in `schema.sql`; `portal` `BYPASSRLS`,
+  `portal_housekeeping` a login role; the status codes, superseded
+  versions listed, no herd listing; the outbox numbered by `queued_at`;
+  `owners.accounts`; about 0.20 million rows, 77 MB.** Within the
+  approved model (one link slot and life, the functions owning
+  authentication), the figures after D408's agenda; the desk's 422 for a
+  closed account is O241's, T274's witness O242's. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320)
+  (policies, endpoints, ranges, sizes, loading); master spec 9.7.
+- **D424 (2026-11-04, the driver, closes O239): An urgent imaging
+  request is booked at its machine's first free slot: the same day
+  around the clock, otherwise the next imaging day's opening; BS3 and
+  `book-requests` read so, and T113's witness is "urgent requests booked
+  after their machine's first free slot".** As recommended: the MRIs and
+  the gamma camera keep the imaging day. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record)
+  (BS3, T113); master spec 9.4; [build plan](versions/v0.5/build-plan.md) chunk 21.
+- **D425 (2026-11-04, the driver, closes O240): The load's absences
+  that start after T0, `absent` ones included, stay recorded before T0;
+  a false-alarm line answers "sick leave booked weeks ahead".** As
+  recommended: the kind only, no reason. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#5-false-alarm-material).
+- **D426 (2026-11-04, the driver, closes O241): The desk's 422 for a
+  closed account's owner is kept, about one desk call in thirty; a
+  false-alarm line answers it by the account's `status`.** As
+  recommended. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#false-alarm-material).
+- **D427 (2026-11-04, the driver, closes O242): T274's witness is about
+  one withdrawal every five or six days, the rate as built, and it is
+  fixed on `portal_keeper_granted` (the withdrawal) or
+  `portal_animals_scope` (the keeping's end).** As recommended; the
+  traffic unchanged. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies) (T274).
+- **D428 (2026-11-04, the driver, chunk 16 as built): The access model's
+  closed account: login `401`; a reset asked for its address `202`, as
+  any address's, sending nothing (no account enumeration); its
+  unsubscribe link `404`, as an unknown key's.** A text correction to
+  what `portal_request_reset` and `portal_unsubscribe` do. Now in:
+  [access model](versions/v0.5/access-model.md) 9.3.

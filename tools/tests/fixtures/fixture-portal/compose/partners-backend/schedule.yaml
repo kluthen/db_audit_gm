@@ -1,0 +1,6 @@
+# The scenario layer of node partners-backend (v0.5 master spec 8.4; D264):
+# the owners' traffic raised, so the short test sees a visit about every 50
+# seconds by day (9.3 an hour at 1.0, 0.8 the owners' day's weight from
+# 09:00), a reset about every 25 minutes. No timeline: the owners have
+# no misbehaviour key.
+intensity: 10.0

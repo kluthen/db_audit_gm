@@ -1,0 +1,97 @@
+# vet-housing's classification (v0.5 master spec 9.5; vet-housing-domain.md,
+# "Classification"): every column of every table and view of the part, in
+# the core's database, schema public, keyed <table>.<column> without the
+# database (v0.5 master spec 6.1): the scenario's copy adds it
+# (clinic.<table>.<column>). The domain classifies; a scenario's governance:
+# states each class's rules.
+#
+# Readings, as the core's (vet-core data/classification.yaml):
+#   no housing table carries an identifier: a unit, a display, a stay id, a
+#   staff id are the clinic's work record, internal, as the core's
+#   administrations.stay_id is;
+#   the unit board carries the animal's id with no identifier beside it, so
+#   customer-linked, as the core's animal_board.animal_id;
+#   free text (a plan's or a care event's note) is internal, with the trap the
+#   core's readings name: it may name the owner (T169), and the board shows
+#   no note.
+# Housing holds no personal data, which its rules keep so (docs/policy.md).
+columns:
+  # housing_units
+  housing_units.id: internal
+  housing_units.section_id: internal
+  housing_units.code: internal
+  housing_units.kind: internal
+  housing_units.isolation: internal
+  housing_units.intensive: internal
+  housing_units.state: internal
+  housing_units.state_since_at: internal
+
+  # housing_displays
+  housing_displays.id: internal
+  housing_displays.unit_id: internal
+  housing_displays.serial: internal
+  housing_displays.installed_on: internal
+  housing_displays.removed_on: internal
+
+  # housing_placements
+  housing_placements.id: internal
+  housing_placements.unit_id: internal
+  housing_placements.stay_id: internal
+  housing_placements.from_at: internal
+  housing_placements.until_at: internal
+  housing_placements.reason: internal
+  housing_placements.placed_by: internal
+
+  # housing_feeding_plans
+  housing_feeding_plans.id: internal
+  housing_feeding_plans.stay_id: internal
+  housing_feeding_plans.kind: internal
+  housing_feeding_plans.diet: internal
+  housing_feeding_plans.meals_a_day: internal
+  housing_feeding_plans.from_at: internal
+  housing_feeding_plans.until_at: internal
+  housing_feeding_plans.set_by: internal
+  housing_feeding_plans.note: internal
+
+  # housing_care_events
+  housing_care_events.id: internal
+  housing_care_events.unit_id: internal
+  housing_care_events.stay_id: internal
+  housing_care_events.kind: internal
+  housing_care_events.eaten: internal
+  housing_care_events.done_at: internal
+  housing_care_events.done_by: internal
+  housing_care_events.note: internal
+
+  # housing_unit_board (view)
+  housing_unit_board.unit_id: internal
+  housing_unit_board.code: internal
+  housing_unit_board.section_id: internal
+  housing_unit_board.kind: internal
+  housing_unit_board.isolation: internal
+  housing_unit_board.intensive: internal
+  housing_unit_board.state: internal
+  housing_unit_board.placement_id: internal
+  housing_unit_board.placed_at: internal
+  housing_unit_board.stay_id: internal
+  housing_unit_board.admitted_at: internal
+  housing_unit_board.reason: internal
+  housing_unit_board.animal_id: customer-linked
+  housing_unit_board.name: internal
+  housing_unit_board.species: internal
+  housing_unit_board.breed: internal
+  housing_unit_board.sex: internal
+  housing_unit_board.age_years: internal
+  housing_unit_board.alerts: internal
+  housing_unit_board.doses_today: internal
+  housing_unit_board.doses_given_today: internal
+  housing_unit_board.next_dose_at: internal
+  housing_unit_board.plan_kind: internal
+  housing_unit_board.diet: internal
+  housing_unit_board.meals_a_day: internal
+  housing_unit_board.plan_until_at: internal
+  housing_unit_board.feedings_today: internal
+  housing_unit_board.last_fed_at: internal
+  housing_unit_board.last_eaten: internal
+  housing_unit_board.meals_due: internal
+  housing_unit_board.last_check_at: internal

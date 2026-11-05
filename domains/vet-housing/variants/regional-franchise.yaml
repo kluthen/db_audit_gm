@@ -1,0 +1,13 @@
+# vet-housing's axes in the core's one variant (v0.5 master spec 8.3, 9.5;
+# vet-housing-domain.md, "The variant, its scale and its tags", D301 answer
+# 15): the wards of one centre, at the core's scale (D295). The core's
+# variant names the part in its parts; tags are the core's (24/7 and
+# regulated say what housing needs).
+scale:
+  population: {units: 64, units_in_service: 62, displays: 64, display_rows: 66, in_hospital: 40,
+               horses: 14, farm_animals: 6, domestic: 20}
+  history: {days: 365, placements: 3000, feeding_plans: 2800, care_events: 135000, rows: 140000,
+            moved: "one stay in five or six, a few twice (into isolation and out)"}
+  throughput: {placements_per_day: 10, releases_per_day: 8, feeding_plans_per_day: 11,
+               care_events_per_day: 520, board_reads_per_minute: 64, new_rows_per_day: 540}
+purposes: [vet-head-office-figures]
