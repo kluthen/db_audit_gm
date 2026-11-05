@@ -4983,3 +4983,47 @@ Found, not settled by G17:
    at the `cron.sql` step, and no loader check catches it earlier. v31
    states the consequence; a check, or the comments corrected, is the
    driver's call.
+
+### Wave 3 — report to the owner, 2026-11-05
+
+- **Chunks merged** (8): 29 (46ee425, inserted at the preflight: the
+  loader's support for the parts and the purposes), 14 (82c8c6d), 15
+  (4734f32, 9b4daee), 12 (2dc2317), 30 (8566267, inserted: the core's
+  agenda on half-hour slots), 16 (1ee1a8d), 31 (b4c5221, inserted: the
+  partners' nodes serving `owners` alone), 13 (fa9a480). None moved.
+  Chunk 13 stopped once before code (the core's vet draw; D408–D414);
+  chunk 16b once on a tool gap (D421). Five rotations on the owner's word
+  or on context (12, 14, 15, 13, 16b), two pauses on the account's usage
+  limit; every resume from a WIP commit.
+- **Gate**: passed at `fcd4c66` (wave log above); gate fixes `8894771`,
+  `b338c5e`, `8e1be6a`, `231900b`, `50692ef`, `fcd4c66`. G17 done
+  (`b1d53c7`, formats.md v31). No wave sync (no intent register); no
+  dependency changed.
+- **Figures** (armenelos, 2026-11-04/05): the six domains' composed load
+  through the coherence check 865 s on `fixture-clinic-load` (886 s with
+  the test), 27/27 checks; the loads in throwaway containers 668 s at
+  shift 0, 666 s at +2 (core 116 s, scheduling 93 s, lab 72 s plus 2 × 64
+  s of partner files, pacs 50 s, the portal's derivation 121 s); `clinic`
+  93 MB / 512 344 rows, `portal` 83 MB / 200 144, `lab` 57 MB / 325 993,
+  `pacs` 14 MB, `vitals` 37 MB, `biomed` 29 MB, `partners` 10 MB. Every
+  fixture under 30 minutes (the longest `fixture-housing` care 1358 s,
+  `fixture-bookings` 1176 s). Images unchanged in size; `/var` 30 GB free.
+- **Rulings**: spec D401 to D428 (plan v10 to v12). The owner's
+  information: D408 (the core's history caps its agenda, about 4 % fewer
+  scheduled consultations, closing 25–30 minutes after they start); D410
+  (the farm's rooms close at 16:00, not 13:00). The driver's, taken as
+  `spec-writer` recommended: O229 (D404), O235 (D418), O236 (D419),
+  O239–O242 (D424–D427).
+- **For the owner, open**:
+  1. **O243, for wave 4's capture**: `gm_check` reads no portal row under
+     forced row-level security (`pg_read_all_data` doesn't bypass it),
+     which hits purpose 16's history, the RL and MS checks and s5's
+     check; any `gm_check` policy shows in `pg_policies` and a player
+     could drop it. Wave 4's capture will bring options.
+  2. Information: a `cron.sql` names its jobs' databases literally, so a
+     scenario placing vet-machinery or vet-portal under other database
+     names fails at that step with no earlier check (G17); proposed for
+     chunk 17 (which holds `model.py` in wave 4): a loader refusal and
+     the files' header comments corrected. No built fixture is affected.
+- `doc-ids compare main v0.5-w3`: 0 collisions. **Merge**: `v0.5-w3` →
+  `main` on the owner's word; then wave 4 in a fresh session.
