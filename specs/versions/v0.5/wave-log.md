@@ -4891,3 +4891,50 @@ Still running unattended (the executor's queue in the scratchpad's
 six bricks' builds and stack tests, the five smokes, `smoke-scenario.sh`
 on the four scenarios, `fixture-housing` care, then `fixture-lab-core`
 again and the full unit suite on the final head.
+
+### Wave gate — results, 2026-11-05
+
+Second part, a fresh `coding-executor` (armenelos alone, the VPS drained,
+under the lock and the inhibitor). **The gate passes**, at `fcd4c66`.
+
+- **The one failure**: `fixture-housing` care 38/1 (1059 s): the queue
+  started it at UTC minute 40, setup took 143 s (not about four minutes),
+  T0 16:42 local, the 1200 s window ending before 17:05, so the loop
+  stopped before the 17:00 round and the feeding check failed instead of
+  printing "not reached" (the test's own contract). Gate fix `fcd4c66`
+  (chunk 14; the check reports not reached when the window ends before
+  17:05, the header says start at minute 43–50); rerun 40/40, 1358 s (T0
+  16:46, 7 feedings, 2 nil-by-mouth skipped, the board 64.0 a minute).
+- Confirmed: `fixture-lab-core` again 44/44, 587 s (gate fix `50692ef`);
+  the unit suite 1153 OK, 2 skipped, 178 s (on `425fadc`; only a shell
+  change after); the superseded first runs (`fixture-clinic-load` 22/1,
+  the first per-domain harness's `pg_hba`, `fixture-lab-core` 43/1)
+  replaced by passing reruns.
+- Scenario smokes (D367): `bookshop-new-server` 19/19 (21 s, f1–f6
+  present); `fernway-clinics-monitoring` 18/18 (30 s, f1–f8 present);
+  `tarnbeck-outdoor-shop` 26/26 (837 s, f1–f10 present, two slow
+  consumer keys not judged by design); `tarnbeck-outdoor-campaign` 33/33
+  (314 s; f1–f4, f7, f8 `too-soon`, f10 `error` under 12.7 as designed,
+  f5 present, none `absent` or `fixed`).
+- Stack tests, all 0 FAIL: `postgres` 315 (460 s), `bastion` 90 (82 s),
+  `scheduler` 178 (851 s), `api` 88 (194 s), `grafana` 130 (152 s),
+  `pgbouncer` 120 (168 s), `prometheus` 131 (78 s), `postgres-exporter`
+  103 (99 s), `pgwatch` 72 (249 s), `health-check` 95 (164 s). Smokes:
+  `smoke.sh` 61 (29 s), `smoke-monitoring.sh` 43 (46 s),
+  `smoke-monitoring-v05.sh` 27 (149 s), `smoke-governance.sh` 121 (120 s),
+  `smoke-load.sh` 73 (392 s). Unit tests: scheduler 91 (168.5 s), `api` 36
+  (3.0 s).
+- Images (`127.0.0.1:5000/dbagm/`): `postgres:0.5.0` 2ee628d58ded 265 MB;
+  `bastion:0.5.0` 8ffc0bf43d36 186 MB; `scheduler:0.3.0` b3d7a845addd
+  171 MB; `api:0.1.0` dd9698761f70 218 MB; `grafana:0.3.0` 37e7b4789aa7
+  845 MB; `pgbouncer:0.1.1` 182 MB; `prometheus:0.2.0` 488 MB;
+  `postgres-exporter:0.2.0` 165 MB; `pgwatch:0.1.0` 167 MB;
+  `health-check:0.1.0` 195 MB. `/var` 30 GB free; nothing pruned; nothing
+  of the gate left (containers, networks, volumes, stacks, units,
+  configs, secrets).
+
+Gate fixes in all: `8894771`, `b338c5e`, `8e1be6a`, `231900b`, `50692ef`,
+`fcd4c66`. **Wave sync**: none (no intent register); no dependency
+changed in wave 3 (no `security-advisor` post-change check). G17 next
+(`spec-writer`: chunks 29's and 31's format items into formats.md and
+master spec 5).
