@@ -273,9 +273,10 @@ bricks/
   grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
   vet-portal/           new: the clinic's six domains (9); the core's key
-                        functions in data/keys.sql, a part's coherence
-                        queries in data/coherence.yaml, a partner's state in
-                        producers/partners/<prefix>/data.sql (6.1)
+                        functions in data/keys.sql, a part's own beside them,
+                        a part's coherence queries in data/coherence.yaml,
+                        its pg_cron jobs in data/cron.sql, a partner's state
+                        in producers/partners/<prefix>/data.sql (6.1)
 domains/shop/           its classification rekeyed, its register fragment, its
                         one variant (8.6), its fragments in producers/producer/
 partners/               new: a catalogue folder beside domains/ and purposes/:
@@ -298,7 +299,9 @@ tools/tests/fixtures/   the fixtures of the short tests (18)
                                    scenario's data register (13.3)
 specs/formats.md        draft v28: the domain format, composition, the register;
                         v29 after wave 2: the composed load's files and the
-                        partners/ folder, as built
+                        partners/ folder, as built; v31 after wave 3: a part's
+                        keys, cron.sql, left_out:, the purposes' ddl: and the
+                        owners alone on the shared nodes, as built
 ```
 
 ## 6. Format changes
@@ -306,8 +309,10 @@ specs/formats.md        draft v28: the domain format, composition, the register;
 The cross-version [formats.md](../../formats.md) states the rules for
 every version. Its draft v28 states v0.5's domain format, the
 composition of domains, the data register's files and the purpose
-format's extensions in full, and its v29 the composed load's files and
-the partners' folder as wave 2 built them; this section lists what v0.5 changes and
+format's extensions in full, its v29 the composed load's files and
+the partners' folder as wave 2 built them, and its v31 wave 3's (a
+part's keys, `cron.sql`, `left_out:`, `ddl:`, the owners alone on the
+shared nodes); this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -325,22 +330,27 @@ As [formats.md](../../formats.md) "Domain" states it:
   role, schema, keys, endpoints and connections), `variants/<variant>.yaml`
   and `variants/<variant>/producers/`; as built in wave 2, a core's
   `data/keys.sql`, a part's `data/coherence.yaml` and a partner's
-  `data.sql` (below). The owners' traffic is
+  `data.sql` (below); as built in wave 3, a part's own `data/keys.sql`
+  and any domain's `data/cron.sql` (below). The owners' traffic is
   `producers/partners/owners/`; `producers/public/` holds no `data.sql`.
 - **A composed domain's data files are read, not copied** (formats.md
   "Domain", "Loading a composed domain"): `load-data` reads the schema,
-  load, keys, derivation, partner and coherence files from the
+  load, keys, derivation, partner, coherence and cron files from the
   catalogue at every load, as it reads a purpose's history; `gmctl
   compose` writes the fragments into the scenario, and the GM copies the
   classification, policy and governance fragment as before. `load-data`
   creates each `at:` database, so a domain's schema and load never
   create a database nor `\connect`, and name it `:"DBNAME"`; every file
   it runs gets `load_epoch`, the run's start, its one "now"; the core's
-  `keys.sql` (`pg_temp.core_*`) is streamed ahead of each load, partner
-  file and derivation in the same session; a partner's `data.sql` runs
-  into `partners`; `coherence.yaml` holds the post-load coherence
-  queries (8.5), a check reading `partners` running on the partners'
-  node.
+  `keys.sql` (`pg_temp.core_*` and its own helpers) is streamed ahead of each load, partner
+  file and derivation in the same session, a part's own
+  (`pg_temp.<its prefix>_*`, one prefix, never the core's) after it; a
+  partner's `data.sql` runs into `partners`; `coherence.yaml` holds the
+  post-load coherence queries (8.5), a check reading `partners` running
+  on the partners' node; `cron.sql` holds the domain's
+  `cron.schedule_in_database` calls, run last of its load on its one
+  node, in the node's `cron.database_name`, each job's role `LOGIN`
+  with `CONNECT` on its database (D405).
 - **The partners' catalogue folder**, `partners/` (formats.md
   "Partners"): `shared/`, the three shared nodes' declarations and
   seeds, and `coldstore/`, cold storage laid out as a partner folder,
@@ -363,7 +373,14 @@ As [formats.md](../../formats.md) "Domain" states it:
   databases) and, beside the core, its `variant:`; `domain:
   <id>` stays the one-domain form. Checked as 8.5 says.
 - **`composition.yaml`**, the composition record, and **`merge.yaml`**,
-  the merge's resolutions, beside `scenario.yaml` (8.4, 8.5).
+  the merge's resolutions, beside `scenario.yaml` (8.4, 8.5); as built in
+  wave 3, the record's optional `left_out:` names producer folders not
+  composed (`{domain, producer, reason}`), a left-out partner's
+  `data.sql` still running where the game has a partners' database.
+- **The owners alone** (D421): with no `third_parties:` entry listing a
+  scheduler or `api` node, a composed owners' route goes onto the
+  `no-access` nodes `partners-backend` and `partners-api`, the latter
+  serving exactly `owners`.
 - **The data register**: `governance.register: player/data-register.md`,
   the handout, mapped to the bastion's optional seed file
   `data-register.md`; `gm/data-register.yaml`, the true register; both
@@ -449,7 +466,12 @@ round-trip kind and its `round_trips:` block; the `api` and `partner`
 parts; HTTP connections; endpoint material; periodic purposes with a
 feeder and `material/history.sql`; `judged:` (`runs`, `triggers`,
 `end-to-end`, `code`, `definition`); a purpose's own `classification:`;
-the `ops` schema and `ops.runs` (12.1).
+the `ops` schema and `ops.runs` (12.1). As built in wave 3: a history
+needs no feeder, and may target the partners' database, running there;
+`ddl:` maps a database part to its DDL under `material/`, run by
+`load-data` at the composed load's step (2b), after the domains' loads
+and before the derivations, only in a database a `domains:` entry
+holds.
 
 ### 6.7 Versions and pins
 

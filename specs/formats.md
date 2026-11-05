@@ -1,10 +1,14 @@
 # Formats: scenario, brick, fault
 
-Status: draft v30; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v31; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
-wave 1's scenario layer of the merge, `compose/<node>/`
+wave 1's scenario layer of the merge, `compose/<node>/`; after wave 3's
+gate, with wave 3's as built (D401, D405, D421): a part's `keys.sql`, a
+domain's `cron.sql`, `left_out:`, a history with no feeder, a purpose's
+`ddl:` and the load's step (2b), and the owners alone on the partners'
+shared nodes
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -620,7 +624,8 @@ purposes/<purpose-id>/
   purpose.yaml   identity, parts, jobs, trace, invariants, data moved, roles
   material/      the jobs' repository entries, transformer scripts and
                  jobs.yaml lines, the target's DDL (foreign servers and
-                 procedures included), as the GM copies them into a scenario
+                 procedures included), as the GM copies them into a scenario;
+                 from v0.5 the DDL files `ddl:` names, which load-data reads
   checks/        one script per invariant
   gm.md          what the purpose is for, how it goes wrong, feedback notes
 ```
@@ -685,9 +690,37 @@ From v0.5 (D286, D303, D307):
   entry's other mapped locations through foreign schemas
   (`gm_src_source`; "Loading a composed domain" below) it drops
   afterwards, every session unseen (no statement logging,
-  `pg_stat_statements` and pgaudit off). A history may target the
-  partners' database (D366); one reading it from another node is
-  refused (D383). No periodic report runs on demand in v0.5.
+  `pg_stat_statements` and pgaudit off). A purpose whose periodic
+  jobs name a feeder needs a `history:`; one with no feeder may carry
+  a history too (purposes 14 and 16: a past no periodic job extends),
+  a file under `material/`. A history
+  may target the partners' database (D366, D404): it then runs on the
+  partners' node, in `partners`, reading its other parts over TCP; one
+  reading the partners' database from another node is refused (D383).
+  No periodic report runs on demand in v0.5.
+- **The DDL a purpose adds to a domain's database**, `ddl:` (from
+  v0.5's build), beside `history:`: a non-empty map from a database part
+  the purpose declares (`source`, `target`) to a file under `material/`
+  (`ddl: {target: material/target-ddl.sql}`), one key per database the
+  purpose adds tables to (its `ops` schema, below). Read from the
+  catalogue at every load, as the history is, never copied into the
+  scenario. Only for a part the scenario maps to a database a
+  `domains:` entry's `at:` holds: the loader and `load-data` refuse a
+  `ddl:` part mapped to a database no domain holds (`office`,
+  `partners`), whose DDL stays in the node's data file, one place each,
+  never both. `load-data` runs each file at step (2b) of the composed
+  load ("Loading a composed domain" below), as `postgres` connected to
+  the mapped database, unseen, with every `psql` variable and no key
+  functions; like a domain's schema it never creates a database nor
+  `\connect`s (refused, naming the line), names its database
+  `:"DBNAME"` and creates its roles at top level. Roles are
+  cluster-wide: a role two purposes' DDL create on one node is created
+  guarded (`DO … IF NOT EXISTS`), the purpose material's concern, which
+  the loader does not police. The loader counts the roles and objects a
+  `ddl:` file creates on its node, a guarded `CREATE ROLE` counted when
+  it starts its own line inside the `DO` block, so render gives its
+  login roles their secrets and the placement and `crontab_roles`
+  checks see them.
 - **How an invariant is judged**: `judged:`, one of `runs`, `triggers`,
   `end-to-end` (on the trace after the fix, wherever the player fixed
   it; a symptom fixed alone earns nothing; the backlog the fault left is
@@ -710,9 +743,10 @@ From v0.5 (D286, D303, D307):
 The GM copies a purpose's material into the scenario at design time, as
 it writes a scheduler's repository: the jobs into the runner's
 `queries.yaml`, `scripts/` and `jobs.yaml`, the target's DDL into the
-target node's data file. Its `history` file is the exception: from v0.5
-`load-data` reads it from the catalogue (`purposes/<id>/`, the path
-`history:` names) at every load, never from the scenario folder. The
+target node's data file. Its `history` and `ddl:` files are the
+exception: from v0.5 `load-data` reads them from the catalogue
+(`purposes/<id>/`, the paths `history:` and `ddl:` name) at every load,
+never from the scenario folder. The
 scenario folder stays self-sufficient with the full repository (D23),
 and `purposes:` names the purpose for provenance and for the faults
 attached to it.
@@ -740,7 +774,9 @@ domains/<domain-id>/
     <database>/schema.sql   from v0.5, a part with several databases: one folder per
     <database>/load.sql       database, in place of the two files above
     derive.sql              from v0.5, optional: a derivation step the GM may sanction
-    keys.sql                from v0.5, optional, a core's: its key functions, pg_temp.core_*
+    keys.sql                from v0.5, optional: a core's key functions (pg_temp.core_*),
+                              or a part's own (pg_temp.<its prefix>_*)
+    cron.sql                from v0.5, optional: the domain's pg_cron jobs
     coherence.yaml          from v0.5, optional: the post-load coherence queries
     classification.yaml     every classed column
     register.yaml           from v0.5: the register fragment, one entry per activity
@@ -770,8 +806,8 @@ node's data file. A composed domain (`domains:`, from v0.5) is copied
 in part only: `gmctl compose` writes its producer fragments into the
 scenario folder, and the GM copies its classification (each key given
 its database), its default policy and its `governance:` fragment; its
-data files (`schema.sql`, `load.sql`, `keys.sql`, `derive.sql`, each
-partner's `data.sql`, `coherence.yaml`) are never copied: `load-data`
+data files (`schema.sql`, `load.sql`, `keys.sql`, `derive.sql`,
+`cron.sql`, each partner's `data.sql`, `coherence.yaml`) are never copied: `load-data`
 reads them from the catalogue the scenario is loaded against
 (`domains/<id>/`) at every load, as the scripts read a fault definition
 ("Loading a composed domain" below). The scenario folder stays
@@ -877,37 +913,81 @@ above), as `postgres`:
   `:'load_epoch'::timestamptz`, never `now()`, so parts loaded minutes
   apart agree.
 - **The core's key functions**, `data/keys.sql`, optional, a core's (a
-  fixed path, no `domain.yaml` key): `pg_temp.core_<name>(…)` functions,
-  and nothing else. `load-data` streams the file ahead of the core's
-  `load.sql`, each of its parts' `load.sql`, each partner `data.sql` and
-  each `derive.sql` of the core and its parts, in the same session; never
-  ahead of a `schema.sql` or a purpose's history. Called
-  schema-qualified, the functions vanish with the session, so nothing
-  reaches the catalog the players read. The core's GM notes list each
-  ("Core keys", below).
+  fixed path, no `domain.yaml` key): function definitions in `pg_temp`
+  only, the keys its parts rely on as `pg_temp.core_<name>(…)` and, as
+  built, its helpers under a prefix of the core's own (vet-core's
+  `pg_temp.vc_*`), which a part calls only where the core's notes name
+  one for it (vet-scheduling's `vc_agenda`). `load-data` streams the file
+  ahead of the core's `load.sql`, each of its parts' `load.sql`, each
+  partner `data.sql` and each `derive.sql` of the core and its parts, in
+  the same session. Called schema-qualified, the functions vanish with
+  the session, so nothing reaches the catalog the players read. The
+  core's GM notes list each function a part relies on ("Core keys",
+  below); the loader does not read a core's file.
+- **A part's key functions** (from v0.5's build), its own
+  `data/keys.sql`, optional, the same fixed path: `CREATE [OR REPLACE]
+  FUNCTION pg_temp.<prefix>_<name>(` definitions only, under one prefix,
+  the part's own (vet-lab's `lab_`, vet-portal's `portal_`); a part's
+  function may call the core's. `load-data` streams it after the core's
+  file, in the same session, ahead of the part's `load.sql`, its partner
+  `data.sql` files and its `derive.sql`. `check_domain_dir` refuses, in
+  a part's file, a `CREATE` at the start of a line that is no such
+  definition, more than one prefix, the prefix `core`, or a prefix the
+  core's `keys.sql` uses (vet-core's `core`, `vc`). Neither file is ever
+  streamed ahead of a `schema.sql`, a `cron.sql`, another domain's file,
+  a purpose's DDL or a history.
 - **A partner's state**, `producers/partners/<prefix>/data.sql`,
   optional, beside the partner's fragments: run into the partners'
   database `partners`, on the one `postgres` node the `third_parties:`
   entries list, after its domain's own load, the domain's partner
-  folders in name order, the core's keys ahead. It creates the role
-  `<prefix>` (`LOGIN`, no password: render's secret, set by
-  `load-data`), the schema `<prefix>` it owns, the partner's tables and
+  folders in name order, the core's keys and the part's ahead. It
+  creates the role `<prefix>` (`LOGIN`, no password: render's secret,
+  set by `load-data`), the schema `<prefix>` it owns, the partner's tables and
   its planted state; like a schema, it never creates a database nor
   `\connect`s, naming its database `:"DBNAME"` (`load-data` refuses
   either, naming the line). A scenario composing a domain with one needs
-  that `postgres` node (refused otherwise, naming the folder). Only
-  `producers/partners/` holds one: `producers/public/` never holds a
+  that `postgres` node (refused otherwise, naming the folder), unless
+  `composition.yaml`'s `left_out:` names the partner's folder ("Composing
+  domains" below): with no partners' database a left-out partner's
+  `data.sql` is skipped; with one it runs as any other, and its roles
+  count among the node's. Only `producers/partners/` holds one: `producers/public/` never holds a
   `data.sql`, which `load-data` never runs (D369; the loader refuses one
   from v0.5's chunk 17, the bastion and the data register).
+- **A domain's `pg_cron` jobs** (from v0.5's build, D405),
+  `data/cron.sql`, optional (a fixed path, no `domain.yaml` key):
+  `SELECT cron.schedule_in_database(…)` calls only, at least one, each
+  job naming its database and its role as written (no variable names
+  them: the file runs in `cron.database_name`, not in the job's
+  database), so a scenario whose `at:` names the domain's databases
+  otherwise than the file does (`vitals`, `biomed`, `portal`) fails at
+  this step; nothing checks it earlier. pg_cron refuses a job for a
+  missing database, a missing role, a role without `LOGIN` or one
+  without `CONNECT` on the database, and a node's data file runs before
+  a domain's databases and roles exist; so the file runs last of its
+  domain's load, after its partner files, as `postgres` on the domain's
+  node, connected to the node's `cron.database_name` (read from its seed
+  `postgresql.conf`, `postgres` when unset), unseen, with no key
+  functions; and the domain's schema creates each job's role with
+  `LOGIN` and grants it `CONNECT` on the job's database, which
+  `load-data` revokes from `PUBLIC`. The jobs survive step (6)'s
+  `pg_cron` clean-up, which never touches `cron.job`. Refused, by the
+  loader and `load-data`: a domain shipping one whose `at:` spans
+  several nodes, a node whose seed does not preload pg_cron, a node
+  whose data file does not create the extension (the loader only), and
+  any statement but those calls (with `check_domain_dir`).
 - **Unseen**: every session of the composed load runs unseen (statement
   and temporary-file logging, pgaudit and `pg_stat_statements` off), as
   a derivation's and a history's do; a node's data file is not.
 - **The order**: (1) the nodes' data files, as in v0.4, creating the
   databases no domain holds (`office`, `partners`); (2) the domains, in
   `composition.yaml`'s `order`: each database's `schema.sql`, then its
-  `load.sql`, then the domain's partners' `data.sql`; (3) the sanctioned
-  derivations, in `derive` order; (4) each `purposes:` entry's history,
-  in list order; (5) the coherence check ("Composing domains" below);
+  `load.sql`, then the domain's partners' `data.sql`, then its
+  `cron.sql`; (2b) each `purposes:` entry's `ddl:` files ("Purpose
+  definition" above), the entries in list order, each entry's parts in
+  the order its `purpose.yaml`'s `parts:` lists them, since a derivation
+  or a history may write into the purpose's `ops` tables; (3) the
+  sanctioned derivations, in `derive` order; (4) each `purposes:`
+  entry's history, in list order; (5) the coherence check ("Composing domains" below);
   (6) v0.4's passwords, survey, mappings, grants and `pg_cron` clean-up;
   (7) each standby's clone, last. Every step skips standbys.
 - **Reading another database**: a derivation, a history and a coherence
@@ -919,7 +999,8 @@ above), as `postgres`:
   for the partners' database, or a purpose part's name (`source`). The
   partners' database is read only from its own node: a derivation or
   history reading it from another node is refused (D383).
-- **Reserved names**: `pg_temp.core_*` functions are the core's;
+- **Reserved names**: `pg_temp.core_*` functions are the core's, as is
+  any other prefix its `keys.sql` uses;
   `gm_src_*` schemas and servers are `load-data`'s; `partners` names the
   partners' database, never a domain id (the loader refuses one).
 
@@ -985,7 +1066,10 @@ above), as `postgres`:
   writing its resolution into the scenario's `merge.yaml`, so the merge
   is reproducible. Every output entry carries
   a provenance comment (`# from vet-lab@regional-franchise`). The loader
-  refuses duplicate keys in the merge's inputs.
+  refuses duplicate keys in the merge's inputs. A producer folder
+  `composition.yaml`'s `left_out:` names ("Composing domains" below) is
+  merged from in neither the domain's layer nor the variant's, and
+  needs no node of its name.
 
 ### Variants, scale and tags (D263)
 
@@ -1019,9 +1103,11 @@ the producer, the rules, the traps, loading. From v0.5:
   every range and function a part needs (the clinic's: requests,
   consultations and stays as functions of their id; the staff layout;
   species, deaths and infectious alerts by id) in a **"Core keys"**
-  section: its ranges, then each function of its `data/keys.sql` as
-  `pg_temp.core_<name>(…)`, with its arguments, what it returns and its
-  formula.
+  section: its ranges, then each function of its `data/keys.sql` a part
+  relies on, as `pg_temp.core_<name>(…)` (or a helper it names for one
+  part, `pg_temp.vc_agenda`), with its arguments, what it returns and its
+  formula. A part with its own `data/keys.sql` describes its functions
+  in its notes likewise.
 - **Each producer's growth an hour** at intensity 1.0, in rows and
   megabytes, and, for each data type shipped to cold storage, its
   retention on site and the consumers it waits for (D297, D298).
@@ -1145,8 +1231,25 @@ scale: {checked: true, note: "housing's 64 units against 40 current stays"}
 order: [vet-core, vet-lab, vet-scheduling, vet-housing, vet-machinery, vet-portal]
 derive:             # sanctioned steps, in order
   - {domain: vet-portal, after: [vet-core, vet-lab], reason: "documents copy the record"}
+left_out:           # optional: producer folders not composed, each once
+  - {domain: vet-lab, producer: partners/xlab, reason: "no reference lab in this game"}
 coherence: {run_at: <setup time>, result: pass}   # written by load-data
 ```
+
+**`left_out:`** (from v0.5's build), optional: when present, a
+non-empty list of `{domain, producer, reason}`, every key a non-empty
+string, no other key; `domain` a `domains:` entry, `producer` an existing
+folder under that domain's `producers/`, named as `<node>`,
+`api/<node>`, `partners/<prefix>` or `public/<name>`, each pair once.
+`gmctl compose` merges nothing from a left-out folder, in either the
+domain's or the variant's layer, and needs no node for it; so a
+left-out owners' route does not call for the partners' shared nodes
+("Partners" below). A left-out
+partner's `data.sql` is the exception: it still runs where the game has
+a partners' database, and is skipped, with the partner-database
+refusal, where it has none ("Loading a composed domain" above). A
+fixture loading the domains without their producers leaves out every
+producer folder (`fixture-clinic-load`, D407).
 
 ### A domain is done
 
@@ -1220,6 +1323,24 @@ roles every partner's (each composed partner's prefix, `coldstore` with
 a vault, `owners` for the owners' traffic), then `host all all all
 reject`; it carries no `gm_check` host line (D383).
 
+**The owners alone** (from v0.5's build, D421). The shared scheduler
+and `api` nodes are the ones the `third_parties:` entries list. When no
+entry lists a scheduler or an `api` node and a composed domain's
+`producers/partners/owners/` (either layer, not left out) is the only
+partner material for them, the shared nodes are found by name instead:
+`partners-backend` (a `scheduler` node) and `partners-api` (an `api`
+node), both `write_policy: no-access`, `nodes.yaml`'s names. `gmctl
+compose` puts the owners' route onto them; the loader requires both
+(refused when one is missing, of another brick or not `no-access`),
+counts them among the third parties' nodes for every out-of-reach
+check, and takes `partners-api` as the partners' `api` node serving
+exactly `owners` (refused when no endpoint answers under `owners` or
+one answers under another hostname). The partners' database still
+comes from an entry listing `partners-db`: a scenario with the owners'
+route and no third party at all is refused for the owners' `data.sql`
+(a known limit; no v0.5 scenario is one). With an entry listing a
+scheduler or `api` node, every rule above holds unchanged.
+
 ## Versions and pins (D57–D62, D72, D75, D86, D100, D229)
 
 A scenario pins every brick and fault it uses by id and version: each
@@ -1255,7 +1376,7 @@ pin that does not match the definition's `version`.
   is copied into a scenario at design time, so nothing pins a state of
   them. From v0.5 a scenario's composition record names the
   domains and variant it was composed from, for provenance only; a
-  composed domain's data files and a purpose's history are read from
+  composed domain's data files and a purpose's history and DDL are read from
   the catalogue at every load, as a fault definition is, so a change to
   them reaches every scenario loading them, and git history is the
   record. The `partners/` folder never bumps either.

@@ -4938,3 +4938,48 @@ Gate fixes in all: `8894771`, `b338c5e`, `8e1be6a`, `231900b`, `50692ef`,
 changed in wave 3 (no `security-advisor` post-change check). G17 next
 (`spec-writer`: chunks 29's and 31's format items into formats.md and
 master spec 5).
+
+### G17 — wave 3's formats as built (spec-writer, 2026-11-05)
+
+formats.md draft v31: "Purpose definition" (a history with no feeder, a
+history on the partners' database running there; `ddl:`, its refusals,
+its roles counted; `ddl:` read from the catalogue, never copied);
+"Domain" (the tree's part `keys.sql` and `cron.sql`; `cron.sql` among
+the files never copied); "Loading a composed domain" (the core's
+`keys.sql` as built, with its `vc_` helpers; a part's `keys.sql`, the
+prefix rule and when it streams; a left-out partner's `data.sql`; a
+domain's `cron.sql`, its content, where and when it runs, the job role
+`LOGIN` with `CONNECT`, the refusals; step (2b) in the order; the
+reserved names); "Producer material" (a left-out folder is not merged);
+"`docs/gm.md`" (the core keys a part relies on); "Composing domains"
+(`left_out:` in the record, its form and effects); "Partners" (the
+owners alone, D421); "Versions and pins" (a purpose's DDL read from the
+catalogue). Master spec 5, and 6, 6.1, 6.2, 6.6 to match. No decision
+added. G17 **done (2026-11-05)**.
+
+Checked, nothing added: formats.md does not describe the scenario
+document's contents (the `scenario-document` skill's template holds
+them), so `b338c5e`'s `cron.sql` listing needs no line there; formats.md
+has no `schedule.yaml` or `queries.yaml` section (their shapes are v0.3
+master spec 6.7 and 7.1 and the `scenario-format` skill's templates).
+The cron subset (a day of week only with a single-number hour) is in
+the skill's `SKILL.md` and `templates/jobs.yaml`, as
+`model._cron_problem` checks it. The `%%` rule is the scheduler's, not
+the loader's (`execute(statement, params if params else None)`), stated
+in `bricks/scheduler/docs/gm.md` ("a statement with no parameter is sent
+as written"), not in the skill's `templates/queries.yaml`.
+
+Found, not settled by G17:
+1. formats.md v30 held a core's `keys.sql` to `pg_temp.core_*` "and
+   nothing else"; vet-core's ships 34 `pg_temp.vc_*` helpers beside its
+   18 `core_*` functions (chunk 9), and vet-scheduling's `load.sql` calls
+   `pg_temp.vc_agenda` (chunk 30). v31 states it as built; nothing
+   checks a core's file.
+2. A `cron.sql` names its jobs' databases literally (it runs in
+   `cron.database_name`, so `:"DBNAME"` is not theirs), and both files'
+   header comments say the GM renames them as the scenario's `at:` does;
+   the file is read from the catalogue, never copied, so a scenario
+   placing vet-machinery or vet-portal in databases of other names fails
+   at the `cron.sql` step, and no loader check catches it earlier. v31
+   states the consequence; a check, or the comments corrected, is the
+   driver's call.
