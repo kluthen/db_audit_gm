@@ -10,7 +10,7 @@ connections:
     driver: sql/postgresql
     target: records:5432/clinic
     role: vet_interfaces
-    pool: {size: 1}
+    pool: {size: 2}
   lab-api:                     # the api part: POST /orders, GET /orders (the released-results feed)
     driver: http
     target: lab-api:8000

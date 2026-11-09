@@ -24,7 +24,8 @@ REPO = model.REPO_ROOT
 FIXTURES = REPO / "tools" / "tests" / "fixtures"
 BEGIN, END = "-- ops: begin", "-- ops: end"
 OFFICE_GLOB = "*/material/target/office.sql"
-CLINIC_PURPOSES = {"fixture-orders": ("vet-lab-centre-orders", "vet-lab-critical-calls")}
+CLINIC_PURPOSES = {"fixture-orders": ("vet-lab-centre-orders", "vet-lab-critical-calls"),
+                   "fixture-send-outs": ("vet-lab-practice-results", "vet-lab-send-outs")}
 
 
 def ops_blocks(purposes):

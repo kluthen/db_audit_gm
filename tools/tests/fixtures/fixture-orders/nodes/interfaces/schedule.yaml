@@ -9,7 +9,7 @@ connections:
     target: records:5432/clinic
     role: vet_interfaces
     pool:
-      size: 1
+      size: 2
   # from scenario: compose/interfaces/schedule.yaml
   lab-api:
     driver: http

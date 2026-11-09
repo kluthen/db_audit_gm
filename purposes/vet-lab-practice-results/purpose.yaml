@@ -1,0 +1,171 @@
+# vet-lab-practice-results: the results back to the practices (v0.5 master
+# spec 12.2, purpose 2; specs/versions/v0.5/clinic-purposes.md section 6;
+# capture W4 items 0 and 3 of specs/versions/v0.5/wave-log.md). A round
+# trip the partner asks: a practice's back end posts its order to the lab's
+# order API, lab-api, and gets the accession (vet-lab's stub and endpoint);
+# the centre's half, the one that can go wrong, is delivering the results to
+# the practice's callback, which the integration engine does.
+#
+# Material: material/runner/ (interfaces' job, query, schedule and
+# scripts/practice_results.py), material/target/ddl.sql (the ops schema and
+# lab_dispatch's grants on it, run in lab by load-data at step (2b)).
+# Written for the clinic's names (nodes lab, interfaces; database lab; the
+# practices' hostname practices on the partners' api node).
+id: vet-lab-practice-results
+title: The lab's released results delivered to the region's practices' callbacks, interim, final and amended
+domains: [vet-lab]
+kind: round-trip
+
+parts:
+  source: the lab's database, lab (vet-lab), where the practices' orders, tests, results and accounts are
+  target: the same database, lab, where the deliveries' attempts (lab_callbacks) and the ops tables are written
+  runner: the integration engine, interfaces (a scheduler node of role transformer)
+  partner: the region's practices' stub on the partners' api node, hostname practices, every account's callback
+
+jobs:
+  - name: deliver-practice-results
+    key: practice-results.deliver
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the practices' deliveries due (an interim on a several-test order's first release, the final
+      at its completion, one per amendment) with no acknowledged attempt, each posted to its own
+      account's callback under its delivery_key, four at a time, an attempt five minutes after the
+      last at most six times, then one incident; one lab_callbacks row per attempt
+    cadence: "* * * * *"
+    connections:
+      source: lab_dispatch
+      partner: practices_customer
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: PR1
+    statement: >-
+      Every delivery a practice test's release made due since the judged moment (the interim on an
+      order's first release with tests still pending, the final on the release completing the order,
+      an amended one on an amendment) is acknowledged within 15 minutes, or after six failed attempts
+      in an incident.
+    check: checks/pr1-delivered-in-time.sh
+    parameters: {}
+    witness: >-
+      about 40 practice releases a working day, in bursts at the rounds: a delivery made due since
+      the judged moment, at least 15 minutes ago
+    judged: triggers
+  - id: PR2
+    statement: >-
+      A delivery keeps its delivery_key across attempts: one key per order, kind and revision.
+    check: checks/pr2-one-key.sh
+    parameters: {}
+    witness: >-
+      the stub's standing slowness and errors make retries every day: a delivery attempted since the
+      judged moment
+    judged: runs
+  - id: PR3
+    statement: >-
+      No delivery carries a result not released (lab rule 1): a final only once its order is
+      completed, an interim only once a test of it is released, an amendment only once made.
+    check: checks/pr3-released-only.sh
+    parameters: {}
+    witness: >-
+      interim reports while other tests are technical: a delivery attempted since the judged moment
+    judged: runs
+  - id: PR4
+    statement: >-
+      Each delivery goes to its own order's account's callback, never another practice's (lab rule
+      10).
+    check: checks/pr4-own-account.sh
+    parameters: {}
+    witness: >-
+      every delivery: one the practices' stub received since the judged moment
+    judged: runs
+  - id: PR5
+    statement: >-
+      End to end, every practice order received since the judged moment has its released results
+      acknowledged at its callback within its tests' turnaround, the wait for the next release round
+      (none for an urgent order) and 15 minutes.
+    check: checks/pr5-orders-delivered.sh
+    parameters: {}
+    witness: >-
+      about 25 orders a working day, most resulted the same day: a practice order received since the
+      judged moment, completed, its final acknowledged
+    judged: end-to-end
+
+round_trips:
+  - asks: partner
+    request:
+      job: the practices' stub's practices.order stream (vet-lab's partners/practices), posting to lab-api
+      counterpart: lab-api, POST /orders, as the practices (credential lab_practices); the deliveries this purpose's
+      sends: >-
+        the practice's order (its account, client_ref, patient reference, client's surname, the
+        animal's species, sex and birth date, its tests); answered with the accession at once. The
+        purpose's part: deliver-practice-results posting each interim, final or amended delivery to
+        the account's callback, POST /results on the practices' stub (credential practices_customer):
+        the account, the accession, the client_ref, patient reference and client's surname, the
+        kind and revision, each test's status and its released results only
+    correlation: >-
+      the practice's client_ref for the order; delivery_key, one per order, kind and revision,
+      md5('vet-lab-delivery:(order):(kind):(revision)'), kept across attempts
+    answers:
+      - form: accepted
+        when: within 30 seconds of each attempt (2xx)
+        carries: the delivery_key acknowledged; a repeat acknowledged again without a second record
+    timeout:
+      after: no 2xx within 30 s (the connection's timeout)
+      then: >-
+        retried 5 minutes after the last attempt with the same delivery_key, at most six attempts,
+        then one ops.incidents row in lab (kind undelivered, ref the delivery_key), once
+    reactions:
+      - each attempt a lab_callbacks row, acknowledged_at on the 2xx (deliver-practice-results)
+      - the order's report final once every test is; its charges billable on release (vet-lab's lis streams)
+
+data_moved:
+  - job: deliver-practice-results
+    reads: [lab.lab_orders.patient_ref, lab.lab_orders.client_surname]
+    writes: [target:lab_callbacks, target:ops.incidents, target:ops.runs]
+
+roles:
+  - name: lab_dispatch
+    part: target
+    reads: [lab_orders, lab_order_tests, lab_results, lab_accounts, lab_tests, lab_analytes, lab_callbacks,
+            "ops.*"]
+    writes: [lab_callbacks, ops.runs (insert), ops.incidents (insert), ops.watermarks]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    lab.ops.runs.id: internal
+    lab.ops.runs.purpose: internal
+    lab.ops.runs.job: internal
+    lab.ops.runs.started_at: internal
+    lab.ops.runs.finished_at: internal
+    lab.ops.runs.rows_read: internal
+    lab.ops.runs.rows_written: internal
+    lab.ops.incidents.id: internal
+    lab.ops.incidents.purpose: internal
+    lab.ops.incidents.job: internal
+    lab.ops.incidents.kind: internal
+    lab.ops.incidents.ref: internal
+    lab.ops.incidents.opened_at: internal
+    lab.ops.incidents.reason: internal
+    lab.ops.incidents.run_id: internal
+    lab.ops.watermarks.purpose: internal
+    lab.ops.watermarks.name: internal
+    lab.ops.watermarks.at: internal
+    lab.ops.watermarks.last_id: internal
+    lab.ops.watermarks.run_id: internal

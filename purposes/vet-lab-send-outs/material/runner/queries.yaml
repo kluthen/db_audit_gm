@@ -1,0 +1,15 @@
+# Query repository of the integration engine, a fragment (vet-lab-send-outs;
+# capture W4 items 0 and 3): the purpose's two jobs, transformer scripts
+# (scripts/send_outs.py) reading lab, posting to the external lab's stub, and
+# writing lab_send_outs, the sent-out sample events and ops.incidents with
+# their ops.runs row in one transaction after the calls.
+queries:
+  send-outs.send:
+    script: scripts/send_outs.py:send
+    options:
+      batch: 60                # send-outs packed and posted a run at most (about 7 a working day)
+  send-outs.chase:
+    script: scripts/send_outs.py:chase
+    options:
+      batch: 40                # send-outs retried or chased a run at most
+      window: "08:00-19:59"    # local hours it acts in, Monday to Saturday (spec D436)
