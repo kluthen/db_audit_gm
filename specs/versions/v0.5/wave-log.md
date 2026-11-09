@@ -6144,3 +6144,16 @@ reading of the vault fixture (the test lowers `window_days` to 0 so a
 shipped day exists at T0, the job reading the window from the settings,
 D418) to confirm. The chunk resumes with a fresh owner at once (21a
 first; the halves stay in order).
+
+### Chunk 21's grants recorded (D442), 2026-11-09
+
+`spec-writer` (96e6b00): the four grants confirmed against the schemas
+(`sched_free_slots` and `sched_release_allocations()` run with the
+caller's rights; `mach_worklist.procedure_id` NOT NULL) and added to the
+roles table, master spec 9.4 and 9.6, the scheduling and machinery
+documents; `mach_orders` on `mach_reports` narrowed to the columns read.
+The vault reading confirmed: the load keeps the last full day and today,
+so the test sets `window_days` to 0 in both settings tables and
+yesterday ships; the planted manifests stop before it (no shipment-id
+clash). Chunk 21's text reworded to say so. Nothing changes what the
+resumed owner builds; nothing for the owner.
