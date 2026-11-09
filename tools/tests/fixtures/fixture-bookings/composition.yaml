@@ -16,4 +16,6 @@ scale:
   checked: true
   note: "the core's 16 700 placed scheduled consultations as attended bookings, its 3 000 imaging requests and 270 inbound examinations booked, the rota of its 85 staff; about 0.13 million rows beside the core's 0.27"
 order: [vet-core, vet-scheduling]
+left_out:
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' nodes: the other centres' stub (purpose 4's) is fixture-exchanges', its fragments composed in test_compose.py (spec D435)"}
 # derive: none (scheduling computes the core's keys; no sanctioned derivation)

@@ -764,6 +764,45 @@ Purpose 4's exchange endpoints come with that purpose (`vet_exchange`).
 The fragments are written for the nodes `pms`, `records`, `clinic-api`
 and the database `clinic`; rename them as the scenario does.
 
+**`partners/centres`**, the other centres of the franchise
+([`producers/partners/centres/`](../producers/partners/centres/); capture
+W4 item 4, D306), one stub for three partners on the partners' shared
+nodes, prefix `centres`, three hostnames: `aldermoor-central` (site 2,
+`ALD-C`), `aldermoor-south` (site 3, `ALD-S`) and `aldermoor-abroad`
+(sites 4 to 6, the centres abroad as one). Purpose 4
+([`vet-centre-exchanges`](../../../purposes/vet-centre-exchanges/)) is
+its counterpart.
+
+| Route (each hostname) | Credential | What it does |
+|---|---|---|
+| `POST /exchanges` | `centres_customer` (purpose 4's) | the clinic's request filed under its `exchange_key` (a resend counted in `requests`, never a second exchange); its answer due two to eight office hours later (Monday to Friday 08:00–18:00, the customer's zone), a hash of the key; 201 `{exchange_key, status: received, requests}` |
+| `POST /exchanges/{key}/answer`, `.../report` | `centres_customer` | the clinic's answer (accepted with its date, or declined) and report on a request this centre made; 404 for a key it does not hold (another centre's: the wrong-centre trap's witness) |
+| `POST /tick` | `partners_backend` | the centre's answers falling due posted to `clinic-api`'s `POST /exchanges/{key}/answer` (declined one examination in ten, else accepted one to ten working days ahead, a transfer the day itself), again after a resend; an accepted examination's report one to three days after it, 10:00–17:00 local; its own requests `clinic-api` did not take, again under the same key |
+| `POST /request` | `partners_backend` | one new request of the centre's (an examination for a patient of its own, the six reasons and four species of `core_exchange`), keyed `md5('vet-core-centre-request:' ‖ m)::uuid`, `m` from 100 701 (the history's centre records end at 100 700), posted to `clinic-api`'s `POST /exchanges` |
+
+The back end (`schedule.yaml`): `centres.normal` once a minute (the
+state's `delay_ms` 0 for the three hostnames), `centres.tick.<centre>`
+every five minutes and `centres.request.<centre>` at 0.033 an hour on
+the office hours (about one a day for the three), each on its
+hostname's connection. Its calls to `clinic-api` carry `clinic_centres`
+(connection `centres-clinic`). **Its state** (`data.sql`):
+`centres.exchanges` (one row an exchange a centre holds: `asked_by`
+`customer` or `centre`, `ref` the clinic's exchange id or the centre's
+record number, `requests`, `due_at`, the answer, `answer_posts`,
+`report_due_at`, `reported_at`, `posted_at`), `centres.messages` (every
+message the public routes took, its body and the status answered: what
+the clinic sent, read by purpose 4's checks) and `centres.state`
+(`delay_ms`, `utc_offset`). **Planted** from `core_exchange` (1–700),
+the core's keys streamed ahead: the clinic's requests `sent` and
+unanswered at T0 (their answer due within a working day, a due time
+already past placed in the hour after T0) and its accepted examinations
+not yet reported, the centres' own requests the clinic has not answered
+and their accepted examinations it has not reported; nothing closed.
+Every draw is a hash of the key, never `random()`. A scenario without
+the partners' api and back-end nodes leaves the folder out
+(`composition.yaml`'s `left_out:`, spec D435); with a partners'
+database its `data.sql` still runs there.
+
 ## The rules
 
 The default policy's eleven rules ([`policy.md`](policy.md), D280):

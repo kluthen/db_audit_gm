@@ -13,4 +13,6 @@ scale:
   checked: true
   note: "64 units, 62 in service (21 horse, 10 farm, 31 domestic), against the core's at most 17, 9 and 23 current stays; about 0.14 million rows beside the core's 0.27"
 order: [vet-core, vet-housing]
+left_out:
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' nodes: the other centres' stub (purpose 4's) is fixture-exchanges', its fragments composed in test_compose.py (spec D435)"}
 # derive: none (housing computes the core's keys; no sanctioned derivation)

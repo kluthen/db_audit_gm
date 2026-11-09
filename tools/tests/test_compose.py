@@ -343,6 +343,10 @@ class TestLabStubs(unittest.TestCase):
     loaded with the scenario. No deployment."""
 
     def setUp(self):
+        self.prepare()
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def prepare(self):
         tmp = tempfile.TemporaryDirectory(prefix="gmctl-lab-stubs-")
         self.addCleanup(tmp.cleanup)
         self.scenario = Path(tmp.name) / "fixture-lab-core"
@@ -352,7 +356,8 @@ class TestLabStubs(unittest.TestCase):
                         ignore=shutil.ignore_patterns("clinic-api", "lis", "lab-api"))
         record = self.scenario / "composition.yaml"
         data = yaml.safe_load(record.read_text())
-        data["left_out"] = [e for e in data["left_out"] if not e["producer"].startswith("partners/")]
+        data["left_out"] = [e for e in data["left_out"]
+                            if not (e["domain"] == "vet-lab" and e["producer"].startswith("partners/"))]
         record.write_text(yaml.safe_dump(data, sort_keys=False))
         shared = model.REPO_ROOT / "partners" / "shared"
         declared = yaml.safe_load((shared / "nodes.yaml").read_text())["nodes"]
@@ -374,7 +379,6 @@ class TestLabStubs(unittest.TestCase):
         layer.mkdir(parents=True)
         base = yaml.safe_load((shared / "partners-backend" / "schedule.yaml").read_text())
         (layer / "schedule.yaml").write_text(f"intensity: {base['intensity']}\n")
-        self.result = compose.compose(self.scenario, model.REPO_ROOT)
 
     def output(self, node, fname):
         return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
@@ -411,6 +415,63 @@ class TestLabStubs(unittest.TestCase):
         scenario = model.load_scenario(self.scenario)
         self.assertEqual([t["hostname"] for t in scenario.data["third_parties"]],
                          ["northfield-lab", "practices"])
+        self.assertEqual(self.result.overrides, [])
+
+
+class TestCentresStub(TestLabStubs):
+    """vet-core's centres stub, one folder for three partners (capture W4 item
+    4; spec D435): fixture-lab-core as TestLabStubs builds it, vet-core's
+    partners/centres put back too and the three centres declared, their
+    fragments joining the lab's two stubs' on the shared nodes. No
+    deployment."""
+
+    CENTRES = ("aldermoor-central", "aldermoor-south", "aldermoor-abroad")
+
+    def setUp(self):
+        self.prepare()
+        record = self.scenario / "composition.yaml"
+        data = yaml.safe_load(record.read_text())
+        data["left_out"] = [e for e in data["left_out"] if e["producer"] != "partners/centres"]
+        record.write_text(yaml.safe_dump(data, sort_keys=False))
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        for host in self.CENTRES:
+            data["third_parties"].append({
+                "id": host, "name": f"Aldermoor {host.split('-')[1]}", "stands_for": "another centre",
+                "role": "round-trip", "nodes": ["partners-api", "partners-backend", "partners-db"],
+                "hostname": host, "player_doc": "player/partners.md#the-other-centres"})
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        hba = self.scenario / "nodes" / "partners-db" / "pg_hba.conf"
+        hba.write_text(hba.read_text().replace("practices,xlab ", "centres,practices,xlab"))
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def test_the_stubs_on_the_shared_nodes(self):
+        api = self.output("partners-api", "api.yaml")
+        self.assertEqual({n: e for n, e in api["endpoints"].items() if n.startswith("centres_")}, {
+            "centres_exchanges": {"hosts": list(self.CENTRES), "credentials": ["centres_customer"]},
+            "centres_tick": {"hosts": list(self.CENTRES), "credentials": ["partners_backend"]}})
+        self.assertEqual(api["connections"]["centres-clinic"],
+                         {"driver": "http", "target": "clinic-api:8000", "credential": "clinic_centres", "pool": 1,
+                          "timeout": "10s"})
+        for name in ("centres_exchanges", "centres_tick"):
+            for folder in ("routes", "db"):
+                self.assertTrue((self.scenario / "nodes" / "partners-api" / folder / f"{name}.py").is_file())
+        backend = self.output("partners-backend", "schedule.yaml")
+        self.assertEqual([(s["key"], s["connection"]) for s in backend["streams"] if s["key"].startswith("centres.")],
+                         [("centres.normal", "centres-db")]
+                         + [(f"centres.tick.{h}", f"centres-{h}") for h in ("central", "south", "abroad")]
+                         + [(f"centres.request.{h}", f"centres-{h}") for h in ("central", "south", "abroad")])
+        self.assertEqual({n: (c["target"], c["credential"]) for n, c in backend["connections"].items()
+                          if n.startswith("centres-") and c["driver"] == "http"},
+                         {f"centres-{h.split('-')[1]}": (f"{h}:8000", "partners_backend") for h in self.CENTRES})
+        queries = self.output("partners-backend", "queries.yaml")["queries"]
+        self.assertEqual(queries["centres.tick.south"], {"call": "POST /tick"})
+        self.assertEqual(queries["centres.request.abroad"], {"call": "POST /request"})
+
+    def test_the_output_loads(self):
+        scenario = model.load_scenario(self.scenario)
+        self.assertEqual([t["hostname"] for t in scenario.data["third_parties"]],
+                         ["northfield-lab", "practices", *self.CENTRES])
         self.assertEqual(self.result.overrides, [])
 
 

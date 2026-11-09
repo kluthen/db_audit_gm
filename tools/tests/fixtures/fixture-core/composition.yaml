@@ -6,4 +6,6 @@ domains:
 keys: {}
 scale: {checked: true, note: "the core alone at one centre's scale: about 0.27 million rows, 49 MB"}
 order: [vet-core]
+left_out:
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' nodes: the other centres' stub (purpose 4's) is fixture-exchanges', its fragments composed in test_compose.py (spec D435)"}
 # derive: none (the core alone)
