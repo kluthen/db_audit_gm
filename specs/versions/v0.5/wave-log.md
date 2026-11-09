@@ -6296,3 +6296,20 @@ and commit the uncommitted state as WIP if sound, then continue. Chunk
 20 starts at the first free slot once chunk 19 has merged (its
 `office.sql` and the authority's block are 20's byte-for-byte
 reference); its brief is `brief-20.md`. G11.2 still with the owner.
+
+### Third driver resumed after the rate-limit kill, 2026-11-09 22:05
+
+The second driver and its fresh owners (18, 19, 21) were killed by an
+account rate limit at about 21:00, with no handover. State found: 18 at
+WIP `b653cf4` (18b, clean; its SQL check passed, its first send-outs run
+30 PASS / 2 FAIL); 19 at WIP `e2d45f4` with its first fixture-exchanges
+run live on the host lock (21:37, stack `fixture-ex-mm7knz`); 21 at WIP
+`e875634` plus three uncommitted check edits (bs5, io1, io2; imaging
+64/66). Cross-chunk finding: the bricks' `check-sql` prints values with
+Python `str()`, so booleans are `True`/`False`, never `t`; checks parsing
+`== "t"` (18's so1 and pr1, 21's bs5 and io2) were wrong. To save the
+account's rate, at most two chunk owners run at once: fresh owners now
+for 18 and 19 (resume notes `resume-18c.md`, `resume-19c.md`), 21 and 20
+next as slots free. Host-lock windows are reserved per hour in the
+scratchpad's `lock-slots.md` (19 at :37, 18 at :40 collide). G11.2 still
+with the owner.
