@@ -5897,3 +5897,43 @@ clean. No dependency added, no image touched.
 
 Chunk 18 takes the slot. Chunks 17 and 19 told nothing new: their
 briefs already wait on this merge.
+
+### Chunk 19 — stopped on loader gaps (WIP ce468eb), 2026-11-09
+
+The owner stopped at WIP `ce468eb` on `v0.5-c19-exchanges` (worktree
+kept), on five gaps and a heavy context (about 125 tool calls). Both
+purposes fail `test_catalog_purposes_are_complete`, so not merged.
+Built so far: the centres' stub (`domains/vet-core/producers/partners/centres/`),
+the two purposes' `purpose.yaml`, material and DDL (run clean in a
+throwaway `postgres:0.5.0`, the planted rows matching the clinic's),
+`office.sql` per W4 item 5, the authority stub's shared block, the
+centres' `left_out:` line in the seven composed fixtures (`test_model`,
+`test_partners`, `test_inject`, `test_compose` pass). Not built: the ten
+checks, the two `gm.md`, `fixture-exchanges`.
+
+The gaps:
+1. `model.INVARIANT_ID_RE` (`^[A-Z][0-9]+$`) refuses the spec's
+   two-letter ids (EX1, ND1, and every clinic purpose's: LO, PR, SO, CC,
+   MR, ...): chunks 18, 20 and 21 meet it too. Loader.
+2. `_check_endpoint_material` refuses `api.yaml` in
+   `material/api/<node>/`, which W4 item 0's table places there; purpose
+   4 needs it (the `exchanges` endpoint's `clinic_centres` credential,
+   the `clinic-exchanges` connection as `vet_exchange`). Loader or W4.
+3. Spec: purpose 4 carries two round trips (master spec 12.1), each
+   naming exactly one end-to-end invariant, but 12.2 gives it one (EX5;
+   EX2 is "triggers").
+4. `data_moved.reads` keys must match `CLASSIFICATION_KEY_RE` (three
+   parts), refusing an `ops` column (`clinic.ops.notifications.payload`,
+   purpose 5's copy). Loader.
+5. Spec: clinic-purposes' roles table lists for `vet_interfaces` only
+   `animals (id, species, status, died at)` and no `owners`, while
+   purpose 4's data moved and EX4, and purpose 5's keeper, need more;
+   the owner granted the column-level minimum in the two DDL files.
+Sent to `spec-writer` (decisions, an inserted loader chunk, the spec's
+two corrections), with a sweep of every wave-4 purpose for the same
+class of loader gap so one inserted chunk covers them. Chunk 19 resumes
+from `ce468eb` with a fresh owner once settled. Its as-built so far
+(for W4-c): connection names `clinic` (`vet_interfaces`, pool 2) and
+`lab-dispatch`, which chunk 18 must use identically; `office.sql` the
+reference text chunk 20 matches byte for byte; the authority's shared
+block, byte-identical in purpose 8.

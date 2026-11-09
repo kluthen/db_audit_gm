@@ -1666,7 +1666,7 @@ per-part folders, and the `ops` block every purpose writes (`ops.runs`,
 
 ### Chunk 19 — The exchanges and the notifications: purposes 4 and 5
 
-Status: in progress
+Status: blocked (on the loader gaps found by chunk 19, WIP ce468eb)
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 5's format check and fixture only (in wave, spec D431)
