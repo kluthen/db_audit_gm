@@ -59,6 +59,17 @@ keeps the list form. Each HTTP credential is a password secret
 root-only under /opt/gm/secrets/ on each node naming it: a scheduler
 node's HTTP connections, an `api` node's endpoints and connections, a
 `postgres` node's `vault_credential` (localimpl.node_credentials).
+A credential a `third_parties:` entry lists under `credentials:`, the
+customer's own with that partner, is handed over (16 characters, the players'
+alphabet) and mounted on the bastion too, whose entrypoint writes it into
+partners.md in place of `{{credential:<name>}}` (spec D365, D433; v0.5
+capture W4 item 1).
+
+v0.5 master spec 7.3, spec D363, capture W4 item 1: the bastion's web-routes
+token for cold storage's console, a route whose target is a third party's
+hostname and no node (the loader accepts only that one), carries the suffix
+`:console` (`cold-storage=cold-storage:8000:console`): the front proxies its
+`GET /` and `GET /manifests` alone.
 
 v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
@@ -445,12 +456,23 @@ def envelope_text(node_name, knobs):
     return "\n".join(lines) + "\n"
 
 
-def web_routes_value(routes):
+CONSOLE_SUFFIX = ":console"           # a partner's console route (W4 item 1)
+
+
+def web_routes_value(routes, nodes=None):
     """A web-routes map as `name=node:port` tokens, space-separated, sorted
-    by name; `""` for an empty map (capture W1, item 2)."""
+    by name; `""` for an empty map (capture W1, item 2). Given the
+    topology's node names, a route whose target is no node (cold storage's
+    hostname, the one third party the loader lets the bastion route to;
+    master spec 7.3, spec D363) is `name=host:port:console` (W4 item 1)."""
     if not isinstance(routes, dict):
         raise GmError(f"a web-routes parameter is a map of routes, not {routes!r}")
-    return " ".join(f"{name}={routes[name]}" for name in sorted(routes))
+
+    def token(name):
+        target = str(routes[name])
+        console = nodes is not None and target.rpartition(":")[0] not in nodes
+        return f"{name}={target}{CONSOLE_SUFFIX if console else ''}"
+    return " ".join(token(name) for name in sorted(routes))
 
 
 def write_policy_environment(node):
@@ -468,7 +490,7 @@ def options_environment(node):
     return {"GM_OPTIONS": " ".join(localimpl.node_options(node))}
 
 
-def service_environment(brick, node):
+def service_environment(brick, node, nodes=None):
     """`TZ=UTC`, the node's write policy (write_policy_environment, when
     the node gives one), its options (options_environment, when the node
     gives them: its brick declares `options:`), `GM_STANDBY_OF` (when the
@@ -477,7 +499,8 @@ def service_environment(brick, node):
     the scenario's value, else the brick's default; unset parameters are
     left out. By `shape` (capture W1, item 2): a node-map parameter is
     never passed (the mounted material carries it), a web-routes one is
-    passed as its tokens, a scalar as in v0.1."""
+    passed as its tokens (web_routes_value, given the topology's `nodes`),
+    a scalar as in v0.1."""
     env = {"TZ": NODE_TIMEZONE}
     if "write_policy" in node:
         env.update(write_policy_environment(node))
@@ -495,7 +518,7 @@ def service_environment(brick, node):
         if value is None:
             continue
         if shape == WEB_ROUTES:
-            value = web_routes_value(value)
+            value = web_routes_value(value, nodes)
         elif isinstance(value, bool):
             value = "true" if value else "false"
         env["GM_" + re.sub(r"[^A-Za-z0-9]", "_", str(name)).upper()] = str(value)
@@ -561,7 +584,8 @@ def build_stack(scenario, impl):
             choices["options"] = node.get("options") or []
         if localimpl.is_postgres_node(scenario, node):
             choices["standby_of"] = localimpl.standby_of(node) or ""
-        svc["environment"] = service_environment(brick, choices)
+        svc["environment"] = service_environment(brick, choices,
+                                                 {n["name"] for n in scenario.nodes})
         svc["healthcheck"] = _healthcheck(brick["healthcheck"])
         if inode["published_ports"]:
             svc["ports"] = [{"target": p["target"], "published": p["published"],
