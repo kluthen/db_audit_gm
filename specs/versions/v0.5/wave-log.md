@@ -6250,3 +6250,104 @@ not release the urgent order within 5–10 minutes at intensity 4 in
 either run; the test released it itself "as lis would"; LO4 judges only
 completed orders (a routine one cannot complete in a session). 18b
 (purposes 2 and 3, `fixture-send-outs`) goes to a fresh owner now.
+
+### Driver handover, 2026-11-09
+
+The driver's session closes mid-wave. State for the next driver:
+- **Merged into `v0.5-w4`**: 32 (`2b200c0`, W4-f), 17 (`46bd5c1`, W4-a),
+  33 (`c92bd13`, W4-g).
+- **Running when the driver left** (each `coding-leader` in its own
+  worktree; their reports did not reach this driver): 18b (fresh owner,
+  branch `v0.5-c18-lab-round-trips`, last `cf72cbd`: 3057e11 reverted
+  and `v0.5-w4` taken in, 18a `90d9b84` verified); 19 (second owner,
+  `v0.5-c19-exchanges`, last WIP `3a1747e`: checks, `gm.md`, EX2 end to
+  end, `fixture-exchanges`, fixture-register's centres line); 21 (third
+  owner, `v0.5-c21-parts-flows`, last `02450a2`, the bookings fixture's
+  uncommitted edits being verified). Before acting, check each branch's
+  log and whether it merged into `v0.5-w4`; a branch with no new commit
+  and no live owner is resumed from its last commit with a fresh owner
+  and the brief in the session scratchpad's `brief-18r.md`,
+  `brief-19r.md`, `brief-21r2.md` (or rebuilt from the plan and these
+  entries).
+- **Not started**: chunk 20 (next free slot; its `office.sql` must match
+  chunk 19's byte for byte, `test_purposes.py` enforcing it; the
+  authority's shared block from purpose 5 likewise in purpose 8).
+- **Open for the owner**: G11.2, curl in `bastion` 0.5.0 (entry above;
+  recommended: accept). The fix is held until then.
+- **For the gate**: the full quality command (workflow deltas) and wave
+  4's row; G11.2's post-change check (and the advisor's proposed curl
+  `[[platform]]` in `.tech`); then G18 by `spec-writer` (W4's format
+  items, D438, D440, and the scenario-document row for a purpose's
+  pg_cron job). No wave sync (no intent register).
+
+### Driver resumed; chunks 18, 19, 21 resumed with fresh owners, 2026-11-09
+
+A fresh driver took the wave at `9d74de5`. No chunk branch had a new
+commit or a live owner; each worktree held uncommitted work (18b's
+purposes 2 and 3 and `fixture-send-outs`; 19's exchanges short test;
+21's bookings, imaging and vault fixtures and the CA checks' fix). The
+stopped owners' background runs were still alive on the host lock (21's
+bookings run running, its imaging run, 19's exchanges run and 18b's DDL
+test queued); left to finish, their logs handed to the new owners as
+first evidence. Fresh `coding-leader`s resume 18 (18b), 19 and 21 (21a,
+then 21b), each from its brief plus a resume note (scratchpad
+`brief-18r.md`, `brief-19r.md`, `brief-21r2.md`, `resume-*.md`): review
+and commit the uncommitted state as WIP if sound, then continue. Chunk
+20 starts at the first free slot once chunk 19 has merged (its
+`office.sql` and the authority's block are 20's byte-for-byte
+reference); its brief is `brief-20.md`. G11.2 still with the owner.
+
+### Third driver resumed after the rate-limit kill, 2026-11-09 22:05
+
+The second driver and its fresh owners (18, 19, 21) were killed by an
+account rate limit at about 21:00, with no handover. State found: 18 at
+WIP `b653cf4` (18b, clean; its SQL check passed, its first send-outs run
+30 PASS / 2 FAIL); 19 at WIP `e2d45f4` with its first fixture-exchanges
+run live on the host lock (21:37, stack `fixture-ex-mm7knz`); 21 at WIP
+`e875634` plus three uncommitted check edits (bs5, io1, io2; imaging
+64/66). Cross-chunk finding: the bricks' `check-sql` prints values with
+Python `str()`, so booleans are `True`/`False`, never `t`; checks parsing
+`== "t"` (18's so1 and pr1, 21's bs5 and io2) were wrong. To save the
+account's rate, at most two chunk owners run at once: fresh owners now
+for 18 and 19 (resume notes `resume-18c.md`, `resume-19c.md`), 21 and 20
+next as slots free. Host-lock windows are reserved per hour in the
+scratchpad's `lock-slots.md` (19 at :37, 18 at :40 collide). G11.2 still
+with the owner.
+
+### Driver handover (third driver), 2026-11-09 22:22
+
+The third driver's run is ending early (its session was told to hand
+back). Nothing merged since `211c898`. Two chunk owners it started at
+22:05 are still LIVE, each waiting on its own fixture run; their reports
+will not reach this driver, so the next driver checks the branches and
+the scratchpad, and does not start a second owner on 18 or 19 while
+these are alive (`pgrep -af run-short-test`, `docker stack ls`, the
+reservations in the scratchpad's `lock-slots.md`):
+- **18** (`v0.5-c18-lab-round-trips`, WIP `dda2396`: check-sql booleans
+  and the grants' expected text fixed): its send-outs launcher holds the
+  22:40 slot. Note `resume-18c.md`.
+- **19** (`v0.5-c19-exchanges`, WIP `4565516`: the test now answers the
+  centre's own request, no wait ends the run): run1 ended exit 1 in
+  1703 s, stack removed; its rerun holds the 23:37 slot. Note
+  `resume-19c.md`.
+- **21** (`v0.5-c21-parts-flows`, WIP `e875634` + three uncommitted
+  check edits): no owner. Ready to start when a slot frees, with
+  `brief-21r2.md` + `resume-21c.md` (keep the bs5/io2 `True` fixes;
+  revert the io1 judged-set change, a spec departure; fix the plant).
+- **20**: not started; `brief-20.md` is current with plan v14; start
+  after 19 merges.
+- Rate rule from the owner: at most two chunk owners at once.
+- G11.2 still with the owner. The gate, G18 and the report to the owner
+  as in the second driver's handover above.
+
+### Driver resumed from the top-level session, 2026-11-09 22:25
+
+Background drivers kept ending mid-wave with their chunk owners' reports
+orphaned (they come back to the top-level session), so the owner's own
+session drives the rest of wave 4 itself, as the wave-execution skill
+intends. Chunk owners 18 (WIP `dda2396`) and 19 (WIP `4565516`) are still
+live, waiting on their fixture runs (slots 22:40 and 23:37 in
+`lock-slots.md`). Chunk 21: fresh owner dispatched now with
+`brief-21r2.md` + `resume-21c.md`. Chunk 20 waits for 19's merge. At
+most two owners actively working at once (owner's rate rule); owners
+idling on a launcher don't count.
