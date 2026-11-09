@@ -2,5 +2,18 @@
 # rerun it rather than edit this file; each entry names its source.
 queries:
   # from scenario: compose/interfaces/queries.yaml
-  interfaces.idle:
-    call: GET /stays?current=true
+  bookings.check-in:
+    script: scripts/bookings_sync.py:check_in
+    options:
+      batch: 50
+      site: 1
+  # from scenario: compose/interfaces/queries.yaml
+  bookings.book-requests:
+    script: scripts/bookings_sync.py:book_requests
+    options:
+      batch: 20
+  # from scenario: compose/interfaces/queries.yaml
+  bookings.cancel-deceased:
+    script: scripts/bookings_sync.py:cancel_deceased
+    options:
+      batch: 50

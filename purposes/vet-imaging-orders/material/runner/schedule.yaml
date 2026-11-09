@@ -1,0 +1,19 @@
+# Schedule of the centre's integration engine for the imaging round trip, a
+# fragment (purpose 13; vet-machinery-domain.md, "What interfaces gains";
+# capture W4 items 0 and 6): the record's connection as vet_interfaces
+# (clinic, the name and pool purposes 1, 4, 5 and 11 use identically) and
+# the PACS's as mach_orders (pacs); no stream (a transformer runs jobs
+# only). Written for the nodes records and machines; the GM adapts the
+# targets.
+connections:
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 2}
+  pacs:
+    driver: sql/postgresql
+    target: machines:5432/pacs
+    role: mach_orders
+    pool: {size: 1}
+streams: []

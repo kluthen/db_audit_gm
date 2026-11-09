@@ -1,0 +1,191 @@
+# Purpose 11, the agenda and the record kept in step (v0.5 master spec 12.2
+# purpose 11; vet-scheduling-domain.md, "11. vet-bookings-sync";
+# clinic-purposes.md 16; spec D376, D413, D422, D424; capture W4 items 0 and
+# 6 of specs/versions/v0.5/wave-log.md): transformed in place, the clinic's
+# first. vet-scheduling lands in the core's database (clinic), so four flows
+# between the part's tables and the core's run in one database: arrivals
+# open their consultations, imaging requests and accepted inbound
+# examinations are booked, a dead animal's future bookings cancelled. The
+# core as built has no stream opening scheduled consultations (D317): the
+# check-in is their only source.
+#
+# Material (material/) is written for the clinic's mapping: source and target
+# records/clinic, runner interfaces. The GM adapts the names as it copies;
+# gm.md says where each name lives. ddl.target is read from the catalogue by
+# load-data (step 2b), never copied.
+id: vet-bookings-sync
+title: The agenda and the record kept in step, check-in, imaging and examination bookings, deaths
+domains: [vet-core, vet-scheduling]
+kind: transformed-in-place
+
+parts:
+  source: the core's record and the agenda in one database, clinic (bookings, requests, exchanges, animals)
+  target: the same database, its consultations, its bookings and the purpose's ops tables
+  runner: the centre's integration engine, interfaces
+
+jobs:
+  - name: check-in
+    key: bookings.check-in
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the consultation bookings arrived since its watermark (less ten minutes) with no consultation
+      carrying their id: each consultation opened in the core (scheduled, the booking's section, its
+      allocated vet, started at the arrival, booking_id), its ops.booking_consultations row, the run's
+      ops.runs row and the watermark in one clinic transaction.
+    cadence: "* * * * *"
+    connections:
+      clinic: vet_interfaces
+      sched: sched_interfaces
+  - name: book-requests
+    key: bookings.book-requests
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the imaging requests recorded since its watermark with no live booking, each booked on its
+      study's machine by sched_free_slots (an urgent one at the machine's first free slot, a routine
+      one within two working days); the inbound examinations accepted since then, booked as 28 000 +
+      the exchange id on their accepted date, or the first free slot after it with an ops.incidents
+      row; one agenda transaction with the run's row.
+    cadence: "* * * * *"
+    connections:
+      clinic: vet_interfaces
+      sched: sched_interfaces
+  - name: cancel-deceased
+    key: bookings.cancel-deceased
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the animals recorded died since its watermark: their future bookings still booked cancelled
+      (reason deceased), the release trigger freeing their slots, with the run's row.
+    cadence: "* * * * *"
+    connections:
+      clinic: vet_interfaces
+      sched: sched_interfaces
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.booking_consultations
+    run_column: run_id
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.watermarks
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: BS1
+    statement: >-
+      Every consultation booking of a patient arrived since the judged moment has its consultation,
+      carrying its id, within 2 minutes of the arrival.
+    check: checks/bs1-arrival-consultation.sh
+    parameters: {}
+    witness: a patient's consultation booking arrived since the judged moment, about 60 a day on the rooms' hours.
+    judged: triggers
+  - id: BS2
+    statement: >-
+      No booking has two consultations, and no consultation's booking is anything but arrived.
+    check: checks/bs2-one-consultation.sh
+    parameters: {}
+    witness: a consultation opened by check-in since the judged moment (every run; the retried ones).
+    judged: runs
+  - id: BS3
+    statement: >-
+      Every imaging request recorded since the judged moment has one live booking on its study's
+      machine within 2 minutes; an urgent one at its machine's first free slot (the same day around
+      the clock, otherwise the next imaging day's opening), a routine one within two working days.
+    check: checks/bs3-requests-booked.sh
+    parameters: {}
+    witness: an imaging request recorded since the judged moment, about 11 a day, a quarter urgent, around the clock.
+    judged: triggers
+  - id: BS4
+    statement: >-
+      Every animal recorded died since the judged moment has no future booking left booked 2 minutes
+      later.
+    check: checks/bs4-no-booking-after-death.sh
+    parameters: {}
+    witness: an animal died since the judged moment with a future booking, about one in three of one death a day.
+    judged: triggers
+  - id: BS5
+    statement: >-
+      Every inbound examination accepted since the judged moment is booked within 2 minutes, on its
+      accepted date or with an incident.
+    check: checks/bs5-examinations-booked.sh
+    parameters: {}
+    witness: an inbound examination accepted since the judged moment, under one a day (rare).
+    judged: triggers
+
+data_moved:
+  - job: check-in
+    reads: [clinic.sched_bookings.animal_id]
+    writes: [target:consultations, target:ops.booking_consultations, target:ops.watermarks, target:ops.runs]
+  - job: book-requests
+    reads: [clinic.requests.animal_id, clinic.exchanges.partner_patient]
+    writes: [target:sched_bookings, target:sched_allocations, target:ops.incidents, target:ops.watermarks,
+             target:ops.runs]
+  - job: cancel-deceased
+    reads: [clinic.animals.id]
+    writes: [target:sched_bookings, target:sched_allocations, target:ops.watermarks, target:ops.runs]
+
+roles:
+  - name: vet_interfaces
+    part: source
+    reads: ["consultations (id, booking_id, section_id)", "animals (id, status, died_at)", requests, exchanges,
+            "ops.*"]
+    writes: ["consultations (insert of its open columns: animal_id, site_id, section_id, vet_id, kind, booking_id,
+             started_at)", ops.booking_consultations, ops.watermarks, ops.runs]
+  - name: sched_interfaces
+    part: source
+    reads: [sched_settings, sched_rooms, sched_hours, sched_machines, sched_types, sched_courses, sched_bookings,
+            sched_allocations, sched_shifts, sched_absences, "sched_free_slots (execute)", "ops.*"]
+    writes: [sched_bookings (insert), "sched_bookings (state, cancelled_at, cancel_reason, request_id,
+             exchange_id)", sched_allocations (insert), "sched_allocations (released_at, by the release
+             trigger)", ops.incidents, ops.watermarks, ops.runs]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    clinic.ops.booking_consultations.id: internal
+    clinic.ops.booking_consultations.run_id: internal
+    clinic.ops.booking_consultations.booking_id: internal
+    clinic.ops.booking_consultations.consultation_id: internal
+    clinic.ops.booking_consultations.at: internal
+    clinic.ops.runs.id: internal
+    clinic.ops.runs.purpose: internal
+    clinic.ops.runs.job: internal
+    clinic.ops.runs.started_at: internal
+    clinic.ops.runs.finished_at: internal
+    clinic.ops.runs.rows_read: internal
+    clinic.ops.runs.rows_written: internal
+    clinic.ops.incidents.id: internal
+    clinic.ops.incidents.purpose: internal
+    clinic.ops.incidents.job: internal
+    clinic.ops.incidents.kind: internal
+    clinic.ops.incidents.ref: internal
+    clinic.ops.incidents.opened_at: internal
+    clinic.ops.incidents.reason: internal
+    clinic.ops.incidents.run_id: internal
+    clinic.ops.watermarks.purpose: internal
+    clinic.ops.watermarks.name: internal
+    clinic.ops.watermarks.at: internal
+    clinic.ops.watermarks.last_id: internal
+    clinic.ops.watermarks.run_id: internal

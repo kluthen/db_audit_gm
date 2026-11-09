@@ -2,5 +2,14 @@
 # rerun it rather than edit this file; each entry names its source.
 queries:
   # from scenario: compose/interfaces/queries.yaml
-  interfaces.idle:
-    call: GET /stays?current=true
+  imaging.post:
+    script: scripts/imaging_orders.py:post
+    options:
+      batch: 50
+  # from scenario: compose/interfaces/queries.yaml
+  imaging.fetch:
+    script: scripts/imaging_orders.py:fetch
+    options:
+      batch: 100
+      urgent_hours: 18
+      routine_working_days: 3

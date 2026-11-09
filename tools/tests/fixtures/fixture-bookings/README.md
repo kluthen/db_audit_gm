@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-scheduling` (at `records/clinic`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-scheduling/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` and `domains/vet-scheduling/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-scheduling` (at `records/clinic`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-scheduling/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` and `domains/vet-scheduling/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), and the scenario layer `compose/interfaces/` alone, holding the purpose `vet-bookings-sync`'s runner material (into `nodes/interfaces/`); its composition record `composition.yaml` |
 
 ### Initiator's inputs, as given
 
@@ -172,8 +172,9 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` →
-  `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`.
+- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `scripts/` →
+  `nodes/interfaces/scripts/`; `jobs.yaml` → `nodes/interfaces/jobs.yaml`;
+  `schedule.yaml` → `nodes/interfaces/schedule.yaml`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -192,7 +193,20 @@ No knobs.
 | `bastion` | `clinic-api` | players' SSH sessions; a lookup needs the credential clinic_lookup, which the bastion does not hold | ssh 22, http 8000 | interactive |
 | `clinic-api` | `records` | the lookups (an animal, its current owner, the current stays), as vet_lookup | postgresql 5432 | per request |
 | `pms` | `records` | the practice software's work (vet-core's streams and jobs, as vet_app; vet-scheduling's 17 streams and its Friday job, as sched_app) | postgresql 5432 | continuous, by the clinic's hours |
-| `interfaces` | `clinic-api` | nothing until chunk 21 (the integration engine idle, its one connection never opened) | http 8000 | none |
+| `interfaces` | `records` | purpose 11's jobs check-in, book-requests and cancel-deceased: the record as vet_interfaces, the agenda as sched_interfaces, both in clinic | postgresql 5432 | every minute |
+
+### Purposes
+
+#### Purpose `vet-bookings-sync`
+
+Defined in `purposes/vet-bookings-sync/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `records/clinic` |
+| `target` | `records/clinic` |
+| `runner` | `interfaces` |
 
 ## 4. Host topology it was designed for
 
@@ -275,14 +289,17 @@ None.
     `stays.py`)
   - `pms`: `nodes/pms/queries.yaml`, `nodes/pms/jobs.yaml`,
     `nodes/pms/schedule.yaml`
-  - `interfaces`: `nodes/interfaces/queries.yaml`, `nodes/interfaces/jobs.yaml`,
+  - `interfaces`: `nodes/interfaces/queries.yaml`, `nodes/interfaces/scripts/`
+    (`bookings_sync.py`), `nodes/interfaces/jobs.yaml`,
     `nodes/interfaces/schedule.yaml`
 - **Restored-backup data**, streamed in after deployment: the domain
   `vet-core`'s `data/schema.sql`, `data/keys.sql` and `data/load.sql`,
   then `vet-scheduling`'s `data/schema.sql`, with `vet-core`'s
   `data/keys.sql` ahead of its `data/load.sql`, into `records/clinic`, in
-  `composition.yaml`'s order; then `vet-scheduling`'s
-  `data/coherence.yaml` checks.
+  `composition.yaml`'s order; then the purpose `vet-bookings-sync`'s DDL
+  (its `ddl.target`, `purposes/vet-bookings-sync/material/target/ddl.sql`)
+  in `records/clinic`; then `vet-scheduling`'s `data/coherence.yaml`
+  checks.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`

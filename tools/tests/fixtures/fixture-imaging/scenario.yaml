@@ -11,17 +11,22 @@
 # as mach_pacs_app, mach_vitals_app and mach_biomed_app, with its identity
 # and census jobs on the lookup API, clinic-api (api 0.1.0), the practice
 # software, pms (scheduler 0.3.0), the integration engine, interfaces
-# (scheduler 0.3.0, idle: chunk 21 adds the imaging-orders purpose), and the
+# (scheduler 0.3.0), running purpose 13 (vet-imaging-orders, chunk 21: its
+# DDL in clinic and pacs at load-data's step (2b), its posts every minute
+# and its fetches every five as vet_interfaces and mach_orders), and the
 # bastion; seven nodes on one host. gmctl compose writes nodes/clinic-api/,
 # nodes/pms/, nodes/equipment/ and nodes/interfaces/ from the domains'
 # producers/ with the scenario layers compose/pms/ (0.1, quiet),
-# compose/equipment/ (1.0) and compose/interfaces/ (the idle node). Deployed
+# compose/equipment/ (1.0) and compose/interfaces/ (purpose 13's runner
+# material as the GM copies it, at 1.0). Deployed
 # by its short test, tools/tests/fixtures/fixture-imaging/run-short-test.sh,
 # T0 placed by the shift near 08:50 local on a weekday: the identity and
 # census jobs answered by clinic-api, the partitions ahead, the three jobs in
-# cron.job, CONNECT revoked from PUBLIC. One harmless seed-file fault (f1),
-# since a scenario needs at least one, copied from the core fixture. Chunk
-# 21 adds purposes 13 and 14 and the round trip.
+# cron.job, CONNECT revoked from PUBLIC; and purpose 13's round trip: an
+# urgent imaging request sent to the worklist, acquired and resulted, its
+# checks IO1 to IO4. One harmless seed-file fault (f1),
+# since a scenario needs at least one, copied from the core fixture.
+# Purpose 14 (cold-storage-archive) has its own fixture, fixture-vault.
 
 # --- Scenario information --------------------------------------------
 id: fixture-imaging
@@ -57,6 +62,17 @@ domains:
       pacs: machines/pacs
       vitals: machines/vitals
       biomed: machines/biomed
+
+# --- Purposes (v0.5 master spec 12.2) ---------------------------------
+# Purpose 13, a round trip inside the centre: the record's imaging requests
+# posted to the PACS's worklist and their finals copied back; the
+# integration engine, interfaces, runs its jobs.
+purposes:
+  - id: vet-imaging-orders
+    parts:
+      source: records/clinic
+      target: machines/pacs
+      runner: interfaces
 
 # --- Topology ---------------------------------------------------------
 networks:
@@ -278,6 +294,7 @@ nodes:
       queries.yaml: nodes/interfaces/queries.yaml
       jobs.yaml: nodes/interfaces/jobs.yaml
       schedule.yaml: nodes/interfaces/schedule.yaml
+      scripts/: nodes/interfaces/scripts/
     knobs: []
 
 flows:
@@ -317,10 +334,15 @@ flows:
     how: http 8000
     cadence: every minute, every five minutes
   - from: interfaces
-    to: clinic-api
-    what: nothing yet (the idle integration engine; chunk 21 adds the imaging orders)
-    how: http 8000
-    cadence: none
+    to: records
+    what: purpose 13's jobs post-imaging-orders and fetch-imaging-reports, the record as vet_interfaces
+    how: postgresql 5432
+    cadence: every minute, every five minutes
+  - from: interfaces
+    to: machines
+    what: purpose 13's jobs, the worklist written and the finals and cancellations read as mach_orders in pacs
+    how: postgresql 5432
+    cadence: every minute, every five minutes
 
 # --- Incidents, flaws and defects ------------------------------------
 fault_instances:

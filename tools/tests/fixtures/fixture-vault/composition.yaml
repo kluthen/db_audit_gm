@@ -1,0 +1,23 @@
+# The vault fixture's composition record (tools/tests, v0.5 chunk 21a;
+# capture W4 item 6, "The fixtures", spec D403): the core in records/clinic and
+# its part vet-machinery in its three databases on machines, loaded core
+# first, as the imaging fixture's; no derivation. The keys vet-machinery
+# relies on are the core's functions, by the names vet-core's docs/gm.md
+# ("Core keys") gives them. Left out: the practice software, the core's
+# lookup API and the machines' systems, whose nodes the fixture does without:
+# the shipped day is the load's, and nothing writes the machines during the
+# test.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-machinery, at: {pacs: machines/pacs, vitals: machines/vitals, biomed: machines/biomed}}
+keys:
+  vet-machinery: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner, core_stay]
+scale:
+  checked: true
+  note: "the machinery's worklist from the core's sent imaging requests (about 2 980), its sessions on the core's stays; about 0.28 million rows, 75 MB beside the core's 0.27 million"
+order: [vet-core, vet-machinery]
+left_out:
+  - {domain: vet-core, producer: pms, reason: "the shipped day is the load's: no practice software node"}
+  - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node: no machine system calls it here"}
+  - {domain: vet-machinery, producer: equipment, reason: "nothing writes the machines during the test: the shipped day is the load's"}
+# derive: none (the machinery computes the core's keys; no sanctioned derivation)

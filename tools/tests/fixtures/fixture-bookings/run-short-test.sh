@@ -5,9 +5,11 @@
 # training centre loaded by gmctl load-data from the domains (the core's
 # schema, keys.sql and load, then scheduling's schema, with btree_gist and the
 # four exclusion constraints, and its load with the core's keys.sql, then the
-# coherence check), the practice software, pms, the idle integration engine,
-# interfaces, and the lookup API, clinic-api, composed by gmctl compose from
-# the domains' producers. One run on one host in under 30 minutes, T0 a
+# coherence check), the practice software, pms, the integration engine,
+# interfaces, running purpose 11 (vet-bookings-sync, chunk 21: its DDL at
+# load-data's step (2b), its three jobs every minute), and the lookup API,
+# clinic-api, composed by gmctl compose from the domains' producers and the
+# purpose's runner material. One run on one host in under 30 minutes, T0 a
 # weekday at 09:00-09:59 local.
 #
 # Time is placed by the shift (whole hours), so the local minute at T0 is the
@@ -23,13 +25,17 @@
 # at intensity 1.0, domains: vet-core and vet-scheduling at records/clinic):
 #   compose --check -> fit (the laptop playground, 2 CPU / 4G / 8G) -> render
 #   (the shift placing T0) -> deploy -> load-data (its time and size), then:
-#   - the stack file: sched_app's and vet_app's passwords on pms only, none on
-#     the bastion or records;
+#   - the stack file: sched_app's and vet_app's passwords on pms,
+#     sched_interfaces' and vet_interfaces' on interfaces, none on the bastion
+#     or records;
 #   - load-data: the coherence check passed (six checks: the attended
 #     bookings, no overlap, the vets on shift, the hours, the imaging and
 #     exchange bookings); the part's rows; every login role with a SCRAM
 #     password; no key function left; the four exclusion constraints created
-#     before the allocations were written;
+#     before the allocations were written; purpose 11's DDL at step (2b): the
+#     ops schema and ops.booking_consultations, vet_interfaces and
+#     sched_interfaces with a SCRAM password, its four watermarks at
+#     load_epoch;
 #   - inject -> start-load (T0); as sched_app: an overlapping allocation
 #     refused (23P01); a booking through sched_free_slots, one 40 days ahead
 #     on a planned shift; the first cancelled, its allocations released and
@@ -37,7 +43,19 @@
 #     clocked; sched.rota.publish moved to the next minute (D132): the week
 #     after next published, its absence-covered planned shifts removed, the
 #     seventh week planned, the week after next's blocks booked; moved again:
-#     rerun without a duplicate; pms and interfaces without an error;
+#     rerun without a duplicate; purpose 11 (vet-bookings-sync): an animal
+#     with a future booking marked died (as postgres, standing for the vet:
+#     deaths come about one in three days) and, when the streams made none
+#     since T0, two imaging requests on a closed consultation (as postgres,
+#     standing for the vet), a routine and an urgent one; at the window's
+#     end, an arrival's consultation opened within two minutes (an arrival
+#     planted as postgres, standing for the reception, only when the streams
+#     made none), each request booked on its study's machine, the death's
+#     future bookings cancelled (deceased) within two minutes, ops.runs rows
+#     for the three jobs, the checks BS1 to BS4 fixed and BS5 fixed or too
+#     soon (run as gmctl check runs them, on interfaces as root with
+#     CHECK_SINCE at T0); pms and interfaces without an error, none of the
+#     three jobs ending in error or skipped;
 #   -> teardown, then nothing labelled with the game id is left.
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
@@ -59,6 +77,7 @@ PG=bookings-short
 IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
 IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
+CHECKS=$REPO/purposes/vet-bookings-sync/checks
 JOBS=/srv/scheduler/jobs/jobs.yaml
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
@@ -173,7 +192,9 @@ same "stack: sched_app's and vet_app's passwords on pms" \
 same "stack: none on the bastion" "bastion -" "$(printf '%s\n' "$st" | sed -n 1p)"
 same "stack: none on records (load-data sets the roles' passwords)" "records -" \
     "$(printf '%s\n' "$st" | sed -n 2p)"
-info "stack: $(printf '%s\n' "$st" | sed -n 3p); $(printf '%s\n' "$st" | sed -n 5p)"
+same "stack: sched_interfaces' and vet_interfaces' passwords on interfaces (purpose 11)" \
+    "interfaces role_sched_interfaces_password role_vet_interfaces_password" "$(printf '%s\n' "$st" | sed -n 5p)"
+info "stack: $(printf '%s\n' "$st" | sed -n 3p)"
 
 # --- deployment and load-data ----------------------------------------------------
 info "gmctl deploy"
@@ -192,6 +213,7 @@ done
 
 info "gmctl load-data"
 t=$(date +%s)
+EPOCH0=$(date -u +%Y-%m-%dT%H:%M:00Z)     # load_epoch is this minute or the next (load-data's start)
 if $GMCTL load-data "$SCN" --playground "$PG"; then
     pass "load-data: the core and the agenda loaded, coherence checked ($(( $(date +%s) - t )) s)"
 else
@@ -220,7 +242,25 @@ same "load-data: every attended booking a scheduled consultation of the core, by
                               AND NOT EXISTS (SELECT 1 FROM consultations c WHERE c.booking_id = b.id))")"
 same "load-data: sched_app and sched_reports have a SCRAM password" "sched_app:true sched_reports:true" \
     "$(dbsql postgres "SELECT string_agg(rolname || ':' || (rolpassword LIKE 'SCRAM-SHA-256\$%'), ' ' ORDER BY rolname)
-                       FROM pg_authid WHERE rolname LIKE 'sched\_%'")"
+                       FROM pg_authid WHERE rolname IN ('sched_app', 'sched_reports')")"
+# purpose 11's DDL, load-data's step (2b)
+same "load-data (2b): purpose 11's ops schema, owned by ops, with ops.booking_consultations" \
+    "ops:ops booking_consultations incidents runs watermarks" \
+    "$(dbsql clinic "SELECT n.nspname || ':' || pg_get_userbyid(n.nspowner) || ' ' || string_agg(c.relname, ' ' ORDER BY c.relname)
+                       FROM pg_namespace n JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind = 'r'
+                      WHERE n.nspname = 'ops' GROUP BY n.nspname, n.nspowner")"
+same "load-data (2b): vet_interfaces and sched_interfaces log in with a SCRAM password, CONNECT on clinic" \
+    "sched_interfaces:true:true:true vet_interfaces:true:true:true" \
+    "$(dbsql postgres "SELECT string_agg(rolname || ':' || rolcanlogin || ':' || (rolpassword LIKE 'SCRAM-SHA-256\$%') || ':'
+                              || has_database_privilege(rolname, 'clinic', 'CONNECT'), ' ' ORDER BY rolname)
+                       FROM pg_authid WHERE rolname IN ('vet_interfaces', 'sched_interfaces')")"
+same "load-data (2b): the four watermarks of vet-bookings-sync at load_epoch, no run yet" \
+    "check-in deaths examinations requests:1:true:true" \
+    "$(dbsql clinic "SELECT string_agg(name, ' ' ORDER BY name) || ':' || count(DISTINCT at) || ':'
+                            || bool_and(at IN ('$EPOCH0'::timestamptz, '$EPOCH0'::timestamptz + interval '1 minute')) || ':'
+                            || bool_and(run_id IS NULL)
+                       FROM ops.watermarks WHERE purpose = 'vet-bookings-sync'")"
+info "watermarks at $(dbsql clinic "SELECT min(at) FROM ops.watermarks WHERE purpose = 'vet-bookings-sync'") (load-data started $EPOCH0)"
 same "load-data: no key function left in the catalog" "0" \
     "$(dbsql clinic "SELECT count(*) FROM pg_proc WHERE proname LIKE 'core\_%' OR proname LIKE 'vc\_%'
                        OR (proname LIKE 'sched\_%' AND proname NOT IN ('sched_free_slots', 'sched_release_allocations'))")"
@@ -249,6 +289,7 @@ print(yaml.safe_load(open(sys.argv[1]))["load"]["t0"])' "$LDIR/state.yaml")
 T0S=$(date -u -d "$(printf '%s' "$T0" | sed 's/T/ /; s/Z$//')" +%s)
 LOCAL=$(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%H:%M)
 LDOW=$(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%u)
+CHECK_SINCE=$(date -u -d "@$T0S" +%Y-%m-%dT%H:%M:%SZ)
 info "T0 $T0, $LOCAL local (shift $SHIFT, weekday $LDOW)"
 case "$LDOW $LOCAL" in [1-5]\ 09:*) pass "T0 a weekday in the 09:00 hour local ($LOCAL)" ;;
     *) fail "T0 not a weekday at 09:00-09:59 local: weekday $LDOW, $LOCAL" ;; esac
@@ -383,6 +424,45 @@ i=0; while [ "$i" -lt 150 ] && [ "$(runs)" -le "$n1" ]; do sleep 5; i=$((i + 5))
 [ "$(runs)" -gt "$n1" ] && pass "sched.rota.publish ran again" || fail "sched.rota.publish did not rerun within 150 s"
 same "the rerun: no duplicate shift, no duplicate block, nothing changed" "$after" "$(counts)"
 
+# --- purpose 11: a death and the imaging requests ----------------------------------------
+# A death (about one in three days with a future booking): an alive animal
+# with a booking ahead, marked died as the core's discharge stream does
+# (status, died_at, death_kind), as postgres standing for the vet.
+set -- $(dbsql clinic "WITH b AS (SELECT b.animal_id FROM sched_bookings AS b JOIN animals AS a ON a.id = b.animal_id
+                                  WHERE b.state = 'booked' AND b.starts_at > now() + interval '1 hour'
+                                    AND a.status = 'alive' AND b.animal_id <> 9800
+                                    AND NOT EXISTS (SELECT 1 FROM sched_bookings AS y WHERE y.animal_id = b.animal_id
+                                                     AND y.starts_at BETWEEN now() - interval '1 hour' AND now() + interval '1 hour')
+                                  ORDER BY b.starts_at, b.id LIMIT 1)
+                       UPDATE animals AS a SET status = 'died', died_at = now(), death_kind = 'natural'
+                         FROM b WHERE a.id = b.animal_id
+                       RETURNING a.id, (SELECT count(*) FROM sched_bookings AS x
+                                         WHERE x.animal_id = a.id AND x.state = 'booked' AND x.starts_at > now())" | tr '|' ' ' || true)
+DEAD=${1:-} DEADN=${2:-0}
+PLANTED=$(date +%s)
+if [ -n "$DEAD" ]; then info "planted (as postgres, for the vet): animal $DEAD died, $DEADN future bookings booked"
+else fail "no alive animal with a future booking to plant a death on"; fi
+# The imaging requests: about 11 a day, so the window rarely holds one; when
+# the streams made none since T0, a routine and an urgent one on the latest
+# closed domestic consultation, as the core's imaging stream writes them, as
+# postgres standing for the vet.
+n=$(dbsql clinic "SELECT count(*) FROM requests WHERE kind = 'imaging' AND requested_at >= '$T0'::timestamptz")
+if [ "$n" -gt 0 ]; then
+    info "the streams recorded $n imaging requests since T0: none planted"
+else
+    REQS=$(dbsql clinic "WITH c AS (SELECT c.id, c.animal_id, c.vet_id FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id
+                                     WHERE c.section_id = 3 AND c.state IN ('closed', 'signed') AND c.ended_at <= now()
+                                       AND a.status = 'alive'
+                                     ORDER BY c.ended_at DESC, c.id DESC LIMIT 1)
+                         INSERT INTO requests (consultation_id, animal_id, kind, code, requested_by, priority, requested_at)
+                         SELECT c.id, c.animal_id, 'imaging', v.code, c.vet_id, v.priority, now()
+                           FROM c, (VALUES ('DX-THX-S', 'routine'), ('US-ABD-S', 'urgent')) AS v (code, priority)
+                         RETURNING id" | tr '\n' ' ' || true)
+    PLANTED=$(date +%s)
+    [ -n "$REQS" ] || fail "no closed domestic consultation to plant the imaging requests on"
+    info "planted (as postgres, for the vet; the streams recorded none since T0): imaging requests $REQS(DX-THX-S routine, US-ABD-S urgent)"
+fi
+
 # --- the run's window ------------------------------------------------------------------
 DONE_AT=$(( T0S + WINDOW ))
 while [ "$(date +%s)" -lt "$DONE_AT" ]; do
@@ -403,6 +483,102 @@ info "reception's bookings since T0: $m (the test's two included)"
 same "no live allocation overlaps another at the end of the window" "0" \
     "$(dbsql clinic "SELECT count(*) FROM sched_allocations a JOIN sched_allocations b ON b.staff_id = a.staff_id AND b.id > a.id
                       AND b.during && a.during AND b.released_at IS NULL WHERE a.released_at IS NULL")"
+
+# --- purpose 11 (vet-bookings-sync) at the window's end ---------------------------------
+# BS1's witness: a patient's consultation booking arrived since T0, two
+# minutes old. When the streams made none, one planted as postgres standing
+# for the reception: the next booked consultation of the hour.
+arr() { dbsql clinic "SELECT count(*) || ' ' || coalesce(ceil(extract(epoch FROM now() - min(arrived_at))), 0) FROM sched_bookings
+                       WHERE kind = 'consultation' AND animal_id IS NOT NULL AND arrived_at >= $since"; }
+set -- $(arr)
+if [ "$1" -eq 0 ]; then
+    p=$(dbsql clinic "UPDATE sched_bookings SET state = 'arrived', arrived_at = now()
+                       WHERE id = (SELECT b.id FROM sched_bookings AS b
+                                    WHERE b.kind = 'consultation' AND b.state = 'booked' AND b.animal_id IS NOT NULL
+                                      AND b.starts_at BETWEEN now() - interval '30 minutes' AND now() + interval '1 hour'
+                                      AND EXISTS (SELECT 1 FROM sched_allocations AS a WHERE a.booking_id = b.id AND a.role = 'vet')
+                                    ORDER BY b.starts_at, b.id LIMIT 1)
+                      RETURNING id" || true)
+    info "planted (as postgres, for the reception; the streams made no arrival since T0): booking $p arrived"
+    set -- $(arr)
+fi
+if [ "$1" -gt 0 ] && [ "$2" -lt 125 ]; then
+    info "the first arrival since T0 is $2 s old: waiting $((125 - $2)) s for the checks"
+    sleep $((125 - $2))
+fi
+# purpose 11's own triggers two minutes old: the plants, the streams' requests
+w=$(( PLANTED + 125 - $(date +%s) ))
+if [ "$w" -gt 0 ]; then info "the plants are $((125 - w)) s old: waiting $w s for the checks"; sleep "$w"; fi
+i=0
+while [ "$i" -lt 150 ] && [ "$(dbsql clinic "SELECT count(*) FROM requests WHERE kind = 'imaging' AND requested_at >= $since
+                                               AND requested_at > now() - interval '125 seconds'")" -gt 0 ] \
+      && [ "$(dbsql clinic "SELECT count(*) FROM requests WHERE kind = 'imaging' AND requested_at >= $since
+                              AND requested_at <= now() - interval '125 seconds'")" -eq 0 ]; do
+    sleep 5; i=$((i + 5))
+done
+set -- $(dbsql clinic "SELECT count(*), count(c.id), count(l.id), coalesce(max(ceil(extract(epoch FROM l.at - b.arrived_at))), -1)
+                         FROM sched_bookings AS b LEFT JOIN consultations AS c ON c.booking_id = b.id
+                              LEFT JOIN ops.booking_consultations AS l ON l.booking_id = b.id
+                        WHERE b.kind = 'consultation' AND b.animal_id IS NOT NULL AND b.arrived_at >= $since
+                          AND b.arrived_at <= now() - interval '2 minutes'" | tr '|' ' ')
+if [ "$1" -gt 0 ] && [ "$2" -eq "$1" ] && [ "$3" -eq "$1" ] && [ "$4" -le 120 ]; then
+    pass "BS1: $1 arrivals since T0 (two minutes old), each with its consultation opened by check-in, at most $4 s after the arrival"
+else
+    fail "BS1: arrivals since T0 [$1], with a consultation [$2], with a ledger row [$3], the latest opened [$4] s after the arrival"
+fi
+r=$(dbsql clinic "SELECT r.id || ':' || r.priority || ':' || r.code || ':' || coalesce(m.machine_id::text, '-') || ':'
+                         || coalesce(ceil(extract(epoch FROM b.booked_at - r.requested_at))::text, '-') || ':'
+                         || coalesce(to_char(b.starts_at AT TIME ZONE s.timezone, 'Dy HH24:MI'), '-')
+                    FROM requests AS r CROSS JOIN sched_settings AS s
+                         LEFT JOIN sched_bookings AS b ON b.request_id = r.id AND b.state IN ('booked', 'arrived')
+                         LEFT JOIN sched_allocations AS m ON m.booking_id = b.id AND m.role = 'machine'
+                   WHERE r.kind = 'imaging' AND r.requested_at >= $since AND s.id = 1 ORDER BY r.id" | tr ' ' '_' | tr '\n' ' ')
+nreq=$(printf '%s' "$r" | wc -w)
+nok=$(printf '%s\n' $r | awk -F: '$4 != "-" && $5 != "-" && $5 <= 120' | wc -l)
+if [ "$nreq" -gt 0 ] && [ "$nok" -eq "$nreq" ]; then
+    pass "BS3: each imaging request since T0 booked on a machine within 2 minutes (id:priority:code:machine:s:local start): $r"
+else
+    fail "BS3: imaging requests since T0 not all booked on a machine within 2 minutes: [$r]"
+fi
+if [ -n "$DEAD" ]; then
+    same "BS4: animal $DEAD's future bookings cancelled (deceased) within 2 minutes of its death, none left booked" \
+        "0 $DEADN true" \
+        "$(dbsql clinic "SELECT count(*) FILTER (WHERE b.state = 'booked') || ' '
+                                || count(*) FILTER (WHERE b.state = 'cancelled' AND b.cancel_reason = 'deceased') || ' '
+                                || coalesce(bool_and(b.cancelled_at <= a.died_at + interval '2 minutes')
+                                              FILTER (WHERE b.state = 'cancelled'), false)
+                           FROM animals AS a JOIN sched_bookings AS b ON b.animal_id = a.id AND b.starts_at > a.died_at
+                          WHERE a.id = $DEAD AND b.booked_at <= a.died_at
+                            AND (b.state = 'booked' OR b.cancelled_at >= a.died_at)")"
+    info "BS4: cancelled $(dbsql clinic "SELECT ceil(extract(epoch FROM max(b.cancelled_at - a.died_at))) FROM animals AS a
+                                         JOIN sched_bookings AS b ON b.animal_id = a.id WHERE a.id = $DEAD
+                                          AND b.cancel_reason = 'deceased'") s after the death"
+fi
+same "ops.runs: rows of check-in, book-requests and cancel-deceased since T0" "book-requests cancel-deceased check-in" \
+    "$(dbsql clinic "SELECT string_agg(job, ' ' ORDER BY job COLLATE \"C\") FROM (SELECT DISTINCT job FROM ops.runs
+                       WHERE purpose = 'vet-bookings-sync' AND started_at >= $since) AS j")"
+info "ops.runs since T0: $(dbsql clinic "SELECT string_agg(job || ' ' || n || ' runs, ' || w || ' rows written', '; ' ORDER BY job)
+                                          FROM (SELECT job, count(*) n, sum(rows_written) w FROM ops.runs
+                                                 WHERE purpose = 'vet-bookings-sync' AND started_at >= $since GROUP BY job) AS j")"
+for j in check-in book-requests cancel-deceased; do
+    ok=$(nlog interfaces | grep -c " run job=$j .*phase=end status=ok" || true)
+    bad=$(nlog interfaces | grep -E " (run|skip) job=$j " | grep -c 'status=error\|reason=' || true)
+    if [ "$ok" -gt 0 ] && [ "$bad" -eq 0 ]; then pass "interfaces: $j ran $ok times, never in error nor skipped"
+    else fail "interfaces: $j ran $ok times ok, $bad in error or skipped: $(nlog interfaces | grep " job=$j " | grep 'status=error\|reason=' | tail -n 1 | cut -c1-200)"; fi
+done
+# the purpose's sealed checks, as gmctl check runs them: on the runner as root
+for c in "$CHECKS"/bs*.sh; do
+    b=$(basename "$c" .sh)
+    set +e
+    out=$(docker exec -i -u root -e "CHECK_SINCE=$CHECK_SINCE" "$(ctr interfaces)" sh -s < "$c" 2>&1)
+    rc=$?
+    set -e
+    case "$b:$rc" in
+        bs5-*:0|bs5-*:3|*:0) pass "$b exit $rc: $(printf '%s' "$out" | tail -n 1 | cut -c1-240)" ;;
+        *) fail "$b exit $rc (expected 0$(case $b in bs5-*) printf ' or 3' ;; esac)): $(printf '%s' "$out" | tail -n 3 | cut -c1-300)" ;;
+    esac
+done
+
 for n in pms interfaces; do
     errs=$(nlog $n | grep ' error ' || true)
     same "$n ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"
