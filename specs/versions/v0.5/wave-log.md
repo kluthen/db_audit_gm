@@ -6157,3 +6157,46 @@ so the test sets `window_days` to 0 in both settings tables and
 yesterday ships; the planted manifests stop before it (no shipment-id
 clash). Chunk 21's text reworded to say so. Nothing changes what the
 resumed owner builds; nothing for the owner.
+
+### Chunk 21 — second owner paused (WIP 02450a2), 2026-11-09
+
+The second owner paused on context: `444aba1` (v0.5-w4 taken in),
+`02450a2` (WIP: purposes 13 and 14, the root README's row). Purposes
+11, 13 and 14 pass `check_purpose_dir`; the DDL test (core and
+scheduling with purpose 11's DDL twice, pacs with 13's, vitals and
+biomed with 14's twice) exits 0, every role's reads and writes shown
+(`mach_archive` dropping a partition through `mach_drop_shipped`).
+Not yet run on a load: the three scripts, purpose 14's history, any
+check. Its `coding-executor`, extending `fixture-bookings` with purpose
+11 and running its short test, was still running in the chunk's
+worktree (uncommitted) when the owner reported; the third owner starts
+once it has finished, reads and verifies its edits, then the imaging
+and vault fixtures, the unit suite, the 21a commit; 21b after.
+
+**W4-e so far** (purposes 13 and 14; purpose 11 in the first pause's
+entry): purpose 13 `imaging.post` every minute, `imaging.fetch` every 5
+(`urgent_hours: 18`, `routine_working_days: 3`), watermarks `finals`,
+`cancellations`, `ops.imaging_results` its `published-results`,
+incidents `overdue`; IO1–IO4 on `interfaces` by `check-sql`; (choices)
+IO1 dates the close as the later of `ended_at` and `requested_at`, IO3
+from the entry's first final, IO4 a routine turnaround ending with the
+third working day in `business_settings.timezone`. Purpose 14: one job
+`ship-partitions`, key `archive.ship`, `40 0-5 * * *`, options `source:
+machines`, `last_hour: 5`; the job declared `source: source`, `target:
+source_biomed` (single-valued); `roles:` lists `mach_archive` once per
+database part; `ops.shipments` (type, day, shipment_id, rows_sent,
+rows_received, attempts, posted_at, receipt_at, dropped_at, run_id), key
+(type, day), in both databases; shipment ids `<type>-<YYYYMMDD>`, types
+`vitals`, `machine-readings`; (choices) rows read through the parent
+between the day's bounds at the settings' offset (no grant on a
+partition); the readings' aggregate per machine, each numeric channel's
+min, max, mean to two places, committed before the POST; one closing
+transaction per database (run row, upserts, drops, `unshipped`
+incidents), a run row even on a no-op; the history plants vitals
+manifests from the first session's day (10-second ticks within
+sessions) and readings manifests from the `mach_readings_daily` days,
+received 00:40 the night after the window, the source from the foreign
+server's `host`, sizes estimated (170 and 130 bytes a row); CA1–CA4
+POSIX sh on partners-db by `check-psql` (`--node machines`); CA4 reads
+`window_days` live. Known flaw: the checks' `remaining=` counts to the
+next 40-past run between 00:00 and 05:00, wrong once the job is moved.
