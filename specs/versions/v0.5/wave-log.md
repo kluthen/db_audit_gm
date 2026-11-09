@@ -6118,3 +6118,29 @@ end-to-end (EX5) for 2 round trip(s)" (D440, chunk 19's).
 
 Chunk 19 resumes from `ce468eb` with a fresh owner, taking `v0.5-w4` in
 first (κ: 18, 21, 19); chunk 20 at the next free slot.
+
+### Chunk 21 — paused on context (WIP c05e079), 2026-11-09
+
+The first owner paused at about 180k tokens (WIP `c05e079` on
+`v0.5-c21-parts-flows`, worktree kept); nothing merged. Built: purpose
+11 complete (`vet-bookings-sync`: DDL, runner material and script
+`bookings_sync.py`, BS1–BS5, `gm.md`; its format check failed then only
+on the two-letter ids, since fixed by chunk 33); purpose 13's DDLs,
+runner material and `imaging_orders.py` (no `purpose.yaml`, checks or
+`gm.md` yet). Not started: purpose 14, the bookings, imaging and vault
+fixtures, all of 21b. Its DDL test in a throwaway `postgres:0.5.0` was
+queued behind the host lock and not seen: the next owner reruns it.
+
+Four grants beyond D441's roles table, each minimal, reported (the
+class of chunk 19's gap 5): `sched_interfaces` `SELECT` on
+`sched_courses` and `sched_rooms` (`sched_free_slots` runs with the
+caller's rights) and `UPDATE (released_at)` on `sched_allocations` (the
+release trigger runs as its invoker); `vet_interfaces` `SELECT (id,
+booking_id, section_id)` on `consultations` and `SELECT` on
+`business_settings` (purpose 13's working days); `mach_orders` `SELECT
+(id, code)` on `mach_procedures` and the join ids of `mach_worklist`,
+`mach_studies`, `mach_reports`. Sent to `spec-writer` with the owner's
+reading of the vault fixture (the test lowers `window_days` to 0 so a
+shipped day exists at T0, the job reading the window from the settings,
+D418) to confirm. The chunk resumes with a fresh owner at once (21a
+first; the halves stay in order).
