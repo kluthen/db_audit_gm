@@ -235,6 +235,13 @@ class TestComposedPlan(unittest.TestCase):
         self.assertEqual([d.databases for d in plan.domains],
                          [[("records", "clinic")], [("records", "docs")], [("records", "clinic")]])
 
+    def test_the_read_policies_in_every_database_a_domain_holds_once(self):
+        """Chunk 32a, step (2c): never office (a node's data file's) nor
+        partners (no domains: entry's at:)."""
+        self.assertEqual(self.plan().read_policies, [("records", "clinic"), ("records", "docs")])
+        self.scenario.data.pop("domains")
+        self.assertEqual(self.plan().read_policies, [])
+
     def test_the_keys_ahead_of_each_load_partner_file_and_derivation_never_a_schema(self):
         plan = self.plan()
         keys = self.catalog / "domains/fx-core/data/keys.sql"
@@ -556,7 +563,7 @@ class TestComposedPlan(unittest.TestCase):
         def ddl_switching_database(sc, cat):
             path = cat / "purposes/fx-intake/material/target-ddl.sql"
             path.write_text(path.read_text() + "\\connect office\n")
-        case(ddl_switching_database, "purposes/fx-intake/material/target-ddl.sql:22: \\connect "
+        case(ddl_switching_database, "purposes/fx-intake/material/target-ddl.sql:23: \\connect "
              "office: a purpose's DDL runs connected to its part's database")
 
         def ddl_creating_database(sc, cat):
@@ -594,8 +601,10 @@ class TestComposedPlan(unittest.TestCase):
 
 def answer_for(run):
     """The stub's answer to one psql run: the schemas' listing, a check's
-    count, a database created."""
+    count, a database created, step (2c)'s tables (one in clinic)."""
     stdin = run["stdin"]
+    if stdin == inject.read_policy_sql():
+        return 0, "1\n" if run["argv"][-1] == "clinic" else "0\n", ""
     if stdin == inject.DATABASES_SQL:
         return 0, "[]\n", ""                      # the v0.4 survey: nothing to map
     if "FROM pg_catalog.pg_namespace" in stdin:
@@ -871,6 +880,55 @@ class TestComposedSteps(unittest.TestCase):
         passwords = next(r for r in self.runs if "intake_watch" in r["stdin"]
                          and "PASSWORD" in r["stdin"])
         self.assertEqual(passwords["node"], "records")
+
+    def test_the_read_policies_after_the_ddl_before_the_derivations_unseen(self):
+        """Chunk 32a, step (2c) (W4 item 7, spec D432): in each database a
+        domains: entry's at: holds, once, as postgres, unseen, in one
+        transaction; recorded and printed with its tables' count."""
+        result = self.load()
+        stdin = [r["stdin"] for r in self.runs]
+        policies = [i for i, s in enumerate(stdin) if s == inject.read_policy_sql()]
+        ddl = next(i for i, s in enumerate(stdin) if "fx-intake's target DDL" in s)
+        derive = next(i for i, s in enumerate(stdin) if "The test part's derivation" in s)
+        sets = next(i for i, s in enumerate(stdin) if "ALTER ROLE gm_check SET" in s)
+        self.assertEqual([(self.runs[i]["node"], self.runs[i]["user"], self.runs[i]["argv"])
+                          for i in policies],
+                         [("records", "postgres", list(inject.read_argv("clinic"))),
+                          ("records", "postgres", list(inject.read_argv("docs")))])
+        self.assertLess(ddl, min(policies))
+        self.assertLess(max(policies), min(derive, sets))
+        self.assertEqual(result.read_policies, [("records", "clinic", 1), ("records", "docs", 0)])
+        text = result.text()
+        self.assertIn("records/clinic: gm_check may read every row of 1 table(s) with row "
+                      "security (policy gm_check_read)", text)
+        self.assertIn("records/docs: gm_check may read every row of 0 table(s)", text)
+        self.assertNotIn("records/office: gm_check may read every row of 0", text)
+
+    def test_the_read_policy_sql(self):
+        sql = inject.read_policy_sql()
+        self.assertTrue(sql.startswith(inject.UNSEEN_SQL + "BEGIN;\n"), sql[:300])
+        self.assertTrue(sql.endswith("COMMIT;\n"))
+        for fragment in ("'DROP POLICY IF EXISTS gm_check_read ON %I.%I'",
+                         "'CREATE POLICY gm_check_read ON %I.%I AS PERMISSIVE FOR SELECT TO "
+                         "gm_check USING (true)'",
+                         "'COMMENT ON POLICY gm_check_read ON %I.%I IS %L', n.nspname, "
+                         "c.relname, 'the game master''s read access: DO NOT TAMPER'",
+                         "c.relkind IN ('r', 'p') AND c.relrowsecurity",
+                         "n.nspname NOT IN ('pg_catalog', 'information_schema')",
+                         "n.nspname !~ '^gm_src_'", "\n\\gexec\n"):
+            self.assertIn(fragment, sql)
+        self.assertEqual(sql.count(inject.READ_POLICY_TABLES), 2)   # the policies, the count
+
+    def test_a_read_policy_run_without_its_count_fails(self):
+        def answer(run):
+            if run["stdin"] == inject.read_policy_sql():
+                return 0, "", ""
+            return answer_for(run)
+        self.answer = answer
+        with self.assertRaises(GmError) as cm:
+            self.load()
+        self.assertIn("giving gm_check its read policy in records/clinic: unexpected psql "
+                      "output", str(cm.exception))
 
     def test_a_parts_keys_in_its_load_session_after_the_cores(self):
         """Chunk 29's (a): one session, the core's keys, then the part's."""
@@ -1155,6 +1213,13 @@ class TestComposedLoad(unittest.TestCase):
             print(f"\n[{self.id()}] composed load: {self.seconds:.1f} s")
         return scenario
 
+    def gm_check_reads(self, name, database, sql):
+        """`sql` run as gm_check on node `name`, as a check reads."""
+        r = self.docker("exec", "-e", f"PGPASSWORD={GM_CHECK_PASSWORD}", self.containers[name],
+                        "psql", "-X", "-w", "-A", "-t", "-U", "gm_check", "-d", database,
+                        "-c", sql)
+        return r.stdout.strip()
+
     def server_log(self, name):
         return self.docker("exec", self.containers[name], "cat",
                            "/run/gmtest/pglog/postgresql.log").stdout
@@ -1238,10 +1303,31 @@ class TestComposedLoad(unittest.TestCase):
         self.assertEqual(self.psql("partners-db", "partners", "SELECT string_agg(stay_id::text, "
                                    "',' ORDER BY stay_id) FROM xlab.requests;"),
                          "5001,5002,5003,5004")
-        # the derivation and the history ran, unseen, their sources gone
-        self.assertEqual(self.psql("records", "docs", "SELECT count(*) FROM documents;"), "6")
+        # step (2c) (chunk 32a, W4 item 7): stays' row security forced by
+        # fx-intake's DDL, gm_check's read policy and its comment there, the
+        # count printed; the history read every stay through gm_src_source
+        # as gm_check, which, without it, reads none
+        self.assertEqual(r.read_policies, [("records", "clinic", 1), ("records", "docs", 0)])
+        self.assertIn("records/clinic: gm_check may read every row of 1 table(s) with row "
+                      "security (policy gm_check_read)", r.text())
+        self.assertEqual(self.psql("records", "clinic",
+                                   "SELECT c.relrowsecurity || '|' || c.relforcerowsecurity || "
+                                   "'|' || p.permissive || '|' || p.cmd || '|' || "
+                                   "array_to_string(p.roles, ',') || '|' || p.qual || '|' || "
+                                   "obj_description(o.oid, 'pg_policy') FROM pg_class c, "
+                                   "pg_policies p, pg_policy o WHERE c.relname = 'stays' AND "
+                                   "p.tablename = 'stays' AND p.policyname = 'gm_check_read' AND "
+                                   "o.polrelid = c.oid AND o.polname = p.policyname;"),
+                         "true|true|PERMISSIVE|SELECT|gm_check|true|the game master's read "
+                         "access: DO NOT TAMPER")
+        self.assertEqual(self.psql("records", "clinic", "SELECT count(*) FROM pg_policies WHERE "
+                                   "tablename = 'stays';"), "2")   # intake_current kept
         self.assertEqual(self.psql("records", "office", "SELECT sum(stays) FROM weekly_stays;"),
                          "6")
+        self.assertIn("gm_src_source.stays", (fixture / "catalog/purposes/fx-weekly/material/"
+                                              "history.sql").read_text())
+        # the derivation and the history ran, unseen, their sources gone
+        self.assertEqual(self.psql("records", "docs", "SELECT count(*) FROM documents;"), "6")
         for name, db in (("records", "clinic"), ("records", "docs"), ("records", "office"),
                          ("partners-db", "partners")):
             self.assertEqual(self.psql(name, db,
@@ -1309,6 +1395,13 @@ class TestComposedLoad(unittest.TestCase):
         self.assertEqual(localimpl.read_state(self.ldir)["coherence"]["result"], "pass")
         self.assertNotIn(GM_CHECK_PASSWORD, printed)
         self.assertLess(self.seconds, 600)
+        # gm_check, as a check reads (after the logs' checks: this session is
+        # seen), reads every stay through its policy, and none without it
+        self.assertEqual(self.gm_check_reads("records", "clinic", "SELECT count(*) FROM stays;"),
+                         "6")
+        self.psql("records", "clinic", inject.UNSEEN_SQL + "DROP POLICY gm_check_read ON stays;")
+        self.assertEqual(self.gm_check_reads("records", "clinic", "SELECT count(*) FROM stays;"),
+                         "0")                               # what the checks' guard is for
 
     def test_a_broken_range_failing(self):
         fixture = fixture_copy(self)
