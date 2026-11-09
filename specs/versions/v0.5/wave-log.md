@@ -5794,3 +5794,16 @@ read policy, T272); for the owner's information, the players will see a
 listed in the `postgres` player notes. Meanwhile nothing waits on the
 owner: every wave-4 chunk can start, chunk 32 serving the six purposes
 item 9 names.
+
+### W4 reviewed by the driver, 2026-11-09
+
+The 28 **(choice)** points taken as written; none needs the owner. O243
+settled by item 7 as option A (a `gm_check_read` policy per table with
+row security, v0.4's `cron.job` mechanism, `inject.policy_sql`,
+checked in the code): not the owner's, since nothing a player sees or
+may do changes in kind; reported to the owner as information. The nine
+preflight corrections accepted and sent to `spec-writer` before any
+chunk is cut: chunk 32 inserted for a `coding-executor` (item 8), with
+the merge-order edge `32 ──> 17` on `model.py` and the partial edges
+`32 ──> 18, 19, 20, 21` (format check and fixture of purposes 5, 6, 9,
+14, 15, 16 only); wave 4 then holds six chunks, the model's maximum.
