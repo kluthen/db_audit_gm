@@ -104,7 +104,8 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   a node's data file is the data file's to cover). Then the sanctioned
   derivations (`derive`, in order), then each `purposes:` entry's
   `history` (in list order, in its `target`), each reading its sources
-  through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
+  (its entry's other database parts, `source` and each `source_<w>`, W4
+  item 0) through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
   with its secret) created for the session and dropped after, with the
   extension when the session created it; their sessions unseen
   (statement logging, pgaudit and pg_stat_statements off locally;
@@ -929,8 +930,8 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
         path = _file(pdir, str(history), f"purposes/{pid}/purpose.yaml history", catalog)
         node, database = _location(parts.get("target"), scenario, impl, f"{where}.parts.target")
         sources = [Source(part, *_location(value, scenario, impl, f"{where}.parts.{part}"))
-                   for part, value in parts.items()
-                   if part != "target" and isinstance(value, str) and "/" in value]
+                   for part, value in parts.items()          # source, source_<w> (W4 item 0)
+                   if part != "target" and model.is_database_part(part)]
         plan.histories.append(SourcedRun("history", pid, f"{pid} {history}", node, database,
                                          [path], sources))
     for run in plan.derivations + plan.histories:

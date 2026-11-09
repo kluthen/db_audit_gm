@@ -299,6 +299,30 @@ class TestComposedPlan(unittest.TestCase):
                              and not what.endswith("schema.sql"), what)
         self.assertNotIn(docs_keys, plan.histories[0].paths)
 
+    def test_a_source_w_part_its_ddl_and_its_history_source(self):
+        """Chunk 32b (capture W4 item 0): source_lab's ddl: run in its mapped
+        database at step (2b), and the history reading it as
+        gm_src_source_lab beside gm_src_source; a runner_<w> no source."""
+        pdir = self.catalog / "purposes/fx-weekly"
+        (pdir / "material/lab-ddl.sql").write_text("CREATE SCHEMA IF NOT EXISTS ops;\n")
+        data = yaml.safe_load((pdir / "purpose.yaml").read_text())
+        data["parts"] = {"source": "the clinic", "source_lab": "the documents",
+                         "target": "the office", "runner_reports": "the back office"}
+        data["ddl"] = {"source_lab": "material/lab-ddl.sql"}
+        (pdir / "purpose.yaml").write_text(yaml.safe_dump(data))
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-weekly")
+        entry["parts"].update(source_lab="records/docs", runner_reports="records")
+        plan = self.plan()
+        self.assertEqual([(d.purpose, d.part, d.run.node, d.run.database, d.run.paths)
+                          for d in plan.ddl if d.purpose == "fx-weekly"],
+                         [("fx-weekly", "source_lab", "records", "docs",
+                           [pdir / "material/lab-ddl.sql"])])
+        history = next(h for h in plan.histories if h.owner == "fx-weekly")
+        self.assertEqual((history.node, history.database), ("records", "office"))
+        self.assertEqual([(s.server, s.node, s.database) for s in history.sources],
+                         [("gm_src_source", "records", "clinic"),
+                          ("gm_src_source_lab", "records", "docs")])
+
     def test_a_left_out_partner_runs_with_the_partners_database(self):
         """Chunk 29's (b): a left-out partner folder's data.sql still runs
         when the scenario has a partners' database."""
