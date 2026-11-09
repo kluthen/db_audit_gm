@@ -4516,6 +4516,35 @@ class TestDomainCron(V05ComposedTest):
         self.assertEqual(model.node_pg_cron(sc.node("db"), self.scenario),
                          (True, "shop", "nodes/db/postgresql.conf"))
 
+    def test_a_job_in_a_database_at_does_not_place_refused(self):
+        """W4 item 2: read from the catalogue, never renamed."""
+        self.preload()
+        (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
+            "-- two jobs\nSELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', "
+            "'clinic', 'clinic_app');\nSELECT cron.schedule_in_database(\n  'fx-purge', "
+            "'0 4 * * *', $job$SELECT f(1, 2)$job$,\n  database => 'archive');\n")
+        self.assertRefused("scenario.yaml: domains[fx-clinic]: domains/fx-clinic/data/cron.sql:3: "
+                           "job fx-purge runs in database archive, which this entry's at: does "
+                           "not place on db (it places clinic): a cron.sql is read from the "
+                           "catalogue and names its jobs' databases as written, so at: must "
+                           "name them so")
+
+    def test_a_non_literal_database_refused_by_check_domain_dir(self):
+        (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
+            "SELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', "
+            "current_database(), 'clinic_app');\n")
+        self.assertIn("domains/fx-clinic/data/cron.sql:1: job fx-tidy: its database "
+                      "current_database() is not a single-quoted literal", self.domain_problems())
+
+    def test_the_catalogues_cron_files_name_their_databases(self):
+        self.assertEqual([(job, db) for _, job, db, _ in model.cron_jobs(
+            (REPO_ROOT / "domains/vet-machinery/data/cron.sql").read_text())],
+            [("vitals-partitions", "vitals"), ("readings-partitions", "biomed"),
+             ("events-partitions", "biomed")])
+        self.assertEqual([(job, db) for _, job, db, _ in model.cron_jobs(
+            (REPO_ROOT / "domains/vet-portal/data/cron.sql").read_text())],
+            [("portal.sessions.purge", "portal")])
+
 
 class TestPublicFolder(V05ComposedTest):
     """A public endpoint's folder plants no state (spec D369)."""
@@ -4529,6 +4558,246 @@ class TestPublicFolder(V05ComposedTest):
                       "producers/partners/<prefix>/ (spec D369)", self.domain_problems())
         self.assertFalse([p for p in model._partner_data_files(self.catalog_root / self.DOMAIN)
                           if "public" in p.parts])
+
+
+FIXTURE_REGISTER = FIXTURES / "fixture-register"
+FIXTURE_CLINIC_LOAD = FIXTURES / "fixture-clinic-load"
+
+
+class RegisterCopyTest(RefusalAsserts, ScenarioCopyTest):
+    """A fresh copy of fixture-register: the six clinic domains composed,
+    with the data register the data-register skill generated (build plan
+    chunk 17b; master spec 13.2, 13.3; capture W4 item 1; spec D434)."""
+
+    REGISTER = "gm/data-register.yaml"
+    HANDOUT = "player/data-register.md"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-register"
+        shutil.copytree(FIXTURE_REGISTER, self.scenario)
+
+    def register(self):
+        return yaml.safe_load((self.scenario / self.REGISTER).read_text())
+
+    def write_register(self, change):
+        reg = self.register()
+        change(reg)
+        (self.scenario / self.REGISTER).write_text(yaml.safe_dump(reg, sort_keys=False))
+
+    def redigest(self):
+        """The skill's step 3 again: every input's digest, after an edit
+        made on purpose."""
+        sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        inputs = model.register_inputs(sc, self.scenario)
+        self.write_register(lambda r: r.update(generated_from={
+            rel: model.file_digest(path) for rel, path in inputs.items()}))
+
+    def entry(self, reg, eid):
+        return next(e for e in reg["entries"] if e["id"] == eid)
+
+
+class TestRegisterFixture(RegisterCopyTest):
+
+    def test_loads_checked_in_full(self):
+        sc = self.load()
+        self.assertTrue(sc.data["id"].startswith("fixture-"))
+        reg = self.register()
+        self.assertTrue(15 <= len(reg["entries"]) <= 25, len(reg["entries"]))
+        self.assertTrue(reg["internal"])
+        self.assertEqual(sorted(reg["generated_from"]),
+                         sorted(model.register_inputs(sc.data, self.scenario)))
+        self.assertIn("catalog/domains/vet-core/data/register.yaml", reg["generated_from"])
+        handout = (self.scenario / self.HANDOUT).read_text()
+        for e in reg["entries"]:
+            self.assertIn(f"### {e['id']}: ", handout)
+        self.assertEqual(self.node_seed("data-register.md"), self.HANDOUT)
+
+    def node_seed(self, fname):
+        sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        return self.node(sc, "bastion")["seed_files"].get(fname)
+
+    def test_every_classified_column_in_exactly_one_entry(self):
+        reg = self.register()
+        classes = yaml.safe_load((self.scenario / "data/classification.yaml").read_text())[
+            "columns"]
+        listed = [k for e in reg["entries"] for cls in ("personal", "customer-linked")
+                  for k in e["data"].get(cls) or []]
+        self.assertEqual(sorted(listed), sorted(k for k, v in classes.items()
+                                                if v in ("personal", "customer-linked")))
+
+
+class TestRegisterRefusals(RegisterCopyTest):
+
+    STALE = "stale register: regenerate with the data-register skill"
+
+    def test_a_stale_digest_refused(self):
+        with (self.scenario / "scenario.yaml").open("a") as f:
+            f.write("# an edit after the register was generated\n")
+        self.assertRefused("gm/data-register.yaml: generated_from: scenario.yaml changed since "
+                           f"the register was generated (its digest differs): {self.STALE}")
+
+    def test_an_answer_key_edit_makes_it_stale(self):
+        with (self.scenario / "gm/answer-key.yaml").open("a") as f:
+            f.write("# edited\n")
+        self.assertRefused(f"generated_from: gm/answer-key.yaml changed since the register was "
+                           f"generated (its digest differs): {self.STALE}")
+
+    def test_an_input_not_listed_refused(self):
+        self.write_register(lambda r: r["generated_from"].pop("composition.yaml"))
+        self.assertRefused(f"generated_from: composition.yaml not listed, an input of the "
+                           f"register: {self.STALE}")
+        self.write_register(lambda r: r["generated_from"].update(
+            {"player/story.md": "sha256:" + "0" * 64}))
+        self.assertRefused(f"generated_from: player/story.md is no input of the register")
+
+    def test_a_column_in_no_entry_refused(self):
+        def drop(r):
+            e = self.entry(r, "vet-core-owners")
+            self.dropped = e["data"]["personal"].pop(0)
+        self.write_register(drop)
+        self.assertRefused(f"gm/data-register.yaml: personal column {self.dropped} is in no "
+                           "entry: a generation error")
+
+    def test_a_column_under_another_class_refused(self):
+        def move(r):
+            e = self.entry(r, "vet-core-owners")
+            self.moved = e["data"]["personal"].pop(0)
+            e["data"].setdefault("customer-linked", []).append(self.moved)
+        self.write_register(move)
+        self.assertRefused(f"entries[vet-core-owners].data: {self.moved} listed as "
+                           "customer-linked, which the classification classes personal")
+
+    def test_an_activity_left_out_refused(self):
+        self.write_register(lambda r: r.update(internal=[
+            i for i in r["internal"] if i["id"] != "vet-core-operations"]))
+        self.assertRefused("activity vet-core-operations (domains/vet-core) is in no entry or "
+                           "internal line")
+
+    def test_a_location_in_no_where_refused(self):
+        def drop(r):
+            for record in r["entries"] + r["internal"]:
+                record["where"] = [w for w in record["where"] if w.get("at") != "records/portal"]
+            r["index"].pop("records/portal")
+        self.write_register(drop)
+        self.assertRefused("governance.classes.personal location records/portal is in no "
+                           "entry's where", "records/portal holds classified tables but is in "
+                           "no entry's where")
+
+    def test_an_outbound_flow_missing_refused(self):
+        def drop(r):
+            for e in r["entries"]:
+                for s in e["shared_with"]:
+                    s.pop("flow", None)
+        self.write_register(drop)
+        self.assertRefused("governance.classes.personal's outbound flow to messaging is no "
+                           "entry's shared_with flow")
+
+    def test_the_index_against_the_wheres(self):
+        self.write_register(lambda r: r["index"]["records/clinic"].pop())
+        self.assertRefused("gm/data-register.yaml: index.records/clinic:")
+
+    def test_the_handout_missing_refused(self):
+        (self.scenario / self.HANDOUT).unlink()
+        self.assertRefused("player/data-register.md: missing file (the data register handout")
+
+    def test_the_handout_unmapped_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: missing (the bastion maps "
+                           "data-register.md to governance.register player/data-register.md")
+
+    def register_fault(self, diff):
+        """A local register fault (a seed-file change of the bastion's
+        data-register.md) planted on the bastion, its answer-key entry
+        carrying `diff`."""
+        src = self.scenario / "faults/fixture-random-page-cost"
+        dst = self.scenario / "faults/fixture-register-change"
+        shutil.copytree(src, dst)
+        def fault(d):
+            d["id"] = "fixture-register-change"
+            d["family"] = "security"
+            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.5.0"]}]
+            d["injection"]["seed_changes"] = [{"file": "data-register.md",
+                                               "change": "the handout as the skill wrote it"}]
+        self.edit_yaml("faults/fixture-register-change/fault.yaml", fault)
+        def scen(d):
+            d["fault_instances"].append({"id": "f2", "fault": {
+                "id": "fixture-register-change", "version": "0.1.0"}, "node": "bastion",
+                "parameters": {}, "visibility": "hidden"})
+            d["difficulty"]["score"] += 1
+        self.edit_yaml("scenario.yaml", scen)
+        def key(k):
+            entry = dict(k["instances"][0], instance="f2", register_diff=diff)
+            entry["sealed_check"] = dict(entry["sealed_check"],
+                                         script="faults/fixture-register-change/checks/fixed.sh")
+            k["instances"].append(entry)
+        self.edit_yaml("gm/answer-key.yaml", key)
+
+    def test_a_declared_absence_passes(self):
+        self.register_fault([{"absent": True}])
+        (self.scenario / self.HANDOUT).unlink()
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertTrue(model.register_absent(self.load().answer_key))
+
+    def test_a_register_fault_unmapped_without_a_declared_absence_refused(self):
+        self.register_fault([{"entry": "vet-core-owners", "field": "shared_with", "true": "a",
+                              "handed_out": "b"}])
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: missing (the bastion maps "
+                           "data-register.md to governance.register")
+
+    def test_a_declared_absence_with_the_handout_mapped_refused(self):
+        self.register_fault([{"absent": True}])
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: mapped, but the answer "
+                           "key declares the register absent",
+                           "player/data-register.md: present, but the answer key declares the "
+                           "register absent")
+
+    def test_a_register_diff_against_the_true_register(self):
+        self.register_fault([{"entry": "vet-core-nothing", "field": "where", "true": "a",
+                              "handed_out": "b"},
+                             {"entry": "vet-core-owners", "field": "tables", "true": "a",
+                              "handed_out": "b"}])
+        self.redigest()
+        missing = self.assertRefused(
+            "register_diff[0].entry: 'vet-core-nothing' is no entry of gm/data-register.yaml",
+            "register_diff[1].field: 'tables' is not one of purpose, people, data, where, "
+            "shared_with, kept_for")
+        self.assertFalse([m for m in missing if "stale" in m], missing)
+
+
+class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
+    """A played scenario listing domains: has a register; a fixture- one is
+    exempt (spec D434)."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-clinic-load"
+        shutil.copytree(FIXTURE_CLINIC_LOAD, self.scenario)
+
+    def test_a_fixture_without_a_register_accepted(self):
+        self.assertNotIn("governance", self.load().data)
+
+    def test_a_played_scenario_without_one_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: d.update(id="clinic-load"))
+        self.edit_yaml("gm/answer-key.yaml", lambda d: d["scenario"].update(id="clinic-load"))
+        self.assertRefused("scenario.yaml: governance.register: missing: a scenario listing "
+                           "domains: hands the players a data register, generated with the "
+                           "data-register skill")
+
+    def test_a_handout_mapped_without_a_register_refused(self):
+        (self.scenario / "player/data-register.md").write_text("# Register\n")
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].update(
+            {"data-register.md": "player/data-register.md"}))
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: a scenario without "
+                           "governance.register hands the players no data register")
 
 
 class TestPartsNodeCreates(V05ComposedTest):
