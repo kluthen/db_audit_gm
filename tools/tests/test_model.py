@@ -2129,10 +2129,12 @@ class TestPurposeDefinitionRefusals(V04CopyTest):
         text = self.purpose_problems(change)
         self.assertProblems(text, f"{self.L}: kind: streamed is not one of pulled",
                             f"{self.L}: parts.sink: not a part (source, target, runner, "
-                            "consumer, receiver, api, partner)",
+                            "consumer, receiver, api, partner, source_<w>, runner_<w>; <w> "
+                            "[a-z][a-z0-9]*)",
                             f"{self.L}: jobs[copy-hourly].method: magic is not one of sql, script",
                             f"{self.L}: jobs[copy-hourly].part: source is not a declared runner "
-                            "part (runner, the only one in v0.4)",
+                            "part (runner; a runner part is runner or runner_<w>); only a pg_cron "
+                            "job runs in a database part",
                             f"{self.L}: jobs[copy-hourly].source: runner is not a declared "
                             "database part (source, target)",
                             f"{self.L}: trace[0].kind: logs is not one of outbox-rows")
@@ -4123,6 +4125,183 @@ class TestPurposeDdlInScenario(V05ComposedTest):
                                             "ddl": {"target": "material/t.sql",
                                                     "source": "material/s.sql"}}),
                          [("source", "material/s.sql"), ("target", "material/t.sql")])
+
+
+class TestExtraParts(V05ComposedTest):
+    """Parts beyond v0.4's (chunk 32b; capture W4 item 0, spec D431): more
+    database parts source_<w>, more runners runner_<w>, each checked as its
+    base part, and pg_cron jobs run in a database part, scheduled by its
+    ddl:, in no runner's jobs.yaml."""
+
+    L = "purposes/fx-lab-orders/purpose.yaml"
+    P = "scenario.yaml: purposes[fx-lab-orders].parts"
+
+    def setUp(self):
+        super().setUp()
+        for name in ("source-lab-ddl.sql", "target-ddl.sql"):
+            (self.catalog_root / self.PURPOSE / "material" / name).write_text(
+                "CREATE SCHEMA IF NOT EXISTS ops;\n")
+
+    def extra_parts(self, d):
+        """The purpose with source_lab (its ddl:, a role, a trace and a write
+        there) and runner_reports running weekly-orders."""
+        d["parts"].update(source_lab="the lab's database", runner_reports="the back office")
+        d["ddl"] = {"source_lab": "material/source-lab-ddl.sql"}
+        d["jobs"][1].update(part="runner_reports", source="source_lab")
+        d["trace"].append({"kind": "run-ledger", "part": "source_lab", "table": "ops.runs",
+                           "run_column": "id"})
+        d["data_moved"][1]["writes"].append("source_lab:ops.runs")
+        d["roles"].append({"name": "lab_reports", "part": "source_lab", "reads": [],
+                           "writes": ["ops.runs"]})
+
+    def reports_node(self, d, role="transformer"):
+        """A second scheduler node, reports, seeding its own files."""
+        node = dict(self.node(d, "producer"), name="reports", role=role)
+        node["seed_files"] = {k: v.replace("nodes/producer/", "nodes/reports/")
+                              for k, v in node["seed_files"].items()}
+        d["nodes"].append(node)
+        d["designed_for"]["placement"]["reports"] = "host-1"
+
+    def compose_extra(self, reports_jobs=("weekly-orders",), role="transformer",
+                      source_lab="db/clinic"):
+        shutil.copytree(self.scenario / "nodes/producer", self.scenario / "nodes/reports")
+        self.edit_yaml("nodes/reports/jobs.yaml", lambda d: d.update(
+            jobs=[j for j in d["jobs"] if j["name"] in reports_jobs]))
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", self.extra_parts)
+        def scenario(d):
+            self.reports_node(d, role)
+            d["purposes"][0]["parts"].update(source_lab=source_lab, runner_reports="reports")
+        self.scenario_yaml(scenario)
+
+    def pg_cron(self, d, ddl=True):
+        """weekly-orders made a pg_cron job in target, scheduled by its ddl:."""
+        d["jobs"][1].update(part="target", method="pg_cron")
+        if ddl:
+            d["ddl"] = {"target": "material/target-ddl.sql"}
+
+    # --- the purpose definition
+
+    def test_the_extra_parts_valid(self):
+        self.assertEqual(self.purpose_problems(self.extra_parts), "")
+
+    def test_part_names(self):
+        text = self.purpose_problems(lambda d: d["parts"].update(
+            {"source_Lab": "x", "runner_": "x", "target_lab": "x", "api_lab": "x"}))
+        for part in ("source_Lab", "runner_", "target_lab", "api_lab"):
+            self.assertIn(f"{self.L}: parts.{part}: not a part (source, target, runner, consumer, "
+                          "receiver, api, partner, source_<w>, runner_<w>; <w> [a-z][a-z0-9]*)",
+                          text)
+
+    def test_the_extra_parts_used_as_their_base(self):
+        def change(d):
+            self.extra_parts(d)
+            d["parts"].pop("source_lab")
+            d["parts"].pop("runner_reports")
+        text = self.purpose_problems(change)
+        self.assertProblems(text,
+                            f"{self.L}: jobs[weekly-orders].part: runner_reports is not a "
+                            "declared runner part (runner;",
+                            f"{self.L}: jobs[weekly-orders].source: source_lab is not a declared "
+                            "database part (source, target)",
+                            f"{self.L}: trace[1].part: source_lab is not a declared part",
+                            f"{self.L}: data_moved[weekly-orders].writes: source_lab:ops.runs: "
+                            "source_lab is not a declared part",
+                            f"{self.L}: roles[lab_reports].part: source_lab is not a declared "
+                            "database part (source, target)",
+                            f"{self.L}: ddl.source_lab: not a database part the purpose declares "
+                            "(source, target)")
+        # a runner part is no database part, a database part no runner
+        text = self.purpose_problems(lambda d: (self.extra_parts(d), d.update(
+            ddl={"runner_reports": "material/target-ddl.sql"}),
+            d["jobs"][1].update(source="runner_reports")))
+        self.assertProblems(text, f"{self.L}: ddl.runner_reports: not a database part the "
+                            "purpose declares (source, target, source_lab)",
+                            f"{self.L}: jobs[weekly-orders].source: runner_reports is not a "
+                            "declared database part (source, target, source_lab)")
+
+    def test_a_pg_cron_job_in_a_database_part(self):
+        self.assertEqual(self.purpose_problems(self.pg_cron), "")
+        self.assertIn(f"{self.L}: jobs[weekly-orders].part: target: a pg_cron job is scheduled "
+                      "by its part's ddl:, and the purpose has no ddl.target",
+                      self.purpose_problems(lambda d: (self.pg_cron(d, ddl=False),
+                                                       d.pop("ddl", None))))
+        self.assertIn(f"{self.L}: jobs[weekly-orders].part: runner is not a declared database "
+                      "part (source, target): a pg_cron job names the database part it runs in, "
+                      "never a runner",
+                      self.purpose_problems(lambda d: (self.pg_cron(d),
+                                                       d["jobs"][1].update(part="runner"))))
+        self.assertIn(f"{self.L}: jobs[post-lab-orders].part: source is not a declared runner "
+                      "part (runner; a runner part is runner or runner_<w>); only a pg_cron job "
+                      "runs in a database part",
+                      self.purpose_problems(lambda d: d["jobs"][0].update(part="source")))
+
+    def test_all_pg_cron_jobs_declare_no_runner(self):
+        def all_pg_cron(d):
+            self.pg_cron(d)
+            d["jobs"][0].update(part="target", method="pg_cron")
+        self.assertIn(f"{self.L}: parts.runner: every job of the purpose is a pg_cron job, run in "
+                      "a database part, so it declares no runner",
+                      self.purpose_problems(all_pg_cron))
+        self.assertEqual(self.purpose_problems(lambda d: (all_pg_cron(d),
+                                                          d["parts"].pop("runner"))), "")
+
+    # --- in a scenario
+
+    def test_the_extra_parts_in_a_scenario(self):
+        self.compose_extra()
+        sc = self.load()
+        self.assertEqual(sc.data["purposes"][0]["parts"]["source_lab"], "db/clinic")
+        created = model.node_creates(self.scenario, sc.data, "db", self.catalog_root)
+        self.assertIn("purposes/fx-lab-orders/material/source-lab-ddl.sql", created.sources)
+
+    def test_a_source_w_on_a_standby(self):
+        self.compose_extra(source_lab="standby/clinic")
+        self.assertRefused(f"{self.P}.source_lab: standby/clinic: standby is a standby "
+                           "(standby_of db): a standby is no location")
+
+    def test_a_runner_w_not_a_transformer(self):
+        self.compose_extra(role="producer")
+        self.assertRefused(f"{self.P}.runner_reports: reports is not a node of role transformer "
+                           "(its role is producer)")
+        self.setUp()
+        self.compose_extra()
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(runner_reports="lab-api"))
+        self.assertRefused(f"{self.P}.runner_reports: lab-api is not a node of role transformer")
+
+    def test_a_runner_w_job_in_its_own_jobs_yaml(self):
+        self.compose_extra(reports_jobs=())
+        self.assertRefused(f"{self.P}.runner_reports: reports's jobs.yaml (nodes/reports/"
+                           "jobs.yaml) has no job weekly-orders (a job of purpose fx-lab-orders)")
+        # each runner's jobs in its own: post-lab-orders is runner's, not runner_reports'
+        missing = self.assertRefused(f"{self.P}.runner_reports")
+        self.assertFalse([m for m in missing if "post-lab-orders" in m and "runner_reports" in m])
+
+    def test_a_runner_w_with_no_jobs_yaml(self):
+        self.compose_extra()
+        self.scenario_yaml(lambda d: self.node(d, "reports")["seed_files"].pop("jobs.yaml"))
+        self.assertRefused(f"{self.P}.runner_reports: reports seeds no jobs.yaml to run purpose "
+                           "fx-lab-orders's jobs")
+
+    def test_a_pg_cron_job_with_no_runner(self):
+        def all_pg_cron(d):
+            self.pg_cron(d)
+            d["jobs"][0].update(part="target", method="pg_cron")
+            d["parts"].pop("runner")
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", all_pg_cron)
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].pop("runner"))
+        self.edit_yaml(self.JOBS, lambda d: d.update(jobs=[
+            j for j in d["jobs"] if j["name"] not in ("post-lab-orders", "weekly-orders")]))
+        sc = self.load()
+        self.assertNotIn("runner", sc.data["purposes"][0]["parts"])
+
+    def test_a_pg_cron_job_listed_in_a_runners_jobs_yaml(self):
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", self.pg_cron)
+        self.assertRefused(f"{self.P}.runner: producer's jobs.yaml (nodes/producer/jobs.yaml) has "
+                           "job weekly-orders, purpose fx-lab-orders's pg_cron job, which runs in "
+                           "its database part target, scheduled by its ddl:, never on a runner")
+        self.edit_yaml(self.JOBS, lambda d: d.update(jobs=[
+            j for j in d["jobs"] if j["name"] != "weekly-orders"]))
+        self.load()
 
 
 class TestDomainV05Refusals(V05ComposedTest):

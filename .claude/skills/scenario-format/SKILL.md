@@ -296,8 +296,12 @@ job's `connections:`); the others are checked by reading:
   each a location `<node>/<database>` (a node of role `database` and a
   database its data file creates; the two may be equal), `runner` a node
   of role `transformer`, `consumer` of role `consumer`, `receiver` of role
-  `producer`. For each job of the purpose, the runner's `jobs.yaml` has an
-  entry with that `name` and `key`, the key in its `queries.yaml`. The
+  `producer`; from v0.5 each `source_<w>` a location as `source` is (never
+  a standby) and each `runner_<w>` a node of role `transformer` (capture
+  W4 item 0). For each job a runner part runs (its `part`), that part's
+  node's `jobs.yaml` has an entry with that `name` and `key`, the key in
+  its `queries.yaml`; a `pg_cron` job, run in a database part, is in no
+  runner's `jobs.yaml` (refused there). The
   purpose's `material/` is copied in at design time, adapted to the
   scenario's names: each part's fragments into that node's
   `queries.yaml`, `scripts/`, `jobs.yaml` and `schedule.yaml`, a database
@@ -898,10 +902,19 @@ particular:
   this one), `kind` (`pulled`, `transformed-in-place`, `pushed`,
   `pushed-obligation`). No `version`.
 - **Parts**: among `source`, `target`, `runner`, `consumer`, `receiver`,
-  with `source`, `target` and `runner` always present, each with one line
-  saying what fills it.
+  with `source`, `target` and `runner` always present (from v0.5 `runner`
+  absent when every job is a `pg_cron` job, and refused then), each with
+  one line saying what fills it. From v0.5 (chunk 32, capture W4 item 0),
+  more database parts `source_<w>` and more runners `runner_<w>` (`<w>`
+  `[a-z][a-z0-9]*`: `source_lab`, `runner_reports`), each checked as its
+  base part and usable wherever the base is (a job's `part`, `source`,
+  `target`, `roles[].part`, `trace[].part`, `data_moved.writes`, `ddl:`
+  keys); any other name is refused.
 - **Jobs**: each with its `name` and `key` (as the runner's `jobs.yaml`
-  and `queries.yaml` will hold them), `part` (a declared runner), `source`
+  and `queries.yaml` will hold them), `part` (a declared runner, `runner`
+  or `runner_<w>`; a `pg_cron` job names instead the declared database
+  part it runs in, which its `ddl:` schedules, refused otherwise; only a
+  `pg_cron` job runs in a database part), `source`
   and `target` (declared database parts), `method` (`sql`, `script`,
   `foreign-tables`, `procedure`, `pg_cron`, `cron-daemon`), what it
   `computes` in one sentence, its `cadence` in scenario time (the jobs'
@@ -972,9 +985,11 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   D404), its `target` the partners' database allowed.
 - **The target's DDL in a composed domain's database** (`ddl:`, chunk
   29b, capture W3 addendum item 6 (e)): a map from a database part the
-  purpose declares (`source`, `target`) to a file of `material/`
-  (`ddl: {target: material/target-ddl.sql}`): the purpose's roles,
-  grants, policies and `ops` tables. Read from the catalogue at every
+  purpose declares (`source`, `source_<w>`, `target`) to a file of
+  `material/` (`ddl: {target: material/target-ddl.sql}`): the purpose's
+  roles, grants, policies and `ops` tables, and the schedule of the
+  `pg_cron` jobs it runs in that part (`cron.schedule_in_database`;
+  required of a part a `pg_cron` job names). Read from the catalogue at every
   load, as `history` is, never copied. In a scenario, each part named
   maps to a database a `domains:` entry's `at:` holds; one mapped to a
   database no domain holds (`office`, `partners`) is refused, its DDL
@@ -1213,11 +1228,16 @@ composition beside `scenario.yaml`:
   part in `databases` order; then its partners' `data.sql`, a left-out
   partner's only when the scenario has a partners' database; then its
   `data/cron.sql`, in its node's `cron.database_name`); each `purposes:`
-  entry's `ddl:` files (step (2b)); the
+  entry's `ddl:` files (step (2b)); `gm_check`'s read policy
+  `gm_check_read` (permissive, `SELECT`, every row, commented "the game
+  master's read access: DO NOT TAMPER") on every table with row security
+  of each database a `domains:` entry's `at:` holds (step (2c), spec
+  D432), so the GM's reads see every row; the
   sanctioned derivations in `derive` order, each in its part's database;
   each `purposes:` entry's `history` in list order, in its `target`;
   then the coherence check. A derivation reads its `after` domains, a
-  history its entry's other location parts (`gm_src_source`), through
+  history its entry's other database parts (`gm_src_source`,
+  `gm_src_source_<w>`), through
   foreign schemas `gm_src_*` created for the session and dropped after
   (one reading `partners` from another node is refused, spec D383),
   every such session unseen (no statement logging, `pg_stat_statements`

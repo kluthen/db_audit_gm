@@ -14,7 +14,10 @@ parts with `data/coherence.yaml`; a purpose, `fx-weekly`, whose
 `material/history.sql` plants `records/office`; and a purpose,
 `fx-intake`, whose `ddl: {target: material/target-ddl.sql}` creates its
 role, grants, policy and `ops` table in `records/clinic`, a composed
-domain's database (chunk 29b's (e)). `scenario/` composes them
+domain's database (chunk 29b's (e)), and forces row security on
+`stays`, which `fx-weekly`'s history reads as `gm_check` through
+`gm_src_source` only once step (2c) has given it `gm_check_read` (chunk
+32a). `scenario/` composes them
 on two `postgres` nodes, `records` (its seed `postgresql.conf`
 preloading `pg_cron`, its jobs in `office`, which its data file creates
 with the extension) and the partners' `partners-db`, its

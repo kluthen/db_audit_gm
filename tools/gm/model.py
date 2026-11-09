@@ -94,6 +94,12 @@ PURPOSE_PARTS = ("source", "target", "runner", "consumer", "receiver", "api", "p
 DATABASE_PARTS = ("source", "target")
 PART_ROLES = {"runner": "transformer", "consumer": "consumer", "receiver": "producer",
               "api": "api"}           # partner: a third party's node, any role (v0.5 W1 item 1)
+# v0.5 chunk 32b (capture W4 item 0, spec D431): more database parts
+# source_<w> and more runners runner_<w>, each checked as its base part.
+EXTRA_PARTS = ("source", "runner")
+EXTRA_PART_RE = re.compile(r"^(source|runner)_([a-z][a-z0-9]*)$")
+RUNNER_PART = "runner"
+PG_CRON_METHOD = "pg_cron"          # a job run by pg_cron in the database part it names
 PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation", "round-trip")
 JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
 TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
@@ -104,7 +110,8 @@ UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads
 SQL_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
 CLASSIFICATION_KEY_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
 RECEIVER_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
-PART_TABLE_RE = re.compile(r"^([a-z]+):([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
+PART_TABLE_RE = re.compile(r"^([a-z]+(?:_[a-z][a-z0-9]*)?):"
+                           r"([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
 POLICY_SEED_FILE = "data-policy.md"   # the bastion's optional starter-pack seed file (D221, D223)
 FRAGMENT_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
 FRAGMENT_FOLDERS = ("builders", "scripts")
@@ -3048,9 +3055,12 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
                    "(master spec 8.2)")
     parts = _dict(data.get("parts"))
     for part in parts:
-        if part not in PURPOSE_PARTS:
-            out.append(f"{label}: parts.{part}: not a part ({', '.join(PURPOSE_PARTS)})")
-    databases = [p for p in DATABASE_PARTS if p in parts]
+        if base_part(part) is None:
+            out.append(f"{label}: parts.{part}: not a part ({_parts_text()}; <w> "
+                       "[a-z][a-z0-9]*)")
+    databases = [p for p in parts if is_database_part(p)]
+    runners = [p for p in parts if is_runner_part(p)]
+    ddl_parts = _dict(data.get("ddl"))
     jobs = [j for j in data.get("jobs") or [] if isinstance(j, dict)] \
         if isinstance(data.get("jobs"), list) else []
     names = []
@@ -3059,9 +3069,7 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         if job.get("name") in names:
             out.append(f"{p}: duplicate job name")
         names.append(job.get("name"))
-        if "part" in job and not (job["part"] == "runner" and "runner" in parts):
-            out.append(f"{p}.part: {job['part']} is not a declared runner part (runner, the "
-                       "only one in v0.4)")
+        _check_job_part(job, p, runners, databases, ddl_parts, out)
         for key in DATABASE_PARTS:
             if key in job and job[key] not in databases:
                 out.append(f"{p}.{key}: {job[key]} is not a declared database part "
@@ -3134,6 +3142,11 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
                 out.append(f"{p}.writes: {item!r} is not <part>:<table>")
             elif m.group(1) not in parts:
                 out.append(f"{p}.writes: {item}: {m.group(1)} is not a declared part")
+    if jobs and all(j.get("method") == PG_CRON_METHOD for j in jobs):
+        for part in runners:
+            out.append(f"{label}: parts.{part}: every job of the purpose is a {PG_CRON_METHOD} "
+                       "job, run in a database part, so it declares no runner (capture W4 "
+                       "item 0)")
     for name in names:
         if isinstance(moved, list) and name not in moved_jobs:
             out.append(f"{label}: data_moved: no entry for job {name} (one entry per job)")
@@ -3144,6 +3157,28 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
                        f"declared database part ({', '.join(databases)})")
     _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out)
     return out
+
+
+def _check_job_part(job, p, runners, databases, ddl_parts, out):
+    """A job's `part` (capture W4 item 0): a declared runner (`runner`,
+    `runner_<w>`) for every job but a pg_cron one, which names the declared
+    database part it runs in, that part's `ddl:` scheduling it."""
+    if "part" not in job:
+        return                               # reported against the template
+    part, method = job["part"], job.get("method")
+    if method == PG_CRON_METHOD:
+        if part not in databases:
+            out.append(f"{p}.part: {part} is not a declared database part "
+                       f"({', '.join(databases) or 'none'}): a {PG_CRON_METHOD} job names the "
+                       "database part it runs in, never a runner (capture W4 item 0)")
+        elif part not in ddl_parts:
+            out.append(f"{p}.part: {part}: a {PG_CRON_METHOD} job is scheduled by its part's "
+                       f"ddl:, and the purpose has no ddl.{part} (capture W4 item 0)")
+    elif part not in runners:
+        out.append(f"{p}.part: {part} is not a declared runner part "
+                   f"({', '.join(runners) or 'none'}; a runner part is runner or runner_<w>)"
+                   + (f"; only a {PG_CRON_METHOD} job runs in a database part"
+                      if is_database_part(part) else ""))
 
 
 def _find_catalog_unit(kind, uid, catalog_root):
@@ -3384,10 +3419,35 @@ def _check_composition(data, sdir, catalog_root, out):
     out.extend(m for m in check_composition(data, sdir, catalog_root) if m not in out)
 
 
+def base_part(part):
+    """A purpose part's base part (capture W4 item 0): `source` for
+    `source_<w>`, `runner` for `runner_<w>`, the part itself for a part of
+    PURPOSE_PARTS; None for anything else."""
+    if part in PURPOSE_PARTS:
+        return part
+    m = EXTRA_PART_RE.match(part) if isinstance(part, str) else None
+    return m.group(1) if m else None
+
+
+def is_database_part(part):
+    """`source`, `source_<w>` or `target`."""
+    return base_part(part) in DATABASE_PARTS
+
+
+def is_runner_part(part):
+    """`runner` or `runner_<w>`."""
+    return base_part(part) == RUNNER_PART
+
+
+def _parts_text():
+    return f"{', '.join(PURPOSE_PARTS)}, " + ", ".join(f"{b}_<w>" for b in EXTRA_PARTS)
+
+
 def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
     """purposes: each a purpose of the catalog, its parts mapped exactly, to
     nodes of the right role and locations, and every job of the purpose on
-    the runner node (master spec 6.1, 6.9; W1 item 1)."""
+    the node of the runner part that runs it, a pg_cron job on none (master
+    spec 6.1, 6.9; W1 item 1; v0.5 capture W4 item 0)."""
     label = "scenario.yaml"
     entries = data.get("purposes")
     seen = []
@@ -3406,7 +3466,7 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
             out.append(f"{p}.id: {problem}")
         if purpose is None:
             continue
-        declared = [k for k in _dict(purpose.get("parts")) if k in PURPOSE_PARTS]
+        declared = [k for k in _dict(purpose.get("parts")) if base_part(k) is not None]
         parts = entry.get("parts")
         if not isinstance(parts, dict):
             continue                         # reported against the template
@@ -3417,7 +3477,7 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
             if part not in declared:
                 out.append(f"{p}.parts.{part}: not a part purpose {pid} declares "
                            f"({', '.join(declared)})")
-            elif part in DATABASE_PARTS:
+            elif is_database_part(part):
                 problem = _location_problem(value, by_name, creates)
                 if problem:
                     out.append(f"{p}.parts.{part}: {problem}")
@@ -3428,9 +3488,10 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
                     out.append(f"{p}.parts.{part}: {value} is not a node a third_parties: entry "
                                "lists (from v0.5 a receiver and a partner are declared third "
                                "parties; master spec 12.1)")
-            elif by_name[value].get("role") != PART_ROLES[part]:
-                out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
-                           f"(its role is {by_name[value].get('role')})")
+            elif by_name[value].get("role") != PART_ROLES[base_part(part)]:
+                out.append(f"{p}.parts.{part}: {value} is not a node of role "
+                           f"{PART_ROLES[base_part(part)]} (its role is "
+                           f"{by_name[value].get('role')})")
         placed = domain_locations(data)
         for part, _ in purpose_ddl(purpose):
             if part in parts and parts[part] not in placed:
@@ -3438,20 +3499,33 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
                            "only in a database a domains: entry's at: holds; for a database no "
                            "domain holds, its DDL stays in the node's data file (capture W3 "
                            "addendum, item 6 (e))")
-        runner = by_name.get(parts.get("runner"))
-        if runner is not None and runner.get("role") == PART_ROLES["runner"]:
-            _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
-            _check_purpose_http(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
+        for part in declared:
+            runner = by_name.get(parts.get(part)) if is_runner_part(part) else None
+            if runner is not None and runner.get("role") == PART_ROLES[RUNNER_PART]:
+                _check_purpose_jobs(purpose, pid, part, runner, sdir, f"{p}.parts.{part}", out)
+                _check_purpose_http(purpose, pid, part, runner, sdir, f"{p}.parts.{part}", out)
         _check_purpose_ops(data, purpose, pid, parts, p, out)
 
 
-def _check_purpose_jobs(purpose, pid, runner, sdir, p, out):
-    """Every job of the purpose has an entry of that name and key in the
-    runner's jobs.yaml (its key in queries.yaml: the jobs' own check)."""
+def _runner_jobs(purpose, part):
+    """The purpose's jobs runner part `part` runs: those naming it, and, for
+    `runner`, those naming no part (v0.4's one runner)."""
+    return [j for j in purpose.get("jobs") or [] if isinstance(j, dict)
+            and j.get("method") != PG_CRON_METHOD
+            and j.get("part", RUNNER_PART) == part]
+
+
+def _check_purpose_jobs(purpose, pid, part, runner, sdir, p, out):
+    """Every job runner part `part` runs has an entry of that name and key in
+    its node's jobs.yaml (its key in queries.yaml: the jobs' own check); a
+    pg_cron job, run in a database part, has none there (capture W4 item
+    0)."""
     rel, path = _seed_path(runner, sdir, "jobs.yaml")
     name = runner.get("name")
+    own = _runner_jobs(purpose, part)
     if path is None:
-        out.append(f"{p}: {name} seeds no jobs.yaml to run purpose {pid}'s jobs")
+        if own:
+            out.append(f"{p}: {name} seeds no jobs.yaml to run purpose {pid}'s jobs")
         return
     try:
         content = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -3460,8 +3534,13 @@ def _check_purpose_jobs(purpose, pid, runner, sdir, p, out):
     jobs = {j.get("name"): j for j in _dict(content).get("jobs") or []
             if isinstance(j, dict)} if isinstance(_dict(content).get("jobs"), list) else {}
     for job in purpose.get("jobs") or []:
-        if not isinstance(job, dict):
-            continue
+        if isinstance(job, dict) and job.get("method") == PG_CRON_METHOD \
+                and job.get("name") in jobs:
+            out.append(f"{p}: {name}'s jobs.yaml ({rel}) has job {job['name']}, purpose {pid}'s "
+                       f"{PG_CRON_METHOD} job, which runs in its database part "
+                       f"{job.get('part')}, scheduled by its ddl:, never on a runner (capture "
+                       "W4 item 0)")
+    for job in own:
         jname, key = job.get("name"), job.get("key")
         if jname not in jobs:
             out.append(f"{p}: {name}'s jobs.yaml ({rel}) has no job {jname} (a job of purpose "
@@ -5908,15 +5987,15 @@ def _check_endpoint_material(node_dir, base, out):
                    "routes/<name>.py and db/<name>.py)")
 
 
-def _check_purpose_http(purpose, pid, runner, sdir, p, out):
+def _check_purpose_http(purpose, pid, part, runner, sdir, p, out):
     """Each HTTP connection of a purpose's job maps to the credential the
     runner's schedule connection names, or public when it names none (spec
     D354)."""
     jobs = {j.get("name"): j for j in _dict(_seed_yaml(runner, sdir, "jobs.yaml")).get("jobs") or []
             if isinstance(j, dict)}
     conns = _dict(_dict(_seed_yaml(runner, sdir, "schedule.yaml")).get("connections"))
-    for job in purpose.get("jobs") or []:
-        if not isinstance(job, dict) or job.get("name") not in jobs:
+    for job in _runner_jobs(purpose, part):
+        if job.get("name") not in jobs:
             continue                         # reported by the jobs' check
         mapped = _dict(jobs[job["name"]].get("connections"))
         for cname, value in _dict(job.get("connections")).items():
@@ -5936,8 +6015,8 @@ def _check_purpose_http(purpose, pid, runner, sdir, p, out):
 
 def _check_purpose_ddl(purpose_dir, data, label, base, parts, out):
     """ddl: (capture W3 addendum, item 6 (e); chunk 29b): a non-empty mapping
-    from database parts the purpose declares (source, target) to files of
-    material/, each existing."""
+    from database parts the purpose declares (source, source_<w>, target;
+    W4 item 0) to files of material/, each existing."""
     if "ddl" not in data:
         return
     ddl = data.get("ddl")
@@ -5947,9 +6026,9 @@ def _check_purpose_ddl(purpose_dir, data, label, base, parts, out):
         return
     for part, rel in ddl.items():
         p = f"{label}: ddl.{part}"
-        if part not in DATABASE_PARTS or part not in _dict(parts):
+        if not is_database_part(part) or part not in _dict(parts):
             out.append(f"{p}: not a database part the purpose declares ("
-                       f"{', '.join(k for k in DATABASE_PARTS if k in _dict(parts)) or 'none'})")
+                       f"{', '.join(k for k in _dict(parts) if is_database_part(k)) or 'none'})")
             continue
         path = _inside(purpose_dir, rel) if isinstance(rel, str) else None
         if path is None or not path.is_file() or not rel.startswith("material/"):
@@ -5987,7 +6066,7 @@ def _check_purpose_ops(data, purpose, pid, parts, p, out):
         if not isinstance(item, dict) or not isinstance(item.get("table"), str):
             continue
         part = item.get("part")
-        if part not in DATABASE_PARTS or parts.get(part) not in placed:
+        if not is_database_part(part) or parts.get(part) not in placed:
             continue
         schema = item["table"].split(".")[0] if "." in item["table"] else "public"
         if schema != OPS_SCHEMA:

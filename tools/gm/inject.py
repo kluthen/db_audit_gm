@@ -94,10 +94,18 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   as `postgres` connected to the part's mapped database, which must be
   one a `domains:` entry's `at:` holds (refused otherwise, as is a file
   creating a database or `\\connect`ing), unseen, with the variables, no
-  keys. Then the sanctioned
+  keys. Then (step (2c), v0.5 chunk 32a, capture W4 item 7, spec D432)
+  in every database a `domains:` entry's `at:` holds, as `postgres`,
+  unseen, on every table (`relkind` `r` or `p`) with row security outside
+  `pg_catalog`, `information_schema` and `gm_src_*`: CHECK_POLICY dropped
+  if it exists, created `AS PERMISSIVE FOR SELECT TO gm_check USING
+  (true)` and commented READ_POLICY_COMMENT, so every check, derivation,
+  history and coherence query reads every row as `gm_check` (a database of
+  a node's data file is the data file's to cover). Then the sanctioned
   derivations (`derive`, in order), then each `purposes:` entry's
   `history` (in list order, in its `target`), each reading its sources
-  through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
+  (its entry's other database parts, `source` and each `source_<w>`, W4
+  item 0) through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
   with its secret) created for the session and dropped after, with the
   extension when the session created it; their sessions unseen
   (statement logging, pgaudit and pg_stat_statements off locally;
@@ -164,6 +172,9 @@ CHECK_ROLE = "gm_check"             # the GM check role (v0.3 capture W1-x)
 CHECK_SECRET = "gm_check_password"  # mounted on a node: its check role exists
 # v0.4 (capture W2-x): what load-data gives the check role.
 CHECK_POLICY = "gm_check_read"      # its read policy on CRON_TABLES
+# v0.5 (capture W4 item 7, spec D432): the same policy on every table with
+# row security of a composed domain's database, step (2c), commented.
+READ_POLICY_COMMENT = "the game master's read access: DO NOT TAMPER"
 CRON_TABLES = ("cron.job", "cron.job_run_details")
 CHECK_SCHEMA = "gm_check"           # the mapping-roles function's schema
 MAPPING_FUNCTION = f"{CHECK_SCHEMA}.user_mapping_roles"
@@ -337,6 +348,7 @@ class LoadResult:
     domains: list = field(default_factory=list)    # [(domain, node, database, what)] run
     partners: list = field(default_factory=list)   # [(domain, prefix, node)]
     ddl: list = field(default_factory=list)        # [(purpose, part, node, database)]
+    read_policies: list = field(default_factory=list)   # [(node, database, tables)]: (2c)
     derived: list = field(default_factory=list)    # [(domain, node, database)]
     histories: list = field(default_factory=list)  # [(purpose, node, database)]
     coherence: list = field(default_factory=list)  # [coherence.Outcome]
@@ -366,6 +378,8 @@ class LoadResult:
                 for domain, prefix, node in self.partners]
         out += [f"  {node}/{db}: purpose {pid}'s DDL ({part}), unseen"
                 for pid, part, node, db in self.ddl]
+        out += [f"  {node}/{db}: {CHECK_ROLE} may read every row of {n} table(s) with row "
+                f"security (policy {CHECK_POLICY})" for node, db, n in self.read_policies]
         out += [f"  {node}/{db}: {domain}'s derivation, unseen" for domain, node, db in self.derived]
         out += [f"  {node}/{db}: purpose {pid}'s history, unseen"
                 for pid, node, db in self.histories]
@@ -630,6 +644,7 @@ class CheckRun:
 class ComposedPlan:
     domains: list = field(default_factory=list)       # [DomainLoad], in order
     ddl: list = field(default_factory=list)           # [DdlRun]: step (2b), in order
+    read_policies: list = field(default_factory=list) # [(node, database)]: step (2c)
     derivations: list = field(default_factory=list)   # [SourcedRun]
     histories: list = field(default_factory=list)     # [SourcedRun]
     checks: list = field(default_factory=list)        # [CheckRun]
@@ -890,6 +905,8 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             _keys(domains, catalog, did) + [path],
             [src for a in after for src in domains[a].sources]))
     held = {(node, database) for d in domains.values() for _, node, database in d.locations}
+    plan.read_policies = list(dict.fromkeys(
+        (node, database) for d in domains.values() for _, node, database in d.locations))
     for entry in scenario.data.get("purposes") or []:
         pid = entry.get("id") if isinstance(entry, dict) else None
         pdir = catalog / "purposes" / str(pid)
@@ -913,8 +930,8 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
         path = _file(pdir, str(history), f"purposes/{pid}/purpose.yaml history", catalog)
         node, database = _location(parts.get("target"), scenario, impl, f"{where}.parts.target")
         sources = [Source(part, *_location(value, scenario, impl, f"{where}.parts.{part}"))
-                   for part, value in parts.items()
-                   if part != "target" and isinstance(value, str) and "/" in value]
+                   for part, value in parts.items()          # source, source_<w> (W4 item 0)
+                   if part != "target" and model.is_database_part(part)]
         plan.histories.append(SourcedRun("history", pid, f"{pid} {history}", node, database,
                                          [path], sources))
     for run in plan.derivations + plan.histories:
@@ -1256,6 +1273,33 @@ def policy_sql():
                   f"CREATE POLICY {CHECK_POLICY} ON {table} AS PERMISSIVE FOR SELECT "
                   f"TO {CHECK_ROLE} USING (true);"]
     return "\n".join(lines) + "\n"
+
+
+READ_POLICY_TABLES = f"""  FROM pg_catalog.pg_class AS c
+  JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+ WHERE c.relkind IN ('r', 'p') AND c.relrowsecurity
+   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+   AND n.nspname !~ '^{SOURCE_PREFIX}'"""
+
+
+def read_policy_sql():
+    """Step (2c) in one database (capture W4 item 7, spec D432), unseen, in
+    one transaction: on every table with row security (READ_POLICY_TABLES)
+    CHECK_POLICY re-created, permissive, SELECT only, every row, for
+    CHECK_ROLE, and commented READ_POLICY_COMMENT; permissive policies add
+    up, so the tables' own policies are untouched. Prints the tables'
+    count, its last line."""
+    on = "ON %I.%I"
+    return (UNSEEN_SQL + "BEGIN;\n"
+            f"SELECT pg_catalog.format('DROP POLICY IF EXISTS {CHECK_POLICY} {on}', "
+            "n.nspname, c.relname),\n"
+            f"       pg_catalog.format('CREATE POLICY {CHECK_POLICY} {on} AS PERMISSIVE FOR "
+            f"SELECT TO {CHECK_ROLE} USING (true)', n.nspname, c.relname),\n"
+            f"       pg_catalog.format('COMMENT ON POLICY {CHECK_POLICY} {on} IS %L', "
+            f"n.nspname, c.relname, {quote_literal(READ_POLICY_COMMENT)})\n"
+            f"{READ_POLICY_TABLES}\n ORDER BY n.nspname, c.relname\n\\gexec\n"
+            f"SELECT pg_catalog.count(*)\n{READ_POLICY_TABLES};\n"
+            "COMMIT;\n")
 
 
 def function_sql():
@@ -1659,7 +1703,8 @@ def record_coherence(ldir, plan, run_at, outcomes):
 def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
     """The composed load's steps (W2 item 3), into `result`: each domain in
     order (its databases, schema, load, partner files and cron file), the
-    purposes' DDL (step (2b), W3 addendum), the derivations,
+    purposes' DDL (step (2b), W3 addendum), gm_check's read policy on the
+    tables with row security (step (2c), W4 item 7), the derivations,
     the histories, the coherence check and its record; gm_check's role
     settings set on every source before the first read, reset after the
     last; GmError at the first that fails, a failed check included."""
@@ -1678,6 +1723,15 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
     for ddl in plan.ddl:                                # step (2b), W3 addendum
         run_file(ldir, ddl.run, variables, docker, timeout=timeout, out=out)
         result.ddl.append((ddl.purpose, ddl.part, ddl.run.node, ddl.run.database))
+    for node, database in plan.read_policies:          # step (2c), W4 item 7
+        what = f"giving {CHECK_ROLE} its read policy in {node}/{database}"
+        run = _exec_sql(ldir, node, read_policy_sql(), read_argv(database), docker, timeout,
+                        out, f"{node}/{database} {CHECK_ROLE}'s read policy on the tables "
+                        "with row security", what)
+        lines = output_lines_stdout(run)
+        if not (lines and lines[-1].strip().isdigit()):
+            raise GmError(f"{what}: unexpected psql output: {_first_line(run)}")
+        result.read_policies.append((node, database, int(lines[-1])))
     reading = plan.reading_nodes()
     for node, databases in reading.items():
         _exec_sql(ldir, node, check_role_sql(databases), PSQL_ARGV, docker, timeout, out,
