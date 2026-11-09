@@ -1755,7 +1755,7 @@ and queries, `office`'s tables and roles, the planted periods.
 
 ### Chunk 21 — The parts' flows: purposes 11, 13, 14, 15 and 16
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: chunks 11, 13, 15, 16 and 29 (waves 2 and 3); chunk 32 for
 the format check and fixtures of purposes 14, 15 and 16 only (in wave,

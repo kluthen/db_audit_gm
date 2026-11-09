@@ -5937,3 +5937,5 @@ from `ce468eb` with a fresh owner once settled. Its as-built so far
 `lab-dispatch`, which chunk 18 must use identically; `office.sql` the
 reference text chunk 20 matches byte for byte; the authority's shared
 block, byte-identical in purpose 8.
+
+Chunk 21 takes the free slot (2026-11-09), its brief noting the loader gaps being settled (its format check and fixtures wait for them, its material does not).
