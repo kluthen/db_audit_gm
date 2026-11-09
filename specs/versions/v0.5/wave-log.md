@@ -6386,3 +6386,23 @@ fixture-portal (its README lists the page as shipped); fixture-vault and
 fixture-restore go on the wave gate's fix list.
 Chunk 19 adds the centres `left_out:` line to fixture-bookings, -imaging
 and -vault too when it merges.
+
+### Chunk 21b paused, 2026-11-10 00:55
+
+21b owner paused on context at WIP `465c97a` (purposes 15, 16, the
+messaging stub, twelve RL/MS checks, fixture-portal extended; format
+checks clean, unit 1224 OK, DDL/scripts checked in a throwaway postgres).
+fixture-portal run 1 (00:40-00:52) passed load-data (613 s) and died
+after T0 on a test-script heredoc bug, fixed, not rerun. Fresh owner
+dispatched; rerun booked 02:38-03:15 (`resume-21e.md`). Chunk 19's run 3
+holds 01:37-02:15 (EX1-EX4 rewritten in shell+SQL, WIP `7ee565c`).
+For G18 / spec-writer (21b): extra grants (`vet_portal_sync`:
+`animals.registered_at`, `consultations.state`, `sections (id, kind)`;
+`lab_release`: `lab_samples (id, collected_at)`; `portal_dispatch`:
+accounts `(id, owner_id, display_name)`); send-messages "stops" rows
+whose consent/owner/animal/account changed (failed_at + reason, no
+incident), unspecified in the spec; RL2, RL3, RL5, MS5 judge a satisfied
+trigger at once; the lab's two third parties list `nodes: []` in
+fixture-portal; the W4-e build choices in the 21b report (stub id, 503
+cadence, `messaging.message_calls`, watermarks). Risk: the portal run
+sits at the 30-min limit.
