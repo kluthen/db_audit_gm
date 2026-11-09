@@ -1,0 +1,17 @@
+# queries.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/queries.yaml
+  practices.normal:
+    sql: INSERT INTO practices.state (hostname, name, value) VALUES ('practices', 'delay_ms', '0') ON CONFLICT
+      (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/queries.yaml
+  practices.order:
+    call: POST /tick
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/queries.yaml
+  xlab.normal:
+    sql: INSERT INTO xlab.state (hostname, name, value) VALUES ('northfield-lab', 'delay_ms', '0') ON CONFLICT
+      (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/queries.yaml
+  xlab.answer:
+    call: POST /tick

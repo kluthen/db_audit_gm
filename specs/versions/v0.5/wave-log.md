@@ -6144,3 +6144,225 @@ reading of the vault fixture (the test lowers `window_days` to 0 so a
 shipped day exists at T0, the job reading the window from the settings,
 D418) to confirm. The chunk resumes with a fresh owner at once (21a
 first; the halves stay in order).
+
+### Chunk 21's grants recorded (D442), 2026-11-09
+
+`spec-writer` (96e6b00): the four grants confirmed against the schemas
+(`sched_free_slots` and `sched_release_allocations()` run with the
+caller's rights; `mach_worklist.procedure_id` NOT NULL) and added to the
+roles table, master spec 9.4 and 9.6, the scheduling and machinery
+documents; `mach_orders` on `mach_reports` narrowed to the columns read.
+The vault reading confirmed: the load keeps the last full day and today,
+so the test sets `window_days` to 0 in both settings tables and
+yesterday ships; the planted manifests stop before it (no shipment-id
+clash). Chunk 21's text reworded to say so. Nothing changes what the
+resumed owner builds; nothing for the owner.
+
+### Chunk 21 — second owner paused (WIP 02450a2), 2026-11-09
+
+The second owner paused on context: `444aba1` (v0.5-w4 taken in),
+`02450a2` (WIP: purposes 13 and 14, the root README's row). Purposes
+11, 13 and 14 pass `check_purpose_dir`; the DDL test (core and
+scheduling with purpose 11's DDL twice, pacs with 13's, vitals and
+biomed with 14's twice) exits 0, every role's reads and writes shown
+(`mach_archive` dropping a partition through `mach_drop_shipped`).
+Not yet run on a load: the three scripts, purpose 14's history, any
+check. Its `coding-executor`, extending `fixture-bookings` with purpose
+11 and running its short test, was still running in the chunk's
+worktree (uncommitted) when the owner reported; the third owner starts
+once it has finished, reads and verifies its edits, then the imaging
+and vault fixtures, the unit suite, the 21a commit; 21b after.
+
+**W4-e so far** (purposes 13 and 14; purpose 11 in the first pause's
+entry): purpose 13 `imaging.post` every minute, `imaging.fetch` every 5
+(`urgent_hours: 18`, `routine_working_days: 3`), watermarks `finals`,
+`cancellations`, `ops.imaging_results` its `published-results`,
+incidents `overdue`; IO1–IO4 on `interfaces` by `check-sql`; (choices)
+IO1 dates the close as the later of `ended_at` and `requested_at`, IO3
+from the entry's first final, IO4 a routine turnaround ending with the
+third working day in `business_settings.timezone`. Purpose 14: one job
+`ship-partitions`, key `archive.ship`, `40 0-5 * * *`, options `source:
+machines`, `last_hour: 5`; the job declared `source: source`, `target:
+source_biomed` (single-valued); `roles:` lists `mach_archive` once per
+database part; `ops.shipments` (type, day, shipment_id, rows_sent,
+rows_received, attempts, posted_at, receipt_at, dropped_at, run_id), key
+(type, day), in both databases; shipment ids `<type>-<YYYYMMDD>`, types
+`vitals`, `machine-readings`; (choices) rows read through the parent
+between the day's bounds at the settings' offset (no grant on a
+partition); the readings' aggregate per machine, each numeric channel's
+min, max, mean to two places, committed before the POST; one closing
+transaction per database (run row, upserts, drops, `unshipped`
+incidents), a run row even on a no-op; the history plants vitals
+manifests from the first session's day (10-second ticks within
+sessions) and readings manifests from the `mach_readings_daily` days,
+received 00:40 the night after the window, the source from the foreign
+server's `host`, sizes estimated (170 and 130 bytes a row); CA1–CA4
+POSIX sh on partners-db by `check-psql` (`--node machines`); CA4 reads
+`window_days` live. Known flaw: the checks' `remaining=` counts to the
+next 40-past run between 00:00 and 05:00, wrong once the job is moved.
+
+### Chunk 18 — 18a built, paused before 18b (90d9b84), 2026-11-09
+
+The first owner paused on context after 18a: `3057e11` (its own widening
+of `INVARIANT_ID_RE`, made before chunk 33 merged: superseded by
+`c92bd13`, to be reverted by the next owner) and `90d9b84` (18a:
+purposes 1 and 6, `fixture-orders`, `tools/tests/test_purposes.py`, the
+root README's row), cut from `v0.5-w4` at 061af83; not merged. Unit
+suite 1179 OK, 2 skipped. `fixture-orders` (`fit` 1.5 CPU, 1440M of
+2 CPU / 4G): second run 30 PASS, 0 FAIL in 1225 s (deploy 14 s,
+load-data 194 s); the first (23/7, 1555 s) found a precedence error in
+fetch's watermark SQL and CC1/CC2 written in Python on a node with
+none (now shell and SQL). Both urgent requests sent 57 s after the
+consultation closed and `resulted` 294 s after the release; LO1–LO4,
+CC1, CC2 exit 0; the critical-call watch wrote one incident for the
+placed unread result, still one after two runs. `test_purposes.py`
+holds every `-- ops:` block and `office.sql` copy byte-identical.
+
+**W4-b so far**: each purpose's DDL `material/target/ddl.sql` (`ddl:
+{target: ...}`), runner material in `material/runner/`, copied by a
+fixture into `compose/interfaces/` (`gmctl compose` writes
+`nodes/interfaces/`). Purpose 1: script connections `source` (clinic,
+`vet_interfaces`) and `api` (lab-api, `lab_centre`), in the schedule
+`clinic` and `lab-api` (10 s); keys `lab-orders.post`, `.fetch`
+(`scripts/lab_orders.py`); `ops.lab_orders_sent` (PK `client_ref`,
+`request_ids int[]`), `ops.request_results` (PK `request_id`);
+watermark `('vet-lab-centre-orders', 'lab-results')` at `load_epoch`,
+15-minute margin; incidents `overdue`, ref the request; column-level
+grants (the withdrawal end read through `administrations`,
+`prescriptions` not in the roles table). (choice) A run writes its
+domain rows, then its `ops.runs` row with final counts, then the rows
+referencing it (no UPDATE on `ops.runs`); every run writes one. Purpose
+6: job `watch-critical-calls`, (choice) its `key` the pg_cron jobname
+`lab-critical-calls` (W4 item 3); incidents `uncalled`, ref the result;
+`lab_watch` with W4's grants on the three ops tables; the lab node
+preloads pg_cron (`cron.database_name='lab'`, background workers,
+`cron.timezone`, `cron.log_run`); (choice) CC checks on the lab node by
+`check-psql`, runs from `cron.job_run_details`, CC2 present after two
+cadences with no successful watch. `fixture-orders`: `left_out` vet-lab's
+`partners/xlab`, `partners/practices`; T0 about 10:00 local, a weekday
+only when the host's day is one. **Every database-node check is shell
+and SQL** (no Python in `postgres`).
+
+Points: the scenario-document template has no row for a pg_cron job a
+purpose's DDL schedules (listed in the node's jobs table by analogy;
+for G18). Risk, for chunk 22 (s1) and the gate: `lis`' analysers did
+not release the urgent order within 5–10 minutes at intensity 4 in
+either run; the test released it itself "as lis would"; LO4 judges only
+completed orders (a routine one cannot complete in a session). 18b
+(purposes 2 and 3, `fixture-send-outs`) goes to a fresh owner now.
+
+### Driver handover, 2026-11-09
+
+The driver's session closes mid-wave. State for the next driver:
+- **Merged into `v0.5-w4`**: 32 (`2b200c0`, W4-f), 17 (`46bd5c1`, W4-a),
+  33 (`c92bd13`, W4-g).
+- **Running when the driver left** (each `coding-leader` in its own
+  worktree; their reports did not reach this driver): 18b (fresh owner,
+  branch `v0.5-c18-lab-round-trips`, last `cf72cbd`: 3057e11 reverted
+  and `v0.5-w4` taken in, 18a `90d9b84` verified); 19 (second owner,
+  `v0.5-c19-exchanges`, last WIP `3a1747e`: checks, `gm.md`, EX2 end to
+  end, `fixture-exchanges`, fixture-register's centres line); 21 (third
+  owner, `v0.5-c21-parts-flows`, last `02450a2`, the bookings fixture's
+  uncommitted edits being verified). Before acting, check each branch's
+  log and whether it merged into `v0.5-w4`; a branch with no new commit
+  and no live owner is resumed from its last commit with a fresh owner
+  and the brief in the session scratchpad's `brief-18r.md`,
+  `brief-19r.md`, `brief-21r2.md` (or rebuilt from the plan and these
+  entries).
+- **Not started**: chunk 20 (next free slot; its `office.sql` must match
+  chunk 19's byte for byte, `test_purposes.py` enforcing it; the
+  authority's shared block from purpose 5 likewise in purpose 8).
+- **Open for the owner**: G11.2, curl in `bastion` 0.5.0 (entry above;
+  recommended: accept). The fix is held until then.
+- **For the gate**: the full quality command (workflow deltas) and wave
+  4's row; G11.2's post-change check (and the advisor's proposed curl
+  `[[platform]]` in `.tech`); then G18 by `spec-writer` (W4's format
+  items, D438, D440, and the scenario-document row for a purpose's
+  pg_cron job). No wave sync (no intent register).
+
+### Driver resumed; chunks 18, 19, 21 resumed with fresh owners, 2026-11-09
+
+A fresh driver took the wave at `9d74de5`. No chunk branch had a new
+commit or a live owner; each worktree held uncommitted work (18b's
+purposes 2 and 3 and `fixture-send-outs`; 19's exchanges short test;
+21's bookings, imaging and vault fixtures and the CA checks' fix). The
+stopped owners' background runs were still alive on the host lock (21's
+bookings run running, its imaging run, 19's exchanges run and 18b's DDL
+test queued); left to finish, their logs handed to the new owners as
+first evidence. Fresh `coding-leader`s resume 18 (18b), 19 and 21 (21a,
+then 21b), each from its brief plus a resume note (scratchpad
+`brief-18r.md`, `brief-19r.md`, `brief-21r2.md`, `resume-*.md`): review
+and commit the uncommitted state as WIP if sound, then continue. Chunk
+20 starts at the first free slot once chunk 19 has merged (its
+`office.sql` and the authority's block are 20's byte-for-byte
+reference); its brief is `brief-20.md`. G11.2 still with the owner.
+
+### Third driver resumed after the rate-limit kill, 2026-11-09 22:05
+
+The second driver and its fresh owners (18, 19, 21) were killed by an
+account rate limit at about 21:00, with no handover. State found: 18 at
+WIP `b653cf4` (18b, clean; its SQL check passed, its first send-outs run
+30 PASS / 2 FAIL); 19 at WIP `e2d45f4` with its first fixture-exchanges
+run live on the host lock (21:37, stack `fixture-ex-mm7knz`); 21 at WIP
+`e875634` plus three uncommitted check edits (bs5, io1, io2; imaging
+64/66). Cross-chunk finding: the bricks' `check-sql` prints values with
+Python `str()`, so booleans are `True`/`False`, never `t`; checks parsing
+`== "t"` (18's so1 and pr1, 21's bs5 and io2) were wrong. To save the
+account's rate, at most two chunk owners run at once: fresh owners now
+for 18 and 19 (resume notes `resume-18c.md`, `resume-19c.md`), 21 and 20
+next as slots free. Host-lock windows are reserved per hour in the
+scratchpad's `lock-slots.md` (19 at :37, 18 at :40 collide). G11.2 still
+with the owner.
+
+### Driver handover (third driver), 2026-11-09 22:22
+
+The third driver's run is ending early (its session was told to hand
+back). Nothing merged since `211c898`. Two chunk owners it started at
+22:05 are still LIVE, each waiting on its own fixture run; their reports
+will not reach this driver, so the next driver checks the branches and
+the scratchpad, and does not start a second owner on 18 or 19 while
+these are alive (`pgrep -af run-short-test`, `docker stack ls`, the
+reservations in the scratchpad's `lock-slots.md`):
+- **18** (`v0.5-c18-lab-round-trips`, WIP `dda2396`: check-sql booleans
+  and the grants' expected text fixed): its send-outs launcher holds the
+  22:40 slot. Note `resume-18c.md`.
+- **19** (`v0.5-c19-exchanges`, WIP `4565516`: the test now answers the
+  centre's own request, no wait ends the run): run1 ended exit 1 in
+  1703 s, stack removed; its rerun holds the 23:37 slot. Note
+  `resume-19c.md`.
+- **21** (`v0.5-c21-parts-flows`, WIP `e875634` + three uncommitted
+  check edits): no owner. Ready to start when a slot frees, with
+  `brief-21r2.md` + `resume-21c.md` (keep the bs5/io2 `True` fixes;
+  revert the io1 judged-set change, a spec departure; fix the plant).
+- **20**: not started; `brief-20.md` is current with plan v14; start
+  after 19 merges.
+- Rate rule from the owner: at most two chunk owners at once.
+- G11.2 still with the owner. The gate, G18 and the report to the owner
+  as in the second driver's handover above.
+
+### Driver resumed from the top-level session, 2026-11-09 22:25
+
+Background drivers kept ending mid-wave with their chunk owners' reports
+orphaned (they come back to the top-level session), so the owner's own
+session drives the rest of wave 4 itself, as the wave-execution skill
+intends. Chunk owners 18 (WIP `dda2396`) and 19 (WIP `4565516`) are still
+live, waiting on their fixture runs (slots 22:40 and 23:37 in
+`lock-slots.md`). Chunk 21: fresh owner dispatched now with
+`brief-21r2.md` + `resume-21c.md`. Chunk 20 waits for 19's merge. At
+most two owners actively working at once (owner's rate rule); owners
+idling on a launcher don't count.
+
+### Chunk 18 merged, 2026-11-09 23:10
+
+Merge `c7f6dc9` (18a `90d9b84`, 18b `d3ffb53`). fixture-send-outs run 2:
+32 PASS, 0 FAIL, 1426 s (slot 22:40-23:04); fixture-orders not rerun
+(only the `clinic` pool 1→2, unused by script jobs). Unit suite 1224 OK.
+Root cause of run 1's failures, shared with chunk 21: the bricks'
+`check-sql` prints booleans as `True`/`False` (Python `str()`); checks
+compare to `"True"`, the existing convention. For G18 / spec-writer: the
+extra grant `SELECT (utc_offset_hours) ON lab_settings TO lab_dispatch`;
+the interpretations PR1 per delivery made due, PR3 by posting time, SO1
+on tests whose 16:00 run falls after the judged moment, SO4 strict
+release round; risk SO3 cannot see an extra payload key (stub drops
+unknown fields). Chunk 19 adds the centres `left_out:` line to
+fixture-orders and fixture-send-outs when it merges (D435).

@@ -1,0 +1,17 @@
+# The scenario layer of node interfaces (v0.5 master spec 8.4), the
+# integration engine: purpose 1's material (purposes/vet-lab-centre-orders/
+# material/runner/), copied as written; intensity 1.0, no timeline.
+intensity: 1.0
+connections:
+  clinic:                      # the source and the target: requests, consultations, ops.*
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 2}
+  lab-api:                     # the api part: POST /orders, GET /orders (the released-results feed)
+    driver: http
+    target: lab-api:8000
+    credential: lab_centre
+    pool: 1
+    timeout: 10s
+streams: []
