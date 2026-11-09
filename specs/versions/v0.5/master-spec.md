@@ -50,7 +50,11 @@ send-outs open at T0; and the middleware's and the dispatch jobs' reads
 as granted (9.3; spec D415). On 2026-11-04, chunk 12b's: the
 middleware's read of the results' `order_test_id`, the order API's of
 the reference intervals, the release rounds as three jobs, no
-food-chain status on an order (9.3; spec D420).
+food-chain status on an order (9.3; spec D420). On 2026-11-09, wave
+4's preflight: the monthly, yearly and windowed jobs as daily or
+15-minute runs acting on their own date or window, within the
+scheduler's cron subset (12.2; spec D436); the register required of
+played scenarios, a `fixture-` scenario exempt (6.2, 13.2; spec D434).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -384,7 +388,8 @@ As [formats.md](../../formats.md) "Domain" states it:
 - **The data register**: `governance.register: player/data-register.md`,
   the handout, mapped to the bastion's optional seed file
   `data-register.md`; `gm/data-register.yaml`, the true register; both
-  generated (13.3). Required of every scenario listing `domains:`.
+  generated (13.3). Required of every scenario listing `domains:`,
+  a `fixture-` one excepted (13.2).
 - **`third_parties:`**, one entry per partner, and
   **`partners.md`**, the fifth optional starter-pack file, mapped to the
   bastion's optional seed file `partners.md` (10.2, 10.3):
@@ -2769,6 +2774,14 @@ a scenario's faults are the GM's to select.
 - **The partners' back end**, out of reach; the authority and the head
   office answer only, with no stream.
 
+**Cadences** (spec D436). Every schedule stays inside the scheduler's
+cron subset, which has no day of month or month. A monthly or yearly
+job runs daily at its hour and acts only on its own date, read as the
+customer's local date from its source; a job with an hour window runs
+every 15 minutes and acts only inside it. On other runs it writes
+neither output nor run row. Below, "on the 1st" and "08:00–19:00" mean
+so.
+
 **`office`**, the back office's database, belongs to no domain; on the
 primary's instance beside `clinic`, it rides the standby and the
 archive, about 0.16 million planted rows, 500 more a night.
@@ -2818,9 +2831,9 @@ attempt, six attempts then an incident. Trace: `lab_callbacks`,
 consumer-producer; fits `vet-lab`. On `interfaces` as `lab_dispatch`:
 `send-outs` at 16:00 Monday to Friday posts the day's send-outs to the
 external lab's stub, keyed `send_key`, catalogue fields only; the answer
-comes one to five days later at `lab-api`; `chase-send-outs` every 15
-minutes, 08:00–19:00 Monday to Saturday, retries, asks a resend, then
-escalates. Trace: `lab_send_outs`, sample events, `ops.incidents`,
+comes one to five days later at `lab-api`; `chase-send-outs`, run every
+15 minutes and acting 08:00–19:00 Monday to Saturday, retries, asks a
+resend, then escalates. Trace: `lab_send_outs`, sample events, `ops.incidents`,
 `ops.runs`.
 - SO1 (triggers): each send-out received by 15:30 on a working day accepted that day, or an incident.
 - SO2 (runs): one `send_key` per send-out. SO3 (runs): no owner, client, identifier or note sent.
@@ -2862,33 +2875,33 @@ old with no read-back, `cron.log_run` on. Trace: `lab_results`,
 **7. `vet-medicines-registers`**, pulled, periodic; fits `vet-core`;
 both registers in one purpose. On `backoffice`, standby → `office`:
 feeders at 01:30 (supplies, with the legal fields) and 01:45
-(controlled movements); extract and balances on the 1st; the inventory
-on 1 January. Planted: the year's lines, every month, last January's
+(controlled movements); extract and balances by daily runs acting on
+the 1st, the inventory by one acting on 1 January. Planted: the year's lines, every month, last January's
 inventory.
 - MR1 (runs): each day's supplies once, as the source's. MR2 (runs): legal fields only, no e-mail or phone.
 - MR3 (runs): each day's controlled movements once. MR4 (code): balance = previous closing less movements, per batch.
 
 **8. `vet-antimicrobial-use`**, pushed obligation, periodic; fits
 `vet-core`. On `backoffice`: the 02:00 feeder (use per species and
-medicine, herd treatments through their herd); on 15 January last year's
-report for the species due (cattle now, more from 2027 and 2030) to the
-authority, due 31 January. Planted: the year's rows, last year's report.
+medicine, herd treatments through their herd); a daily run acting on
+15 January sends last year's report for the species due (cattle now,
+more from 2027 and 2030) to the authority, due 31 January. Planted: the year's rows, last year's report.
 - AM1 (runs): each day's use as the source's. AM2 (runs): every use traces to a species.
 - AM3 (code): the report covers the species due and sums its days. AM4 (triggers): acknowledged by its deadline.
 
 **9. `vet-head-office-figures`**, pushed obligation, periodic; fits
 `vet-core`, `vet-lab`, `vet-housing`. On `backoffice`: the 00:30 feeder
 (consultations, admissions, the midnight census, housing units occupied
-and in service, the lab's tests and median turnaround); the month posted
-to the head office's stub on the 1st, retried to the 5th, then
-escalated. Planted: the year's days, every month.
+and in service, the lab's tests and median turnaround); a daily run
+posts the month to the head office's stub on the 1st, retries to the
+5th, then escalates. Planted: the year's days, every month.
 - HO1 (runs): each local day's counts as the sources'. HO2 (runs): one row per day, section, measure.
 - HO3 (code): a month sums its days, sent by the 5th and acknowledged, or escalated.
 
 **10. `vet-lab-statements`**, pulled, periodic; fits `vet-lab`. On
 `backoffice`, reading `lab` at night (no standby): the 02:30 feeder of
-billable and voided practice charges; each account's statement on the
-1st with its discount bracket (3 to 15 %). Planted: the year's lines and
+billable and voided practice charges; each account's statement, by a
+daily run acting on the 1st, with its discount bracket (3 to 15 %). Planted: the year's lines and
 statements.
 - ST1 (runs): each day's charges once. ST2 (runs): the centre's account never charged.
 - ST3 (code): a statement = billable less voids, with its bracket's discount.
@@ -2907,7 +2920,7 @@ animal's bookings cancelled. Trace: `sched_bookings`,
 **12. `vet-working-time`**, pulled, periodic; fits `vet-core`,
 `vet-scheduling`. On `backoffice`, standby → `office`: the 09:30
 feeder (after the night shifts end) of worked hours and rests under 11
-hours; the month on the 1st. Planted: the year.
+hours; the month by a daily run acting on the 1st. Planted: the year.
 - WT1 (runs): each shift as clocked. WT2 (runs): each short rest a breach. WT3 (code): a month sums its days.
 
 **13. `vet-imaging-orders`**, round trip inside the centre, as purpose
@@ -3016,7 +3029,9 @@ players compare it with the databases.
 - **Which scenarios**: every scenario listing `domains:` must have one,
   the deploy refusing it otherwise; v0.4's released shop scenario is
   exempt until it is next revised; a scenario with `governance:` alone
-  may have one. This repository itself keeps no data register: every
+  may have one. The rule binds played scenarios: a test fixture, whose
+  id starts `fixture-`, is exempt, and one that has a register is
+  checked in full (spec D434). This repository itself keeps no data register: every
   scenario's data is synthetic, and the game's own inventory is its
   catalogue.
 

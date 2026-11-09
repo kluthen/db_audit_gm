@@ -180,7 +180,9 @@ edited by hand, and regenerated rather than reconciled.
   Every scenario that lists `domains:` must have a register, and the
   deploy refuses one without it. v0.4's released shop scenario is
   exempt until it is next revised. A scenario with `governance:` alone
-  may have one but need not (D335).
+  may have one but need not (D335). The rule binds played scenarios: a
+  test fixture, whose id starts `fixture-`, is exempt, and one that has
+  a register is checked in full (D434).
 - **How game-master calls it**: at Setup step 2, after the
   scenario-format completeness check and before scenario-document,
   which reads its outputs. The order is format, then register, then

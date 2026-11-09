@@ -47,7 +47,8 @@ approval, as it recommended: O223–O227 (D343), their text in
 O230 was reserved and never used (chunk 9's stop, settled as D372–D380
 without a question).
 O233 was reserved and never used (capture W3's corrections, settled as
-D401–D407).
+D401–D407). O244 and O245 were reserved and never used (capture W4's
+corrections, settled as D431–D437).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -223,7 +224,8 @@ passes on chunks 15a and 14, closed by the driver as recommended (D418,
 D419), kept here verbatim until v0.5's archive moves them. O239 to
 O242, raised by the documents' as-built passes on chunks 13 and 16
 (D422, D423), closed by the driver as recommended (D424–D427), are kept
-likewise. O243, raised by the same pass, is W4's capture's:
+likewise, and so is O243, raised by the same pass and closed by capture
+W4 (D432):
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -318,7 +320,7 @@ likewise. O243, raised by the same pass, is W4's capture's:
   history", fixed on "the helper or the policy"; the traffic unchanged.
   Refs: [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies)
   (T274), [wave log](versions/v0.5/wave-log.md) (chunk 16).
-- **O243** (v0.5, wave 4; raised by D423; W4's capture settles it) —
+- **O243** (v0.5, wave 4; **closed**, D432, option A, a `gm_check_read` policy per table with row security; raised by D423) —
   `gm_check` reads no row of a `portal` table: `pg_read_all_data` does
   not bypass row-level security, which is forced on all ten (chunk 16).
   Purpose 16's history (`portal_outbox`'s sent rows through `gm_src_*`,

@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337, D341, D359, D371 and D392 were reserved and never used). Take the next number from
+D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -1257,3 +1257,55 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   unsubscribe link `404`, as an unknown key's.** A text correction to
   what `portal_request_reset` and `portal_unsubscribe` do. Now in:
   [access model](versions/v0.5/access-model.md) 9.3.
+- **D431 (2026-11-09, capture W4's correction 1, the wave driver): Chunk
+  32 is inserted into wave 4, for a `coding-executor`: a purpose's
+  `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part
+  with no runner, and `load-data`'s step (2c) (D432); split 32a (2c),
+  32b the parts.** Purposes 5, 6, 9, 14 to 16 have no form without it,
+  and folding it into chunk 17 would serialise the wave behind its
+  largest chunk. Now in: [build plan](versions/v0.5/build-plan.md) chunk 32, waves, chunks 17 to 21.
+- **D432 (2026-11-09, capture W4 item 7, the wave driver): `gm_check`
+  reads a table with row security through a `gm_check_read` policy
+  (`FOR SELECT TO gm_check USING (true)`, commented "DO NOT TAMPER")
+  that `load-data` adds at step (2c); a check reading such a table first
+  finds it there, else exits 2, "cannot judge"; `postgres`' player notes
+  name it.** Option A: v0.4's way for `cron.job`, within access model 8;
+  `BYPASSRLS` is T272's witness. Nothing players see or may do changes
+  in kind, so not the owner's; reported to him as information. Closes
+  O243. Now in: [access model](versions/v0.5/access-model.md) 8;
+  [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320);
+  [build plan](versions/v0.5/build-plan.md) chunk 32.
+- **D433 (2026-11-09, capture W4's correction 2): Chunk 17 also refuses
+  a domain's `cron.sql` job naming a database its entry's `at:` does not
+  place, corrects vet-machinery's and vet-portal's `cron.sql` headers,
+  and adds `third_parties[].credentials:` with `partners.md`'s
+  `{{credential:<name>}}` placeholders, filled by the bastion and
+  checked by the loader (W4 items 1, 2).** Caught at the format check,
+  not at the `cron.sql` step; D365's handed-over credentials need a
+  name. Now in: [build plan](versions/v0.5/build-plan.md) chunk 17.
+- **D434 (2026-11-09, capture W4's correction 5): D335's register
+  requirement binds played scenarios: a scenario whose id starts
+  `fixture-` is exempt, and a fixture with a register is checked in
+  full.** A test fixture is never handed to players, and O219's
+  recommendation meant the composed scenarios played. Now in:
+  [master spec](versions/v0.5/master-spec.md) 13.2;
+  [data-register-handout.md](versions/v0.5/data-register-handout.md#3-generation-the-gms-data-register-skill-d331);
+  formats.md "Scenario" with G18; [build plan](versions/v0.5/build-plan.md) chunk 17.
+- **D435 (2026-11-09, capture W4's corrections 3, 4, 6, 7): Wave 4's
+  fixtures and shared material: chunk 19 adds vet-core's
+  `partners/centres` to every composed fixture's `left_out:` (a shared
+  list); chunk 18 adds `test_purposes.py` (the `ops` block and
+  `office.sql` byte-identical); `office`'s DDL creates `office`,
+  `office_jobs`, `office_reader` only; the send-outs, vault and portal
+  fixtures as W4 items 3 and 6.** Now in: [build plan](versions/v0.5/build-plan.md) chunks 18 to 21, "Workflow deltas".
+- **D436 (2026-11-09, capture W4's correction 9): A monthly, yearly or
+  windowed job runs daily, or every 15 minutes, at its hour and acts only
+  on its own date or window, read as the customer's local time; on other
+  runs it writes neither output nor run row.** The scheduler's cron
+  subset has no day of month or month, and a shifted hour may cross
+  midnight. Now in: [master spec](versions/v0.5/master-spec.md) 12.2
+  ("Cadences", purposes 3, 7 to 10, 12).
+- **D437 (2026-11-09, capture W4's correction 8): Gate G18: after wave
+  4's gate, `spec-writer` writes wave 4's format items as built into
+  formats.md and master spec 5, 6 and 12.1, blocking release gate item
+  6.** As G16 and G17. Now in: [build plan](versions/v0.5/build-plan.md) "Gates", release gate item 6.

@@ -485,8 +485,9 @@ The one link slot (`invite_hash`, `invite_expires_at`) holds an
 invitation's or a reset's link, both 14 days; an `activation` consent
 event is written only when the reminders are granted. Row-level
 security binds every role but `portal` and superusers: `gm_check`'s
-`pg_read_all_data` reads no portal row, so a GM read of `portal`
-through `gm_src_*` needs a way in, open for W4's capture (O243).
+`pg_read_all_data` reads no portal row, so `load-data` gives it a
+`gm_check_read` policy on each of the ten tables, the way into a GM
+check's or a history's read through `gm_src_*` (spec D432).
 
 ### Application roles and grants
 
@@ -941,8 +942,8 @@ recent recipients).
 received in the last 14 days, its `target` the partners' database,
 `portal` its source: `portal_outbox`'s sent rows, read through
 `gm_src_source` after the derivation, the 193 open links' tokens
-among them (read as `gm_check`, which row-level security binds: the
-read needs a way in, open for W4's capture, O243). The stub's DDL is its receiver material, copied into the
+among them (read as `gm_check`, through its `gm_check_read` policy,
+D432). The stub's DDL is its receiver material, copied into the
 partners' node's data file, with `SELECT` granted to `owners`.
 
 **Jobs** (on `interfaces`, `portal` as `portal_dispatch`):
