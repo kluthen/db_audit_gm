@@ -6200,3 +6200,53 @@ server's `host`, sizes estimated (170 and 130 bytes a row); CA1–CA4
 POSIX sh on partners-db by `check-psql` (`--node machines`); CA4 reads
 `window_days` live. Known flaw: the checks' `remaining=` counts to the
 next 40-past run between 00:00 and 05:00, wrong once the job is moved.
+
+### Chunk 18 — 18a built, paused before 18b (90d9b84), 2026-11-09
+
+The first owner paused on context after 18a: `3057e11` (its own widening
+of `INVARIANT_ID_RE`, made before chunk 33 merged: superseded by
+`c92bd13`, to be reverted by the next owner) and `90d9b84` (18a:
+purposes 1 and 6, `fixture-orders`, `tools/tests/test_purposes.py`, the
+root README's row), cut from `v0.5-w4` at 061af83; not merged. Unit
+suite 1179 OK, 2 skipped. `fixture-orders` (`fit` 1.5 CPU, 1440M of
+2 CPU / 4G): second run 30 PASS, 0 FAIL in 1225 s (deploy 14 s,
+load-data 194 s); the first (23/7, 1555 s) found a precedence error in
+fetch's watermark SQL and CC1/CC2 written in Python on a node with
+none (now shell and SQL). Both urgent requests sent 57 s after the
+consultation closed and `resulted` 294 s after the release; LO1–LO4,
+CC1, CC2 exit 0; the critical-call watch wrote one incident for the
+placed unread result, still one after two runs. `test_purposes.py`
+holds every `-- ops:` block and `office.sql` copy byte-identical.
+
+**W4-b so far**: each purpose's DDL `material/target/ddl.sql` (`ddl:
+{target: ...}`), runner material in `material/runner/`, copied by a
+fixture into `compose/interfaces/` (`gmctl compose` writes
+`nodes/interfaces/`). Purpose 1: script connections `source` (clinic,
+`vet_interfaces`) and `api` (lab-api, `lab_centre`), in the schedule
+`clinic` and `lab-api` (10 s); keys `lab-orders.post`, `.fetch`
+(`scripts/lab_orders.py`); `ops.lab_orders_sent` (PK `client_ref`,
+`request_ids int[]`), `ops.request_results` (PK `request_id`);
+watermark `('vet-lab-centre-orders', 'lab-results')` at `load_epoch`,
+15-minute margin; incidents `overdue`, ref the request; column-level
+grants (the withdrawal end read through `administrations`,
+`prescriptions` not in the roles table). (choice) A run writes its
+domain rows, then its `ops.runs` row with final counts, then the rows
+referencing it (no UPDATE on `ops.runs`); every run writes one. Purpose
+6: job `watch-critical-calls`, (choice) its `key` the pg_cron jobname
+`lab-critical-calls` (W4 item 3); incidents `uncalled`, ref the result;
+`lab_watch` with W4's grants on the three ops tables; the lab node
+preloads pg_cron (`cron.database_name='lab'`, background workers,
+`cron.timezone`, `cron.log_run`); (choice) CC checks on the lab node by
+`check-psql`, runs from `cron.job_run_details`, CC2 present after two
+cadences with no successful watch. `fixture-orders`: `left_out` vet-lab's
+`partners/xlab`, `partners/practices`; T0 about 10:00 local, a weekday
+only when the host's day is one. **Every database-node check is shell
+and SQL** (no Python in `postgres`).
+
+Points: the scenario-document template has no row for a pg_cron job a
+purpose's DDL schedules (listed in the node's jobs table by analogy;
+for G18). Risk, for chunk 22 (s1) and the gate: `lis`' analysers did
+not release the urgent order within 5–10 minutes at intensity 4 in
+either run; the test released it itself "as lis would"; LO4 judges only
+completed orders (a routine one cannot complete in a session). 18b
+(purposes 2 and 3, `fixture-send-outs`) goes to a fresh owner now.
