@@ -122,7 +122,7 @@ trace:                              # non-empty: each place the purpose leaves s
 
 # --- Invariants -------------------------------------------------------
 invariants:                         # non-empty
-  - id: <R1>                        # [A-Z][0-9]+, once in the purpose (R1, L2, M3, E4)
+  - id: <R1>                        # [A-Z]{1,2}[0-9]+, once in the purpose (R1, L2, M3, E4; from v0.5 LO1, CC1)
     statement: <one sentence, stated against the source>
     check: <checks/rollup-matches-source.sh>   # a file of checks/
     parameters: {}                  # may be {}: name -> {description, default, required}, the

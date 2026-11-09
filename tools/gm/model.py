@@ -103,7 +103,7 @@ PG_CRON_METHOD = "pg_cron"          # a job run by pg_cron in the database part 
 PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation", "round-trip")
 JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
 TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
-INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
+INVARIANT_ID_RE = re.compile(r"^[A-Z]{1,2}[0-9]+$")   # R1, LO1: v0.5 master spec 12.2 names LO1, CC1
 JUDGES = ("runs", "triggers")
 CLASSES = ("personal", "customer-linked", "internal")
 UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads as locations: any
@@ -3089,7 +3089,7 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         iid = inv.get("id")
         p = f"{label}: invariants[{_item_label(inv, i)}]"
         if "id" in inv and not (isinstance(iid, str) and INVARIANT_ID_RE.match(iid)):
-            out.append(f"{p}.id: {iid!r} is not [A-Z][0-9]+ (R1, L2)")
+            out.append(f"{p}.id: {iid!r} is not [A-Z]{{1,2}}[0-9]+ (R1, L2, LO1)")
         elif iid in ids:
             out.append(f"{p}: duplicate invariant id")
         ids.append(iid)
