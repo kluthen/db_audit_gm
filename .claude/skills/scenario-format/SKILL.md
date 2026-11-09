@@ -956,14 +956,17 @@ particular:
   `published-results`, `run-ledger`, `definitions`), its declared `part`,
   and exactly one of `table` (with `run_column`, the column tying a row to
   its run) and `file` (an absolute path on that part's node).
-- **Invariants**: each with its `id` (`[A-Z][0-9]+`, once), a one-sentence
+- **Invariants**: each with its `id` (`[A-Z]{1,2}[0-9]+`, one or two
+  capitals then digits: `R1`, `LO1`, `EX5`; once), a one-sentence
   `statement` against the source, its `check` (a file of `checks/`), its
   `parameters` (fault.yaml's shape, may be `{}`) and its `witness` (what
   must exist in the data for a run to be able to violate it).
 - **Data moved**: one entry per job of the purpose: the classified
   columns of a class other than `internal` it `reads`
-  (`<database>.<table>.<column>`, may be `[]`) and where it `writes`
-  (`<part>:<table>`).
+  (the scenario's classification key: `<database>.<table>.<column>`, or
+  `<database>.<schema>.<table>.<column>` outside `public`, as an `ops`
+  column `clinic.ops.notifications.payload`; may be `[]`) and where it
+  `writes` (`<part>:<table>`).
 - **Roles**: each customer role the purpose needs, the database `part`
   it lives in, and its grants (`reads`, `writes`, free text, each may be
   `[]`).
@@ -992,20 +995,27 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   scenario with `third_parties:` or `domains:`; v0.4's scenarios keep a
   `producer` node as receiver).
 - **HTTP connections** in a job's `connections:`, named for the part they
-  reach (`api`, `partner`, `receiver`: the scheduler's `http` driver),
-  that part declared, each mapped to the credential it calls with or
-  `public` for a public endpoint (D354); in a scenario, the value equals
-  the `credential` of the runner's schedule connection the job's
+  reach (`api`, `partner`, `receiver`: the scheduler's `http` driver), or
+  `<part>_<w>` (`<w>` `[a-z][a-z0-9]*`), one per hostname of a part reached
+  under several (`partner_central`, `partner_south`; D438), checked
+  as its part: that part declared, each mapped to the credential it calls
+  with or `public` for a public endpoint (D354); in a scenario, the value
+  equals the `credential` of the runner's schedule connection the job's
   `connections:` names (`public` when it names none), and that connection
-  is an `http` one.
-- **Endpoint material**: `material/api/<node>/routes/` and `db/`, the
-  endpoints a purpose brings to a customer's `api` node, as a domain's
-  `producers/api/<node>/`; a receiver with no stream of its own keeps its
+  is an `http` one. Any other name is a database connection.
+- **Endpoint material**: `material/api/<node>/routes/` and `db/`, and
+  optionally `api.yaml`, the endpoints a purpose brings to a customer's
+  `api` node, as a domain's `producers/api/<node>/`; a receiver with no stream of its own keeps its
   stub in the purpose, a partner with streams of its own stays in its
   domain's `producers/partners/<partner>/`. Endpoint material needs an
   `api` part; each `routes/<name>.py` has its `db/<name>.py` and the
-  reverse, `<name>` an endpoint name (`[a-z][a-z0-9_]*`); nothing else
-  sits in `material/api/<node>/`.
+  reverse, `<name>` an endpoint name (`[a-z][a-z0-9_]*`). `api.yaml`, when
+  present (the endpoints' `hosts` and `credentials`, the `connections`
+  they read and write through: they have no other home), is checked as a
+  domain's `producers/api/<node>/api.yaml` (keys `endpoints` and
+  `connections` only), and its `endpoints` name exactly the endpoints of
+  `routes/` (D438); the GM copies the folder into the scenario layer
+  `compose/<node>/`. Nothing else sits in `material/api/<node>/`.
 - **Periodic purposes**: a periodic job names its daily `feeder`, the
   witness within the aging; `history: material/history.sql` plants the
   past periods' outputs into the target before T0 (for a target
