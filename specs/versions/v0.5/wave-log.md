@@ -5029,3 +5029,27 @@ Found, not settled by G17:
   `main` on the owner's word; then wave 4 in a fresh session.
 
 The owner: "merge". `v0.5-w3` merged into `main` `--no-ff` at `b9fe67e`; its worktree and the wave's branches removed. Wave 4 starts in a fresh session, from `main`.
+
+## Wave 4 — started 2026-11-09
+
+Branch `v0.5-w4`, worktree `/home/bastien/work/db_audit_gm-wt/v0.5-w4`,
+cut from `main` at 972c4ec, after wave 3 merged into it (b9fe67e) on the
+owner's word. Chunks 17 to 21 (κ = 3; no in-wave edge; chunk 17, the
+largest, first). No intent register, so no documentalist preflight; the
+driver has capture W4 drafted from the chunks' **Architecture capture**
+lines, as W1 to W3. Carried over from wave 3: O243 (`gm_check` and the
+portal's forced row-level security), settled by W4; chunk 17 gains a
+loader refusal for a domain's `cron.sql` naming databases other than
+its placement (wave 3's report, item 2).
+
+Gates checked at the start (2026-11-09): G3, Debian's trixie and
+`trixie-pgdg` `Release`, PyPI and GitHub answer 200 (chunk 17 rebuilds
+the bastion); G4, the swarm (armenelos `Active`, the leader;
+`vps-5718ad52` `Drain`; both `Ready`; engine 29.9.2; `tailscale status`
+shows the VPS active, direct); `/var` 29G free, `/` 9.6G, about 7.3G of
+memory available. No dependency preflight is planned for wave 4: chunk
+17 rebuilds `bastion` 0.5.0 with no new package unless its front needs
+one (then a G11 row before its branch); chunks 18 to 21 add purposes and
+fixtures on built bricks. G11 stands. The security advisor works in
+parallel on `main`'s `SECURITY_TODO.md`; the wave touches neither it
+nor `.tech` unless a chunk changes a dependency.
