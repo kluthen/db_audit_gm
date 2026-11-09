@@ -209,8 +209,10 @@ the v0.3 document, unchanged.
   on one node, spec D405) adds the `cron.schedule_in_database` calls of
   the catalog's `domains/<id>/data/cron.sql`, after the data file's, in
   `domains:` order; `load-data` schedules them after the domain's load,
-  as `postgres` in the node's `cron.database_name`. Their database is the
-  domain's, renamed as `at:` maps it. The jobs line names the domain's
+  as `postgres` in the node's `cron.database_name`. Their database is as
+  the file writes it: the file is read from the catalogue, never copied
+  or renamed, and the loader requires the entry's `at:` to place it on
+  the node (v0.5 capture W4 item 2). The jobs line names the domain's
   `data/cron.sql` and says "(its data file schedules none)" when the data
   file schedules none. This is the one place those files are read, for
   this alone: a job no runner lists is often a finding, so the GM must
@@ -218,6 +220,28 @@ the v0.3 document, unchanged.
 - **A check judging runs or triggers**: under the sealed check, what it
   judges (`runs` or `triggers`) since the judged moment and its threshold,
   as the answer key writes them.
+
+## The data register (v0.5)
+
+An "if:" block of the template, after "Data governance", for a scenario
+with a data register (`governance.register`; master spec 13.3; capture W4
+item 1). The [data-register](../data-register/SKILL.md) skill generates
+the register first (Setup step 2: the format check, the register, then
+this document), so this document reads its outputs, never the other way
+round:
+
+- the handout's path and whether it is handed over (mapped on the
+  bastion as `data-register.md`) or declared absent by a register fault;
+  the true register's path, `gm/data-register.yaml`;
+- its header (controller, contact), its counts (entries, internal lines,
+  locations of the index) and its departments, each with its entry ids;
+- **one table per register fault instance**, its `register_diff:` as the
+  answer key writes it: entry, field, true value, value handed out, or
+  "the register left out" for `{absent: true}`.
+
+The register's entries are not copied: the GM reads
+`gm/data-register.yaml` itself on a restart. A scenario without
+`governance.register` keeps the v0.4 document.
 
 ## What it does not describe
 

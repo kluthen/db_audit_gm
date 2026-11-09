@@ -5847,3 +5847,274 @@ At the commit holding this entry: chunk 32 (`coding-executor`, 32a then
 32b), chunks 17 and 19 (`coding-leader`). Chunk 19 first among 18 to 21:
 its vet-core centres' `left_out:` line is the shared list the other
 fixtures take in when they merge after it.
+
+### Chunk 32 — merged (2b200c0), 2026-11-09
+
+`coding-executor`: 32a `70086b4`, 32b `c9061eb`, merged `--no-ff` at
+`2b200c0`, no conflict. Unit suite 1170 OK, 2 skipped (1151 before);
+`GM_TEST_COMPOSED_LOAD=1` 2 OK (22.5 s, the load 13.3 s): `gm_check_read`
+on fx-intake's `stays` (row security forced for the test), PERMISSIVE,
+SELECT, TO `gm_check`, `USING (true)`, its comment; the history read all
+six stays through `gm_src_source`; `gm_check` reads 6 rows, 0 after the
+policy is dropped. py_compile and the templates (PyYAML, `strict_load`)
+clean. No dependency added, no image touched.
+
+**W4-f, as built** (read by 17 to 21, 25, 27):
+- Step (2c), `tools/gm/inject.py`: `ComposedPlan.read_policies` lists
+  every database a `domains:` entry's `at:` holds, once each, in order;
+  `read_policy_sql()` runs as `postgres`, unseen, in one transaction,
+  on every table `relkind` r/p with `relrowsecurity` outside
+  `pg_catalog`, `information_schema` and `^gm_src_`; after the (2b)
+  loop, before `gm_check`'s role settings and the derivations.
+  `LoadResult.read_policies` is `[(node, db, n)]`, one line printed per
+  database, 0 included. Constants `CHECK_POLICY` (`gm_check_read`) and
+  `READ_POLICY_COMMENT`. (choice) runs on every held database without
+  checking for `gm_check` (every `postgres` node has it).
+- Parts, `tools/gm/model.py`: `EXTRA_PART_RE`
+  `^(source|runner)_([a-z][a-z0-9]*)$`, `base_part()`,
+  `is_database_part()`, `is_runner_part()`, `PG_CRON_METHOD`,
+  `RUNNER_PART`; `PART_TABLE_RE` accepts `source_<w>:`. Each runner part
+  is checked for its own jobs only; a job with no `part` is `runner`'s
+  (v0.4); a runner running none of the purpose's jobs needs no
+  `jobs.yaml`. (choice) a `pg_cron` job's part needs its own
+  `ddl.<part>`; a `pg_cron` job naming a runner is refused, and only a
+  `pg_cron` job may name a database part; a runner declared beside
+  all-`pg_cron` jobs is refused; `jobs[].source` and `target` stay
+  single-valued, any declared database part.
+- History sources (`inject.composed_plan`): the entry's database parts
+  other than `target` (`model.is_database_part`), each as
+  `gm_src_<part>`.
+- Templates: `purpose.yaml`'s `parts.runner` optional, placeholders
+  `<source_lab>`, `<runner_reports>`, `ddl:` keyed `<target>:`;
+  `scenario.yaml`'s `purposes[].parts.runner` optional.
+- Deviations (none against the spec): `templates/scenario.yaml` outside
+  the Files list (needed for (c); chunk 17 edits another section of it);
+  `fixture-composed`'s fx-intake DDL and README; v0.4's `policy_sql` on
+  the cron tables unchanged (no comment; none of v0.5's domain databases
+  holds `pg_cron`). The checks' guard (exit 2) is documented in
+  `postgres`' `docs/gm.md` and written by chunks 18 to 21. G18 carries
+  the parts and (2c).
+
+Chunk 18 takes the slot. Chunks 17 and 19 told nothing new: their
+briefs already wait on this merge.
+
+### Chunk 19 — stopped on loader gaps (WIP ce468eb), 2026-11-09
+
+The owner stopped at WIP `ce468eb` on `v0.5-c19-exchanges` (worktree
+kept), on five gaps and a heavy context (about 125 tool calls). Both
+purposes fail `test_catalog_purposes_are_complete`, so not merged.
+Built so far: the centres' stub (`domains/vet-core/producers/partners/centres/`),
+the two purposes' `purpose.yaml`, material and DDL (run clean in a
+throwaway `postgres:0.5.0`, the planted rows matching the clinic's),
+`office.sql` per W4 item 5, the authority stub's shared block, the
+centres' `left_out:` line in the seven composed fixtures (`test_model`,
+`test_partners`, `test_inject`, `test_compose` pass). Not built: the ten
+checks, the two `gm.md`, `fixture-exchanges`.
+
+The gaps:
+1. `model.INVARIANT_ID_RE` (`^[A-Z][0-9]+$`) refuses the spec's
+   two-letter ids (EX1, ND1, and every clinic purpose's: LO, PR, SO, CC,
+   MR, ...): chunks 18, 20 and 21 meet it too. Loader.
+2. `_check_endpoint_material` refuses `api.yaml` in
+   `material/api/<node>/`, which W4 item 0's table places there; purpose
+   4 needs it (the `exchanges` endpoint's `clinic_centres` credential,
+   the `clinic-exchanges` connection as `vet_exchange`). Loader or W4.
+3. Spec: purpose 4 carries two round trips (master spec 12.1), each
+   naming exactly one end-to-end invariant, but 12.2 gives it one (EX5;
+   EX2 is "triggers").
+4. `data_moved.reads` keys must match `CLASSIFICATION_KEY_RE` (three
+   parts), refusing an `ops` column (`clinic.ops.notifications.payload`,
+   purpose 5's copy). Loader.
+5. Spec: clinic-purposes' roles table lists for `vet_interfaces` only
+   `animals (id, species, status, died at)` and no `owners`, while
+   purpose 4's data moved and EX4, and purpose 5's keeper, need more;
+   the owner granted the column-level minimum in the two DDL files.
+Sent to `spec-writer` (decisions, an inserted loader chunk, the spec's
+two corrections), with a sweep of every wave-4 purpose for the same
+class of loader gap so one inserted chunk covers them. Chunk 19 resumes
+from `ce468eb` with a fresh owner once settled. Its as-built so far
+(for W4-c): connection names `clinic` (`vet_interfaces`, pool 2) and
+`lab-dispatch`, which chunk 18 must use identically; `office.sql` the
+reference text chunk 20 matches byte for byte; the authority's shared
+block, byte-identical in purpose 8.
+
+Chunk 21 takes the free slot (2026-11-09), its brief noting the loader gaps being settled (its format check and fixtures wait for them, its material does not).
+
+### Chunk 17 — merged (46bd5c1), 2026-11-09
+
+`coding-leader`: 17a `041d59a`, v0.5-w4 taken in `a30eee1` (chunk 32),
+17b `cd6b8d1`, merged `--no-ff` at `46bd5c1`, no conflict. Unit suite
+1211 OK, 2 skipped (198 s); bastion 0.5.0 built and its stack test 114
+PASS, 0 FAIL; `check_domain_dir` clean on vet-machinery and vet-portal;
+py_compile, `sh -n` (no shellcheck installed), `perl -c`, YAML clean. No
+package added (G11 not needed).
+
+Done when: both seed files on the page when present and absent
+otherwise; `/cold-storage/` and `/cold-storage/manifests` forwarded (Host
+`cold-storage`, query kept, Authorization stripped), `POST /shipments`,
+other methods and paths, `/northfield-lab/`, `/partners-api/` 404 never
+forwarded; the loader accepting the console route, refusing another
+port, a cold storage without `coldstore_manifests`, another partner's
+hostname and a third party's node; `public/` `data.sql` refused; a
+`{{credential:demo_customer}}` filled in `~/partners.md` and the page,
+accepted by the stub partner (200; a wrong value 401), the start refused
+with the secret unmounted; `cold_storage` never mounted on the bastion;
+the `cron.sql` refusal through `load_scenario` (and a non-literal
+database by `check_domain_dir`); `fixture-*` exempt, the same fixture
+renamed refused; fixture-register: 20 entries, 9 internal lines, 6
+locations, a 226-line handout, a stale digest refused (four ways), a
+declared absence passed, six coverage refusals shown.
+
+**W4-a, as built** (read by 23, 26, 27):
+- Console route `web_routes: {cold-storage: "cold-storage:8000"}`,
+  accepted when the target is a hostname an api node's
+  `coldstore_manifests` endpoint answers under (`HttpContext.consoles`),
+  port 8000; render's token `name=host:port:console`
+  (`render.CONSOLE_SUFFIX`, `web_routes_value(routes, nodes)`). (choice)
+  nginx `location = /<name>/` and `= /<name>/manifests` with
+  `limit_except GET { deny all; }`, `error_page 403 =404`, the prefix
+  denied (404); Host the partner's hostname, Authorization stripped.
+- Credentials: `model.handed_over_credentials(data)`,
+  `model.partners_placeholders(text)`, `CREDENTIAL_PLACEHOLDER_RE`;
+  localimpl gives the bastion (role `bastion`) them in
+  `node_credentials`, each `http_<name>` declared `handed_over: true`
+  (16 characters); the entrypoint writes `/run/gm/starter/partners.md`
+  (root, 0700), the source of the home copy and the page; a missing
+  secret stops the start (`partners.md: {{credential:<n>}}: no secret …`).
+- `gm/data-register.yaml`: `generated_from`, `controller`, `contact`,
+  `policy`, `entries` (id, department, name, purpose, people,
+  data{personal, customer-linked}, where[{at, tables} | {copy}],
+  shared_with[{recipient, fields, flow?, processor?, outside_eu?}],
+  kept_for{period, then}), `internal` (id, department, name, where,
+  kept_for), `index` (location → ids). Helpers `model.register_inputs`,
+  `model.file_digest`, `model.register_absent`, `REGISTER_FIELDS`,
+  `FIXTURE_PREFIX`; the stale message "stale register: regenerate with
+  the data-register skill". (choice) A register fault whose
+  `seed_changes` name `data-register.md` is accepted unmapped when
+  `governance.register` exists, `_check_data_register` then requiring
+  the answer key's `{absent: true}` (T305).
+- `model.cron_jobs(text)` → `(line, job, database literal | None, as written)`.
+- Deviations (none against the spec or W4): a skill rule that a view
+  joins the activity its classified column comes from (`animal_board`,
+  `housing_unit_board`); scenario-document's SKILL.md line on cron jobs
+  "renamed as at: maps it" corrected to W4 item 2; the fixture's handout
+  226 lines against the spec's "about 150" for the clinic (chunk 27's
+  to weigh); the fixture's register generated by an uncommitted scratch
+  script applying the skill's rules ("gmctl gains no generator").
+- Open: fixture-register needs vet-core's centres' `left_out:` line
+  when chunk 19 merges (shared list). Risks: the handed-over credentials
+  proven against a stub partner, not the `api` brick (chunk 27 first end
+  to end); **the bastion has no `curl`**: players hold partner
+  credentials with no convenient HTTP client on the bastion (bash's
+  `/dev/tcp` only), against access model 4's "HTTP clients" on the
+  bastion: a fix on the wave branch, Debian `curl` added to `bastion`
+  0.5.0 after a G11.2 preflight (below).
+
+### Plan revision: chunk 19's gaps settled; chunk 33 inserted, 2026-11-09
+
+`spec-writer`: build plan v14 (34d8620), spec D438 to D441, every gap
+confirmed in the code and the spec:
+- D438: chunk 33 inserted into wave 4 for a `coding-executor`, cut from
+  `v0.5-w4` after 17 and 32 (`17, 32 ──> 33`; `33 ──> 18, 19, 20, 21`
+  for their format checks): (a) invariant ids `^[A-Z]{1,2}[0-9]+$`; (b)
+  `data_moved.reads` in the scenario's key form (three or four parts);
+  (c) HTTP connections `<part>_<w>` (`^(api|partner|receiver)(_[a-z][a-z0-9]*)?$`),
+  each checked as its base part, so D354's credential check runs on
+  them (they were skipped, not refused); (d) `material/api/<node>/api.yaml`
+  accepted (W4 item 0's table right; compose and localimpl already read
+  it), its endpoints matching `routes/` exactly. Master spec 12.1 items
+  3 and 4.
+- D439: chunk 33's place in the wave (seven chunks, one past the
+  model's six: a fix-sized gap every purpose of 18 to 21 fails without;
+  the chain 32/17, 33, 18–21 three long, kept on D402's reasoning).
+- D440: purpose 4's inbound round trip judged end to end by EX2,
+  reworded from the centre's side ("each request recorded at once, its
+  answer and report posted within 10 minutes of the vets'"); EX5 the
+  outbound's; EX2 added to T54 in `clinic-traps.md`. Information for the
+  owner: nothing players see or may do changes.
+- D441: the roles table ("The roles the purposes add") matched to chunk
+  19's DDL: `vet_interfaces`' and `vet_exchange`'s column reads and
+  writes, `vet_reports` and `lab_reports` on `ops.notifications`, a
+  shared role holding the union of its purposes' columns, `ops.*` as
+  W4's grants; `mach_archive`'s `SELECT` on the two settings tables
+  (chunk 21, purpose 14) added.
+The sweep found nothing else of the kind across purposes 1 to 16. G18
+gains D438's and D440's items. No owner question.
+
+### Chunk 33 dispatched, 2026-11-09
+
+`coding-executor`, cut from `v0.5-w4` at the commit holding this entry,
+taking chunk 19's slot (κ: 18, 21, 33). Chunk 19 resumes from `ce468eb`
+with a fresh owner once 33 has merged; chunk 20 at the next free slot.
+
+### G11.2 — dependency preflight on `curl` in `bastion` 0.5.0 (security-advisor, 2026-11-09)
+
+Asked by the driver after chunk 17's report (the bastion has no HTTP
+client, against access model 4's "HTTP clients"; players now hold
+partner credentials, D365). **Verdict: NEEDS-HUMAN-DECISION**, the
+advisor recommending acceptance:
+- Version: Debian trixie `curl`/`libcurl4t64` 8.14.1-2+deb13u7
+  (trixie-security's latest), the same build, and the same 13 pulled-in
+  packages, as in `api`, `grafana`, `health-check`, `pgwatch`,
+  `scheduler` (checked with `dpkg-query`), `prometheus` and
+  `postgres-exporter`. New to the bastion: libbrotli1, libidn2-0,
+  libnghttp2-14, libnghttp3-9, libpsl5t64, librtmp1, libssh2-1t64,
+  libgnutls30t64, libtasn1-6, libp11-kit0, libffi8, libunistring5.
+- Findings at or above medium with no fix in trixie: curl 39 advisories
+  (Debian: 32 "no DSA", 7 unimportant; curl's own ratings Low but three
+  Medium — Negotiate reuse, unused; cross-origin Digest state; a proxy
+  password, no proxy used; the one High already fixed in deb13u7);
+  rtmpdump 2 (only an `rtmp://` URL), gnutls28 4 and p11-kit 2 (loaded
+  by librtmp only), nghttp2 1 (nghttpx, unreachable).
+- Why accepting is proportionate: an interactive client run by the
+  unprivileged `player`, no listener; the bugs need a hostile server the
+  player chooses; the worst outcome (code as `player`, a credential
+  leaked to a host the player picked) gives nothing the player lacks.
+  Alternatives worse: trixie-backports 8.21 (no security support, half
+  the batch), `wget` (2 high unfixed).
+- Coverage gap noted: the seven other images' curl was never checked;
+  `.tech` has no curl `[[platform]]`. At wave 4's post-change check the
+  advisor proposes adding one (all eight images), after which a sweep
+  opens about 30 curl items needing one triage pass or the owner's
+  `[[ignore]]`.
+
+**For the owner** (gate G11.2): accept shipping curl 8.14.1-2+deb13u7
+in `bastion` 0.5.0, and by extension the seven images already carrying
+it, with these trixie-unfixed issues (record: reason as above,
+approved by the owner, until 2027-02-01 or the next trixie curl security
+upload)? The driver recommends **accept**: refused, the bastion keeps no
+HTTP client until Debian 14, against access model 4 and chunk 17's
+handed-over credentials. Until the answer, the fix (curl in the
+bastion's Dockerfile, its stack test calling the partner with `curl`,
+`docs/player.md`) is held; nothing else in the wave waits on it.
+
+### Chunk 33 — merged (c92bd13), 2026-11-09
+
+`coding-executor`: `120d1c3`, merged `--no-ff` at `c92bd13`, no
+conflict. Unit suite 1216 OK, 2 skipped (209 s; 1211 before);
+py_compile and the template (PyYAML, `strict_load`) clean. Chunk 19's
+two purposes at `ce468eb`, checked by hand in a scratch catalogue: only
+the missing `gm.md` and checks remain, and purpose 4's "1 judged
+end-to-end (EX5) for 2 round trip(s)" (D440, chunk 19's).
+
+**W4-g, as built** (read by 18 to 21 and every purpose after):
+- `INVARIANT_ID_RE` `^[A-Z]{1,2}[0-9]+$`.
+- `data_moved[].reads` checked with `SCENARIO_CLASSIFICATION_KEY_RE`
+  (three or four parts); `CLASSIFICATION_KEY_RE` removed.
+- `HTTP_CONNECTION_RE` `^(api|partner|receiver)(_[a-z][a-z0-9]*)?$`
+  (from `HTTP_PARTS`), `model.http_part(name)` giving the base part;
+  `_check_purpose_v05` and `_check_purpose_http` check a `<part>_<w>`
+  exactly where the bare name is (its part declared, its credential,
+  an http connection in the scenario calling with that credential).
+  Risk: a database connection named `api_*`, `partner_*` or
+  `receiver_*` now reads as HTTP (none exists).
+- `material/api/<node>/api.yaml` optional, `strict_load`, keys within
+  `API_YAML_KEYS`, then `_check_api_fragment`; its endpoints and
+  `routes/` stems match exactly; anything else "not endpoint material
+  (api.yaml, routes/, db/)". Not checked against the topology (the
+  scenario's, once compose merges it).
+- The scenario-format skill's items and `templates/purpose.yaml`
+  follow. G18 carries the four forms.
+
+Chunk 19 resumes from `ce468eb` with a fresh owner, taking `v0.5-w4` in
+first (κ: 18, 21, 19); chunk 20 at the next free slot.

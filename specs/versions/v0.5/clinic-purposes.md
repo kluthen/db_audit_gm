@@ -391,10 +391,10 @@ either way: key, kind, direction, HTTP status, at), `ops.incidents`,
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
 | EX1 | Every outbound exchange recorded since the judged moment is received by its centre within 10 minutes | triggers | about one a day, the transfers among them: rare (D306, point 6) |
-| EX2 | Every inbound request decided since the judged moment has its answer posted within 10 minutes, every report written its report posted within 10 minutes | triggers | about one a day, business hours |
+| EX2 | End to end, the inbound trip: every request a centre posted since the judged moment is recorded in `exchanges` at once, and its answer and its report reach the centre within 10 minutes of the vets' decision and report (D440) | end-to-end | about one a day, business hours; the inbound exchanges in flight at T0 |
 | EX3 | One `exchange_key` per exchange, kept on a resend; each answer recorded on its own exchange | runs | the chases; the in-flight exchanges at T0 |
 | EX4 | An exchange carries what the franchise's agreement allows: this animal's record and its owner's contact, never another animal's or another owner's | runs | every post |
-| EX5 | End to end: every outbound exchange sent since the judged moment is answered within a working day, or chased and then escalated | end-to-end | the exchanges in flight at T0, planted, and the day's |
+| EX5 | End to end, the outbound trip: every outbound exchange sent since the judged moment is answered within a working day, or chased and then escalated | end-to-end | the exchanges in flight at T0, planted, and the day's |
 
 **Data moved**: the animal's identifiers, its record's summary, the
 owner's name and contact (personal), to another centre of the
@@ -774,22 +774,30 @@ its occupancy joins purpose 9 (D318).
 
 | Database | Role | Who | Reads | Writes |
 |---|---|---|---|---|
-| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `animals` (id, species, status, died at: 11) | `requests`' state, `exchanges`' sent and posted columns, `consultations`' open columns (`INSERT`, 11), `ops.*` |
+| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at; 4: id, animal, state, started at, findings; 5: id, animal, herd, vet), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `sites`, `business_settings` and `ownerships` (4, 5), `animals` (11: id, species, status, died at; 4: id, species, breed, sex, born on, name and the four identifiers; 5: id, species), `owners` (4: id, kind, name, email, phone; 5: id, kind, name, address, country), `herds` (id, keeper, holding number: 5), `staff` (id, name: 5); `ops.*` | `requests`' state, `exchanges`' state and `sent_at` (4), `consultations`' open columns (`INSERT`, 11), `ops.*` |
 | `clinic` | `sched_interfaces` | `interfaces`' bookings jobs (11) | the `sched_` bookings, allocations, types, machines, hours, shifts, absences and settings, as [vet-scheduling](vet-scheduling-domain.md) lists them (D339); executes `sched_free_slots`, which runs with the caller's rights | bookings and allocations: bookings' state and links (`request_id`, `exchange_id`), new imaging and examination bookings with their allocations; `ops.*` |
 | `clinic` | `vet_portal_sync` | `interfaces`' release jobs (15) | `owners` (id, kind, name, email, phone, registered at: no address), `animals` (no identifiers), `ownerships`, `herds`, signed consultations, ended stays | nothing |
-| `clinic` | `vet_exchange` | `clinic-api`'s exchange endpoints | `exchanges` | inbound `exchanges`, the answers and reports received on outbound ones |
-| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4), those of the parts landing in `clinic` included (`vet-housing`'s and `vet-scheduling`'s, granted by their schemas) | nothing |
+| `clinic` | `vet_exchange` | `clinic-api`'s exchange endpoints | `exchanges`, `sites` (id, code, kind); `ops.*` | inbound `exchanges`, the answers and reports received on outbound ones (state, accepted for, answered at, report, reported at), `ops.*` |
+| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4), those of the parts landing in `clinic` included (`vet-housing`'s and `vet-scheduling`'s, granted by their schemas); `ops.notifications` (5's copy, with `USAGE` on `ops`) | nothing |
 | `lab` | `lab_dispatch` | `interfaces`' lab jobs (step 4) | as step 4 | as step 4, and `lab_notifications`' `notified_at`, channel and reference; `ops.*` |
 | `lab` | `lab_watch` | the critical calls' `pg_cron` job | `lab_results`, `lab_critical_calls`, `lab_order_tests` | `ops.incidents`, `ops.runs` |
-| `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table | nothing |
+| `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table; `ops.notifications` (5's copy, with `USAGE` on `ops`) | nothing |
 | `lab` | `lab_release` | `interfaces`' release jobs (15) | `lab_orders` (id, account, animal, ordered at: no identifiers or notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals` | nothing |
 | `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (accession, request, state, cancelled because, `cancelled_at`: the watermark on cancellations, D416), `mach_reports`, `mach_studies` (worklist, state) | `mach_worklist` (insert), `ops.*` |
-| `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings` | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
+| `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings`, `mach_vitals_settings` and `mach_settings` (the zone and the kept window) | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
 | `portal` | `portal_sync` | the release jobs (15) | the copies, accounts, documents | accounts (insert; contacts; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
 | `portal` | `portal_dispatch` | the messages' jobs (16) | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox's queued rows and sending columns, `ops.*` |
 | `office` | `office` | owns everything; no login | | |
 | `office` | `office_jobs` | `backoffice`'s writes | `office` | every `office` table; nothing elsewhere |
 | `office` | `office_reader` | the back office's staff and dashboards | `office` | nothing |
+
+A column list is the grant: each purpose's DDL grants the columns its
+own number names (`4: …`, purpose 4's; a list or table with no
+number: the purposes using that table), and a role several purposes
+share holds their union. `ops.*` is `USAGE` on `ops`, `SELECT, INSERT` on
+`ops.runs` and `ops.incidents`, `SELECT, INSERT, UPDATE` on
+`ops.watermarks`, and what the purpose's own `ops` tables need; a row
+naming `ops` tables instead (`lab_watch`) grants those only (D441).
 
 **The office role** (point 4), the name [replication](replication.md#3-where-the-reports-write-a-back-office-database-d300)
 3 left to step 7: `office_jobs` writes `office` and reads nothing of the

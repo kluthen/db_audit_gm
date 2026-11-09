@@ -161,6 +161,11 @@ Changing the database configuration is expected. Do not change:
 - SSH, `sudo`, the `gm-*` commands and the validator (they are read-only
   anyway);
 - the password file `/run/gm-cron/pgpass`.
+- the role `gm_check` and its policies named `gm_check_read` (on
+  `cron.job`, `cron.job_run_details` and every table with row-level
+  security, each commented "the game master's read access: DO NOT
+  TAMPER"): they are the game master's read access to the data, which
+  the game's own checks use.
 
 Being a database superuser also gives you access to the operating system
 as `postgres` (for example `COPY ... TO PROGRAM`). Do not use it to get

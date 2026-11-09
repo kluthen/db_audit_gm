@@ -395,12 +395,22 @@ injection script names): players should not be watching it.
    minimum (`aging.minimum`), and have the initiator choose one; confirm
    it when there is only one. A new one is designed first
    ([Designing a scenario](#designing-a-scenario)).
-2. **Is it complete?** Check it with the scenario-format skill's
+2. **Is it complete?** In this order: the format, the register, the
+   document. Check it with the scenario-format skill's
    completeness checklists. If anything is missing, list every missing
    item and stop: you do not deploy an incomplete scenario (`gmctl fit`
-   refuses one too, listing what is missing). Check that `README.md`
-   exists and matches the authoritative files; if not, regenerate it with
-   the scenario-document skill: a restarted GM grounds itself on it. The
+   refuses one too, listing what is missing). Then, for a scenario with a
+   data register (every scenario listing `domains:`, a `fixture-` one
+   exempt; one with `governance.register`), check it is current and
+   generate or regenerate it with the data-register skill when it is
+   missing or stale (the loader refuses it: "stale register: regenerate
+   with the data-register skill"): the true register
+   `gm/data-register.yaml`, the handout `player/data-register.md` and each
+   register fault's `register_diff:` (master spec 13.3). Then check that
+   `README.md` exists and matches the authoritative files; if not,
+   regenerate it with the scenario-document skill, which reads the
+   register's outputs: a restarted GM grounds itself on it, and reads the
+   true register with it, never showing or quoting it during the game. The
    three monitoring bricks are *fixable* only in v0.2 (a known limit,
    spec D108): never offer a *report-only* write policy for a
    `prometheus`, `postgres-exporter` or `grafana` node; the loader refuses

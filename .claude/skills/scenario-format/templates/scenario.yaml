@@ -89,9 +89,12 @@ purposes:                           # optional: a scenario running purposes; non
     parts:                          # exactly the parts its purpose.yaml declares
       source: <db/shop>             # source, target: a location <node>/<database>, a database
       target: <reporting/reporting> # node's database its data file creates; may be equal
-      runner: <bi>                  # a node of role transformer; every job of the purpose has
-                                    # an entry of that name and key in its jobs.yaml, the key
-                                    # in its queries.yaml
+      runner: <bi>                  # optional: a purpose declaring a runner (v0.5: none when
+                                    # every job is a pg_cron job); a node of role transformer;
+                                    # every job of the purpose it runs has an entry of that name
+                                    # and key in its jobs.yaml, the key in its queries.yaml, and
+                                    # no pg_cron job has one. source_<w> and runner_<w> (v0.5)
+                                    # are mapped as source and runner are
       consumer: <consumer>          # optional: a purpose with a consumer; a node of role consumer
       receiver: <gateway>           # optional: a pushed obligation; a node of role producer (from
                                     # v0.5 a node a third_parties entry lists)
@@ -149,6 +152,14 @@ third_parties:                      # optional: a scenario with partners; one en
     player_doc: <player/partners.md#northfield-veterinary-laboratories>   # its partners.md
                                     # entry; player/partners.md, the starter pack's fifth file,
                                     # maps to the bastion's seed file partners.md (an optional one)
+    credentials: [<xlab_customer>]  # optional: the customer's own HTTP credentials with this
+                                    # partner, handed over with partners.md (access model 3, 6;
+                                    # spec D365, D433): each accepted by an endpoint answering
+                                    # under hostname, never partners_backend nor a node's
+                                    # vault_credential; partners.md names each as
+                                    # {{credential:<name>}}, and names no other, which the
+                                    # bastion replaces by the per-game value (http_<name>,
+                                    # handed over, mounted on the bastion)
 
 # --- Topology ---------------------------------------------------------
 networks:                           # each renders as <game_id>_<name>; v0.2 scenarios declare

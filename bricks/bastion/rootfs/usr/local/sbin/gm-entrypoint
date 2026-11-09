@@ -6,23 +6,31 @@
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
 #      s6-overlay needs an executable /run) and creates the runtime dirs;
 #   2. creates the sshd host key in the `hostkeys` volume, once;
-#   3. checks the secrets;
+#   3. checks the secrets, and writes partners.md with the partners'
+#      credentials handed over in place of its {{credential:<name>}}
+#      placeholders (/run/gm/starter/partners.md; v0.5, spec D365, D433),
+#      failing on a name with no secret /opt/gm/secrets/http_<name>;
 #   4. builds /run/gm/shadow (/etc/shadow points to it) with the hash of
 #      the per-game password;
 #   5. copies the starter pack from /opt/gm/starter into the player's home,
 #      once, never over an existing file; an optional file the scenario
-#      does not provide (data-policy.md) is skipped;
+#      does not provide (data-policy.md, partners.md, data-register.md) is
+#      skipped;
 #   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets;
 #   7. writes the web front's nginx configuration, password file and page
 #      under /run/web-front, routes or none (spec D224): the page, the
 #      front's home, renders the starter pack from /opt/gm/starter and
-#      links to the web interfaces of GM_WEB_ROUTES when it has any.
+#      links to the web interfaces of GM_WEB_ROUTES when it has any; a
+#      route `name=host:port:console` is cold storage's console, proxied
+#      for GET / and GET /manifests alone (v0.5 master spec 7.3, D363).
 set -eu
 
 SECRETS_DIR=/opt/gm/secrets
 STARTER_DIR=/opt/gm/starter
 STARTER_FILES="README.md story.md issues.md"   # seed.files: required
-STARTER_OPTIONAL="data-policy.md"               # seed.optional: absent without governance:
+STARTER_OPTIONAL="data-policy.md partners.md data-register.md"   # seed.optional: each absent
+                                                # unless the scenario has it
+RESOLVED_DIR=/run/gm/starter        # starter files with their placeholders replaced
 HOSTKEY_DIR=/var/lib/gm-sshd-keys
 SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
@@ -84,6 +92,49 @@ dba_password=$(read_secret dba_password)
 ssh-keygen -y -f "$SECRETS_DIR/player_ssh_key" >/dev/null 2>&1 \
     || die "secret player_ssh_key is not an unencrypted OpenSSH private key"
 
+# partners.md hands over the customer's own credentials with its partners
+# (spec D365, D433): each {{credential:<name>}} becomes the mounted
+# http_<name>, in the home's copy and on the page alike. A name with no
+# secret stops the start.
+install -d -o root -g root -m 0700 "$RESOLVED_DIR"
+if [ -f "$STARTER_DIR/partners.md" ]; then
+    : > /run/gm/credentials
+    for name in $(grep -o '{{credential:[^{}[:space:]]*}}' "$STARTER_DIR/partners.md" \
+                  | sed 's/^{{credential:\(.*\)}}$/\1/' | sort -u); do
+        printf '%s\n' "$name" | grep -Eqx '[a-z][a-z0-9_]{0,62}' \
+            || die "partners.md: {{credential:$name}} is not a credential's name"
+        [ -s "$SECRETS_DIR/http_$name" ] \
+            || die "partners.md: {{credential:$name}}: no secret $SECRETS_DIR/http_$name (no third_parties: entry hands over $name)"
+        value=$(read_secret "http_$name")
+        printf '%s %s\n' "$name" "$value" >> /run/gm/credentials
+    done
+    awk 'BEGIN {
+            while ((getline line < "/run/gm/credentials") > 0) {
+                i = index(line, " "); value[substr(line, 1, i - 1)] = substr(line, i + 1)
+            }
+         }
+         {
+            out = ""; rest = $0
+            while (match(rest, /[{][{]credential:[a-z][a-z0-9_]*[}][}]/)) {
+                name = substr(rest, RSTART + 13, RLENGTH - 15)
+                out = out substr(rest, 1, RSTART - 1) value[name]
+                rest = substr(rest, RSTART + RLENGTH)
+            }
+            print out rest
+         }' "$STARTER_DIR/partners.md" > "$RESOLVED_DIR/partners.md" \
+        || die "could not write partners.md's credentials"
+    rm -f /run/gm/credentials
+    unset value
+    n=$(grep -c '{{credential:' "$RESOLVED_DIR/partners.md" || true)
+    [ "$n" = 0 ] || die "partners.md: a placeholder left unreplaced"
+    log "partners.md: credentials written in"
+fi
+# starter_source <file>: the starter file as handed over, its placeholders
+# replaced where it has any.
+starter_source() {
+    if [ -f "$RESOLVED_DIR/$1" ]; then printf '%s' "$RESOLVED_DIR/$1"; else printf '%s' "$STARTER_DIR/$1"; fi
+}
+
 # --- 4. password ----------------------------------------------------------
 # The root filesystem is read-only, so /etc/shadow is a symlink to
 # /run/gm/shadow, rebuilt here at every start from the image's copy.
@@ -110,7 +161,7 @@ if [ ! -e "$PLAYER_HOME/.gm-starter-copied" ]; then
         elif [ -e "$t" ] || [ -L "$t" ]; then
             log "starter pack: $t exists, left as it is"
         else
-            install -o player -g player -m 0644 "$STARTER_DIR/$f" "$t"
+            install -o player -g player -m 0644 "$(starter_source "$f")" "$t"
         fi
     done
     date -u '+starter pack copied %Y-%m-%dT%H:%M:%SZ from /opt/gm/starter (DO NOT TAMPER)' \
@@ -138,6 +189,10 @@ unset dba_password pw_pgpass
 # `name=node:port` tokens, space-separated (capture W2-A). Route <name> is
 # served at /<name>/ and the path is forwarded unchanged: the upstream
 # serves under its own /<name>/.
+# A token `name=host:port:console` is cold storage's console (master spec
+# 7.3, spec D363; capture W4 item 1): only GET /<name>/ (to /) and GET
+# /<name>/manifests (to /manifests, its query string kept) are proxied, with
+# Host: <host>, the partner's hostname; any other path or method is 404.
 # The front's own answers (the page at /, the redirect of /<name> to
 # /<name>/, 404 elsewhere) are static files under $WEB_DIR/www, served in
 # nginx's content phase: a `return` would answer in the rewrite phase,
@@ -147,10 +202,12 @@ web_locations=
 set -f
 for token in ${GM_WEB_ROUTES:-}; do
     printf '%s\n' "$token" \
-        | grep -Eqx '[a-z]([a-z0-9-]{0,61}[a-z0-9])?=[a-z]([a-z0-9-]{0,61}[a-z0-9])?:[0-9]{1,5}' \
-        || die "GM_WEB_ROUTES: '$token' is not name=node:port"
+        | grep -Eqx '[a-z]([a-z0-9-]{0,61}[a-z0-9])?=[a-z]([a-z0-9-]{0,61}[a-z0-9])?:[0-9]{1,5}(:console)?' \
+        || die "GM_WEB_ROUTES: '$token' is not name=node:port (or name=host:port:console)"
     name=${token%%=*}
     target=${token#*=}
+    console=
+    case $target in *:console) console=1; target=${target%:console} ;; esac
     port=${target##*:}
     { [ "$port" -ge 1 ] && [ "$port" -le 65535 ]; } || die "GM_WEB_ROUTES: '$token': port out of range"
     case " $web_names " in *" $name "*) die "GM_WEB_ROUTES: route $name given twice" ;; esac
@@ -159,6 +216,31 @@ for token in ${GM_WEB_ROUTES:-}; do
     # = /<name>: without it, nginx's own 301 of /<name> to the proxy_pass
     # location /<name>/ would answer before auth_basic (find-config
     # phase); the static directory www/routes/<name>/ answers instead.
+    if [ -n "$console" ]; then
+        # proxy_set_header here replaces the server's: the front's
+        # credentials still stop at the front.
+        for path in / /manifests; do
+            web_locations="$web_locations
+        location = /$name$path {
+            limit_except GET { deny all; }
+            error_page 403 =404 /.gm-not-found;
+            set \$$var $target;
+            proxy_set_header Host ${target%:*};
+            proxy_set_header Authorization \"\";
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_pass http://\$$var$path\$is_args\$args;
+        }"
+        done
+        web_locations="$web_locations
+        location = /$name { root $WEB_DIR/www/routes; }
+        location /$name/ {
+            deny all;
+            error_page 403 =404 /.gm-not-found;
+        }"
+        continue
+    fi
     web_locations="$web_locations
         location = /$name { root $WEB_DIR/www/routes; }
         location /$name/ {
@@ -204,6 +286,8 @@ PAGE_ELEMENTS='markdown readme README.md README
 markdown story story.md Story
 markdown issues issues.md Issues
 markdown data-policy data-policy.md Data policy
+markdown partners partners.md Partners
+markdown data-register data-register.md Data register
 routes web-interfaces - Web interfaces'
 # page_element <kind> <id> <source> <title>: the element's section on
 # stdout; exit 1 when the element is absent.
@@ -212,7 +296,7 @@ page_element() {
         markdown)
             [ -f "$STARTER_DIR/$3" ] || return 1
             printf '<section id="%s">\n' "$2"
-            cmark-gfm -e table "$STARTER_DIR/$3" || die "could not render $STARTER_DIR/$3"
+            cmark-gfm -e table "$(starter_source "$3")" || die "could not render $STARTER_DIR/$3"
             printf '</section>\n' ;;
         routes)
             [ -n "$web_names" ] || return 1
