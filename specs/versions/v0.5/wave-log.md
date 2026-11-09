@@ -6087,3 +6087,34 @@ HTTP client until Debian 14, against access model 4 and chunk 17's
 handed-over credentials. Until the answer, the fix (curl in the
 bastion's Dockerfile, its stack test calling the partner with `curl`,
 `docs/player.md`) is held; nothing else in the wave waits on it.
+
+### Chunk 33 — merged (c92bd13), 2026-11-09
+
+`coding-executor`: `120d1c3`, merged `--no-ff` at `c92bd13`, no
+conflict. Unit suite 1216 OK, 2 skipped (209 s; 1211 before);
+py_compile and the template (PyYAML, `strict_load`) clean. Chunk 19's
+two purposes at `ce468eb`, checked by hand in a scratch catalogue: only
+the missing `gm.md` and checks remain, and purpose 4's "1 judged
+end-to-end (EX5) for 2 round trip(s)" (D440, chunk 19's).
+
+**W4-g, as built** (read by 18 to 21 and every purpose after):
+- `INVARIANT_ID_RE` `^[A-Z]{1,2}[0-9]+$`.
+- `data_moved[].reads` checked with `SCENARIO_CLASSIFICATION_KEY_RE`
+  (three or four parts); `CLASSIFICATION_KEY_RE` removed.
+- `HTTP_CONNECTION_RE` `^(api|partner|receiver)(_[a-z][a-z0-9]*)?$`
+  (from `HTTP_PARTS`), `model.http_part(name)` giving the base part;
+  `_check_purpose_v05` and `_check_purpose_http` check a `<part>_<w>`
+  exactly where the bare name is (its part declared, its credential,
+  an http connection in the scenario calling with that credential).
+  Risk: a database connection named `api_*`, `partner_*` or
+  `receiver_*` now reads as HTTP (none exists).
+- `material/api/<node>/api.yaml` optional, `strict_load`, keys within
+  `API_YAML_KEYS`, then `_check_api_fragment`; its endpoints and
+  `routes/` stems match exactly; anything else "not endpoint material
+  (api.yaml, routes/, db/)". Not checked against the topology (the
+  scenario's, once compose merges it).
+- The scenario-format skill's items and `templates/purpose.yaml`
+  follow. G18 carries the four forms.
+
+Chunk 19 resumes from `ce468eb` with a fresh owner, taking `v0.5-w4` in
+first (κ: 18, 21, 19); chunk 20 at the next free slot.

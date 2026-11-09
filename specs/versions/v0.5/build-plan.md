@@ -1685,7 +1685,7 @@ per-part folders, and the `ops` block every purpose writes (`ops.runs`,
 
 ### Chunk 19 — The exchanges and the notifications: purposes 4 and 5
 
-Status: blocked (on the loader gaps found by chunk 19, WIP ce468eb)
+Status: in progress
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 5's format check and fixture only (in wave, spec D431); chunk
@@ -2493,7 +2493,8 @@ by chunks 18 to 21 and every fixture after. As built: W4-f.
 
 ### Chunk 33 — The purpose loader's forms for the clinic's purposes: invariant ids, `ops` keys in data moved, a partner's several hostnames, endpoint `api.yaml`
 
-Status: in progress
+Status: merged (w4, c92bd13)
+Record: 120d1c3, merge c92bd13. `CLASSIFICATION_KEY_RE` removed (unused once reads take the scenario's form); (choice) the "no part declared" message names `partner_<w>` for bare names too; a purpose's `api.yaml` not checked against the topology (the scenario's, after compose) (wave log, W4-g). Unit suite 1216 OK, 2 skipped.
 Wave: 4
 Depends on: chunks 17 and 32 (in wave, both merged: `model.py`'s,
 `test_model.py`'s and the skill's last holders); inserted after chunk
