@@ -923,7 +923,7 @@ particular:
   `published-results`, `run-ledger`, `definitions`), its declared `part`,
   and exactly one of `table` (with `run_column`, the column tying a row to
   its run) and `file` (an absolute path on that part's node).
-- **Invariants**: each with its `id` (`[A-Z]{1,2}[0-9]+`, once; from v0.5 two letters: `LO1`, `CC1`), a one-sentence
+- **Invariants**: each with its `id` (`[A-Z][0-9]+`, once), a one-sentence
   `statement` against the source, its `check` (a file of `checks/`), its
   `parameters` (fault.yaml's shape, may be `{}`) and its `witness` (what
   must exist in the data for a run to be able to violate it).

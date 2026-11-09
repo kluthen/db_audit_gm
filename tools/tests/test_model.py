@@ -2169,19 +2169,8 @@ class TestPurposeDefinitionRefusals(V04CopyTest):
         self.assertProblems(text, f"{self.L}: invariants[R1]: duplicate invariant id",
                             "purposes/fixture-sales-copy/checks/missing.sh: missing file "
                             "(invariants[R1].check, a file of checks/)",
-                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z]{{1,2}}[0-9]+",
+                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z][0-9]+",
                             "purposes/fixture-sales-copy/gm.md: missing file (invariants[r2].check")
-
-    def test_invariant_ids_one_or_two_letters(self):
-        """R1 (v0.4) and LO1 (v0.5 master spec 12.2) taken; three letters refused."""
-        def change(d):
-            d["invariants"][0]["id"] = "LO1"
-        self.assertNotIn("invariants[LO1].id", self.purpose_problems(change))
-
-        def change3(d):
-            d["invariants"][0]["id"] = "LOX1"
-        self.assertProblems(self.purpose_problems(change3),
-                            f"{self.L}: invariants[LOX1].id: 'LOX1' is not [A-Z]{{1,2}}[0-9]+")
 
     def test_data_moved(self):
         def change(d):
