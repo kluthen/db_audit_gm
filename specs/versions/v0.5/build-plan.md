@@ -1812,8 +1812,10 @@ chunk 29's (c) accepts (spec D401).
   ship (spec D381); the `vault` fixture (the bastion, `records`,
   `machines`, `interfaces`, the partners' `api` node and database: six;
   `left_out:` vet-core's `pms` and `api/clinic-api`, vet-machinery's
-  `equipment`, the shipped day loaded; T0 21:55, the shipping moved to
-  the next minute); the bookings, imaging, portal and vault fixtures
+  `equipment`, the shipped day loaded: the last full day, the fixture
+  setting `window_days` 0 in `mach_vitals_settings` and `mach_settings`
+  so it lies before the window (spec D442); T0 21:55, the shipping moved
+  to the next minute); the bookings, imaging, portal and vault fixtures
   with vet-core's `partners/centres` left out once chunk 19 has merged
   (spec D435); purpose 14 a `source` `vitals` and a `source_biomed`
   `biomed` (chunk 32), `ship-partitions` reading the zone and the window
