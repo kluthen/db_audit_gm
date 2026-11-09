@@ -1,0 +1,23 @@
+# Schedule of the integration engine, interfaces, a fragment (vet-lab-send-
+# outs; v0.5 master spec 12.2 purpose 3; capture W4 items 0 and 3): the lab
+# as vet-lab's lab_dispatch (the connection name chunk 19's purpose 5 uses
+# too) and the external reference lab's stub, Northfield Veterinary
+# Laboratories (hostname northfield-lab), with the customer's own key with
+# it, xlab_customer, an answer due within ten seconds or the send-out
+# retried by the chase; no stream (a transformer runs jobs only). The answer
+# comes back days later to lab-api, vet-lab's, not here. Written for the
+# clinic's nodes (lab; the hostname northfield-lab); the GM adapts the
+# targets as it copies.
+connections:
+  lab-dispatch:                # the source and the target: tests, samples, lab_send_outs, events, ops.*
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_dispatch
+    pool: {size: 1}
+  northfield-lab:              # the partner part: POST /orders, POST /orders/{send_key}/resend
+    driver: http
+    target: northfield-lab:8000
+    credential: xlab_customer
+    pool: 1
+    timeout: 10s
+streams: []

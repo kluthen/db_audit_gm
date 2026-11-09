@@ -1,0 +1,210 @@
+# vet-lab-centre-orders: the centre's lab orders and their results (v0.5
+# master spec 12.2, purpose 1; specs/versions/v0.5/clinic-purposes.md section
+# 5; capture W4 items 0 and 3 of specs/versions/v0.5/wave-log.md). A round
+# trip inside the centre: the core's practice software records a
+# consultation's analysis requests; the integration engine posts them to the
+# lab's order API as the centre's account 1 and copies the released results'
+# state back into the record. The lab never writes clinic.
+#
+# Material: material/runner/ (interfaces' jobs, queries, schedule and
+# scripts/lab_orders.py), material/target/ddl.sql (vet_interfaces, its
+# grants, the ops schema and the purpose's two tables, run in clinic by
+# load-data at step (2b)). Written for the clinic's names (nodes records,
+# lab-api, interfaces; database clinic).
+id: vet-lab-centre-orders
+title: The centre's lab orders posted to the lab's order API, their released results copied back into the record
+domains: [vet-core, vet-lab]
+kind: round-trip
+
+parts:
+  source: the record's database, clinic (vet-core), where the requests and consultations are
+  target: the same database, clinic, where the requests' state and the purpose's ops tables are written
+  runner: the integration engine, interfaces (a scheduler node of role transformer)
+  api: the lab's order API, lab-api (vet-lab's api node), called as the centre's account 1
+
+jobs:
+  - name: post-lab-orders
+    key: lab-orders.post
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the analysis requests still requested whose consultation has closed, grouped by consultation
+      and priority, each group posted as one order keyed C-(consultation)-(priority), and in one
+      transaction after the calls the attempts recorded and the answered groups' requests sent
+    cadence: "* * * * *"
+    connections:
+      source: vet_interfaces
+      api: lab_centre
+  - name: fetch-lab-results
+    key: lab-orders.fetch
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the centre's tests released, not performed or cancelled since the watermark less a margin,
+      read from lab-api's feed, each request copied once and moved to resulted or cancelled, the
+      watermark advanced, and the requests unanswered past turnaround plus two hours escalated once
+    cadence: "*/5 * * * *"
+    connections:
+      source: vet_interfaces
+      api: lab_centre
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.lab_orders_sent
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: ops.request_results
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.watermarks
+    run_column: run_id
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: LO1
+    statement: >-
+      Every analysis request of a consultation closed since the judged moment is sent with an
+      accession within 5 minutes of the close, 2 for an urgent one, or cancelled.
+    check: checks/lo1-sent-in-time.sh
+    parameters: {}
+    witness: >-
+      about 25 orders a day around the clock, urgent ones at night: a consultation closed with
+      analysis requests since the judged moment, at least two posting cycles old
+    judged: triggers
+  - id: LO2
+    statement: >-
+      No consultation's requests reach the lab as two orders: each request id appears on one lab
+      order test only.
+    check: checks/lo2-one-order-test.sh
+    parameters: {}
+    witness: >-
+      every run that retried a timed-out post, lab-api slow at a courier wave: at least one order
+      posted since the judged moment
+    judged: runs
+  - id: LO3
+    statement: >-
+      Every centre test released since the judged moment has its request resulted within 10 minutes,
+      and no request is resulted while its test is not released.
+    check: checks/lo3-resulted-on-release.sh
+    parameters: {}
+    witness: >-
+      about 45 releases a day, in bursts at the rounds and at once for urgent ones: a centre test
+      released since the judged moment, at least ten minutes ago
+    judged: runs
+  - id: LO4
+    statement: >-
+      End to end, every centre order posted since the judged moment has each test released or not
+      performed within its turnaround plus the wait for the next release round, an urgent one within
+      its turnaround.
+    check: checks/lo4-orders-answered.sh
+    parameters: {}
+    witness: >-
+      the routine tests' turnarounds (hours) end within a session, urgent ones within the hour: an
+      order posted since the judged moment with every test answered
+    judged: end-to-end
+
+round_trips:
+  - asks: customer
+    request:
+      job: post-lab-orders
+      counterpart: lab-api, POST /orders, as the centre's account 1 (credential lab_centre)
+      sends: >-
+        one order per consultation and priority: the requests' ids and test codes, the priority,
+        the animal's id, the consultation, the requesting vet; for a residue screening the
+        treatment's withdrawal end, read from the administered prescription lines
+    correlation: >-
+      client_ref C-(consultation id)-(priority), unique per account, the idempotency key lab-api
+      answers twice with one accession; the requests' ids, carried on each order test
+    answers:
+      - form: accepted
+        when: at once (201; 200 for the same client_ref again)
+        carries: the accession and the order's tests with their request ids
+      - form: a result
+        when: each test's release, read from GET /orders?account=1&released_since=(a time) every five minutes
+        carries: the test's status (released, not performed, cancelled), its time and reason, its results
+    timeout:
+      after: no 2xx within 10 s (the connection's timeout)
+      then: >-
+        retried at the next run with the same client_ref; a request sent and unreleased past its
+        test's turnaround plus two hours, one ops.incidents row (kind overdue), once
+    reactions:
+      - the requests sent, the accession kept in ops.lab_orders_sent (post-lab-orders)
+      - each request resulted once its test is released, cancelled with the reason when the lab did not perform or cancelled it, the copy in ops.request_results (fetch-lab-results)
+      - the lab's intake, receipt and release (vet-lab's lab-api and lis streams)
+
+data_moved:
+  - job: post-lab-orders
+    reads: [clinic.requests.animal_id, clinic.administrations.animal_id]
+    writes: [target:requests, target:ops.lab_orders_sent, target:ops.runs]
+  - job: fetch-lab-results
+    reads: []
+    writes: [target:requests, target:ops.request_results, target:ops.watermarks, target:ops.incidents,
+             target:ops.runs]
+
+roles:
+  - name: vet_interfaces
+    part: source
+    reads: [requests, consultations (id, state, ended_at), administrations (id, animal_id, prescription_line_id),
+            prescription_lines (id, withdrawal_ends_on), ops.runs, ops.incidents, ops.watermarks,
+            ops.lab_orders_sent, ops.request_results]
+    writes: [requests (state, sent_at, resulted_at, cancelled_at), ops.runs (insert), ops.incidents (insert),
+             ops.watermarks, ops.lab_orders_sent, ops.request_results (insert)]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    clinic.ops.runs.id: internal
+    clinic.ops.runs.purpose: internal
+    clinic.ops.runs.job: internal
+    clinic.ops.runs.started_at: internal
+    clinic.ops.runs.finished_at: internal
+    clinic.ops.runs.rows_read: internal
+    clinic.ops.runs.rows_written: internal
+    clinic.ops.incidents.id: internal
+    clinic.ops.incidents.purpose: internal
+    clinic.ops.incidents.job: internal
+    clinic.ops.incidents.kind: internal
+    clinic.ops.incidents.ref: internal
+    clinic.ops.incidents.opened_at: internal
+    clinic.ops.incidents.reason: internal
+    clinic.ops.incidents.run_id: internal
+    clinic.ops.watermarks.purpose: internal
+    clinic.ops.watermarks.name: internal
+    clinic.ops.watermarks.at: internal
+    clinic.ops.watermarks.last_id: internal
+    clinic.ops.watermarks.run_id: internal
+    clinic.ops.lab_orders_sent.client_ref: internal
+    clinic.ops.lab_orders_sent.request_ids: internal
+    clinic.ops.lab_orders_sent.accession: internal
+    clinic.ops.lab_orders_sent.attempts: internal
+    clinic.ops.lab_orders_sent.last_status: internal
+    clinic.ops.lab_orders_sent.posted_at: internal
+    clinic.ops.lab_orders_sent.answered_at: internal
+    clinic.ops.lab_orders_sent.run_id: internal
+    clinic.ops.request_results.request_id: internal
+    clinic.ops.request_results.order_test_id: internal
+    clinic.ops.request_results.accession: internal
+    clinic.ops.request_results.status: internal
+    clinic.ops.request_results.reason: internal
+    clinic.ops.request_results.released_at: internal
+    clinic.ops.request_results.copied_at: internal
+    clinic.ops.request_results.run_id: internal
