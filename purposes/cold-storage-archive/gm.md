@@ -49,7 +49,7 @@ Written for the clinic's names; adapt them when copying.
 | `material/runner/queries.yaml`, `jobs.yaml`, `schedule.yaml`, `scripts/cold_storage.py` | the runner's (`interfaces`) scenario layer `compose/interfaces/`, merged by `gmctl compose` | the targets `machines:5432/vitals`, `machines:5432/biomed`, `cold-storage:8000`; the option `source` (the node holding the partitions) |
 | `material/source/ddl.sql`, `material/source_biomed/ddl.sql` | nowhere: `ddl.source`, `ddl.source_biomed`, read from the catalogue by `load-data` at step (2b) | none (`:"DBNAME"`) |
 | `material/history.sql` | nowhere: `history:`, read from the catalogue by `load-data` | none |
-| `checks/*.sh` | the sealed checks of the faults attached to the purpose | the constants at the top of each (`PARTNERS`, `NODE`, `VITALS`, `BIOMED`, `SOURCE`) |
+| `checks/*.sh` | the sealed checks of the faults attached to the purpose | the constants at the top of each (`PARTNERS`, `NODE`, `VITALS`, `BIOMED`, `SOURCE`; the job's cadence `RUN_MINUTE`, `RUN_FIRST_HOUR`, `RUN_LAST_HOUR`) |
 
 Each DDL creates (guarded) `ops`, its three shared tables and
 `ops.shipments` (`type`, `day`, `shipment_id`, `rows_sent`,
@@ -88,9 +88,10 @@ They need the partner's side, so each runs on `partners-db` as root
 `partners` through `check-psql`, `vitals` and `biomed` through
 `check-psql --node machines`, as `gm_check`; the judged moment is
 `CHECK_SINCE` as given, the runs read from `ops.runs` (W4 item 0). Exit 0
-fixed, 1 present, 2 cannot judge, 3 too soon (until the next run at 40 past
-an hour from 00 to 05 local: when the job is moved, the GM reads
-`remaining=` as a bound, not the run's time).
+fixed, 1 present, 2 cannot judge, 3 too soon (`remaining=` until the job's
+next run, `RUN_MINUTE` past the hours `RUN_FIRST_HOUR` to `RUN_LAST_HOUR`
+local, 40, 0 and 5 as shipped: when the job is moved, the GM sets the three
+constants to its new cadence).
 
 | Check | Invariant | Judged | Witness |
 |---|---|---|---|

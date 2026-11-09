@@ -1,0 +1,384 @@
+# Vault fixture of v0.5 (build plan chunk 21a; capture W4 item 6, "Purpose
+# 14" and "The fixtures", of specs/versions/v0.5/wave-log.md; spec D403,
+# D442). Not a game: vet-core's medical record in records/clinic and
+# vet-machinery's three databases on machines (pacs, vitals, biomed), loaded
+# by gmctl load-data from the domains as in the imaging fixture (machines'
+# data file creating jobs, pg_cron's database, for the three partition
+# jobs); purpose 14 (cold-storage-archive): its DDL in vitals and biomed at
+# load-data's step (2b), its history planting cold storage's manifests of the
+# days before the kept window in partners, its job ship-partitions on the
+# integration engine, interfaces (scheduler 0.3.0), as mach_archive in vitals
+# and biomed and with the customer's account key, cold_storage, on cold
+# storage's upload; cold storage, the vault, on the partners' api node and
+# database (partners/shared/, partners/coldstore/ copied as the GM copies
+# them, without planted.sql: the purpose's history plants the manifests; no
+# back end, as the restore fixture); and the bastion; six nodes on one host.
+# gmctl compose writes nodes/interfaces/ from the scenario layer
+# compose/interfaces/ (purpose 14's runner material as the GM copies it, at
+# 1.0); composition.yaml leaves out the practice software, the lookup API and
+# the machines' systems (the shipped day is the load's; nothing writes the
+# machines during the test).
+#
+# Set-up (spec D442): the load keeps the last full day and today. The short
+# test, tools/tests/fixtures/fixture-vault/run-short-test.sh, sets
+# window_days to 0 in mach_vitals_settings (vitals) and mach_settings
+# (biomed) as postgres after load-data, so yesterday lies before the window;
+# T0 is placed by the shift at about 21:55 local and ship-partitions moved to
+# the minute after it, before the machinery's 22:00 partition jobs:
+# yesterday's two partitions shipped, received and dropped, its checks CA1
+# to CA4. One harmless seed-file fault (f1), since a scenario needs at least
+# one, copied from the imaging fixture.
+
+# --- Scenario information --------------------------------------------
+id: fixture-vault
+version: 0.1.0
+title: Vault fixture, the machinery's day partitions shipped to cold storage and dropped on a full receipt
+date: 2026-11-09
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its machines' raw readings on site for the
+  last full day and today; each night its integration engine ships the
+  older days to an off-site vault, cold storage, and drops them once the
+  vault has counted every row.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+third_parties:
+  - id: cold-storage
+    name: Cold Storage
+    stands_for: an off-site archive service, the vault
+    role: round-trip
+    nodes: [partners-api, partners-db]
+    hostname: cold-storage
+    player_doc: player/partners.md#cold-storage
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-machinery
+    at:
+      pacs: machines/pacs
+      vitals: machines/vitals
+      biomed: machines/biomed
+
+# --- Purposes (v0.5 master spec 12.2) ---------------------------------
+# Purpose 14, a round trip with cold storage: the machinery's day partitions
+# older than the window shipped from vitals and biomed, the vault's manifests
+# in partners (its history), the integration engine, interfaces, running the
+# job, cold storage's upload on partners-api.
+purposes:
+  - id: cold-storage-archive
+    parts:
+      source: machines/vitals
+      source_biomed: machines/biomed
+      target: partners-db/partners
+      runner: interfaces
+      partner: partners-api
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the shipping job's SQL and its uploads to the vault, the vault's own SQL (one network, spec D275)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: machines
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512M
+      reservations:
+        cpu: 0.25
+        memory: 384M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/machines/postgresql.conf
+      pg_hba.conf: nodes/machines/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 192MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 32MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 128MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/machines.sql       # the database jobs and pg_cron in it; the domain makes the rest
+      databases:
+        - name: jobs
+          owner: postgres
+          tables:
+            - name: cron.job
+              description: pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions, events-partitions), scheduled by load-data after the part's loads, each as mach_maint.
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+      scripts/: nodes/interfaces/scripts/
+    knobs: []
+
+  # --- Two of the partners' shared nodes (partners/shared/nodes.yaml) ----
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope:
+          min: 32MB
+          max: 64MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 16MB
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope:
+          min: 16MB
+          max: 64MB
+      - setting: max_connections
+        initial: 40
+        envelope:
+          min: 20
+          max: 60
+      - setting: max_wal_size
+        initial: 256MB
+        envelope:
+          min: 64MB
+          max: 512MB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: coldstore.manifests
+              description: cold storage's manifests, one a shipment (shipment_id, type, source, name, rows_declared, rows_received, size, date_from, date_to, received_at); the days before the kept window planted for vitals and machine-readings by purpose 14's history
+            - name: coldstore.state
+              description: cold storage's state, read by its routes at each request; its baseline planted, delay_ms 0, uploads accept
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: machines
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: partners-api
+    what: cold storage's page and manifests (cold-storage), read only
+    how: http 8000
+    cadence: interactive
+  - from: interfaces
+    to: machines
+    what: purpose 14's ship-partitions, the day partitions read, the aggregate written and the shipped days dropped in vitals and biomed as mach_archive
+    how: postgresql 5432
+    cadence: at 00:40, resends hourly to 05:40
+  - from: interfaces
+    to: partners-api
+    what: purpose 14's shipments to the vault (cold-storage), POST /shipments with the customer's account key, cold_storage
+    how: http 8000
+    cadence: at 00:40, resends hourly to 05:40
+  - from: partners-api
+    to: partners-db
+    what: cold storage's manifests and state, as coldstore
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    machines: laptop
+    interfaces: laptop
+    partners-api: laptop
+    partners-db: laptop

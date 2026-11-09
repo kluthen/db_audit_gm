@@ -4,10 +4,17 @@
 intensity: 1.0
 connections:
   # from scenario: compose/interfaces/schedule.yaml
-  clinic-api:
-    driver: http
-    target: clinic-api:8000
-    credential: clinic_lookup
-    pool: 1
-    timeout: 10s
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool:
+      size: 2
+  # from scenario: compose/interfaces/schedule.yaml
+  sched:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: sched_interfaces
+    pool:
+      size: 1
 streams: []

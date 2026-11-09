@@ -12,16 +12,20 @@
 # the machinery's vitals and biomed through check-psql --node machines, as
 # gm_check; no job is ever run. POSIX sh (the postgres image has no python3).
 # Exit 0 fixed (with its witness, 12.3), 1 present, 2 cannot judge, 3 too
-# soon (remaining=, until the job's next run at 40 past the hours 00 to 05,
-# the customer's time: the GM adapts it when the job is moved). Written for
-# the clinic's names (the constants below); the GM adapts them as it copies
-# the purpose.
+# soon (remaining=, until the job's next run: RUN_MINUTE past the hours
+# RUN_FIRST_HOUR to RUN_LAST_HOUR, the customer's time, the job's cadence
+# "40 0-5 * * *" as shipped; the GM adapts the three with the job when it
+# moves it). Written for the clinic's names (the constants below); the GM
+# adapts them as it copies the purpose.
 INVARIANT=CA3
 PARTNERS=partners                    # the target part's database, on this node
 NODE=machines                        # the source parts' node
 VITALS=vitals                        # the source part's database
 BIOMED=biomed                        # the source_biomed part's database
 SOURCE=machines                      # the manifests' source (Shipment-Source, D381)
+RUN_MINUTE=40                        # ship-partitions' minute, local (its at:)
+RUN_FIRST_HOUR=0                     # its first hour of the night, local
+RUN_LAST_HOUR=5                      # its last hour, local (05:40, the last resend)
 PURPOSE=cold-storage-archive
 PSQL=/usr/local/lib/gm/check-psql
 
@@ -45,15 +49,16 @@ q() {
     fi
 }
 
-# The seconds until the job's next run, 40 past the hours 00 to 05 local
-# (the offset of vitals' settings).
+# The seconds until the job's next run, RUN_MINUTE past the hours
+# RUN_FIRST_HOUR to RUN_LAST_HOUR local (the offset of vitals' settings).
 next_run() {
-    q "$NODE" "$VITALS" <<'SQL'
+    q "$NODE" "$VITALS" -v minute="$RUN_MINUTE" -v first="$RUN_FIRST_HOUR" -v last="$RUN_LAST_HOUR" <<'SQL'
 SELECT ceil(extract(epoch FROM min(t) - now()))::int
-  FROM (SELECT date_trunc('hour', now()) + make_interval(hours => h) + interval '40 minutes' AS t
+  FROM (SELECT date_trunc('hour', now()) + make_interval(hours => h, mins => :minute) AS t
           FROM generate_series(0, 48) AS h) AS x, mach_vitals_settings s
  WHERE t > now()
-   AND extract(hour FROM (t AT TIME ZONE 'UTC') + make_interval(hours => s.utc_offset_hours)) BETWEEN 0 AND 5
+   AND extract(hour FROM (t AT TIME ZONE 'UTC') + make_interval(hours => s.utc_offset_hours))
+       BETWEEN :first AND :last
 SQL
 }
 

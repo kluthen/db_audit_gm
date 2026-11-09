@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), `domains/vet-machinery/producers/equipment/` with the scenario layer `compose/equipment/` (into `nodes/equipment/`), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), `domains/vet-machinery/producers/equipment/` with the scenario layer `compose/equipment/` (into `nodes/equipment/`), and the scenario layer `compose/interfaces/` alone, holding the purpose `vet-imaging-orders`'s runner material (into `nodes/interfaces/`); its composition record `composition.yaml` |
 
 ### Initiator's inputs, as given
 
@@ -244,7 +244,8 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` →
-  `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`.
+  `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`;
+  `scripts/` → `nodes/interfaces/scripts/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -266,7 +267,21 @@ No knobs.
 | `pms` | `records` | the practice software's work (vet-core's 21 streams and 2 jobs), as vet_app | postgresql 5432 | continuous, by the clinic's hours |
 | `equipment` | `machines` | the machines' and their systems' work (vet-machinery's 22 streams and the chart job), as mach_pacs_app, mach_vitals_app and mach_biomed_app | postgresql 5432 | continuous, the imaging by its day |
 | `equipment` | `clinic-api` | the identity job (each new worklist entry's animal and owner, every minute) and the census (the current stays, every five minutes), behind clinic_lookup | http 8000 | every minute, every five minutes |
-| `interfaces` | `clinic-api` | nothing yet (the idle integration engine; chunk 21 adds the imaging orders) | http 8000 | none |
+| `interfaces` | `records` | purpose 13's jobs post-imaging-orders and fetch-imaging-reports, the record as vet_interfaces | postgresql 5432 | every minute, every five minutes |
+| `interfaces` | `machines` | purpose 13's jobs, the worklist written and the finals and cancellations read as mach_orders in pacs | postgresql 5432 | every minute, every five minutes |
+
+### Purposes
+
+#### Purpose `vet-imaging-orders`
+
+Defined in `purposes/vet-imaging-orders/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `records/clinic` |
+| `target` | `machines/pacs` |
+| `runner` | `interfaces` |
 
 ## 4. Host topology it was designed for
 
@@ -357,7 +372,8 @@ None.
     `nodes/equipment/jobs.yaml`, `nodes/equipment/schedule.yaml`,
     `nodes/equipment/scripts/` (`lookup.py`)
   - `interfaces`: `nodes/interfaces/queries.yaml`,
-    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`
+    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`,
+    `nodes/interfaces/scripts/` (`imaging_orders.py`)
 - **Restored-backup data**, streamed in after deployment:
   - `machines`: `data/machines.sql` (the database `jobs` and pg_cron in it)
   - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
@@ -366,8 +382,12 @@ None.
     on `machines`, the database created with `CONNECT` revoked from
     `PUBLIC`, its `data/<database>/schema.sql`, then `vet-core`'s
     `data/keys.sql` ahead of its `data/<database>/load.sql`; then its
-    `data/cron.sql` on `machines`' `jobs`; then `vet-machinery`'s
-    `data/coherence.yaml` checks.
+    `data/cron.sql` on `machines`' `jobs`; then the purpose
+    `vet-imaging-orders`'s DDL (its `ddl.source`,
+    `purposes/vet-imaging-orders/material/source/ddl.sql`, in
+    `records/clinic`, and its `ddl.target`,
+    `purposes/vet-imaging-orders/material/target/ddl.sql`, in
+    `machines/pacs`); then `vet-machinery`'s `data/coherence.yaml` checks.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
