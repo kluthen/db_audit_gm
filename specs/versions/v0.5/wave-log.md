@@ -5807,3 +5807,43 @@ chunk is cut: chunk 32 inserted for a `coding-executor` (item 8), with
 the merge-order edge `32 ──> 17` on `model.py` and the partial edges
 `32 ──> 18, 19, 20, 21` (format check and fixture of purposes 5, 6, 9,
 14, 15, 16 only); wave 4 then holds six chunks, the model's maximum.
+
+### Plan revision before the chunks, 2026-11-09
+
+`spec-writer`: build plan v13 (98f9f30), spec D431 to D437:
+- D431: chunk 32 inserted into wave 4 for a `coding-executor` (W4 item
+  8: `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database
+  part, step (2c)), split 32a (2c) and 32b (the parts); edges `29 ──> 32`,
+  `32 ──> 17` (merge order on `model.py`), `32 ──> 18, 19, 20, 21`
+  (the format check and fixture of purposes 5, 6, 9, 14, 15, 16 only).
+- D432: O243 closed as option A (W4 item 7): `gm_check_read` per table
+  with row security, the checks' guard (exit 2), `postgres`' player
+  notes. Information for the owner, not a ruling.
+- D433: chunk 17's added scope: the `cron.sql` database refusal and the
+  two headers corrected (W4 item 2), `third_parties[].credentials:` with
+  `{{credential:<name>}}` placeholders in `partners.md` (W4 item 1).
+- D434: D335's register requirement binds played scenarios only;
+  `fixture-*` exempt, a fixture with a register checked in full.
+- D435: wave 4's fixtures and shared material (corrections 3, 4, 6, 7):
+  vet-core's centres' `left_out:` line a shared list added by chunk 19;
+  chunk 18's `test_purposes.py`; `office`'s DDL creating `office`,
+  `office_jobs`, `office_reader` only; the send-outs, vault, portal and
+  reports fixtures' nodes.
+- D436: monthly, yearly and windowed jobs run daily (or every 15
+  minutes), acting on their own date or window in the customer's local
+  time; master spec 12.2 reworded.
+- D437: gate G18 (wave 4's format items into formats.md and master spec
+  5 and 6), `spec-writer`'s after wave 4's gate, blocking release gate
+  item 6.
+Also: chunk 25 depends on 32 (its O243 note); chunk 27's `partners.md`
+line names the placeholders. `doc-ids lint spec`: 0 errors. D429, D430,
+O244 and O245 found reserved and unused, so recorded. No owner question.
+Wave 4 holds six chunks, the model's maximum. No documentalist peek for
+chunk 32 (no intent register); W4 is its capture.
+
+### Chunks 32, 17, 19 dispatched, 2026-11-09
+
+At the commit holding this entry: chunk 32 (`coding-executor`, 32a then
+32b), chunks 17 and 19 (`coding-leader`). Chunk 19 first among 18 to 21:
+its vet-core centres' `left_out:` line is the shared list the other
+fixtures take in when they merge after it.
