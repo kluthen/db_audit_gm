@@ -1,0 +1,142 @@
+# schedule.yaml of node lis, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/lis/schedule.yaml
+intensity: 4.0
+connections:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_app
+    pool:
+      size: 4
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  lab-instruments:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_instruments
+    pool:
+      size: 2
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  clinic-api:
+    driver: http
+    target: clinic-api:8000
+    credential: clinic_lookup
+    pool: 1
+    timeout: 10s
+streams:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.samples.receive
+    connection: lab
+    rate: 15/h
+    arrivals: even
+    shape: flat
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.courier.receive
+    connection: lab
+    rate: 40/h
+    arrivals: even
+    shape: courier-waves
+    concurrency: 2
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.analyser.run
+    connection: lab-instruments
+    rate: 5.7/h
+    arrivals: even
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.bench.result
+    connection: lab
+    rate: 8/h
+    arrivals: even
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.validate.technical
+    connection: lab
+    rate: 30/h
+    arrivals: even
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.release.urgent
+    connection: lab
+    rate: 10/h
+    arrivals: even
+    shape: flat
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.critical.call
+    connection: lab
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.notify
+    connection: lab
+    rate: 2/h
+    arrivals: even
+    shape: flat
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.qc.rerun
+    connection: lab
+    rate: 4/h
+    arrivals: even
+    shape: flat
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.amend
+    connection: lab
+    rate: 0.25/h
+    arrivals: poisson
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.orders.cancel
+    connection: lab
+    rate: 0.08/h
+    arrivals: poisson
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.add-on
+    connection: lab
+    rate: 0.1/h
+    arrivals: poisson
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.worklist
+    connection: lab
+    rate: 30/h
+    arrivals: even
+    shape: bench
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  - key: lab.order.view
+    connection: lab
+    rate: 25/h
+    arrivals: poisson
+    shape: bench
+    concurrency: 2
+shapes:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  bench:
+    days:
+      mon-sat:
+        hours:
+          00-06: 0.1
+          07-20: 1.0
+          21-23: 0.1
+      sun:
+        hours:
+          00-23: 0.1
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  courier-waves:
+    days:
+      mon-sat:
+        hours:
+          00-10: 0
+          '11': 1.0
+          12-16: 0
+          '17': 1.0
+          18-23: 0
+      sun:
+        hours:
+          00-23: 0
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/schedule.yaml
+  flat:
+    hours:
+      00-23: 1.0

@@ -1,0 +1,20 @@
+# Schedule of the integration engine, interfaces, a fragment (vet-lab-centre-
+# orders; v0.5 master spec 12.2 purpose 1; capture W4 items 0 and 3): the
+# record as vet_interfaces and the lab's order API as the centre's account
+# (the credential lab_centre, a call answered within ten seconds or retried
+# at the next run), each a script's connection; no stream (a transformer runs
+# jobs only). Written for the clinic's nodes (records, lab-api; database
+# clinic); the GM adapts the targets as it copies.
+connections:
+  clinic:                      # the source and the target: requests, consultations, ops.*
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 1}
+  lab-api:                     # the api part: POST /orders, GET /orders (the released-results feed)
+    driver: http
+    target: lab-api:8000
+    credential: lab_centre
+    pool: 1
+    timeout: 10s
+streams: []

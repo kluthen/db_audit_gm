@@ -1,0 +1,100 @@
+# vet-lab-critical-calls: critical values phoned within the hour (v0.5 master
+# spec 12.2, purpose 6; specs/versions/v0.5/clinic-purposes.md section 10;
+# capture W4 items 0 and 3 of specs/versions/v0.5/wave-log.md). A pushed
+# obligation whose receiver is the person owed the call: a critical result
+# owes a call, read back, within 60 minutes (lab rule 6); the call itself is
+# the staff's (vet-lab's lab.critical.call stream); the purpose is the
+# obligation's watch, a pg_cron job in the lab's own database, no runner.
+#
+# Material: material/target/ddl.sql (pg_cron, lab_watch, its grants, the ops
+# schema and the watch's schedule, run in lab by load-data at step (2b)).
+# Written for the clinic's names (node lab; database lab).
+id: vet-lab-critical-calls
+title: The lab's watch on critical results not read back within the hour, escalated to the on-call pathologist
+domains: [vet-lab]
+kind: pushed-obligation
+
+parts:
+  source: the lab's database, lab (vet-lab), where the results and their calls are
+  target: the same database, lab, where the watch runs (pg_cron) and writes its incidents and runs
+
+jobs:
+  - name: watch-critical-calls
+    key: lab-critical-calls            # the pg_cron job's name (cron.job.jobname, W4 item 3)
+    part: target
+    source: source
+    target: target
+    method: pg_cron
+    computes: >-
+      one set-based statement writing an ops.incidents row for each critical result measured more
+      than 60 minutes ago with no read-back call and no incident yet, and the run's ops.runs row
+    cadence: "*/10 * * * *"
+    connections:
+      target: lab_watch
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+
+invariants:
+  - id: CC1
+    statement: >-
+      Every critical result measured since the judged moment has a read-back call within 60
+      minutes, or an incident by the next watch run.
+    check: checks/cc1-called-or-escalated.sh
+    parameters: {}
+    witness: >-
+      two or three critical results a day, more where the scenario's critical limits are wider: a
+      critical result measured since the judged moment, its hour and the next watch run passed
+    judged: triggers
+  - id: CC2
+    statement: One incident per uncalled result.
+    check: checks/cc2-one-incident.sh
+    parameters: {}
+    witness: >-
+      every watch run after a miss: an incident opened since the judged moment and a watch run
+      after it (cron.job_run_details, cron.log_run on)
+    judged: runs
+
+data_moved:
+  - job: watch-critical-calls
+    reads: []
+    writes: [target:ops.incidents, target:ops.runs]
+
+roles:
+  - name: lab_watch
+    part: target
+    reads: [lab_results, lab_critical_calls, lab_order_tests, ops.runs, ops.incidents, ops.watermarks]
+    writes: [ops.incidents (insert), ops.runs (insert)]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    lab.ops.runs.id: internal
+    lab.ops.runs.purpose: internal
+    lab.ops.runs.job: internal
+    lab.ops.runs.started_at: internal
+    lab.ops.runs.finished_at: internal
+    lab.ops.runs.rows_read: internal
+    lab.ops.runs.rows_written: internal
+    lab.ops.incidents.id: internal
+    lab.ops.incidents.purpose: internal
+    lab.ops.incidents.job: internal
+    lab.ops.incidents.kind: internal
+    lab.ops.incidents.ref: internal
+    lab.ops.incidents.opened_at: internal
+    lab.ops.incidents.reason: internal
+    lab.ops.incidents.run_id: internal
+    lab.ops.watermarks.purpose: internal
+    lab.ops.watermarks.name: internal
+    lab.ops.watermarks.at: internal
+    lab.ops.watermarks.last_id: internal
+    lab.ops.watermarks.run_id: internal

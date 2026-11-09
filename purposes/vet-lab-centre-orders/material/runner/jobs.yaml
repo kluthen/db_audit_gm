@@ -1,0 +1,18 @@
+# Fixed-time operations of the integration engine, a fragment
+# (vet-lab-centre-orders; clinic-purposes.md section 5), in scenario time:
+# the closed consultations' requests posted every minute, the released
+# results fetched every five minutes. Each a script job holding the record's
+# connection and lab-api's (spec D303).
+jobs:
+  - name: post-lab-orders
+    key: lab-orders.post
+    connections:               # the script's names -> the schedule's connections
+      source: clinic
+      api: lab-api
+    at: "* * * * *"
+  - name: fetch-lab-results
+    key: lab-orders.fetch
+    connections:
+      source: clinic
+      api: lab-api
+    at: "*/5 * * * *"

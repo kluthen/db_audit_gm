@@ -1,0 +1,24 @@
+# api.yaml of node lab-api, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+endpoints:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/api/lab-api/api.yaml
+  orders:
+    hosts:
+    - lab-api
+    credentials:
+    - lab_centre
+    - lab_practices
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/api/lab-api/api.yaml
+  send_outs:
+    hosts:
+    - lab-api
+    credentials:
+    - lab_xlab
+connections:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/api/lab-api/api.yaml
+  lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_api
+    pool:
+      size: 4
