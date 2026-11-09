@@ -6313,3 +6313,29 @@ for 18 and 19 (resume notes `resume-18c.md`, `resume-19c.md`), 21 and 20
 next as slots free. Host-lock windows are reserved per hour in the
 scratchpad's `lock-slots.md` (19 at :37, 18 at :40 collide). G11.2 still
 with the owner.
+
+### Driver handover (third driver), 2026-11-09 22:22
+
+The third driver's run is ending early (its session was told to hand
+back). Nothing merged since `211c898`. Two chunk owners it started at
+22:05 are still LIVE, each waiting on its own fixture run; their reports
+will not reach this driver, so the next driver checks the branches and
+the scratchpad, and does not start a second owner on 18 or 19 while
+these are alive (`pgrep -af run-short-test`, `docker stack ls`, the
+reservations in the scratchpad's `lock-slots.md`):
+- **18** (`v0.5-c18-lab-round-trips`, WIP `dda2396`: check-sql booleans
+  and the grants' expected text fixed): its send-outs launcher holds the
+  22:40 slot. Note `resume-18c.md`.
+- **19** (`v0.5-c19-exchanges`, WIP `4565516`: the test now answers the
+  centre's own request, no wait ends the run): run1 ended exit 1 in
+  1703 s, stack removed; its rerun holds the 23:37 slot. Note
+  `resume-19c.md`.
+- **21** (`v0.5-c21-parts-flows`, WIP `e875634` + three uncommitted
+  check edits): no owner. Ready to start when a slot frees, with
+  `brief-21r2.md` + `resume-21c.md` (keep the bs5/io2 `True` fixes;
+  revert the io1 judged-set change, a spec departure; fix the plant).
+- **20**: not started; `brief-20.md` is current with plan v14; start
+  after 19 merges.
+- Rate rule from the owner: at most two chunk owners at once.
+- G11.2 still with the owner. The gate, G18 and the report to the owner
+  as in the second driver's handover above.
