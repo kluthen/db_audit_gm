@@ -123,7 +123,7 @@ none is a gate.
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
 | 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | merged into `main` (2026-11-05, b9fe67e) |
-| 4 | 17, 18, 19, 20, 21, 32 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16: six chunks, the model's maximum | planned |
+| 4 | 17, 18, 19, 20, 21, 32 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16: six chunks, the model's maximum | in progress |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
 ```
@@ -1500,7 +1500,7 @@ messages purpose 16's history, not the derivation's (O229, spec D404).
 
 ### Chunk 17 — `bastion` 0.5.0 and the data register
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: chunks 7, 11 and 12 to 16 (waves 2 and 3); chunk 32,
 merged into `v0.5-w4` before this chunk merges (merge order on
@@ -1613,7 +1613,7 @@ D433); the `cron.sql` database refusal (spec D433).
 
 ### Chunk 18 — The lab's round trips: purposes 1, 2, 3 and 6
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 6's format check and fixture only (in wave, spec D431)
@@ -1666,7 +1666,7 @@ per-part folders, and the `ops` block every purpose writes (`ops.runs`,
 
 ### Chunk 19 — The exchanges and the notifications: purposes 4 and 5
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 5's format check and fixture only (in wave, spec D431)
@@ -2397,7 +2397,8 @@ Architecture capture: none beyond spec D421.
 
 ### Chunk 32 — The purposes' extra parts, `pg_cron` jobs on a database part, and `gm_check`'s read policy
 
-Status: planned
+Status: merged (w4, 2b200c0)
+Record: 32a 70086b4, 32b c9061eb, merge 2b200c0. Outside the Files list: `.claude/skills/scenario-format/templates/scenario.yaml` (`purposes[].parts.runner` optional, needed for (c)), `fixture-composed`'s fx-intake `target-ddl.sql` (forces row security on `stays`) and README; step (2c) tested in `test_coherence.py`, `test_inject.py` unchanged; (choice) a `pg_cron` job's part needs its own `ddl.<part>`, a runner declared beside all-`pg_cron` jobs refused, `jobs[].source`/`target` single-valued (wave log, W4-f). Unit suite 1170 OK, 2 skipped; composed load 2 OK.
 Wave: 4
 Depends on: chunk 29 (wave 3: `inject.py`'s purposes' DDL step, the
 files' last holder); inserted at wave 4's preflight (spec D431), built

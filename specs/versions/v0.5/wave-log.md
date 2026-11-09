@@ -5847,3 +5847,53 @@ At the commit holding this entry: chunk 32 (`coding-executor`, 32a then
 32b), chunks 17 and 19 (`coding-leader`). Chunk 19 first among 18 to 21:
 its vet-core centres' `left_out:` line is the shared list the other
 fixtures take in when they merge after it.
+
+### Chunk 32 — merged (2b200c0), 2026-11-09
+
+`coding-executor`: 32a `70086b4`, 32b `c9061eb`, merged `--no-ff` at
+`2b200c0`, no conflict. Unit suite 1170 OK, 2 skipped (1151 before);
+`GM_TEST_COMPOSED_LOAD=1` 2 OK (22.5 s, the load 13.3 s): `gm_check_read`
+on fx-intake's `stays` (row security forced for the test), PERMISSIVE,
+SELECT, TO `gm_check`, `USING (true)`, its comment; the history read all
+six stays through `gm_src_source`; `gm_check` reads 6 rows, 0 after the
+policy is dropped. py_compile and the templates (PyYAML, `strict_load`)
+clean. No dependency added, no image touched.
+
+**W4-f, as built** (read by 17 to 21, 25, 27):
+- Step (2c), `tools/gm/inject.py`: `ComposedPlan.read_policies` lists
+  every database a `domains:` entry's `at:` holds, once each, in order;
+  `read_policy_sql()` runs as `postgres`, unseen, in one transaction,
+  on every table `relkind` r/p with `relrowsecurity` outside
+  `pg_catalog`, `information_schema` and `^gm_src_`; after the (2b)
+  loop, before `gm_check`'s role settings and the derivations.
+  `LoadResult.read_policies` is `[(node, db, n)]`, one line printed per
+  database, 0 included. Constants `CHECK_POLICY` (`gm_check_read`) and
+  `READ_POLICY_COMMENT`. (choice) runs on every held database without
+  checking for `gm_check` (every `postgres` node has it).
+- Parts, `tools/gm/model.py`: `EXTRA_PART_RE`
+  `^(source|runner)_([a-z][a-z0-9]*)$`, `base_part()`,
+  `is_database_part()`, `is_runner_part()`, `PG_CRON_METHOD`,
+  `RUNNER_PART`; `PART_TABLE_RE` accepts `source_<w>:`. Each runner part
+  is checked for its own jobs only; a job with no `part` is `runner`'s
+  (v0.4); a runner running none of the purpose's jobs needs no
+  `jobs.yaml`. (choice) a `pg_cron` job's part needs its own
+  `ddl.<part>`; a `pg_cron` job naming a runner is refused, and only a
+  `pg_cron` job may name a database part; a runner declared beside
+  all-`pg_cron` jobs is refused; `jobs[].source` and `target` stay
+  single-valued, any declared database part.
+- History sources (`inject.composed_plan`): the entry's database parts
+  other than `target` (`model.is_database_part`), each as
+  `gm_src_<part>`.
+- Templates: `purpose.yaml`'s `parts.runner` optional, placeholders
+  `<source_lab>`, `<runner_reports>`, `ddl:` keyed `<target>:`;
+  `scenario.yaml`'s `purposes[].parts.runner` optional.
+- Deviations (none against the spec): `templates/scenario.yaml` outside
+  the Files list (needed for (c); chunk 17 edits another section of it);
+  `fixture-composed`'s fx-intake DDL and README; v0.4's `policy_sql` on
+  the cron tables unchanged (no comment; none of v0.5's domain databases
+  holds `pg_cron`). The checks' guard (exit 2) is documented in
+  `postgres`' `docs/gm.md` and written by chunks 18 to 21. G18 carries
+  the parts and (2c).
+
+Chunk 18 takes the slot. Chunks 17 and 19 told nothing new: their
+briefs already wait on this merge.
