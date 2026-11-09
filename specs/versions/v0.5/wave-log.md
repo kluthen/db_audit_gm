@@ -6339,3 +6339,15 @@ reservations in the scratchpad's `lock-slots.md`):
 - Rate rule from the owner: at most two chunk owners at once.
 - G11.2 still with the owner. The gate, G18 and the report to the owner
   as in the second driver's handover above.
+
+### Driver resumed from the top-level session, 2026-11-09 22:25
+
+Background drivers kept ending mid-wave with their chunk owners' reports
+orphaned (they come back to the top-level session), so the owner's own
+session drives the rest of wave 4 itself, as the wave-execution skill
+intends. Chunk owners 18 (WIP `dda2396`) and 19 (WIP `4565516`) are still
+live, waiting on their fixture runs (slots 22:40 and 23:37 in
+`lock-slots.md`). Chunk 21: fresh owner dispatched now with
+`brief-21r2.md` + `resume-21c.md`. Chunk 20 waits for 19's merge. At
+most two owners actively working at once (owner's rate rule); owners
+idling on a launcher don't count.
