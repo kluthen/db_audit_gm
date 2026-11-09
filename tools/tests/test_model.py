@@ -2169,7 +2169,7 @@ class TestPurposeDefinitionRefusals(V04CopyTest):
         self.assertProblems(text, f"{self.L}: invariants[R1]: duplicate invariant id",
                             "purposes/fixture-sales-copy/checks/missing.sh: missing file "
                             "(invariants[R1].check, a file of checks/)",
-                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z][0-9]+",
+                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z]{{1,2}}[0-9]+",
                             "purposes/fixture-sales-copy/gm.md: missing file (invariants[r2].check")
 
     def test_data_moved(self):
@@ -3696,6 +3696,124 @@ class TestOwnersAloneLoader(OwnersAloneCase):
         self.assertNotIn("spec D421", problems)
 
 
+class BastionV05Test(V05CopyTest):
+    """fixture-v05-refusals with what bastion 0.5.0 serves (build plan chunk
+    17a; master spec 7.3; spec D363, D365, D433; capture W4 item 1): cold
+    storage's read endpoint on the partners' node, and the external lab's
+    own customer credential handed over with partners.md."""
+
+    PARTNERS_MD = "player/partners.md"
+
+    def console_endpoint(self):
+        self.edit_yaml(self.PARTNERS, lambda d: d["endpoints"].update(
+            coldstore_manifests={"hosts": ["cold-storage"]}))
+        for folder in ("routes", "db"):
+            source = self.scenario / "nodes/partners-api" / folder / "coldstore_shipments.py"
+            (source.parent / "coldstore_manifests.py").write_text(
+                source.read_text().replace("coldstore_shipments", "coldstore_manifests"))
+
+    def routes(self, routes):
+        self.on_node("bastion", lambda n: n["parameters"].update(web_routes=routes))
+
+    def hand_over(self, names=("xlab_customer",), entry="northfield-lab", text=None):
+        """names listed by entry, accepted by xlab_results, and partners.md
+        mapped on the bastion naming them (or holding `text`)."""
+        def listed(d):
+            next(t for t in d["third_parties"] if t["id"] == entry)["credentials"] = list(names)
+            self.node(d, "bastion")["seed_files"]["partners.md"] = self.PARTNERS_MD
+        self.scenario_yaml(listed)
+        self.edit_yaml(self.PARTNERS, lambda d: d["endpoints"]["xlab_results"].update(
+            credentials=["xlab_results", "xlab_customer"]))
+        if text is None:
+            text = "".join(f"- key: {{{{credential:{n}}}}}\n" for n in names)
+        (self.scenario / self.PARTNERS_MD).write_text("# Partners\n\n" + text)
+
+
+class TestBastionConsoleRoute(BastionV05Test):
+    """The one third party on the bastion's routes: cold storage's console
+    (master spec 7.3, spec D363; W4 item 1)."""
+
+    def test_the_console_route_accepted(self):
+        self.console_endpoint()
+        self.routes({"cold-storage": "cold-storage:8000"})
+        self.assertIn("cold-storage", self.load().data["nodes"][0]["parameters"]["web_routes"])
+
+    def test_the_console_on_another_port_refused(self):
+        self.console_endpoint()
+        self.routes({"cold-storage": "cold-storage:9000"})
+        self.assertRefused("nodes[bastion].parameters.web_routes.cold-storage: cold-storage is "
+                           "cold storage's hostname, which answers on port 8000")
+
+    def test_cold_storage_without_its_read_endpoint_refused(self):
+        self.routes({"cold-storage": "cold-storage:8000"})
+        self.assertRefused("web_routes.cold-storage: cold-storage is a third party's hostname "
+                           "(an alias on the partners' api node): no third party is on the "
+                           "bastion's routes but cold storage's console")
+
+    def test_another_partners_hostname_refused(self):
+        self.console_endpoint()
+        self.routes({"northfield-lab": "northfield-lab:8000"})
+        self.assertRefused("web_routes.northfield-lab: northfield-lab is a third party's "
+                           "hostname")
+
+    def test_a_third_partys_node_refused(self):
+        self.console_endpoint()
+        self.routes({"partners": "partners-api:8000"})
+        self.assertRefused("web_routes.partners: partners-api is a third party's node: no third "
+                           "party is on the bastion's routes")
+
+
+class TestHandedOverCredentials(BastionV05Test):
+    """third_parties[].credentials, partners.md's placeholders (access model
+    3 and 6; spec D365, D433; W4 item 1)."""
+
+    def test_handed_over_accepted(self):
+        self.hand_over()
+        sc = self.load()
+        self.assertEqual(model.handed_over_credentials(sc.data), ["xlab_customer"])
+        self.assertEqual(model.partners_placeholders(
+            (self.scenario / self.PARTNERS_MD).read_text()), {"xlab_customer": 3})
+
+    def test_a_placeholder_no_entry_lists_refused(self):
+        self.hand_over(text="- {{credential:xlab_customer}}\n- {{credential:lab_secret}}\n")
+        self.assertRefused("player/partners.md:4: {{credential:lab_secret}} names a credential "
+                           "no third_parties: entry lists")
+
+    def test_a_listed_credential_partners_md_does_not_name_refused(self):
+        self.hand_over(text="No key here.\n")
+        self.assertRefused("third_parties[northfield-lab].credentials: xlab_customer is not "
+                           "named in partners.md (player/partners.md) as "
+                           "{{credential:xlab_customer}}")
+
+    def test_without_partners_md_refused(self):
+        self.hand_over()
+        self.on_node("bastion", lambda n: n["seed_files"].pop("partners.md"))
+        self.assertRefused("xlab_customer is not named in partners.md (the bastion maps no "
+                           "partners.md)")
+
+    def test_one_no_endpoint_under_the_hostname_accepts_refused(self):
+        self.hand_over(names=("xlab_customer",), entry="cold-storage")
+        self.assertRefused("third_parties[cold-storage].credentials: xlab_customer: no endpoint "
+                           "answering under cold-storage accepts it")
+
+    def test_partners_backend_refused(self):
+        self.hand_over(names=("partners_backend",))
+        self.assertRefused("third_parties[northfield-lab].credentials: partners_backend is the "
+                           "partners' back end's own credential")
+
+    def test_a_vault_credential_refused(self):
+        self.hand_over(names=("cold_storage",), entry="cold-storage")
+        self.assertRefused("third_parties[cold-storage].credentials: cold_storage is node db's "
+                           "vault_credential")
+
+    def test_public_and_an_empty_list_refused(self):
+        self.hand_over(names=("public",))
+        self.assertRefused("third_parties[northfield-lab].credentials: public is never a "
+                           "credential's name")
+        self.scenario_yaml(lambda d: d["third_parties"][0].update(credentials=[]))
+        self.assertRefused("third_parties[northfield-lab].credentials: not a non-empty list")
+
+
 class TestRegisterDiffRefusals(V05CopyTest):
     """register_diff: (master spec 6.3, 6.8; spec D353)."""
 
@@ -3853,6 +3971,35 @@ class TestV05Composed(V05ComposedTest):
                            "maps partner to public, but producer's job post-lab-orders connection "
                            "partner (xlab) calls with xlab_results")
 
+    def test_an_http_connection_per_hostname(self):
+        """Chunk 33's (c) (spec D438): partner_central, one of the partner
+        part's hostnames, checked as partner is against the runner's job."""
+        def purpose(d):
+            conns = d["jobs"][0]["connections"]
+            conns["partner_central"] = conns.pop("partner")
+        def runner(conn):
+            def change(d):
+                conns = next(j for j in d["jobs"] if j["name"] == "post-lab-orders")[
+                    "connections"]
+                conns.pop("partner", None)
+                conns["partner_central"] = conn
+            return change
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", purpose)
+        self.edit_yaml(self.JOBS, runner("xlab"))
+        self.load()
+        p = "scenario.yaml: purposes[fx-lab-orders].parts.runner"
+        self.edit_yaml(self.JOBS, runner("app"))
+        self.assertRefused(f"{p}: producer's job post-lab-orders connection partner_central (app) "
+                           "is not an http connection, but purpose fx-lab-orders names "
+                           "partner_central for the partner part it reaches")
+        self.edit_yaml(self.JOBS, runner("xlab"))
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", lambda d: d["jobs"][0][
+            "connections"].update(partner_central="centres_customer"))
+        self.assertRefused(f"{p}: purpose fx-lab-orders's job post-lab-orders maps "
+                           "partner_central to centres_customer, but producer's job "
+                           "post-lab-orders connection partner_central (xlab) calls with "
+                           "xlab_results")
+
     def test_public_for_an_endpoint_with_no_credential(self):
         self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
                           lambda d: d["jobs"][0]["connections"].update(partner="public"))
@@ -3906,10 +4053,64 @@ class TestPurposeV05Refusals(V05ComposedTest):
             d["jobs"][0]["connections"]["api"] = "Not-A-Key"
         text = self.purpose_problems(change)
         self.assertProblems(text, f"{self.L}: jobs[post-lab-orders].connections.receiver: an HTTP "
-                            "connection is named for the part it reaches, and the purpose "
-                            "declares no receiver part",
+                            "connection is named for the part it reaches (receiver, or "
+                            "receiver_<w> for one of its hostnames), and the purpose declares "
+                            "no receiver part",
                             f"{self.L}: jobs[post-lab-orders].connections.api: 'Not-A-Key' is "
                             "not the HTTP credential it calls with")
+
+    def test_an_http_connection_per_hostname(self):
+        """Chunk 33's (c) (spec D438): <part>_<w>, one connection per hostname
+        of a part, checked as its part; any other name a database's."""
+        def change(conns):
+            def apply(d):
+                d["jobs"][0]["connections"].update(conns)
+            return apply
+        p = f"{self.L}: jobs[post-lab-orders].connections"
+        self.assertEqual(self.purpose_problems(change({
+            "partner_central": "centres_customer", "partner_south": "centres_customer",
+            "api_lookup": "public", "partners": "Not-Checked", "partner_": "x-y",
+            "receivers_x": "a-b"})), "")
+        self.setUp()
+        text = self.purpose_problems(lambda d: (change({
+            "partner_central": "centres_customer", "receiver_authority": "authority_customer"})(d),
+            d["parts"].pop("partner"), d["jobs"][0]["connections"].pop("partner")))
+        self.assertProblems(text, f"{p}.partner_central: an HTTP connection is named for the part "
+                            "it reaches (partner, or partner_<w> for one of its hostnames), and "
+                            "the purpose declares no partner part",
+                            f"{p}.receiver_authority: an HTTP connection is named for the part "
+                            "it reaches (receiver, or receiver_<w>")
+        self.setUp()
+        self.assertIn(f"{p}.partner_central: 'Centres-Key' is not the HTTP credential it calls "
+                      "with", self.purpose_problems(change({"partner_central": "Centres-Key"})))
+
+    def test_invariant_ids(self):
+        """Chunk 33's (a) (spec D438): one or two capitals, then digits."""
+        def ids(*values):
+            def apply(d):
+                first = d["invariants"][0]
+                d["invariants"] = [dict(first, id=values[0])] + [
+                    dict(first, id=v, judged="runs") for v in values[1:]]
+            return apply
+        self.assertEqual(self.purpose_problems(ids("LO1", "EX5", "R1")), "")
+        text = self.purpose_problems(ids("E1", "r2", "ABC1", "EX"))
+        self.assertProblems(text, f"{self.L}: invariants[r2].id: 'r2' is not [A-Z]{{1,2}}[0-9]+, "
+                            "one or two capitals then digits (LO1, R1)",
+                            f"{self.L}: invariants[ABC1].id: 'ABC1' is not",
+                            f"{self.L}: invariants[EX].id: 'EX' is not")
+
+    def test_data_moved_reads(self):
+        """Chunk 33's (b) (spec D438): the scenario's classification key, an
+        ops column's four parts included."""
+        def reads(*keys):
+            return lambda d: d["data_moved"][0].update(reads=list(keys))
+        self.assertEqual(self.purpose_problems(reads("clinic.ops.notifications.payload",
+                                                     "clinic.owners.name")), "")
+        text = self.purpose_problems(reads("owners.name", "a.b.c.d.e"))
+        self.assertProblems(text, f"{self.L}: data_moved[post-lab-orders].reads: 'owners.name' is "
+                            "not a classification key <database>.<table>.<column> "
+                            "(<database>.<schema>.<table>.<column> outside public",
+                            f"{self.L}: data_moved[post-lab-orders].reads: 'a.b.c.d.e' is not")
 
     def test_periodic(self):
         self.assertIn(f"{self.L}: jobs[weekly-orders].feeder: weekly-orders is not another job",
@@ -3963,6 +4164,41 @@ class TestPurposeV05Refusals(V05ComposedTest):
                             "purposes/fx-lab-orders/material/api/lab-api/db/orders.py: missing",
                             "purposes/fx-lab-orders/material/api/lab-api/notes.txt: not endpoint "
                             "material")
+
+    def test_endpoint_api_yaml(self):
+        """Chunk 33's (d) (spec D438, capture W4 item 0): material/api/<node>/
+        api.yaml, optional, checked as a domain's, naming exactly routes/."""
+        node = self.catalog_root / self.PURPOSE / "material/api/lab-api"
+        for folder in ("routes", "db"):
+            (node / folder / "orders.py").rename(node / folder / "exchanges.py")
+        api = {"endpoints": {"exchanges": {"hosts": ["lab-api"],
+                                           "credentials": ["clinic_centres"]}},
+               "connections": {"clinic-exchanges": {
+                   "driver": "sql/postgresql", "target": "db:5432/clinic",
+                   "role": "vet_exchange", "pool": {"size": 2}}}}
+        (node / "api.yaml").write_text(yaml.safe_dump(api))
+        self.assertEqual(self.purpose_problems(), "")
+        rel = "purposes/fx-lab-orders/material/api/lab-api"
+        api["streams"] = {}
+        api["endpoints"]["ghost"] = {"hosts": ["lab-api"]}
+        (node / "api.yaml").write_text(yaml.safe_dump(api))
+        for folder in ("routes", "db"):
+            (node / folder / "extra.py").write_text("")
+        (node / "README.md").write_text("x")
+        text = self.purpose_problems()
+        self.assertProblems(text, f"{rel}/api.yaml: streams: not a key of a api.yaml fragment "
+                            "(endpoints, connections)",
+                            f"{rel}/api.yaml: endpoints.ghost: routes/ghost.py does not exist "
+                            "(api.yaml names exactly the endpoints of routes/)",
+                            f"{rel}/routes/extra.py: not an endpoint of api.yaml",
+                            f"{rel}/README.md: not endpoint material (api.yaml, routes/, db/)")
+        self.assertNotIn("exchanges", text)
+        (node / "api.yaml").write_text("endpoints:\n  exchanges: {hosts: lab-api}\n"
+                                       "endpoints: {}\n")
+        self.assertIn(f"{rel}/api.yaml: cannot be read", self.purpose_problems())
+        (node / "api.yaml").write_text("endpoints:\n  exchanges: {hosts: lab-api}\n")
+        self.assertIn(f"{rel}/api.yaml: endpoints.exchanges.hosts: not a non-empty list",
+                      self.purpose_problems())
 
     def test_classification(self):
         text = self.purpose_problems(lambda d: d["classification"]["columns"].update(
@@ -4397,6 +4633,289 @@ class TestDomainCron(V05ComposedTest):
         sc = self.load()
         self.assertEqual(model.node_pg_cron(sc.node("db"), self.scenario),
                          (True, "shop", "nodes/db/postgresql.conf"))
+
+    def test_a_job_in_a_database_at_does_not_place_refused(self):
+        """W4 item 2: read from the catalogue, never renamed."""
+        self.preload()
+        (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
+            "-- two jobs\nSELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', "
+            "'clinic', 'clinic_app');\nSELECT cron.schedule_in_database(\n  'fx-purge', "
+            "'0 4 * * *', $job$SELECT f(1, 2)$job$,\n  database => 'archive');\n")
+        self.assertRefused("scenario.yaml: domains[fx-clinic]: domains/fx-clinic/data/cron.sql:3: "
+                           "job fx-purge runs in database archive, which this entry's at: does "
+                           "not place on db (it places clinic): a cron.sql is read from the "
+                           "catalogue and names its jobs' databases as written, so at: must "
+                           "name them so")
+
+    def test_a_non_literal_database_refused_by_check_domain_dir(self):
+        (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
+            "SELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', "
+            "current_database(), 'clinic_app');\n")
+        self.assertIn("domains/fx-clinic/data/cron.sql:1: job fx-tidy: its database "
+                      "current_database() is not a single-quoted literal", self.domain_problems())
+
+    def test_the_catalogues_cron_files_name_their_databases(self):
+        self.assertEqual([(job, db) for _, job, db, _ in model.cron_jobs(
+            (REPO_ROOT / "domains/vet-machinery/data/cron.sql").read_text())],
+            [("vitals-partitions", "vitals"), ("readings-partitions", "biomed"),
+             ("events-partitions", "biomed")])
+        self.assertEqual([(job, db) for _, job, db, _ in model.cron_jobs(
+            (REPO_ROOT / "domains/vet-portal/data/cron.sql").read_text())],
+            [("portal.sessions.purge", "portal")])
+
+
+class TestPublicFolder(V05ComposedTest):
+    """A public endpoint's folder plants no state (spec D369)."""
+
+    def test_a_public_data_sql_refused(self):
+        public = self.catalog_root / self.DOMAIN / "producers/public/site"
+        public.mkdir(parents=True)
+        (public / "data.sql").write_text("CREATE TABLE x (id int);\n")
+        self.assertIn("domains/fx-clinic/producers/public/site/data.sql: a public endpoint's "
+                      "folder plants no state: a partner's data.sql lives in "
+                      "producers/partners/<prefix>/ (spec D369)", self.domain_problems())
+        self.assertFalse([p for p in model._partner_data_files(self.catalog_root / self.DOMAIN)
+                          if "public" in p.parts])
+
+
+FIXTURE_REGISTER = FIXTURES / "fixture-register"
+FIXTURE_CLINIC_LOAD = FIXTURES / "fixture-clinic-load"
+
+
+class RegisterCopyTest(RefusalAsserts, ScenarioCopyTest):
+    """A fresh copy of fixture-register: the six clinic domains composed,
+    with the data register the data-register skill generated (build plan
+    chunk 17b; master spec 13.2, 13.3; capture W4 item 1; spec D434)."""
+
+    REGISTER = "gm/data-register.yaml"
+    HANDOUT = "player/data-register.md"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-register"
+        shutil.copytree(FIXTURE_REGISTER, self.scenario)
+
+    def register(self):
+        return yaml.safe_load((self.scenario / self.REGISTER).read_text())
+
+    def write_register(self, change):
+        reg = self.register()
+        change(reg)
+        (self.scenario / self.REGISTER).write_text(yaml.safe_dump(reg, sort_keys=False))
+
+    def redigest(self):
+        """The skill's step 3 again: every input's digest, after an edit
+        made on purpose."""
+        sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        inputs = model.register_inputs(sc, self.scenario)
+        self.write_register(lambda r: r.update(generated_from={
+            rel: model.file_digest(path) for rel, path in inputs.items()}))
+
+    def entry(self, reg, eid):
+        return next(e for e in reg["entries"] if e["id"] == eid)
+
+
+class TestRegisterFixture(RegisterCopyTest):
+
+    def test_loads_checked_in_full(self):
+        sc = self.load()
+        self.assertTrue(sc.data["id"].startswith("fixture-"))
+        reg = self.register()
+        self.assertTrue(15 <= len(reg["entries"]) <= 25, len(reg["entries"]))
+        self.assertTrue(reg["internal"])
+        self.assertEqual(sorted(reg["generated_from"]),
+                         sorted(model.register_inputs(sc.data, self.scenario)))
+        self.assertIn("catalog/domains/vet-core/data/register.yaml", reg["generated_from"])
+        handout = (self.scenario / self.HANDOUT).read_text()
+        for e in reg["entries"]:
+            self.assertIn(f"### {e['id']}: ", handout)
+        self.assertEqual(self.node_seed("data-register.md"), self.HANDOUT)
+
+    def node_seed(self, fname):
+        sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        return self.node(sc, "bastion")["seed_files"].get(fname)
+
+    def test_every_classified_column_in_exactly_one_entry(self):
+        reg = self.register()
+        classes = yaml.safe_load((self.scenario / "data/classification.yaml").read_text())[
+            "columns"]
+        listed = [k for e in reg["entries"] for cls in ("personal", "customer-linked")
+                  for k in e["data"].get(cls) or []]
+        self.assertEqual(sorted(listed), sorted(k for k, v in classes.items()
+                                                if v in ("personal", "customer-linked")))
+
+
+class TestRegisterRefusals(RegisterCopyTest):
+
+    STALE = "stale register: regenerate with the data-register skill"
+
+    def test_a_stale_digest_refused(self):
+        with (self.scenario / "scenario.yaml").open("a") as f:
+            f.write("# an edit after the register was generated\n")
+        self.assertRefused("gm/data-register.yaml: generated_from: scenario.yaml changed since "
+                           f"the register was generated (its digest differs): {self.STALE}")
+
+    def test_an_answer_key_edit_makes_it_stale(self):
+        with (self.scenario / "gm/answer-key.yaml").open("a") as f:
+            f.write("# edited\n")
+        self.assertRefused(f"generated_from: gm/answer-key.yaml changed since the register was "
+                           f"generated (its digest differs): {self.STALE}")
+
+    def test_an_input_not_listed_refused(self):
+        self.write_register(lambda r: r["generated_from"].pop("composition.yaml"))
+        self.assertRefused(f"generated_from: composition.yaml not listed, an input of the "
+                           f"register: {self.STALE}")
+        self.write_register(lambda r: r["generated_from"].update(
+            {"player/story.md": "sha256:" + "0" * 64}))
+        self.assertRefused(f"generated_from: player/story.md is no input of the register")
+
+    def test_a_column_in_no_entry_refused(self):
+        def drop(r):
+            e = self.entry(r, "vet-core-owners")
+            self.dropped = e["data"]["personal"].pop(0)
+        self.write_register(drop)
+        self.assertRefused(f"gm/data-register.yaml: personal column {self.dropped} is in no "
+                           "entry: a generation error")
+
+    def test_a_column_under_another_class_refused(self):
+        def move(r):
+            e = self.entry(r, "vet-core-owners")
+            self.moved = e["data"]["personal"].pop(0)
+            e["data"].setdefault("customer-linked", []).append(self.moved)
+        self.write_register(move)
+        self.assertRefused(f"entries[vet-core-owners].data: {self.moved} listed as "
+                           "customer-linked, which the classification classes personal")
+
+    def test_an_activity_left_out_refused(self):
+        self.write_register(lambda r: r.update(internal=[
+            i for i in r["internal"] if i["id"] != "vet-core-operations"]))
+        self.assertRefused("activity vet-core-operations (domains/vet-core) is in no entry or "
+                           "internal line")
+
+    def test_a_location_in_no_where_refused(self):
+        def drop(r):
+            for record in r["entries"] + r["internal"]:
+                record["where"] = [w for w in record["where"] if w.get("at") != "records/portal"]
+            r["index"].pop("records/portal")
+        self.write_register(drop)
+        self.assertRefused("governance.classes.personal location records/portal is in no "
+                           "entry's where", "records/portal holds classified tables but is in "
+                           "no entry's where")
+
+    def test_an_outbound_flow_missing_refused(self):
+        def drop(r):
+            for e in r["entries"]:
+                for s in e["shared_with"]:
+                    s.pop("flow", None)
+        self.write_register(drop)
+        self.assertRefused("governance.classes.personal's outbound flow to messaging is no "
+                           "entry's shared_with flow")
+
+    def test_the_index_against_the_wheres(self):
+        self.write_register(lambda r: r["index"]["records/clinic"].pop())
+        self.assertRefused("gm/data-register.yaml: index.records/clinic:")
+
+    def test_the_handout_missing_refused(self):
+        (self.scenario / self.HANDOUT).unlink()
+        self.assertRefused("player/data-register.md: missing file (the data register handout")
+
+    def test_the_handout_unmapped_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: missing (the bastion maps "
+                           "data-register.md to governance.register player/data-register.md")
+
+    def register_fault(self, diff):
+        """A local register fault (a seed-file change of the bastion's
+        data-register.md) planted on the bastion, its answer-key entry
+        carrying `diff`."""
+        src = self.scenario / "faults/fixture-random-page-cost"
+        dst = self.scenario / "faults/fixture-register-change"
+        shutil.copytree(src, dst)
+        def fault(d):
+            d["id"] = "fixture-register-change"
+            d["family"] = "security"
+            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.5.0"]}]
+            d["injection"]["seed_changes"] = [{"file": "data-register.md",
+                                               "change": "the handout as the skill wrote it"}]
+        self.edit_yaml("faults/fixture-register-change/fault.yaml", fault)
+        def scen(d):
+            d["fault_instances"].append({"id": "f2", "fault": {
+                "id": "fixture-register-change", "version": "0.1.0"}, "node": "bastion",
+                "parameters": {}, "visibility": "hidden"})
+            d["difficulty"]["score"] += 1
+        self.edit_yaml("scenario.yaml", scen)
+        def key(k):
+            entry = dict(k["instances"][0], instance="f2", register_diff=diff)
+            entry["sealed_check"] = dict(entry["sealed_check"],
+                                         script="faults/fixture-register-change/checks/fixed.sh")
+            k["instances"].append(entry)
+        self.edit_yaml("gm/answer-key.yaml", key)
+
+    def test_a_declared_absence_passes(self):
+        self.register_fault([{"absent": True}])
+        (self.scenario / self.HANDOUT).unlink()
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertTrue(model.register_absent(self.load().answer_key))
+
+    def test_a_register_fault_unmapped_without_a_declared_absence_refused(self):
+        self.register_fault([{"entry": "vet-core-owners", "field": "shared_with", "true": "a",
+                              "handed_out": "b"}])
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "data-register.md"))
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: missing (the bastion maps "
+                           "data-register.md to governance.register")
+
+    def test_a_declared_absence_with_the_handout_mapped_refused(self):
+        self.register_fault([{"absent": True}])
+        self.redigest()
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: mapped, but the answer "
+                           "key declares the register absent",
+                           "player/data-register.md: present, but the answer key declares the "
+                           "register absent")
+
+    def test_a_register_diff_against_the_true_register(self):
+        self.register_fault([{"entry": "vet-core-nothing", "field": "where", "true": "a",
+                              "handed_out": "b"},
+                             {"entry": "vet-core-owners", "field": "tables", "true": "a",
+                              "handed_out": "b"}])
+        self.redigest()
+        missing = self.assertRefused(
+            "register_diff[0].entry: 'vet-core-nothing' is no entry of gm/data-register.yaml",
+            "register_diff[1].field: 'tables' is not one of purpose, people, data, where, "
+            "shared_with, kept_for")
+        self.assertFalse([m for m in missing if "stale" in m], missing)
+
+
+class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
+    """A played scenario listing domains: has a register; a fixture- one is
+    exempt (spec D434)."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-clinic-load"
+        shutil.copytree(FIXTURE_CLINIC_LOAD, self.scenario)
+
+    def test_a_fixture_without_a_register_accepted(self):
+        self.assertNotIn("governance", self.load().data)
+
+    def test_a_played_scenario_without_one_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: d.update(id="clinic-load"))
+        self.edit_yaml("gm/answer-key.yaml", lambda d: d["scenario"].update(id="clinic-load"))
+        self.assertRefused("scenario.yaml: governance.register: missing: a scenario listing "
+                           "domains: hands the players a data register, generated with the "
+                           "data-register skill")
+
+    def test_a_handout_mapped_without_a_register_refused(self):
+        (self.scenario / "player/data-register.md").write_text("# Register\n")
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].update(
+            {"data-register.md": "player/data-register.md"}))
+        self.assertRefused("nodes[bastion].seed_files.data-register.md: a scenario without "
+                           "governance.register hands the players no data register")
 
 
 class TestPartsNodeCreates(V05ComposedTest):

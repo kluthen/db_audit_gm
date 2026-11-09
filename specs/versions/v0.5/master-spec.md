@@ -2688,10 +2688,13 @@ format gains:
    third party's node. From v0.5 a pushed obligation's `receiver` is a
    declared third party too.
 3. **HTTP connections** in a job's `connections:`, named for the part
-   they reach.
-4. **Endpoint and receiver material**: `material/api/<node>/routes/` and
-   `db/` for the endpoints a purpose brings to a customer's `api` node,
-   the layout of a domain's `producers/api/`. A receiver with no stream
+   they reach; a part reached under several hostnames (the three
+   centres) takes one connection per hostname, `<part>_<w>`
+   (`partner_central`), each checked as its part (spec D438).
+4. **Endpoint and receiver material**: `material/api/<node>/` (its
+   `api.yaml`, `routes/` and `db/`) for the endpoints a purpose brings
+   to a customer's `api` node, the layout of a domain's
+   `producers/api/` (spec D438). A receiver with no stream
    of its own (the authority, the head office) keeps its stub in the
    purpose, as v0.4's export declarations keep `material/receiver/`; a
    partner with streams of its own (the practices, the external lab, the
@@ -2707,7 +2710,8 @@ format gains:
    v0.4), `triggers` (pushed obligations' deadlines), `end-to-end`,
    `code` (the sealed check reading the code, for a periodic report's
    own logic) or `definition`. A round trip names exactly one
-   `end-to-end` invariant.
+   `end-to-end` invariant: a purpose carrying two names two, one each
+   (the centres': EX5 out, EX2 in; spec D440).
 7. **The classes of its tables**: a purpose whose target belongs to no
    domain (`office`), or which adds tables to a domain's database,
    classes their columns in its own `classification:` entry, as a domain
@@ -2847,10 +2851,11 @@ working days resends with the same `exchange_key`, then escalates. The
 purpose's endpoints on `clinic-api` (`POST /exchanges`, `.../answer`,
 `.../report`) only answer. Trace: `exchanges`, `ops.exchange_messages`,
 `ops.incidents`, `ops.runs`.
-- EX1, EX2 (triggers): outbound received, inbound answers and reports posted, within 10 minutes.
+- EX1 (triggers): each outbound exchange received by its centre within 10 minutes.
+- EX2 (end-to-end, the inbound trip): each centre's request recorded at once, its answer and report posted within 10 minutes of the vets' (spec D440).
 - EX3 (runs): one key per exchange, each answer on its own exchange.
 - EX4 (runs): only this animal's record and its owner's contact.
-- EX5 (end-to-end): each outbound exchange answered within a working day, or chased then escalated.
+- EX5 (end-to-end, the outbound trip): each outbound exchange answered within a working day, or chased then escalated.
 
 **5. `vet-notifiable-diseases`**, pushed obligation; fits `vet-core`,
 `vet-lab`. Triggers: a lab notification (any customer's) and a vet's

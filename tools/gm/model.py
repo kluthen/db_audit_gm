@@ -17,6 +17,7 @@ and all of them are listed, not just the first.
 
 import ast
 import datetime
+import hashlib
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -103,12 +104,12 @@ PG_CRON_METHOD = "pg_cron"          # a job run by pg_cron in the database part 
 PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation", "round-trip")
 JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
 TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
-INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
+# One or two capitals, then digits (v0.4's R1, v0.5's LO1 and EX5; spec D438).
+INVARIANT_ID_RE = re.compile(r"^[A-Z]{1,2}[0-9]+$")
 JUDGES = ("runs", "triggers")
 CLASSES = ("personal", "customer-linked", "internal")
 UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads as locations: any
 SQL_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
-CLASSIFICATION_KEY_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
 RECEIVER_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 PART_TABLE_RE = re.compile(r"^([a-z]+(?:_[a-z][a-z0-9]*)?):"
                            r"([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
@@ -1546,7 +1547,10 @@ def _check_web_routes(nodes, bricks, out, http=None):
     """web-routes parameters against the topology's web interfaces, and the
     web front's published port (v0.2 capture W1, item 3): a node whose brick
     has a web-routes parameter (the bastion) publishes it whatever its routes,
-    the front running in every game (v0.4, D224). Returns the route names."""
+    the front running in every game (v0.4, D224). No third party's node or
+    hostname is routed, but the hostname cold storage's read endpoint answers
+    under, on port 8000 (master spec 7.3, spec D363; W4 item 1). Returns the
+    route names."""
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     interfaces = {}                   # (node, port) -> provides entry with a web_path
@@ -1585,9 +1589,18 @@ def _check_web_routes(nodes, bricks, out, http=None):
                                "is on the bastion's routes (master spec 10.2, spec D363)")
                     continue
                 if http is not None and tnode in http.aliases:
+                    if tnode in http.consoles:
+                        # The one exception: cold storage's console, its page
+                        # and manifests, read only (master spec 7.3, D363).
+                        if port != API_PORT:
+                            out.append(f"{label}: {rp}: {tnode} is cold storage's hostname, "
+                                       f"which answers on port {API_PORT}")
+                        continue
                     out.append(f"{label}: {rp}: {tnode} is a third party's hostname (an alias on "
                                "the partners' api node): no third party is on the bastion's "
-                               "routes (master spec 10.2, spec D363)")
+                               "routes but cold storage's console, the hostname its "
+                               f"{CONSOLE_ENDPOINT} endpoint answers under (master spec 7.3, "
+                               "10.2, spec D363)")
                     continue
                 if tnode not in by_name:
                     out.append(f"{label}: {rp}: {tnode} is not a node")
@@ -1771,7 +1784,11 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
                 elif isinstance(change, dict) and change.get("file") in seed_optional(brick.data) \
-                        and change.get("file") not in _dict(by_name[target].get("seed_files")):
+                        and change.get("file") not in _dict(by_name[target].get("seed_files")) \
+                        and not (change.get("file") == REGISTER_SEED_FILE
+                                 and _dict(data.get("governance")).get("register")):
+                    # a register fault left unmapped is the register's absence (T305),
+                    # which _check_data_register holds to the answer key's {absent: true}
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"which node {target} does not seed (an optional seed file of "
                                f"brick {brick.id}; v0.4 capture W1 item 1)")
@@ -2513,15 +2530,16 @@ def check_classification(path, rel, out, domain_databases=None):
 
 
 def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=False,
-                     partner=False):
+                     partner=False, public=False):
     """A folder of fragments (formats, "Purpose folder" and "Domain
     folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
     file's top-level keys holding only what they add, and builders/ or
     scripts/ folders; with `api`, an api node's api.yaml fragment, routes/
     and db/ (W1 items 5 and 7); without `scheduler`, those only; with
     `partner`, a partner folder's one data.sql, its state in the partners'
-    database (v0.5 W2 item 1). A queries fragment is checked as a node's
-    repository."""
+    database (v0.5 W2 item 1); with `public`, a public/<name>/ folder, whose
+    data.sql is refused: a partner's state lives in partners/<prefix>/ (spec
+    D369). A queries fragment is checked as a node's repository."""
     rel = _rel(folder, base)
     files, folders = (), ()
     if scheduler:
@@ -2539,6 +2557,10 @@ def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=Fal
             continue
         if partner and entry.is_file() and entry.name == PARTNER_DATA_FILE:
             continue                         # read by the domain's SECURITY DEFINER check
+        if public and entry.name == PARTNER_DATA_FILE:
+            out.append(f"{shown}: a public endpoint's folder plants no state: a partner's "
+                       f"{PARTNER_DATA_FILE} lives in producers/partners/<prefix>/ (spec D369)")
+            continue
         if not (entry.is_file() and entry.name in files):
             out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
                        f"{', '.join(files + tuple(f + '/' for f in folders))})")
@@ -2794,7 +2816,9 @@ def _check_producers(folder, base, out):
                     out.append(f"{sub_shown}/: {sub.name} is not a partner's prefix "
                                "([a-z][a-z0-9]{0,15}: its role, schema, keys' and endpoints' "
                                "prefix; v0.5 W2 item 0)")
-                _check_fragments(sub, base, True, out, api=True, partner=True)
+                _check_fragments(sub, base, True, out, api=True,
+                                 partner=entry.name == "partners",
+                                 public=entry.name == "public")
 
 
 def _check_scale(scale, p, out):
@@ -3089,7 +3113,8 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         iid = inv.get("id")
         p = f"{label}: invariants[{_item_label(inv, i)}]"
         if "id" in inv and not (isinstance(iid, str) and INVARIANT_ID_RE.match(iid)):
-            out.append(f"{p}.id: {iid!r} is not [A-Z][0-9]+ (R1, L2)")
+            out.append(f"{p}.id: {iid!r} is not [A-Z]{{1,2}}[0-9]+, one or two capitals then "
+                       "digits (LO1, R1)")
         elif iid in ids:
             out.append(f"{p}: duplicate invariant id")
         ids.append(iid)
@@ -3113,9 +3138,10 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         moved_jobs.append(job)
         reads = entry.get("reads")
         for key in reads if isinstance(reads, list) else []:
-            if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+            if not (isinstance(key, str) and SCENARIO_CLASSIFICATION_KEY_RE.match(key)):
                 out.append(f"{p}.reads: {key!r} is not a classification key "
-                           "<database>.<table>.<column>")
+                           "<database>.<table>.<column> (<database>.<schema>.<table>.<column> "
+                           "outside public: clinic.ops.notifications.payload)")
         writes = entry.get("writes")
         for item in writes if isinstance(writes, list) else []:
             m = PART_TABLE_RE.match(item) if isinstance(item, str) else None
@@ -4365,6 +4391,16 @@ GM_HBA_LINES = (("local", "all", "postgres", "peer"), ("local", "replication", "
 CLOSING_HBA = ("host", "all", "all", "all", "reject")
 REGISTER_SEED_FILE = "data-register.md"   # the bastion's register handout (master spec 6.4)
 REGISTER_DIFF_KEYS = ("entry", "field", "true", "handed_out")
+PARTNERS_SEED_FILE = "partners.md"  # the bastion's optional seed file, the partners (master spec 7.3)
+# The partners' credentials handed over with partners.md (spec D365, D433; W4
+# item 1): `{{credential:<name>}}`, which the bastion's entrypoint replaces by
+# the mounted http_<name>.
+CREDENTIAL_PLACEHOLDER_RE = re.compile(r"\{\{credential:([^{}\s]*)\}\}")
+PARTNERS_BACKEND_CREDENTIAL = "partners_backend"   # the partners' back end's ticks (W2 item 1)
+# Cold storage's read endpoint: the hostname it is served under is the one
+# third party the bastion's web front routes to, its console (master spec 7.3,
+# spec D363; W4 item 1).
+CONSOLE_ENDPOINT = "coldstore_manifests"
 # A monitoring brick's seed file naming the postgres nodes it reads (W2 items 1 and 5)
 MONITOR_SEEDS = {"postgres-exporter": "exporter.conf", "pgwatch": "sources.yaml",
                  "health-check": "health.yaml"}
@@ -4496,6 +4532,7 @@ class HttpContext:
     aliases: set = field(default_factory=set)
     api_nodes: set = field(default_factory=set)
     third_party_nodes: set = field(default_factory=set)
+    consoles: set = field(default_factory=set)      # hostnames serving CONSOLE_ENDPOINT (W4 item 1)
 
 
 def register_diff_true(item):
@@ -4692,7 +4729,10 @@ def _http_context(nodes, bricks, third, apis):
     for name, (_, content) in apis.items():
         aliases.update(h for h in _api_hosts(content) if h != name)
     api_nodes = {n for n, b in bricks.items() if b.id == API_BRICK}
-    return HttpContext(names, aliases - names, api_nodes, set(third.nodes))
+    consoles = {h for n, (_, content) in apis.items() if n in third.nodes
+                for h in _dict(_dict(_dict(content).get("endpoints")).get(CONSOLE_ENDPOINT))
+                .get("hosts") or [] if isinstance(h, str)}
+    return HttpContext(names, aliases - names, api_nodes, set(third.nodes), consoles - names)
 
 
 def _http_target_problem(target, http):
@@ -5231,6 +5271,107 @@ def _check_vaults(nodes, bricks, http, out):
                 out.append(f"{p}.vault_credential: {problem}")
 
 
+def handed_over_credentials(data):
+    """The partners' credentials handed over with partners.md (spec D365,
+    D433; W4 item 1): every name a third_parties: entry lists under
+    `credentials:`, in order, once; [] when none."""
+    names = []
+    entries = data.get("third_parties") if isinstance(data, dict) else None
+    for entry in entries if isinstance(entries, list) else []:
+        creds = _dict(entry).get("credentials")
+        for name in creds if isinstance(creds, list) else []:
+            if isinstance(name, str) and name not in names:
+                names.append(name)
+    return names
+
+
+def partners_placeholders(text):
+    """{name: first line} of the `{{credential:<name>}}` placeholders of a
+    partners.md (W4 item 1), in their order."""
+    found = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        for m in CREDENTIAL_PLACEHOLDER_RE.finditer(line):
+            found.setdefault(m.group(1), number)
+    return found
+
+
+def _check_handed_credentials(data, nodes, apis, sdir, out):
+    """A third_parties: entry's `credentials:` (access model 3 and 6, master
+    spec 10.2; spec D365, D433; W4 item 1): the customer's own HTTP
+    credentials with that partner, handed over with partners.md. Each a
+    credential's name, listed once, accepted by an endpoint answering under
+    the entry's hostname, never partners_backend nor a node's
+    vault_credential; the bastion's partners.md names each as
+    {{credential:<name>}} and names no other."""
+    label = "scenario.yaml"
+    entries = data.get("third_parties")
+    entries = [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+    vaults = {}
+    for node in nodes:
+        value = _dict(node.get("parameters")).get("vault_credential")
+        if isinstance(value, str):
+            vaults.setdefault(value, node.get("name"))
+    endpoints = [e for _, (_, content) in sorted(apis.items())
+                 for e in _dict(_dict(content).get("endpoints")).values() if isinstance(e, dict)]
+    listed = {}
+    for i, entry in enumerate(entries):
+        if "credentials" not in entry:
+            continue
+        tid = entry.get("id", i)
+        p = f"{label}: third_parties[{tid}].credentials"
+        creds = entry["credentials"]
+        if not (isinstance(creds, list) and creds):
+            out.append(f"{p}: not a non-empty list of credential names (absent: none handed "
+                       "over)")
+            continue
+        host = entry.get("hostname")
+        for name in creds:
+            problem = _credential_problem(name)
+            if problem:
+                out.append(f"{p}: {problem}")
+                continue
+            if name in listed:
+                out.append(f"{p}: {name} is listed by third_parties[{listed[name]}] too")
+                continue
+            listed[name] = tid
+            if name == PARTNERS_BACKEND_CREDENTIAL:
+                out.append(f"{p}: {name} is the partners' back end's own credential, never the "
+                           "customer's: it is never handed over (spec D365; W4 item 1)")
+                continue
+            if name in vaults:
+                out.append(f"{p}: {name} is node {vaults[name]}'s vault_credential, the "
+                           "customer's archiving key, which no player is handed (spec D365; W4 "
+                           "item 1)")
+                continue
+            if not any(host in (e.get("hosts") or []) and name in (e.get("credentials") or [])
+                       for e in endpoints
+                       if isinstance(e.get("hosts"), list)
+                       and isinstance(e.get("credentials"), list)):
+                out.append(f"{p}: {name}: no endpoint answering under {host} accepts it "
+                           "(api.yaml credentials:): a credential handed over is one the "
+                           "partner checks (spec D365; W4 item 1)")
+    rel, path = None, None
+    for node in nodes:
+        if node.get("role") == "bastion" and PARTNERS_SEED_FILE in _dict(node.get("seed_files")):
+            rel, path = _seed_path(node, sdir, PARTNERS_SEED_FILE)
+    used = {}
+    if path is not None:
+        try:
+            used = partners_placeholders(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            out.append(f"{rel}: unreadable ({exc})")
+    for name, number in used.items():
+        if name not in listed:
+            out.append(f"{rel}:{number}: {{{{credential:{name}}}}} names a credential no "
+                       "third_parties: entry lists (credentials:; W4 item 1)")
+    for name, tid in listed.items():
+        if name not in used:
+            where = rel or "the bastion maps no partners.md"
+            out.append(f"{label}: third_parties[{tid}].credentials: {name} is not named in "
+                       f"partners.md ({where}) as {{{{credential:{name}}}}}: a credential is "
+                       "handed over with partners.md (spec D365; W4 item 1)")
+
+
 def _domain_entry_locations(entry):
     """(database, node/database) of a domains: entry's at:."""
     at = _dict(entry).get("at")
@@ -5242,13 +5383,9 @@ def _domain_entry_locations(entry):
 
 def _partner_data_files(domain_dir):
     """A domain's partner state files, producers/partners/<prefix>/data.sql
-    and producers/public/<name>/data.sql (W2 items 1 and 3)."""
-    found = []
-    for folder in ("partners", "public"):
-        base = domain_dir / "producers" / folder
-        if base.is_dir():
-            found += sorted(p for p in base.glob("*/data.sql") if p.is_file())
-    return found
+    (W2 items 1 and 3); public/<name>/ holds none (spec D369)."""
+    base = domain_dir / "producers" / "partners"
+    return sorted(p for p in base.glob("*/data.sql") if p.is_file()) if base.is_dir() else []
 
 
 def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
@@ -5379,7 +5516,7 @@ def _check_domains_v05(data, nodes, third, sdir, catalog_root, out):
                            "partner's state, but no third_parties: entry lists a postgres node "
                            f"(the partners' database, {PARTNERS_DATABASE}; W2 items 0 and 1)")
         if (domain_dir / CRON_FILE).is_file():
-            _check_domain_cron(entry, did, by_name, sdir, p, out)
+            _check_domain_cron(entry, did, by_name, sdir, p, out, domain_dir)
 
 
 def _composition_content(sdir):
@@ -5393,11 +5530,13 @@ def _composition_content(sdir):
         return None                          # reported by check_composition
 
 
-def _check_domain_cron(entry, did, by_name, sdir, p, out):
+def _check_domain_cron(entry, did, by_name, sdir, p, out, domain_dir=None):
     """A composed domain's data/cron.sql runs on its node, in its
     cron.database_name (chunk 29's (d), spec D405): every location of the
     domain on one node, whose seed postgresql.conf preloads pg_cron and whose
-    data file creates the extension."""
+    data file creates the extension; every job in a database the entry's
+    at: places there (W4 item 2: the file is read from the catalogue, never
+    renamed)."""
     shown = f"domains/{did}/{CRON_FILE}"
     nodes = []
     for _, location in _domain_entry_locations(entry):
@@ -5409,6 +5548,17 @@ def _check_domain_cron(entry, did, by_name, sdir, p, out):
                    f"names {len(nodes)} nodes ({', '.join(nodes) or 'none'}); a domain shipping "
                    "one sits on one node")
         return
+    placed = [loc.partition("/")[2] for _, loc in _domain_entry_locations(entry)]
+    try:
+        text = (domain_dir / CRON_FILE).read_text(encoding="utf-8") if domain_dir else ""
+    except (OSError, UnicodeDecodeError):
+        text = ""                            # reported by check_domain_dir
+    for number, job, database, _ in cron_jobs(text):
+        if database is not None and database not in placed:
+            out.append(f"{p}: {shown}:{number}: job {job} runs in database {database}, which "
+                       f"this entry's at: does not place on {nodes[0]} (it places "
+                       f"{', '.join(placed)}): a cron.sql is read from the catalogue and names "
+                       "its jobs' databases as written, so at: must name them so")
     node = by_name.get(nodes[0])
     if node is None or node.get("role") != "database":
         return                               # reported with the at:
@@ -5553,15 +5703,92 @@ def check_part_keys(text, rel, core_text=None):
     return out
 
 
+def _split_arguments(text):
+    """A call's arguments, split at the top-level commas outside quotes and
+    parentheses (dollar-quoted bodies already blanked by sql_statements)."""
+    args, depth, buf, i = [], 0, [], 0
+    while i < len(text):
+        c = text[i]
+        if c == "'":
+            j = i + 1
+            while j < len(text):
+                if text.startswith("''", j):
+                    j += 2
+                    continue
+                if text[j] == "'":
+                    break
+                j += 1
+            buf.append(text[i:j + 1])
+            i = j + 1
+            continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "," and depth == 0:
+            args.append("".join(buf).strip())
+            buf = []
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    if "".join(buf).strip():
+        args.append("".join(buf).strip())
+    return args
+
+
+_NAMED_ARGUMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=>|:=)\s*(.*)$", re.DOTALL)
+_SINGLE_QUOTED_RE = re.compile(r"^'((?:[^']|'')*)'$", re.DOTALL)
+
+
+def cron_jobs(text):
+    """[(line, job, database, written)] of a cron.sql's
+    `cron.schedule_in_database(...)` calls (W4 item 2): the job's name and
+    its database as single-quoted literals (None when not one), `written`
+    the database argument as written (None when absent); the database is
+    the fourth positional argument or the one named `database` (`=>` or
+    `:=`)."""
+    jobs = []
+    for number, stmt in sql_statements(text):
+        m = _CRON_CALL_RE.match(stmt.strip())
+        if not m:
+            continue
+        body = stmt.strip()[m.end():]
+        body = body[:body.rfind(")")] if ")" in body else body
+        positional, named = [], {}
+        for arg in _split_arguments(body):
+            nm = _NAMED_ARGUMENT_RE.match(arg)
+            if nm:
+                named[nm.group(1).lower()] = nm.group(2).strip()
+            else:
+                positional.append(arg)
+        written = named.get("database", positional[3] if len(positional) > 3 else None)
+        name = named.get("job_name", positional[0] if positional else None)
+
+        def literal(value):
+            lm = _SINGLE_QUOTED_RE.match(value) if isinstance(value, str) else None
+            return lm.group(1).replace("''", "'") if lm else None
+        jobs.append((number, literal(name), literal(written), written))
+    return jobs
+
+
 def check_cron_file(text, rel):
     """Problems of a domain's data/cron.sql (capture W3 item 6 (d), spec
-    D405): `SELECT cron.schedule_in_database(...)` calls only, at least one."""
+    D405): `SELECT cron.schedule_in_database(...)` calls only, at least one,
+    each naming its database as a single-quoted literal (W4 item 2: the
+    loader checks it against the entry's at:)."""
     out = []
     statements = sql_statements(text)
     for number, stmt in statements:
         if not _CRON_CALL_RE.match(stmt.strip()):
             out.append(f"{rel}:{number}: {' '.join(stmt.split())[:80]}: a cron.sql holds "
                        "SELECT cron.schedule_in_database(...) calls only")
+    for number, job, database, written in cron_jobs(text):
+        if database is None:
+            what = f"its database {written}" if written else "no database (the fourth argument)"
+            out.append(f"{rel}:{number}: job {job or '?'}: {what} is not a single-quoted "
+                       "literal: a cron.sql names its jobs' databases as written, which the "
+                       "loader checks against the domain's at: (W4 item 2)")
     if not statements:
         out.append(f"{rel}: schedules no job (SELECT cron.schedule_in_database(...))")
     return out
@@ -5594,7 +5821,9 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
     _check_api_nodes(nodes, bricks, third, apis, http, sdir, out)
     _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, sdir, out)
     _check_vaults(nodes, bricks, http, out)
+    _check_handed_credentials(data, nodes, apis, sdir, out)
     _check_domains_v05(data, nodes, third, sdir, catalog_root, out)
+    _check_data_register(data, nodes, answer_key, sdir, catalog_root, out)
 
 
 # --- v0.5: purposes and domains (build plan chunk 6b; master spec 6.6, 12.1, 15;
@@ -5603,6 +5832,9 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
 PARTNER_DATA_FILE = "data.sql"      # a partner folder's state (W2 item 1)
 THIRD_PARTY_PARTS = ("receiver", "partner")   # a declared third party's node (v0.5)
 HTTP_PARTS = ("api", "partner", "receiver")   # an HTTP connection is named for the part it reaches
+# v0.5 chunk 33 (spec D438): a part reached under several hostnames has one
+# HTTP connection per hostname, <part>_<w> (partner_central), checked as its part.
+HTTP_CONNECTION_RE = re.compile(rf"^({'|'.join(HTTP_PARTS)})(_[a-z][a-z0-9]*)?$")
 INVARIANT_JUDGED = ("runs", "triggers", "end-to-end", "code", "definition")
 ROUND_TRIP_ASKERS = ("customer", "partner")
 OPS_SCHEMA = "ops"                  # a purpose's own tables in a domain's database (12.1)
@@ -5736,6 +5968,14 @@ def _domain_sql_files(domain_dir, data):
     return seen
 
 
+def http_part(name):
+    """The part an HTTP connection of a purpose's job reaches: api, partner or
+    receiver, for its bare name or a <part>_<w> (partner for partner_central;
+    spec D438); None for any other name, a database connection."""
+    m = HTTP_CONNECTION_RE.match(name) if isinstance(name, str) else None
+    return m.group(1) if m else None
+
+
 def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
     """The purpose format's v0.5 extensions (master spec 6.6, 12.1;
     formats.md "Purpose definition"): the round trip, judged:, HTTP
@@ -5784,11 +6024,13 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
     for i, job in enumerate(jobs):
         p = f"{label}: jobs[{_item_label(job, i)}]"
         for cname, value in _dict(job.get("connections")).items():
-            if cname not in HTTP_PARTS:
+            part = http_part(cname)
+            if part is None:
                 continue
-            if cname not in parts:
+            if part not in parts:
                 out.append(f"{p}.connections.{cname}: an HTTP connection is named for the part "
-                           f"it reaches, and the purpose declares no {cname} part")
+                           f"it reaches ({part}, or {part}_<w> for one of its hostnames), and "
+                           f"the purpose declares no {part} part")
             if value != PUBLIC_CREDENTIAL and _credential_problem(value):
                 out.append(f"{p}.connections.{cname}: {value!r} is not the HTTP credential it "
                            f"calls with ([a-z][a-z0-9_]{{0,62}}) or {PUBLIC_CREDENTIAL} for a "
@@ -5835,15 +6077,21 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
 
 def _check_endpoint_material(node_dir, base, out):
     """material/api/<node>/: routes/ and db/, one <name>.py of each per
-    endpoint (formats.md "Purpose definition"; W1 item 5)."""
+    endpoint (formats.md "Purpose definition"; W1 item 5), and optionally
+    api.yaml, the endpoints' hosts and credentials and their connections,
+    checked as a domain's producers/api/<node>/api.yaml is; when present, its
+    endpoints are exactly those of routes/ (capture W4 item 0; spec D438)."""
     rel = _rel(node_dir, base)
     if not node_dir.is_dir() or not NAME_RE.match(node_dir.name):
         out.append(f"{rel}: not a folder named for an api node")
         return
-    found = {}
+    found, api = {}, None
     for entry in sorted(node_dir.iterdir()):
+        if entry.is_file() and entry.name in API_FRAGMENT_FILES:
+            api = _load_yaml(entry, f"{rel}/{entry.name}", out, strict=True)
+            continue
         if not (entry.is_dir() and entry.name in API_FRAGMENT_FOLDERS):
-            out.append(f"{rel}/{entry.name}: not endpoint material (routes/, db/)")
+            out.append(f"{rel}/{entry.name}: not endpoint material (api.yaml, routes/, db/)")
             continue
         found[entry.name] = {p.stem for p in entry.iterdir() if p.suffix == ".py"}
         for p in sorted(entry.iterdir()):
@@ -5854,6 +6102,25 @@ def _check_endpoint_material(node_dir, base, out):
         lacking = "db" if name in routes else "routes"
         out.append(f"{rel}/{lacking}/{name}.py: missing (each endpoint is served by "
                    "routes/<name>.py and db/<name>.py)")
+    if api is None:
+        return
+    shown = f"{rel}/api.yaml"
+    if not isinstance(api, dict):
+        out.append(f"{shown}: top level: not a mapping ({', '.join(API_YAML_KEYS)})")
+        return
+    for key in api:
+        if key not in API_YAML_KEYS:
+            out.append(f"{shown}: {key}: not a key of a api.yaml fragment "
+                       f"({', '.join(API_YAML_KEYS)})")
+    _check_api_fragment(shown, api, out)
+    endpoints = api.get("endpoints", {})
+    named = set(endpoints) if isinstance(endpoints, dict) else set()
+    for name in sorted(named - routes, key=str):
+        out.append(f"{shown}: endpoints.{name}: routes/{name}.py does not exist (api.yaml "
+                   "names exactly the endpoints of routes/)")
+    for name in sorted(routes - named):
+        out.append(f"{rel}/routes/{name}.py: not an endpoint of api.yaml (api.yaml names "
+                   "exactly the endpoints of routes/)")
 
 
 def _check_purpose_http(purpose, pid, part, runner, sdir, p, out):
@@ -5868,13 +6135,14 @@ def _check_purpose_http(purpose, pid, part, runner, sdir, p, out):
             continue                         # reported by the jobs' check
         mapped = _dict(jobs[job["name"]].get("connections"))
         for cname, value in _dict(job.get("connections")).items():
-            if cname not in HTTP_PARTS or cname not in mapped:
+            part = http_part(cname)
+            if part is None or cname not in mapped:
                 continue
             conn = _dict(conns.get(mapped[cname]))
             where = f"{runner.get('name')}'s job {job['name']} connection {cname} ({mapped[cname]})"
             if conn.get("driver") != "http":
                 out.append(f"{p}: {where} is not an http connection, but purpose {pid} names "
-                           f"{cname} for the {cname} part it reaches")
+                           f"{cname} for the {part} part it reaches")
                 continue
             expected = conn.get("credential", PUBLIC_CREDENTIAL)
             if value != expected:
@@ -5942,3 +6210,375 @@ def _check_purpose_ops(data, purpose, pid, parts, p, out):
             out.append(f"{p}: trace[{i}].table {item['table']} lies in {parts[part]}, a domain's "
                        f"database: a purpose's own tables there live in schema {OPS_SCHEMA} "
                        "(master spec 12.1)")
+
+
+# --- v0.5: the data register (build plan chunk 17b; master spec 6.2, 6.3,
+# --- 13.2, 13.3; formats.md "Scenario"; capture W4 item 1; spec D434) ---
+
+REGISTER_FILE = "gm/data-register.yaml"     # the true register (generated)
+REGISTER_SKILL = "the data-register skill"
+REGISTER_FIELDS = ("purpose", "people", "data", "where", "shared_with", "kept_for")
+REGISTER_TOP_KEYS = ("generated_from", "controller", "contact", "policy", "entries", "internal",
+                     "index")
+REGISTER_ENTRY_KEYS = ("id", "department", "name") + REGISTER_FIELDS
+REGISTER_INTERNAL_KEYS = ("id", "department", "name", "where", "kept_for")
+REGISTERED_CLASSES = ("personal", "customer-linked")   # listed column by column
+FIXTURE_PREFIX = "fixture-"         # a test fixture: exempt from the register (spec D434)
+CATALOG_PREFIX = "catalog/"         # generated_from's prefix for a catalogue file
+_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def register_inputs(data, sdir, catalog_root=REPO_ROOT):
+    """{label: path} of the files a scenario's true register is generated
+    from (W4 item 1), in generated_from's order: scenario.yaml,
+    composition.yaml (with domains:), governance's classification and
+    policy, the bastion's partners.md when mapped, gm/answer-key.yaml, then
+    `catalog/domains/<id>/<fragment>` for each composed domain (domains:,
+    or domain:) and `catalog/purposes/<id>/purpose.yaml` for each purposes:
+    entry. Labels are scenario-relative, a catalogue file's prefixed
+    catalog/."""
+    sdir, root = Path(sdir), Path(catalog_root)
+    found = {"scenario.yaml": sdir / "scenario.yaml"}
+    if isinstance(data.get("domains"), list):
+        found["composition.yaml"] = sdir / "composition.yaml"
+    gov = _dict(data.get("governance"))
+    for key in ("classification", "policy"):
+        if isinstance(gov.get(key), str):
+            found[gov[key]] = sdir / gov[key]
+    for node in data.get("nodes") or []:
+        if isinstance(node, dict) and node.get("role") == "bastion":
+            rel = _dict(node.get("seed_files")).get(PARTNERS_SEED_FILE)
+            if isinstance(rel, str):
+                found[rel] = sdir / rel
+    found["gm/answer-key.yaml"] = sdir / "gm" / "answer-key.yaml"
+    domains = [e.get("id") for e in data.get("domains") or [] if isinstance(e, dict)] \
+        if isinstance(data.get("domains"), list) else [data.get("domain")]
+    for did in domains:
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            continue
+        meta = _yaml_or_none(root / "domains" / did / "domain.yaml")
+        fragment = _dict(meta).get("register")
+        rel = f"domains/{did}/{fragment if isinstance(fragment, str) else 'data/register.yaml'}"
+        found[CATALOG_PREFIX + rel] = root / rel
+    for entry in data.get("purposes") or [] if isinstance(data.get("purposes"), list) else []:
+        pid = _dict(entry).get("id")
+        if isinstance(pid, str) and PURPOSE_ID_RE.match(pid):
+            rel = f"purposes/{pid}/purpose.yaml"
+            found[CATALOG_PREFIX + rel] = root / rel
+    return found
+
+
+def _yaml_or_none(path):
+    try:
+        return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return None
+
+
+def file_digest(path):
+    """`sha256:<hex>` of a file's bytes, None when it cannot be read."""
+    try:
+        return "sha256:" + hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def register_absent(answer_key):
+    """Whether the answer key declares the handout absent: a register_diff
+    [{absent: true}] (master spec 6.3, T305)."""
+    for entry in _dict(answer_key).get("instances") or []:
+        diff = _dict(entry).get("register_diff")
+        if isinstance(diff, list) and any(_dict(i).get("absent") is True for i in diff):
+            return True
+    return False
+
+
+def _register_required(data):
+    """A played scenario listing domains: (spec D335, D434); a fixture
+    exempt."""
+    sid = data.get("id")
+    return isinstance(data.get("domains"), list) \
+        and not (isinstance(sid, str) and sid.startswith(FIXTURE_PREFIX))
+
+
+def _check_data_register(data, nodes, answer_key, sdir, catalog_root, out):
+    """The data register (master spec 6.2, 13.2, 13.3; W4 item 1; spec D434):
+    required of a played scenario listing domains:, a fixture exempt; when a
+    scenario has one (governance.register, gm/data-register.yaml), checked
+    in full: the handout mapped and present unless the answer key declares
+    it absent; the digests recomputed (a stale register refused); the
+    coverage; each register_diff against the true register."""
+    label = "scenario.yaml"
+    gov = data.get("governance")
+    handout = _dict(gov).get("register")
+    true_path = Path(sdir) / REGISTER_FILE
+    bastions = [n for n in nodes if n.get("role") == "bastion"]
+    if handout is None and not true_path.is_file():
+        if _register_required(data):
+            out.append(f"{label}: governance.register: missing: a scenario listing domains: "
+                       f"hands the players a data register, generated with {REGISTER_SKILL} "
+                       "(governance.register, gm/data-register.yaml; master spec 13.2; a "
+                       f"fixture, id {FIXTURE_PREFIX}*, exempt, spec D434)")
+        for node in bastions:
+            if REGISTER_SEED_FILE in _dict(node.get("seed_files")):
+                out.append(f"{label}: nodes[{node.get('name')}].seed_files.{REGISTER_SEED_FILE}: "
+                           "a scenario without governance.register hands the players no data "
+                           "register, so its bastion maps none")
+        return
+    if not isinstance(handout, str):
+        out.append(f"{label}: governance.register: missing ({REGISTER_FILE} exists: the handout "
+                   "is player/data-register.md, mapped to the bastion's data-register.md)")
+        handout = None
+    absent = register_absent(answer_key)
+    hpath = _inside(sdir, handout) if handout else None
+    for node in bastions:
+        mapped = _dict(node.get("seed_files")).get(REGISTER_SEED_FILE)
+        p = f"{label}: nodes[{node.get('name')}].seed_files.{REGISTER_SEED_FILE}"
+        if absent and mapped is not None:
+            out.append(f"{p}: mapped, but the answer key declares the register absent (a "
+                       "register_diff [{absent: true}]): the bastion hands over none")
+        elif not absent and mapped is None:
+            out.append(f"{p}: missing (the bastion maps {REGISTER_SEED_FILE} to "
+                       f"governance.register {handout}; master spec 13.2)")
+        elif not absent and handout and mapped != handout:
+            out.append(f"{p}: {mapped}, not governance.register {handout}")
+    if handout and not absent and (hpath is None or not hpath.is_file()):
+        out.append(f"{handout}: missing file (the data register handout; generate it with "
+                   f"{REGISTER_SKILL}; absent only when the answer key declares it so)")
+    elif handout and absent and hpath is not None and hpath.is_file():
+        out.append(f"{handout}: present, but the answer key declares the register absent: "
+                   f"regenerate with {REGISTER_SKILL}")
+    if not true_path.is_file():
+        out.append(f"{REGISTER_FILE}: missing file (the true register; generate it with "
+                   f"{REGISTER_SKILL})")
+        return
+    register = _load_yaml(true_path, REGISTER_FILE, out, strict=True)
+    if not isinstance(register, dict):
+        if register is not None:
+            out.append(f"{REGISTER_FILE}: top level: not a mapping")
+        return
+    for key in REGISTER_TOP_KEYS:
+        if key not in register:
+            out.append(f"{REGISTER_FILE}: {key}: missing")
+    _check_register_digests(register, data, sdir, catalog_root, out)
+    ids = _check_register_entries(register, data, out)
+    _check_register_coverage(register, data, sdir, catalog_root, out)
+    _check_register_diffs(answer_key, register, ids, out)
+
+
+def _check_register_digests(register, data, sdir, catalog_root, out):
+    stale = f"stale register: regenerate with {REGISTER_SKILL}"
+    listed = register.get("generated_from")
+    if not isinstance(listed, dict):
+        out.append(f"{REGISTER_FILE}: generated_from: not a mapping of each input's path to "
+                   f"sha256:<hex>: {stale}")
+        return
+    expected = register_inputs(data, sdir, catalog_root)
+    for rel, path in expected.items():
+        if rel not in listed:
+            out.append(f"{REGISTER_FILE}: generated_from: {rel} not listed, an input of the "
+                       f"register: {stale}")
+            continue
+        digest = file_digest(path)
+        if digest is None:
+            out.append(f"{REGISTER_FILE}: generated_from: {rel}: the file cannot be read: {stale}")
+        elif listed[rel] != digest:
+            out.append(f"{REGISTER_FILE}: generated_from: {rel} changed since the register was "
+                       f"generated (its digest differs): {stale}")
+    for rel in listed:
+        if rel not in expected:
+            out.append(f"{REGISTER_FILE}: generated_from: {rel} is no input of the register "
+                       f"(no longer composed, mapped or named): {stale}")
+        elif not (isinstance(listed[rel], str) and _DIGEST_RE.match(listed[rel])):
+            out.append(f"{REGISTER_FILE}: generated_from: {rel}: {listed[rel]!r} is not "
+                       "sha256:<64 hex digits>")
+
+
+def _where_locations(item):
+    """The node/database locations of a register record's where:."""
+    where = _dict(item).get("where")
+    return [w["at"] for w in where if isinstance(w, dict) and isinstance(w.get("at"), str)] \
+        if isinstance(where, list) else []
+
+
+def _check_register_entries(register, data, out):
+    """Each record's keys and id; the index against the wheres. Returns
+    the entry ids."""
+    ids, located, seen = [], {}, set()
+    for section, keys in (("entries", REGISTER_ENTRY_KEYS), ("internal", REGISTER_INTERNAL_KEYS)):
+        records = register.get(section)
+        if section in register and not isinstance(records, list):
+            out.append(f"{REGISTER_FILE}: {section}: not a list")
+            continue
+        for i, record in enumerate(records or []):
+            if not isinstance(record, dict):
+                out.append(f"{REGISTER_FILE}: {section}[{i}]: not a mapping")
+                continue
+            rid = record.get("id")
+            p = f"{REGISTER_FILE}: {section}[{rid if isinstance(rid, str) else i}]"
+            for key in keys:
+                if key not in record:
+                    out.append(f"{p}.{key}: missing")
+            if rid in seen:
+                out.append(f"{p}: id {rid} twice in the register")
+            seen.add(rid)
+            if section == "entries":
+                ids.append(rid)
+            for at in _where_locations(record):
+                located.setdefault(at, []).append(rid)
+            if not _where_locations(record):
+                out.append(f"{p}.where: no location ({{at: <node>/<database>, tables: [...]}})")
+            kept = record.get("kept_for")
+            if "kept_for" in record and not (isinstance(kept, dict)
+                                             and kept.get("then") in RETENTION_ENDS
+                                             and "period" in kept):
+                out.append(f"{p}.kept_for: not {{period, then}}, then "
+                           f"{' or '.join(RETENTION_ENDS)}")
+    index = register.get("index")
+    if "index" in register and not isinstance(index, dict):
+        out.append(f"{REGISTER_FILE}: index: not a mapping of node/database to its records")
+        index = {}
+    for at, held in located.items():
+        listed = _dict(index).get(at)
+        if not isinstance(listed, list) or sorted(map(str, listed)) != sorted(map(str, held)):
+            out.append(f"{REGISTER_FILE}: index.{at}: {listed!r}, not the records whose where "
+                       f"holds it ({', '.join(map(str, held))})")
+    for at in _dict(index):
+        if at not in located:
+            out.append(f"{REGISTER_FILE}: index.{at}: no record's where holds it")
+    return ids
+
+
+def _classified(path):
+    content = _yaml_or_none(path)
+    columns = _dict(_dict(content).get("columns"))
+    return {k: v for k, v in columns.items() if isinstance(k, str)}
+
+
+def _check_register_coverage(register, data, sdir, catalog_root, out):
+    """Coverage (master spec 13.3; W4 item 1): every personal and
+    customer-linked column of the classification copy and the purposes'
+    classification: in exactly one entry under its class; every activity of
+    the composed fragments once; every governance: location in a where,
+    every outbound flow as a flow; every node/database holding a classified
+    table in a where. A miss is a generation error, never a fault."""
+    gen = f"a generation error: regenerate with {REGISTER_SKILL}"
+    classes = {}
+    gov = _dict(data.get("governance"))
+    if isinstance(gov.get("classification"), str):
+        path = _inside(sdir, gov["classification"])
+        classes.update(_classified(path) if path is not None else {})
+    root = Path(catalog_root)
+    for entry in data.get("purposes") or [] if isinstance(data.get("purposes"), list) else []:
+        pid = _dict(entry).get("id")
+        if isinstance(pid, str) and PURPOSE_ID_RE.match(pid):
+            purpose = _yaml_or_none(root / "purposes" / pid / "purpose.yaml")
+            classes.update(_classified_purpose(purpose))
+    held = {}
+    entries = [e for e in register.get("entries") or [] if isinstance(e, dict)] \
+        if isinstance(register.get("entries"), list) else []
+    internal = [e for e in register.get("internal") or [] if isinstance(e, dict)] \
+        if isinstance(register.get("internal"), list) else []
+    for entry in entries:
+        rid = entry.get("id")
+        listed = _dict(entry.get("data"))
+        for cls, keys in listed.items():
+            if cls not in REGISTERED_CLASSES:
+                out.append(f"{REGISTER_FILE}: entries[{rid}].data.{cls}: not "
+                           f"{' or '.join(REGISTERED_CLASSES)} (internal columns are not listed)")
+                continue
+            for key in keys if isinstance(keys, list) else []:
+                held.setdefault(key, []).append((rid, cls))
+    for key, cls in sorted(classes.items()):
+        if cls not in REGISTERED_CLASSES:
+            continue
+        found = held.get(key, [])
+        if not found:
+            out.append(f"{REGISTER_FILE}: {cls} column {key} is in no entry: {gen}")
+        elif len(found) > 1:
+            out.append(f"{REGISTER_FILE}: column {key} is in {len(found)} entries "
+                       f"({', '.join(str(r) for r, _ in found)}); each in exactly one: {gen}")
+        elif found[0][1] != cls:
+            out.append(f"{REGISTER_FILE}: entries[{found[0][0]}].data: {key} listed as "
+                       f"{found[0][1]}, which the classification classes {cls}: {gen}")
+    for key, found in sorted(held.items()):
+        if classes.get(key) not in REGISTERED_CLASSES:
+            out.append(f"{REGISTER_FILE}: entries[{found[0][0]}].data: {key} is not a "
+                       f"{' or '.join(REGISTERED_CLASSES)} column of the classification copy "
+                       f"or a purpose's classification: {gen}")
+    records = [r.get("id") for r in entries + internal]
+    domains = [e.get("id") for e in data.get("domains") or [] if isinstance(e, dict)] \
+        if isinstance(data.get("domains"), list) else [data.get("domain")]
+    for did in domains:
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            continue
+        meta = _yaml_or_none(root / "domains" / did / "domain.yaml")
+        fragment = _dict(meta).get("register")
+        content = _yaml_or_none(root / "domains" / did /
+                                (fragment if isinstance(fragment, str) else "data/register.yaml"))
+        for act in _dict(content).get("activities") or []:
+            aid = _dict(act).get("id")
+            if isinstance(aid, str) and records.count(aid) != 1:
+                out.append(f"{REGISTER_FILE}: activity {aid} (domains/{did}) is "
+                           f"{'in no' if not records.count(aid) else 'in more than one'} entry "
+                           f"or internal line: {gen}")
+    wheres = {at for r in entries + internal for at in _where_locations(r)}
+    flows = {s.get("flow") for e in entries for s in e.get("shared_with") or []
+             if isinstance(e.get("shared_with"), list) and isinstance(s, dict)}
+    for cls, rules in _dict(gov.get("classes")).items():
+        locations = _dict(rules).get("locations")
+        for at in locations if isinstance(locations, list) else []:
+            if isinstance(at, str) and at not in wheres:
+                out.append(f"{REGISTER_FILE}: governance.classes.{cls} location {at} is in no "
+                           f"entry's where: {gen}")
+        outbound = _dict(rules).get("outbound")
+        for flow in outbound if isinstance(outbound, list) else []:
+            to = _dict(flow).get("to")
+            if isinstance(to, str) and to not in flows:
+                out.append(f"{REGISTER_FILE}: governance.classes.{cls}'s outbound flow to {to} "
+                           f"is no entry's shared_with flow: {gen}")
+    for at in sorted(_classified_locations(data, classes)):
+        if at not in wheres:
+            out.append(f"{REGISTER_FILE}: {at} holds classified tables but is in no entry's "
+                       f"where: {gen}")
+
+
+def _classified_purpose(purpose):
+    columns = _dict(_dict(_dict(purpose).get("classification")).get("columns"))
+    return {k: v for k, v in columns.items() if isinstance(k, str)}
+
+
+def _classified_locations(data, classes):
+    """The node/database locations holding a classified table: each
+    database of a classification key, at the locations the scenario's
+    domains: at:, purposes' parts and governance: place it."""
+    by_db = {}
+    places = []
+    for entry in data.get("domains") or [] if isinstance(data.get("domains"), list) else []:
+        places += [loc for _, loc in _domain_entry_locations(entry)]
+    for entry in data.get("purposes") or [] if isinstance(data.get("purposes"), list) else []:
+        places += [v for v in _dict(_dict(entry).get("parts")).values()
+                   if isinstance(v, str) and "/" in v]
+    for location in places:
+        if isinstance(location, str) and AT_RE.match(location):
+            by_db.setdefault(location.partition("/")[2], set()).add(location)
+    found = set()
+    for key in classes:
+        found |= by_db.get(key.partition(".")[0], set())
+    return found
+
+
+def _check_register_diffs(answer_key, register, ids, out):
+    """Each register_diff item names an entry of the true register and one
+    of its fields (W4 item 1)."""
+    for entry in _dict(answer_key).get("instances") or []:
+        diff = _dict(entry).get("register_diff")
+        for i, item in enumerate(diff if isinstance(diff, list) else []):
+            if not isinstance(item, dict) or "absent" in item:
+                continue
+            p = f"gm/answer-key.yaml: instances[{entry.get('instance')}].register_diff[{i}]"
+            if "entry" in item and item["entry"] not in ids:
+                out.append(f"{p}.entry: {item['entry']!r} is no entry of {REGISTER_FILE}")
+            if "field" in item and item["field"] not in REGISTER_FIELDS:
+                out.append(f"{p}.field: {item['field']!r} is not one of "
+                           f"{', '.join(REGISTER_FIELDS)}")

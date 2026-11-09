@@ -5,9 +5,10 @@
 -- biomed) and their role (mach_maint, LOGIN with CONNECT on both: pg_cron runs
 -- a job only as such a role) exist by then. Each job runs as mach_maint,
 -- whose one privilege is EXECUTE on mach_create_partitions(days). Times are
--- cron.timezone's (the customer's zone where the seed sets it). Written for
--- the databases vitals and biomed; the GM renames them as the scenario's at:
--- does.
+-- cron.timezone's (the customer's zone where the seed sets it). Read from
+-- the catalogue, never copied: a scenario placing the part names its
+-- databases vitals and biomed, as written here, and the loader refuses any
+-- other name (capture W4 item 2).
 SELECT cron.schedule_in_database('vitals-partitions', '0 22 * * *',
        $job$SELECT mach_create_partitions(3)$job$, 'vitals', 'mach_maint');
 SELECT cron.schedule_in_database('readings-partitions', '5 22 * * *',

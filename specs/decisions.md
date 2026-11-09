@@ -1309,3 +1309,41 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   4's gate, `spec-writer` writes wave 4's format items as built into
   formats.md and master spec 5, 6 and 12.1, blocking release gate item
   6.** As G16 and G17. Now in: [build plan](versions/v0.5/build-plan.md) "Gates", release gate item 6.
+- **D438 (2026-11-09, chunk 19's stop, gaps 1, 2 and 4 and the sweep):
+  The purpose loader takes four forms the spec already uses: invariant
+  ids `[A-Z]{1,2}[0-9]+` (12.2's LO1 to MS6, v0.4's R1); `data_moved.reads`
+  in the scenario's classification-key form (an `ops` column,
+  `clinic.ops.notifications.payload`); an HTTP connection `<part>_<w>`
+  per hostname of a part reached under several (`partner_central`),
+  checked as its part; `material/api/<node>/api.yaml` beside `routes/`
+  and `db/`.** W4 item 0's table stands: a domain's `producers/api/`
+  layout carries `api.yaml`, and the endpoint's hosts, credential and
+  role have no other home; no render change. Now in:
+  [master spec](versions/v0.5/master-spec.md) 12.1;
+  [build plan](versions/v0.5/build-plan.md) chunk 33; formats.md with G18.
+- **D439 (2026-11-09, chunk 19's stop): Chunk 33 is inserted into wave
+  4, for a `coding-executor`, building D438 in `model.py`'s purpose
+  checks, their tests and the scenario-format skill, cut once chunk 17
+  has merged; it merges before the format checks of chunks 18 to 21.** Every
+  wave-4 purpose fails on the ids alone, so one fix ahead of the four,
+  not four stops. Now in: [build plan](versions/v0.5/build-plan.md)
+  chunk 33, waves, chunks 17 to 21.
+- **D440 (2026-11-09, chunk 19's gap 3): Purpose 4's inbound trip is
+  judged end to end by EX2, reworded from the centre's side (each
+  request recorded at once, its answer and report posted within 10
+  minutes of the vets'); EX5 stays the outbound trip's. A round trip
+  names one end-to-end invariant per `round_trips:` entry.** The loader's
+  count and 12.1's "two, one each way" agree; the triggers-only EX2 saw
+  nothing of T54's lost inbound requests. Rejected: one per purpose (an
+  inbound fault then judged by nothing). Now in:
+  [master spec](versions/v0.5/master-spec.md) 12.1, 12.2 purpose 4;
+  [clinic-purposes](versions/v0.5/clinic-purposes.md) 8;
+  [clinic-traps](versions/v0.5/clinic-traps.md) T54.
+- **D441 (2026-11-09, chunk 19's gap 5 and the sweep): The roles table
+  lists each purpose's column grants by number, a shared role holding
+  their union, and defines `ops.*`; it gains purposes 4's and 5's reads
+  for `vet_interfaces` and `vet_exchange` as chunk 19 granted them,
+  `ops.notifications` for `vet_reports` and `lab_reports`, and
+  `mach_archive`'s settings (W4 item 6).** Now in:
+  [clinic-purposes](versions/v0.5/clinic-purposes.md) "The roles the
+  purposes add".
