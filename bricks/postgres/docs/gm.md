@@ -578,6 +578,29 @@ a planted exhaustion fault holds every ordinary slot:
 - **Players see it**: with `log_connections = on` the server log, and so
   pgBadger, records the `gm_check` sessions, as `pg_stat_activity` shows
   them while they run.
+- **Under row-level security** (v0.5 spec D432, capture W4 item 7):
+  `gm_check` has no `BYPASSRLS` (it would be T272's witness), so a
+  table with row security shows it no row unless a policy lets it.
+  `load-data` gives it one, `gm_check_read`, permissive, `FOR SELECT TO
+  gm_check USING (true)`: on `cron.job` and `cron.job_run_details` where
+  `pg_cron` is (v0.4), and, at step (2c) of the composed load (after the
+  purposes' DDL, before the derivations, histories and coherence
+  queries), on every table (`relkind` `r` or `p`) with row security
+  outside `pg_catalog`, `information_schema` and `gm_src_*` in each
+  database a `domains:` entry's `at:` holds, as `postgres`, unseen, each
+  commented "the game master's read access: DO NOT TAMPER" (a database
+  of a node's data file is the data file's to cover). Permissive
+  policies add up: the tables' own policies, and faults editing or
+  dropping them, are untouched. The players see the policies in
+  `pg_policies` and are told not to tamper with them (`player.md`). A
+  dropped `gm_check_read`, or a `RESTRICTIVE` policy naming `public` or
+  `gm_check`, would blind a check into reading nothing, so **every check
+  reading a table with row security guards itself first**: from
+  `pg_policies`, `gm_check_read` on each such table it reads and no
+  `RESTRICTIVE` policy naming `public` or `gm_check` there; else it
+  exits 2, `cannot judge: the GM's read policy on <table> is gone`,
+  never a verdict on an empty read (as a dropped `gm_check` errs). The
+  guard is the purposes' checks' (v0.5 chunks 18 to 21).
 
 ### The PgBouncer lookup role
 

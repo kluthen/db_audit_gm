@@ -32,6 +32,15 @@
 # it copies. From v0.5 two more parts: api, a customer's api node the
 # purpose calls or brings endpoints to, and partner, a declared third
 # party's node; a pushed obligation's receiver is a declared third party.
+# Parts beyond these (v0.5 chunk 32, capture W4 item 0): more database
+# parts source_<w> (a third database, a fourth) and more runners runner_<w>
+# (a second scheduler node), <w> [a-z][a-z0-9]* (source_lab,
+# runner_reports), each checked as its base part (source_<w>: a location,
+# never a standby; runner_<w>: a scheduler node of role transformer, its
+# jobs in its own jobs.yaml) and usable wherever the base is (jobs[].part,
+# source and target, roles[].part, trace[].part, data_moved.writes, ddl:
+# keys); a history reads each database part but target as gm_src_<part>
+# (gm_src_source_lab). A pg_cron job runs in a database part, no runner.
 # Endpoint material (v0.5): material/api/<node>/routes/ and db/, the
 # endpoints a purpose brings to a customer's api node, the layout of a
 # domain's producers/api/<node>/; a receiver with no stream of its own (an
@@ -57,7 +66,12 @@ kind: <pulled>                      # pulled | transformed-in-place | pushed | p
 parts:                              # part -> one line saying what fills it
   source: <the shop's database>     # a database
   target: <the agency's reporting database>   # a database; may be the source's (in place)
-  runner: <the agency's transformer>          # a scheduler node of role transformer
+  runner: <the agency's transformer>          # optional: a purpose with a job a runner runs
+                                              # (absent when every job is a pg_cron job, v0.5);
+                                              # a scheduler node of role transformer
+  <source_lab>: <the lab's database>          # optional: source_<w>, another database (v0.5)
+  <runner_reports>: <the back office's transformer>   # optional: runner_<w>, another runner
+                                              # (v0.5), a scheduler node of role transformer
   consumer: <the back office's dashboards>    # optional: a purpose with a consumer
   receiver: <the customs gateway stub>        # optional: a pushed obligation only; from v0.5
                                               # a declared third party's node
@@ -69,10 +83,13 @@ parts:                              # part -> one line saying what fills it
 jobs:                               # non-empty
   - name: <rollup-hourly>           # its name in the runner's jobs.yaml
     key: <rollup.hourly>            # its key in the runner's queries.yaml
-    part: runner                    # the part that runs it: a declared runner (runner, the only
-                                    # one in v0.4)
-    source: <source>                # the database parts it reads and writes: declared source or
-    target: <target>                #   target parts
+    part: runner                    # the part that runs it: a declared runner (runner, from v0.5
+                                    # also runner_<w>), in whose node's jobs.yaml the job is; a
+                                    # pg_cron job (v0.5) names instead the declared database part
+                                    # it runs in, is in no runner's jobs.yaml and is scheduled by
+                                    # that part's ddl: (cron.schedule_in_database)
+    source: <source>                # the database parts it reads and writes: declared source,
+    target: <target>                #   source_<w> or target parts
     method: <script>                # sql | script | foreign-tables | procedure | pg_cron
                                     # | cron-daemon (master spec 8.6; sql: one plain statement on
                                     # one connection)
@@ -95,6 +112,7 @@ trace:                              # non-empty: each place the purpose leaves s
   - kind: <published-results>       # outbox-rows | published-results | run-ledger | definitions
                                     # (master spec 8.3)
     part: <target>                  # a declared part, on whose node or database the trace lies
+                                    # (source_<w> and runner_<w> included)
     table: <rpt.sales_hourly>       # optional: exactly one of table and file; a table,
                                     # schema-qualified unless in public
     run_column: <run_id>            # optional: with table; the column that ties a row to the run
@@ -146,17 +164,21 @@ history: material/history.sql       # optional: a periodic purpose (required whe
                                     # into the target before T0, the partners' database allowed.
                                     # In a scenario with domains:, load-data runs it in the target
                                     # database after the sources' loads and the derivations, as the
-                                    # superuser, reading the other parts through a temporary
-                                    # foreign server it drops afterwards, every session unseen
+                                    # superuser, reading the other database parts (source,
+                                    # source_<w>) as gm_src_<part> through a temporary foreign
+                                    # server it drops afterwards, every session unseen
 
 # --- Target DDL (v0.5, chunk 29) -------------------------------------------
 ddl:                                # optional: the DDL a part's database needs (roles, grants,
-                                    # policies, ops tables) when the scenario maps that part to a
+                                    # policies, ops tables, the schedule of the pg_cron jobs run
+                                    # there; required of a part a pg_cron job names) when the
+                                    # scenario maps that part to a
                                     # composed domain's database (a domains: entry's at:); read
                                     # from the catalogue at every load, as history is, never
                                     # copied. Refused for a part mapped elsewhere (office,
                                     # partners): there the DDL goes into the node's data file
-  target: material/target-ddl.sql   # a database part the purpose declares (source, target) -> a
+  <target>: material/target-ddl.sql # a database part the purpose declares (source, source_<w>,
+                                    # target; one entry each, at least one) -> a
                                     # file of material/. load-data runs each after every domain's
                                     # load and partner file, before the derivations, the purposes:
                                     # entries in list order, the parts in parts:' order, as
@@ -173,12 +195,14 @@ data_moved:                         # one entry per job, so governance can be ch
   - job: <rollup-hourly>            # a job of this purpose
     reads: []                       # may be []: classification keys <database>.<table>.<column>
                                     # of a class other than internal the job reads
-    writes: [<target:rpt.sales_hourly>]   # <part>:<table>, where it writes them
+    writes: [<target:rpt.sales_hourly>]   # <part>:<table>, where it writes them (a declared
+                                    # part, source_<w> included)
 
 # --- Customer roles ---------------------------------------------------
 roles:                              # the customer roles the purpose needs, with their grants
   - name: <shop_etl>
-    part: <source>                  # the database part it lives in
+    part: <source>                  # the database part it lives in (source, source_<w>,
+                                    # target)
     reads: [<orders without customer_id>, <order_lines>, <products>]   # free text, as master
                                     # spec 9.7 writes grants; may be []
     writes: []                      # free text; may be []
