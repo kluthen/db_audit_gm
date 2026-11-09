@@ -52,11 +52,13 @@
 #     animal, without their identity;
 #   - inject -> start-load (T0, its local time checked), then: an urgent
 #     imaging request planted in clinic as postgres, standing for the vet
-#     (DX-VIEW-A, a single radiograph of ten minutes, on the latest closed
-#     consultation of an owned animal); the identity job filling each
+#     (DX-VIEW-A, a single radiograph of ten minutes, on the latest open
+#     consultation of an owned animal), left requested by a post run while
+#     the consultation is open, then the consultation closed as postgres
+#     for the vet (IO1 judges from the close, after T0); the identity job filling each
 #     planted entry from clinic-api (the record's animal and current owner,
 #     DICOM's form) within two minutes; purpose 13: the request sent within
-#     two minutes with its entry I-<id>, the entry's identity filled; the
+#     two minutes of the close with its entry I-<id>, the entry's identity filled; the
 #     PACS's steps the streams have not reached by then (the backlog of
 #     the imaging day comes first) planted as postgres, standing for the
 #     imaging team, with the streams' own statements (equipment's
@@ -409,21 +411,33 @@ same "interfaces loaded purpose 13's two jobs" "fetch-imaging-reports post-imagi
 
 # --- purpose 13: an urgent imaging request -----------------------------------------
 # About 11 a day, so the run rarely holds one: an urgent single radiograph
-# (DX-VIEW-A, ten minutes, any species) on the latest closed consultation of
-# an animal with a current owner, as the core's imaging stream writes it, as
-# postgres standing for the vet.
-REQ=$(dbsql clinic "WITH c AS (SELECT c.id, c.animal_id, c.vet_id FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id
-                                 WHERE c.state IN ('closed', 'signed') AND c.ended_at <= now() AND a.status <> 'died'
+# (DX-VIEW-A, ten minutes, any species) on the latest open consultation of
+# an animal with a current owner, as postgres standing for the vet; the post
+# leaves it while the consultation is open (one post run), then the vet
+# closes the consultation (the core's consultations.close, as postgres): IO1
+# judges a request from its consultation's close, and the close falls after
+# T0.
+PLANT=$(dbsql clinic "WITH c AS (SELECT c.id, c.animal_id, c.vet_id FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id
+                                 WHERE c.state = 'open' AND c.started_at <= now() AND a.status <> 'died'
                                    AND EXISTS (SELECT 1 FROM ownerships AS o WHERE o.animal_id = a.id AND o.role = 'owner'
                                                 AND o.until_at IS NULL)
-                                 ORDER BY c.ended_at DESC, c.id DESC LIMIT 1)
+                                 ORDER BY c.started_at DESC, c.id DESC LIMIT 1)
                      INSERT INTO requests (consultation_id, animal_id, kind, code, requested_by, priority, requested_at)
                      SELECT c.id, c.animal_id, 'imaging', 'DX-VIEW-A', c.vet_id, 'urgent', now() FROM c
-                     RETURNING id" || true)
-PLANTED=$(date +%s)
-if [ -n "$REQ" ]; then info "planted (as postgres, for the vet): urgent imaging request $REQ (DX-VIEW-A)"
-else fail "no closed consultation of an owned animal to plant the urgent imaging request on"; fi
+                     RETURNING id || ' ' || consultation_id" || true)
+REQ=${PLANT% *}
+CONS=${PLANT#* }
+if [ -n "$PLANT" ]; then info "planted (as postgres, for the vet): urgent imaging request $REQ (DX-VIEW-A) on open consultation $CONS"
+else fail "no open consultation of an owned animal to plant the urgent imaging request on"; fi
 ACC=I-${REQ:-0}
+sleep 65
+same "imaging.post: request $REQ left requested while its consultation $CONS is open (a post run later)" "requested open" \
+    "$(dbsql clinic "SELECT r.state || ' ' || c.state FROM requests AS r JOIN consultations AS c ON c.id = r.consultation_id WHERE r.id = ${REQ:-0}")"
+dbsql clinic "UPDATE consultations SET state = 'closed', ended_at = now(),
+                  findings = 'Pain on palpation; further work-up advised.'
+               WHERE id = ${CONS:-0} AND state = 'open'" >/dev/null || true
+PLANTED=$(date +%s)
+info "closed (as postgres, for the vet, the core's consultations.close): consultation $CONS at $(dbsql clinic "SELECT to_char(ended_at, 'HH24:MI:SS') FROM consultations WHERE id = ${CONS:-0}") UTC"
 
 # --- the identity job: each planted entry filled from clinic-api ------------------
 i=0
@@ -474,12 +488,12 @@ same "identity: its lookups answered by clinic-api (200), an animal and its owne
 ent() { msql pacs "SELECT state || ' ' || (identity_at IS NOT NULL) FROM mach_worklist WHERE accession = '$ACC'"; }
 i=0
 while [ "$i" -lt 150 ] && [ "$(dbsql clinic "SELECT state FROM requests WHERE id = ${REQ:-0}")" != sent ]; do sleep 5; i=$((i + 5)); done
-same "imaging.post: request $REQ sent within 2 minutes, its entry $ACC on the worklist, urgent, its procedure DX-VIEW-A" \
+same "imaging.post: request $REQ sent within 2 minutes of the close, its entry $ACC on the worklist, urgent, its procedure DX-VIEW-A" \
     "sent true urgent DX-VIEW-A" \
-    "$(dbsql clinic "SELECT state || ' ' || (sent_at <= requested_at + interval '2 minutes') FROM requests WHERE id = ${REQ:-0}") $(msql pacs "SELECT w.priority || ' ' || p.code FROM mach_worklist AS w JOIN mach_procedures AS p ON p.id = w.procedure_id WHERE w.accession = '$ACC'")"
+    "$(dbsql clinic "SELECT r.state || ' ' || (r.sent_at <= c.ended_at + interval '2 minutes') FROM requests AS r JOIN consultations AS c ON c.id = r.consultation_id WHERE r.id = ${REQ:-0}") $(msql pacs "SELECT w.priority || ' ' || p.code FROM mach_worklist AS w JOIN mach_procedures AS p ON p.id = w.procedure_id WHERE w.accession = '$ACC'")"
 i=0
 while [ "$i" -lt 150 ] && [ "$(ent)" = "new false" ]; do sleep 5; i=$((i + 5)); done
-info "entry $ACC: $(ent) (state, identity filled) $(( $(date +%s) - PLANTED )) s after the request"
+info "entry $ACC: $(ent) (state, identity filled) $(( $(date +%s) - PLANTED )) s after the close"
 # The streams' own statements, from equipment's composed queries, narrowed to
 # the entry (its accession) and with fixed parameters: what the imaging team
 # would do with it once its turn came.

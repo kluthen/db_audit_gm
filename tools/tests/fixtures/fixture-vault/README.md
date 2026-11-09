@@ -32,8 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`; their producers (`vet-core`'s `pms` and `api/clinic-api`, `vet-machinery`'s `equipment`) left out by `composition.yaml`'s `left_out:`, and the scenario layer `compose/interfaces/` alone, holding the purpose `cold-storage-archive`'s runner material, composed by `gmctl compose` (into `nodes/interfaces/`); its composition record `composition.yaml` |
-| Third parties | `cold-storage` (Cold Storage, an off-site archive service, the vault): role round-trip, nodes `partners-api` and `partners-db`, hostname `cold-storage`, players' page `player/partners.md#cold-storage` |
+| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and the scenario layer `compose/interfaces/` alone, holding the purpose `cold-storage-archive`'s runner material, composed by `gmctl compose` (into `nodes/interfaces/`); left out: vet-core's `pms` and `api/clinic-api`, vet-machinery's `equipment`; its composition record `composition.yaml` |
 
 ### Initiator's inputs, as given
 
@@ -49,7 +48,11 @@ for, not any one playground.
 
 A veterinary hospital keeps its machines' raw readings on site for the last full day and today; each night its integration engine ships the older days to an off-site vault, cold storage, and drops them once the vault has counted every row.
 
-The story as the players read it: `player/story.md`.
+The story as the players read it: `player/story.md`. The partner as the
+players read it: `player/partners.md#cold-storage` (Cold Storage,
+`cold-storage`, an off-site archive service, the vault, round-trip, its
+nodes `partners-api` and `partners-db`). The bastion's seed files map no
+`partners.md`: the page is not in the starter pack.
 
 ## 3. Topology
 
@@ -204,7 +207,8 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: api.yaml → `nodes/partners-api/api.yaml`; routes/ → `nodes/partners-api/routes/`; db/ → `nodes/partners-api/db/`.
+- **Seed files**: `api.yaml` → `nodes/partners-api/api.yaml`; `routes/` →
+  `nodes/partners-api/routes/`; `db/` → `nodes/partners-api/db/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -223,7 +227,8 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: postgresql.conf → `nodes/partners-db/postgresql.conf`; pg_hba.conf → `nodes/partners-db/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`;
+  `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -351,9 +356,8 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`; the third party's page
-  `player/partners.md`. It does not carry this document's warning, and
-  nothing in it names a hidden fault or an answer.
+  `player/story.md`, `player/issues.md`. It does not carry this document's
+  warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `machines`: `nodes/machines/postgresql.conf`,

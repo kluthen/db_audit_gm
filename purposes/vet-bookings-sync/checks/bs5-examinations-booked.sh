@@ -90,7 +90,7 @@ SELECT x.id, extract(epoch FROM x.answered_at), x.accepted_for,
    AND x.answered_at > to_timestamp(%(judged)s::float8)
  ORDER BY x.answered_at, x.id
 """, judged=judged, purpose=PURPOSE)
-items = [(int(x), float(a), acc, day or None, inc == "t") for x, a, acc, day, inc in rows]
+items = [(int(x), float(a), acc, day or None, inc == "True") for x, a, acc, day, inc in rows]
 bad = [i for i in items if now > i[1] + DEADLINE and not i[4] and i[3] != i[2]]
 if bad:
     x, a, acc, day, _ = bad[0]

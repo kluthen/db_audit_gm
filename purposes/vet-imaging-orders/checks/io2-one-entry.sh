@@ -83,7 +83,7 @@ SELECT p.request_id, count(w.id), bool_and(w.accession = 'I-' || p.request_id)
   FROM posted p JOIN mach_worklist w ON w.request_id = p.request_id
  GROUP BY p.request_id ORDER BY p.request_id
 """, db=PACS, judged=judged)
-posted = [(int(r), int(n), ok == "t") for r, n, ok in rows]
+posted = [(int(r), int(n), ok == "True") for r, n, ok in rows]
 twice = [p for p in posted if p[1] > 1]
 wrong = [p for p in posted if not p[2]]
 if twice:
