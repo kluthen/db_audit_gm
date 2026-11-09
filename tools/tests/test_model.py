@@ -3694,6 +3694,124 @@ class TestOwnersAloneLoader(OwnersAloneCase):
         self.assertNotIn("spec D421", problems)
 
 
+class BastionV05Test(V05CopyTest):
+    """fixture-v05-refusals with what bastion 0.5.0 serves (build plan chunk
+    17a; master spec 7.3; spec D363, D365, D433; capture W4 item 1): cold
+    storage's read endpoint on the partners' node, and the external lab's
+    own customer credential handed over with partners.md."""
+
+    PARTNERS_MD = "player/partners.md"
+
+    def console_endpoint(self):
+        self.edit_yaml(self.PARTNERS, lambda d: d["endpoints"].update(
+            coldstore_manifests={"hosts": ["cold-storage"]}))
+        for folder in ("routes", "db"):
+            source = self.scenario / "nodes/partners-api" / folder / "coldstore_shipments.py"
+            (source.parent / "coldstore_manifests.py").write_text(
+                source.read_text().replace("coldstore_shipments", "coldstore_manifests"))
+
+    def routes(self, routes):
+        self.on_node("bastion", lambda n: n["parameters"].update(web_routes=routes))
+
+    def hand_over(self, names=("xlab_customer",), entry="northfield-lab", text=None):
+        """names listed by entry, accepted by xlab_results, and partners.md
+        mapped on the bastion naming them (or holding `text`)."""
+        def listed(d):
+            next(t for t in d["third_parties"] if t["id"] == entry)["credentials"] = list(names)
+            self.node(d, "bastion")["seed_files"]["partners.md"] = self.PARTNERS_MD
+        self.scenario_yaml(listed)
+        self.edit_yaml(self.PARTNERS, lambda d: d["endpoints"]["xlab_results"].update(
+            credentials=["xlab_results", "xlab_customer"]))
+        if text is None:
+            text = "".join(f"- key: {{{{credential:{n}}}}}\n" for n in names)
+        (self.scenario / self.PARTNERS_MD).write_text("# Partners\n\n" + text)
+
+
+class TestBastionConsoleRoute(BastionV05Test):
+    """The one third party on the bastion's routes: cold storage's console
+    (master spec 7.3, spec D363; W4 item 1)."""
+
+    def test_the_console_route_accepted(self):
+        self.console_endpoint()
+        self.routes({"cold-storage": "cold-storage:8000"})
+        self.assertIn("cold-storage", self.load().data["nodes"][0]["parameters"]["web_routes"])
+
+    def test_the_console_on_another_port_refused(self):
+        self.console_endpoint()
+        self.routes({"cold-storage": "cold-storage:9000"})
+        self.assertRefused("nodes[bastion].parameters.web_routes.cold-storage: cold-storage is "
+                           "cold storage's hostname, which answers on port 8000")
+
+    def test_cold_storage_without_its_read_endpoint_refused(self):
+        self.routes({"cold-storage": "cold-storage:8000"})
+        self.assertRefused("web_routes.cold-storage: cold-storage is a third party's hostname "
+                           "(an alias on the partners' api node): no third party is on the "
+                           "bastion's routes but cold storage's console")
+
+    def test_another_partners_hostname_refused(self):
+        self.console_endpoint()
+        self.routes({"northfield-lab": "northfield-lab:8000"})
+        self.assertRefused("web_routes.northfield-lab: northfield-lab is a third party's "
+                           "hostname")
+
+    def test_a_third_partys_node_refused(self):
+        self.console_endpoint()
+        self.routes({"partners": "partners-api:8000"})
+        self.assertRefused("web_routes.partners: partners-api is a third party's node: no third "
+                           "party is on the bastion's routes")
+
+
+class TestHandedOverCredentials(BastionV05Test):
+    """third_parties[].credentials, partners.md's placeholders (access model
+    3 and 6; spec D365, D433; W4 item 1)."""
+
+    def test_handed_over_accepted(self):
+        self.hand_over()
+        sc = self.load()
+        self.assertEqual(model.handed_over_credentials(sc.data), ["xlab_customer"])
+        self.assertEqual(model.partners_placeholders(
+            (self.scenario / self.PARTNERS_MD).read_text()), {"xlab_customer": 3})
+
+    def test_a_placeholder_no_entry_lists_refused(self):
+        self.hand_over(text="- {{credential:xlab_customer}}\n- {{credential:lab_secret}}\n")
+        self.assertRefused("player/partners.md:4: {{credential:lab_secret}} names a credential "
+                           "no third_parties: entry lists")
+
+    def test_a_listed_credential_partners_md_does_not_name_refused(self):
+        self.hand_over(text="No key here.\n")
+        self.assertRefused("third_parties[northfield-lab].credentials: xlab_customer is not "
+                           "named in partners.md (player/partners.md) as "
+                           "{{credential:xlab_customer}}")
+
+    def test_without_partners_md_refused(self):
+        self.hand_over()
+        self.on_node("bastion", lambda n: n["seed_files"].pop("partners.md"))
+        self.assertRefused("xlab_customer is not named in partners.md (the bastion maps no "
+                           "partners.md)")
+
+    def test_one_no_endpoint_under_the_hostname_accepts_refused(self):
+        self.hand_over(names=("xlab_customer",), entry="cold-storage")
+        self.assertRefused("third_parties[cold-storage].credentials: xlab_customer: no endpoint "
+                           "answering under cold-storage accepts it")
+
+    def test_partners_backend_refused(self):
+        self.hand_over(names=("partners_backend",))
+        self.assertRefused("third_parties[northfield-lab].credentials: partners_backend is the "
+                           "partners' back end's own credential")
+
+    def test_a_vault_credential_refused(self):
+        self.hand_over(names=("cold_storage",), entry="cold-storage")
+        self.assertRefused("third_parties[cold-storage].credentials: cold_storage is node db's "
+                           "vault_credential")
+
+    def test_public_and_an_empty_list_refused(self):
+        self.hand_over(names=("public",))
+        self.assertRefused("third_parties[northfield-lab].credentials: public is never a "
+                           "credential's name")
+        self.scenario_yaml(lambda d: d["third_parties"][0].update(credentials=[]))
+        self.assertRefused("third_parties[northfield-lab].credentials: not a non-empty list")
+
+
 class TestRegisterDiffRefusals(V05CopyTest):
     """register_diff: (master spec 6.3, 6.8; spec D353)."""
 
@@ -4218,6 +4336,20 @@ class TestDomainCron(V05ComposedTest):
         sc = self.load()
         self.assertEqual(model.node_pg_cron(sc.node("db"), self.scenario),
                          (True, "shop", "nodes/db/postgresql.conf"))
+
+
+class TestPublicFolder(V05ComposedTest):
+    """A public endpoint's folder plants no state (spec D369)."""
+
+    def test_a_public_data_sql_refused(self):
+        public = self.catalog_root / self.DOMAIN / "producers/public/site"
+        public.mkdir(parents=True)
+        (public / "data.sql").write_text("CREATE TABLE x (id int);\n")
+        self.assertIn("domains/fx-clinic/producers/public/site/data.sql: a public endpoint's "
+                      "folder plants no state: a partner's data.sql lives in "
+                      "producers/partners/<prefix>/ (spec D369)", self.domain_problems())
+        self.assertFalse([p for p in model._partner_data_files(self.catalog_root / self.DOMAIN)
+                          if "public" in p.parts])
 
 
 class TestPartsNodeCreates(V05ComposedTest):

@@ -1539,7 +1539,10 @@ def _check_web_routes(nodes, bricks, out, http=None):
     """web-routes parameters against the topology's web interfaces, and the
     web front's published port (v0.2 capture W1, item 3): a node whose brick
     has a web-routes parameter (the bastion) publishes it whatever its routes,
-    the front running in every game (v0.4, D224). Returns the route names."""
+    the front running in every game (v0.4, D224). No third party's node or
+    hostname is routed, but the hostname cold storage's read endpoint answers
+    under, on port 8000 (master spec 7.3, spec D363; W4 item 1). Returns the
+    route names."""
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     interfaces = {}                   # (node, port) -> provides entry with a web_path
@@ -1578,9 +1581,18 @@ def _check_web_routes(nodes, bricks, out, http=None):
                                "is on the bastion's routes (master spec 10.2, spec D363)")
                     continue
                 if http is not None and tnode in http.aliases:
+                    if tnode in http.consoles:
+                        # The one exception: cold storage's console, its page
+                        # and manifests, read only (master spec 7.3, D363).
+                        if port != API_PORT:
+                            out.append(f"{label}: {rp}: {tnode} is cold storage's hostname, "
+                                       f"which answers on port {API_PORT}")
+                        continue
                     out.append(f"{label}: {rp}: {tnode} is a third party's hostname (an alias on "
                                "the partners' api node): no third party is on the bastion's "
-                               "routes (master spec 10.2, spec D363)")
+                               "routes but cold storage's console, the hostname its "
+                               f"{CONSOLE_ENDPOINT} endpoint answers under (master spec 7.3, "
+                               "10.2, spec D363)")
                     continue
                 if tnode not in by_name:
                     out.append(f"{label}: {rp}: {tnode} is not a node")
@@ -2506,15 +2518,16 @@ def check_classification(path, rel, out, domain_databases=None):
 
 
 def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=False,
-                     partner=False):
+                     partner=False, public=False):
     """A folder of fragments (formats, "Purpose folder" and "Domain
     folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
     file's top-level keys holding only what they add, and builders/ or
     scripts/ folders; with `api`, an api node's api.yaml fragment, routes/
     and db/ (W1 items 5 and 7); without `scheduler`, those only; with
     `partner`, a partner folder's one data.sql, its state in the partners'
-    database (v0.5 W2 item 1). A queries fragment is checked as a node's
-    repository."""
+    database (v0.5 W2 item 1); with `public`, a public/<name>/ folder, whose
+    data.sql is refused: a partner's state lives in partners/<prefix>/ (spec
+    D369). A queries fragment is checked as a node's repository."""
     rel = _rel(folder, base)
     files, folders = (), ()
     if scheduler:
@@ -2532,6 +2545,10 @@ def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=Fal
             continue
         if partner and entry.is_file() and entry.name == PARTNER_DATA_FILE:
             continue                         # read by the domain's SECURITY DEFINER check
+        if public and entry.name == PARTNER_DATA_FILE:
+            out.append(f"{shown}: a public endpoint's folder plants no state: a partner's "
+                       f"{PARTNER_DATA_FILE} lives in producers/partners/<prefix>/ (spec D369)")
+            continue
         if not (entry.is_file() and entry.name in files):
             out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
                        f"{', '.join(files + tuple(f + '/' for f in folders))})")
@@ -2787,7 +2804,9 @@ def _check_producers(folder, base, out):
                     out.append(f"{sub_shown}/: {sub.name} is not a partner's prefix "
                                "([a-z][a-z0-9]{0,15}: its role, schema, keys' and endpoints' "
                                "prefix; v0.5 W2 item 0)")
-                _check_fragments(sub, base, True, out, api=True, partner=True)
+                _check_fragments(sub, base, True, out, api=True,
+                                 partner=entry.name == "partners",
+                                 public=entry.name == "public")
 
 
 def _check_scale(scale, p, out):
@@ -4286,6 +4305,16 @@ GM_HBA_LINES = (("local", "all", "postgres", "peer"), ("local", "replication", "
 CLOSING_HBA = ("host", "all", "all", "all", "reject")
 REGISTER_SEED_FILE = "data-register.md"   # the bastion's register handout (master spec 6.4)
 REGISTER_DIFF_KEYS = ("entry", "field", "true", "handed_out")
+PARTNERS_SEED_FILE = "partners.md"  # the bastion's optional seed file, the partners (master spec 7.3)
+# The partners' credentials handed over with partners.md (spec D365, D433; W4
+# item 1): `{{credential:<name>}}`, which the bastion's entrypoint replaces by
+# the mounted http_<name>.
+CREDENTIAL_PLACEHOLDER_RE = re.compile(r"\{\{credential:([^{}\s]*)\}\}")
+PARTNERS_BACKEND_CREDENTIAL = "partners_backend"   # the partners' back end's ticks (W2 item 1)
+# Cold storage's read endpoint: the hostname it is served under is the one
+# third party the bastion's web front routes to, its console (master spec 7.3,
+# spec D363; W4 item 1).
+CONSOLE_ENDPOINT = "coldstore_manifests"
 # A monitoring brick's seed file naming the postgres nodes it reads (W2 items 1 and 5)
 MONITOR_SEEDS = {"postgres-exporter": "exporter.conf", "pgwatch": "sources.yaml",
                  "health-check": "health.yaml"}
@@ -4417,6 +4446,7 @@ class HttpContext:
     aliases: set = field(default_factory=set)
     api_nodes: set = field(default_factory=set)
     third_party_nodes: set = field(default_factory=set)
+    consoles: set = field(default_factory=set)      # hostnames serving CONSOLE_ENDPOINT (W4 item 1)
 
 
 def register_diff_true(item):
@@ -4613,7 +4643,10 @@ def _http_context(nodes, bricks, third, apis):
     for name, (_, content) in apis.items():
         aliases.update(h for h in _api_hosts(content) if h != name)
     api_nodes = {n for n, b in bricks.items() if b.id == API_BRICK}
-    return HttpContext(names, aliases - names, api_nodes, set(third.nodes))
+    consoles = {h for n, (_, content) in apis.items() if n in third.nodes
+                for h in _dict(_dict(_dict(content).get("endpoints")).get(CONSOLE_ENDPOINT))
+                .get("hosts") or [] if isinstance(h, str)}
+    return HttpContext(names, aliases - names, api_nodes, set(third.nodes), consoles - names)
 
 
 def _http_target_problem(target, http):
@@ -5152,6 +5185,107 @@ def _check_vaults(nodes, bricks, http, out):
                 out.append(f"{p}.vault_credential: {problem}")
 
 
+def handed_over_credentials(data):
+    """The partners' credentials handed over with partners.md (spec D365,
+    D433; W4 item 1): every name a third_parties: entry lists under
+    `credentials:`, in order, once; [] when none."""
+    names = []
+    entries = data.get("third_parties") if isinstance(data, dict) else None
+    for entry in entries if isinstance(entries, list) else []:
+        creds = _dict(entry).get("credentials")
+        for name in creds if isinstance(creds, list) else []:
+            if isinstance(name, str) and name not in names:
+                names.append(name)
+    return names
+
+
+def partners_placeholders(text):
+    """{name: first line} of the `{{credential:<name>}}` placeholders of a
+    partners.md (W4 item 1), in their order."""
+    found = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        for m in CREDENTIAL_PLACEHOLDER_RE.finditer(line):
+            found.setdefault(m.group(1), number)
+    return found
+
+
+def _check_handed_credentials(data, nodes, apis, sdir, out):
+    """A third_parties: entry's `credentials:` (access model 3 and 6, master
+    spec 10.2; spec D365, D433; W4 item 1): the customer's own HTTP
+    credentials with that partner, handed over with partners.md. Each a
+    credential's name, listed once, accepted by an endpoint answering under
+    the entry's hostname, never partners_backend nor a node's
+    vault_credential; the bastion's partners.md names each as
+    {{credential:<name>}} and names no other."""
+    label = "scenario.yaml"
+    entries = data.get("third_parties")
+    entries = [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+    vaults = {}
+    for node in nodes:
+        value = _dict(node.get("parameters")).get("vault_credential")
+        if isinstance(value, str):
+            vaults.setdefault(value, node.get("name"))
+    endpoints = [e for _, (_, content) in sorted(apis.items())
+                 for e in _dict(_dict(content).get("endpoints")).values() if isinstance(e, dict)]
+    listed = {}
+    for i, entry in enumerate(entries):
+        if "credentials" not in entry:
+            continue
+        tid = entry.get("id", i)
+        p = f"{label}: third_parties[{tid}].credentials"
+        creds = entry["credentials"]
+        if not (isinstance(creds, list) and creds):
+            out.append(f"{p}: not a non-empty list of credential names (absent: none handed "
+                       "over)")
+            continue
+        host = entry.get("hostname")
+        for name in creds:
+            problem = _credential_problem(name)
+            if problem:
+                out.append(f"{p}: {problem}")
+                continue
+            if name in listed:
+                out.append(f"{p}: {name} is listed by third_parties[{listed[name]}] too")
+                continue
+            listed[name] = tid
+            if name == PARTNERS_BACKEND_CREDENTIAL:
+                out.append(f"{p}: {name} is the partners' back end's own credential, never the "
+                           "customer's: it is never handed over (spec D365; W4 item 1)")
+                continue
+            if name in vaults:
+                out.append(f"{p}: {name} is node {vaults[name]}'s vault_credential, the "
+                           "customer's archiving key, which no player is handed (spec D365; W4 "
+                           "item 1)")
+                continue
+            if not any(host in (e.get("hosts") or []) and name in (e.get("credentials") or [])
+                       for e in endpoints
+                       if isinstance(e.get("hosts"), list)
+                       and isinstance(e.get("credentials"), list)):
+                out.append(f"{p}: {name}: no endpoint answering under {host} accepts it "
+                           "(api.yaml credentials:): a credential handed over is one the "
+                           "partner checks (spec D365; W4 item 1)")
+    rel, path = None, None
+    for node in nodes:
+        if node.get("role") == "bastion" and PARTNERS_SEED_FILE in _dict(node.get("seed_files")):
+            rel, path = _seed_path(node, sdir, PARTNERS_SEED_FILE)
+    used = {}
+    if path is not None:
+        try:
+            used = partners_placeholders(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            out.append(f"{rel}: unreadable ({exc})")
+    for name, number in used.items():
+        if name not in listed:
+            out.append(f"{rel}:{number}: {{{{credential:{name}}}}} names a credential no "
+                       "third_parties: entry lists (credentials:; W4 item 1)")
+    for name, tid in listed.items():
+        if name not in used:
+            where = rel or "the bastion maps no partners.md"
+            out.append(f"{label}: third_parties[{tid}].credentials: {name} is not named in "
+                       f"partners.md ({where}) as {{{{credential:{name}}}}}: a credential is "
+                       "handed over with partners.md (spec D365; W4 item 1)")
+
+
 def _domain_entry_locations(entry):
     """(database, node/database) of a domains: entry's at:."""
     at = _dict(entry).get("at")
@@ -5163,13 +5297,9 @@ def _domain_entry_locations(entry):
 
 def _partner_data_files(domain_dir):
     """A domain's partner state files, producers/partners/<prefix>/data.sql
-    and producers/public/<name>/data.sql (W2 items 1 and 3)."""
-    found = []
-    for folder in ("partners", "public"):
-        base = domain_dir / "producers" / folder
-        if base.is_dir():
-            found += sorted(p for p in base.glob("*/data.sql") if p.is_file())
-    return found
+    (W2 items 1 and 3); public/<name>/ holds none (spec D369)."""
+    base = domain_dir / "producers" / "partners"
+    return sorted(p for p in base.glob("*/data.sql") if p.is_file()) if base.is_dir() else []
 
 
 def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
@@ -5515,6 +5645,7 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
     _check_api_nodes(nodes, bricks, third, apis, http, sdir, out)
     _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, sdir, out)
     _check_vaults(nodes, bricks, http, out)
+    _check_handed_credentials(data, nodes, apis, sdir, out)
     _check_domains_v05(data, nodes, third, sdir, catalog_root, out)
 
 

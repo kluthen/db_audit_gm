@@ -118,6 +118,16 @@ class TestEnvironment(unittest.TestCase):
             "TZ": "UTC",
             "GM_WEB_ROUTES": "grafana=grafana:3000 prometheus=prometheus:9090"})
 
+    def test_web_routes_console_marked(self):
+        """A route whose target is no node of the topology, cold storage's
+        hostname, is its console (W4 item 1)."""
+        self.assertEqual(render.web_routes_value(
+            {"prometheus": "prometheus:9090", "cold-storage": "cold-storage:8000"},
+            {"prometheus", "partners-api"}),
+            "cold-storage=cold-storage:8000:console prometheus=prometheus:9090")
+        self.assertEqual(render.web_routes_value({"cold-storage": "cold-storage:8000"}),
+                         "cold-storage=cold-storage:8000")
+
     def test_web_routes_empty_map(self):
         brick = {"parameters": {"web_routes": {"description": "d", "default": {},
                                                "required": False, "shape": "web-routes"}}}
@@ -1525,6 +1535,54 @@ class TestArchivingCredential(ScenarioCopyTest):
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         impl = localimpl.read_implementation(self.scenario / "local" / "laptop")
         self.assertFalse([s for s in impl["secrets"] if s["secret"].startswith("http_")])
+
+
+class TestBastionV05Rendered(test_model.BastionV05Test):
+    """bastion 0.5.0 rendered (build plan chunk 17a; spec D363, D365, D433;
+    capture W4 item 1): a credential handed over mounted on the bastion and
+    the partners' node alike, handed over; cold storage's console token."""
+
+    def render(self):
+        fit.fit(self.scenario, "laptop", **dict(SUFFICIENT, cpu="4"))
+        render.render(self.scenario, "laptop", handover=handover_at(16))
+        ldir = self.scenario / "local" / "laptop"
+        self.impl = localimpl.read_implementation(ldir)
+        self.gid = self.impl["game_id"]
+        self.stack = yaml.safe_load((ldir / "stack.yml").read_text())
+
+    def mounted(self, node):
+        return {m["source"][len(self.gid) + 1:]: m["target"]
+                for m in self.stack["services"][node]["secrets"]}
+
+    def test_a_credential_handed_over_and_mounted_on_the_bastion(self):
+        self.hand_over()
+        self.render()
+        secret = next(s for s in self.impl["secrets"] if s["secret"] == "http_xlab_customer")
+        self.assertIs(secret["handed_over"], True)
+        self.assertEqual(self.mounted("bastion")["http_xlab_customer"],
+                         "/opt/gm/secrets/http_xlab_customer")
+        self.assertEqual(self.mounted("partners-api")["http_xlab_customer"],
+                         "/opt/gm/secrets/http_xlab_customer")
+        self.assertNotIn("http_xlab_results", self.mounted("bastion"))
+        self.assertNotIn("http_cold_storage", self.mounted("bastion"))
+        others = [s for s in self.impl["secrets"]
+                  if s["secret"].startswith("http_") and s["secret"] != "http_xlab_customer"]
+        self.assertTrue(others)
+        self.assertFalse([s for s in others if s["handed_over"]])
+        from tools.gm import state
+        self.assertIn(("http_xlab_customer", "password, handed over"),
+                      state.secret_files(self.impl))
+
+    def test_no_credential_handed_over_none_on_the_bastion(self):
+        self.render()
+        self.assertFalse([s for s in self.mounted("bastion") if s.startswith("http_")])
+
+    def test_the_console_routes_token(self):
+        self.console_endpoint()
+        self.routes({"cold-storage": "cold-storage:8000"})
+        self.render()
+        self.assertEqual(self.stack["services"]["bastion"]["environment"]["GM_WEB_ROUTES"],
+                         "cold-storage=cold-storage:8000:console")
 
 
 class TestNodeCredentials(unittest.TestCase):

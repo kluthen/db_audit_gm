@@ -52,7 +52,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          names; an option's secret only where it is chosen;
                          (capture W2 item 2, spec D347) a password
                          `http_<credential>` per HTTP credential, mounted on
-                         each node sending or checking it.
+                         each node sending or checking it; one a
+                         `third_parties:` entry lists under `credentials:`
+                         is handed over and mounted on the bastion too
+                         (spec D365, D433; W4 item 1).
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -73,7 +76,8 @@ from pathlib import Path
 import yaml
 
 from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, REPO_ROOT,
-                    RESERVED_DB_ROLES, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
+                    RESERVED_DB_ROLES, SUBSTITUTION_RE, GmError, handed_over_credentials,
+                    has_scheduler_nodes,
                     is_scheduler_node, is_seed_folder_entry, mounted_items, node_creates,
                     parse_mode, parse_size)
 
@@ -170,7 +174,10 @@ HTTP_DRIVER = "http"                # a connection naming no role (W1 item 3)
 # mounted like a role secret on each node naming the credential: a
 # scheduler node's schedule.yaml HTTP connections, an `api` node's api.yaml
 # endpoints (`credentials`) and connections (`credential`), a node's
-# `vault_credential` parameter (a `postgres` node's archiving).
+# `vault_credential` parameter (a `postgres` node's archiving). A credential
+# a `third_parties:` entry lists under `credentials:`, the customer's own with
+# that partner, is handed over and mounted on the bastion too, which writes it
+# into partners.md (spec D365, D433; W4 item 1).
 HTTP_SECRET_PREFIX = "http_"
 VAULT_CREDENTIAL = "vault_credential"
 
@@ -820,8 +827,11 @@ def node_credentials(scenario, node, params=None):
     parameter when its brick declares one (a `postgres` node's archiving,
     W1 item 6), as node_parameters gives it (`params`, computed when not
     given: the parameter faults applied, so a fault planting another
-    credential mounts that one), else the brick's default. [] for a node
-    naming none: no node holds a credential it neither sends nor checks."""
+    credential mounts that one), else the brick's default; on the bastion
+    (role bastion), the credentials handed over (model.handed_over_credentials:
+    `third_parties[].credentials`, spec D365, D433; W4 item 1), the one node
+    holding a credential it neither sends nor checks. [] for a node naming
+    none."""
     names = []
     for endpoint in api_endpoints(scenario, node).values():
         accepted = endpoint.get("credentials") if isinstance(endpoint, dict) else None
@@ -836,6 +846,8 @@ def node_credentials(scenario, node, params=None):
         vault = _credential(values.get(VAULT_CREDENTIAL, spec.get("default")))
         if vault:
             names.append(vault)
+    if node.get("role") == "bastion":
+        names += handed_over_credentials(scenario.data)
     return list(dict.fromkeys(names))
 
 
@@ -899,7 +911,8 @@ def node_secret_declarations(scenario, node):
     game, shared by every node naming it; then (v0.5 capture W2 item 2,
     spec D347) one password `http_<credential>` per HTTP credential the
     node names (node_credentials), mounted as the role secrets are, one
-    per credential per game."""
+    per credential per game, handed over when a `third_parties:` entry lists
+    it (W4 item 1: 16 characters, `gmctl status` showing it handed over)."""
     roles = topology_roles(scenario)
     brick = scenario.bricks[node["name"]].data
     off = unchosen_option_secrets(brick, node)
@@ -909,9 +922,11 @@ def node_secret_declarations(scenario, node):
     names = [role_secret_name(role)
              for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node))]
     names += [http_secret_name(c) for c in node_credentials(scenario, node)]
+    handed = {http_secret_name(c) for c in handed_over_credentials(scenario.data)}
     for name in names:
         out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
-                    "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
+                    "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE,
+                    **({"handed_over": True} if name in handed else {})})
     return out
 
 
