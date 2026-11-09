@@ -6351,3 +6351,18 @@ live, waiting on their fixture runs (slots 22:40 and 23:37 in
 `brief-21r2.md` + `resume-21c.md`. Chunk 20 waits for 19's merge. At
 most two owners actively working at once (owner's rate rule); owners
 idling on a launcher don't count.
+
+### Chunk 18 merged, 2026-11-09 23:10
+
+Merge `c7f6dc9` (18a `90d9b84`, 18b `d3ffb53`). fixture-send-outs run 2:
+32 PASS, 0 FAIL, 1426 s (slot 22:40-23:04); fixture-orders not rerun
+(only the `clinic` pool 1→2, unused by script jobs). Unit suite 1224 OK.
+Root cause of run 1's failures, shared with chunk 21: the bricks'
+`check-sql` prints booleans as `True`/`False` (Python `str()`); checks
+compare to `"True"`, the existing convention. For G18 / spec-writer: the
+extra grant `SELECT (utc_offset_hours) ON lab_settings TO lab_dispatch`;
+the interpretations PR1 per delivery made due, PR3 by posting time, SO1
+on tests whose 16:00 run falls after the judged moment, SO4 strict
+release round; risk SO3 cannot see an extra payload key (stub drops
+unknown fields). Chunk 19 adds the centres `left_out:` line to
+fixture-orders and fixture-send-outs when it merges (D435).

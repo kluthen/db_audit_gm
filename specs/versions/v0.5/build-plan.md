@@ -1631,7 +1631,8 @@ D433); the `cron.sql` database refusal (spec D433).
 
 ### Chunk 18 — The lab's round trips: purposes 1, 2, 3 and 6
 
-Status: in progress
+Status: merged (w4, c7f6dc9)
+Record: 18a 90d9b84, 18b d3ffb53, merge c7f6dc9. fixture-orders 30 PASS in 1225 s (18a); fixture-send-outs 32 PASS in 1426 s (PR1-PR5, SO1-SO4 unfaulted); unit suite 1224 OK; outside the plan's text: `GRANT SELECT (utc_offset_hours) ON lab_settings TO lab_dispatch` beyond the roles table (to spec-writer, G18), check-sql booleans compared to "True", the W4-b choices and PR1/PR3/SO1/SO4 interpretations listed in the wave log; risk: SO3 blind to an extra payload key (xlab stub drops unknown fields). Centres `left_out:` line in fixture-orders and fixture-send-outs comes with chunk 19's merge.
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 6's format check and fixture only (in wave, spec D431); chunk
