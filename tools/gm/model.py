@@ -104,12 +104,12 @@ PG_CRON_METHOD = "pg_cron"          # a job run by pg_cron in the database part 
 PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation", "round-trip")
 JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
 TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
-INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
+# One or two capitals, then digits (v0.4's R1, v0.5's LO1 and EX5; spec D438).
+INVARIANT_ID_RE = re.compile(r"^[A-Z]{1,2}[0-9]+$")
 JUDGES = ("runs", "triggers")
 CLASSES = ("personal", "customer-linked", "internal")
 UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads as locations: any
 SQL_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
-CLASSIFICATION_KEY_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
 RECEIVER_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 PART_TABLE_RE = re.compile(r"^([a-z]+(?:_[a-z][a-z0-9]*)?):"
                            r"([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
@@ -3113,7 +3113,8 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         iid = inv.get("id")
         p = f"{label}: invariants[{_item_label(inv, i)}]"
         if "id" in inv and not (isinstance(iid, str) and INVARIANT_ID_RE.match(iid)):
-            out.append(f"{p}.id: {iid!r} is not [A-Z][0-9]+ (R1, L2)")
+            out.append(f"{p}.id: {iid!r} is not [A-Z]{{1,2}}[0-9]+, one or two capitals then "
+                       "digits (LO1, R1)")
         elif iid in ids:
             out.append(f"{p}: duplicate invariant id")
         ids.append(iid)
@@ -3137,9 +3138,10 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         moved_jobs.append(job)
         reads = entry.get("reads")
         for key in reads if isinstance(reads, list) else []:
-            if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+            if not (isinstance(key, str) and SCENARIO_CLASSIFICATION_KEY_RE.match(key)):
                 out.append(f"{p}.reads: {key!r} is not a classification key "
-                           "<database>.<table>.<column>")
+                           "<database>.<table>.<column> (<database>.<schema>.<table>.<column> "
+                           "outside public: clinic.ops.notifications.payload)")
         writes = entry.get("writes")
         for item in writes if isinstance(writes, list) else []:
             m = PART_TABLE_RE.match(item) if isinstance(item, str) else None
@@ -5830,6 +5832,9 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
 PARTNER_DATA_FILE = "data.sql"      # a partner folder's state (W2 item 1)
 THIRD_PARTY_PARTS = ("receiver", "partner")   # a declared third party's node (v0.5)
 HTTP_PARTS = ("api", "partner", "receiver")   # an HTTP connection is named for the part it reaches
+# v0.5 chunk 33 (spec D438): a part reached under several hostnames has one
+# HTTP connection per hostname, <part>_<w> (partner_central), checked as its part.
+HTTP_CONNECTION_RE = re.compile(rf"^({'|'.join(HTTP_PARTS)})(_[a-z][a-z0-9]*)?$")
 INVARIANT_JUDGED = ("runs", "triggers", "end-to-end", "code", "definition")
 ROUND_TRIP_ASKERS = ("customer", "partner")
 OPS_SCHEMA = "ops"                  # a purpose's own tables in a domain's database (12.1)
@@ -5963,6 +5968,14 @@ def _domain_sql_files(domain_dir, data):
     return seen
 
 
+def http_part(name):
+    """The part an HTTP connection of a purpose's job reaches: api, partner or
+    receiver, for its bare name or a <part>_<w> (partner for partner_central;
+    spec D438); None for any other name, a database connection."""
+    m = HTTP_CONNECTION_RE.match(name) if isinstance(name, str) else None
+    return m.group(1) if m else None
+
+
 def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
     """The purpose format's v0.5 extensions (master spec 6.6, 12.1;
     formats.md "Purpose definition"): the round trip, judged:, HTTP
@@ -6011,11 +6024,13 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
     for i, job in enumerate(jobs):
         p = f"{label}: jobs[{_item_label(job, i)}]"
         for cname, value in _dict(job.get("connections")).items():
-            if cname not in HTTP_PARTS:
+            part = http_part(cname)
+            if part is None:
                 continue
-            if cname not in parts:
+            if part not in parts:
                 out.append(f"{p}.connections.{cname}: an HTTP connection is named for the part "
-                           f"it reaches, and the purpose declares no {cname} part")
+                           f"it reaches ({part}, or {part}_<w> for one of its hostnames), and "
+                           f"the purpose declares no {part} part")
             if value != PUBLIC_CREDENTIAL and _credential_problem(value):
                 out.append(f"{p}.connections.{cname}: {value!r} is not the HTTP credential it "
                            f"calls with ([a-z][a-z0-9_]{{0,62}}) or {PUBLIC_CREDENTIAL} for a "
@@ -6062,15 +6077,21 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
 
 def _check_endpoint_material(node_dir, base, out):
     """material/api/<node>/: routes/ and db/, one <name>.py of each per
-    endpoint (formats.md "Purpose definition"; W1 item 5)."""
+    endpoint (formats.md "Purpose definition"; W1 item 5), and optionally
+    api.yaml, the endpoints' hosts and credentials and their connections,
+    checked as a domain's producers/api/<node>/api.yaml is; when present, its
+    endpoints are exactly those of routes/ (capture W4 item 0; spec D438)."""
     rel = _rel(node_dir, base)
     if not node_dir.is_dir() or not NAME_RE.match(node_dir.name):
         out.append(f"{rel}: not a folder named for an api node")
         return
-    found = {}
+    found, api = {}, None
     for entry in sorted(node_dir.iterdir()):
+        if entry.is_file() and entry.name in API_FRAGMENT_FILES:
+            api = _load_yaml(entry, f"{rel}/{entry.name}", out, strict=True)
+            continue
         if not (entry.is_dir() and entry.name in API_FRAGMENT_FOLDERS):
-            out.append(f"{rel}/{entry.name}: not endpoint material (routes/, db/)")
+            out.append(f"{rel}/{entry.name}: not endpoint material (api.yaml, routes/, db/)")
             continue
         found[entry.name] = {p.stem for p in entry.iterdir() if p.suffix == ".py"}
         for p in sorted(entry.iterdir()):
@@ -6081,6 +6102,25 @@ def _check_endpoint_material(node_dir, base, out):
         lacking = "db" if name in routes else "routes"
         out.append(f"{rel}/{lacking}/{name}.py: missing (each endpoint is served by "
                    "routes/<name>.py and db/<name>.py)")
+    if api is None:
+        return
+    shown = f"{rel}/api.yaml"
+    if not isinstance(api, dict):
+        out.append(f"{shown}: top level: not a mapping ({', '.join(API_YAML_KEYS)})")
+        return
+    for key in api:
+        if key not in API_YAML_KEYS:
+            out.append(f"{shown}: {key}: not a key of a api.yaml fragment "
+                       f"({', '.join(API_YAML_KEYS)})")
+    _check_api_fragment(shown, api, out)
+    endpoints = api.get("endpoints", {})
+    named = set(endpoints) if isinstance(endpoints, dict) else set()
+    for name in sorted(named - routes, key=str):
+        out.append(f"{shown}: endpoints.{name}: routes/{name}.py does not exist (api.yaml "
+                   "names exactly the endpoints of routes/)")
+    for name in sorted(routes - named):
+        out.append(f"{rel}/routes/{name}.py: not an endpoint of api.yaml (api.yaml names "
+                   "exactly the endpoints of routes/)")
 
 
 def _check_purpose_http(purpose, pid, part, runner, sdir, p, out):
@@ -6095,13 +6135,14 @@ def _check_purpose_http(purpose, pid, part, runner, sdir, p, out):
             continue                         # reported by the jobs' check
         mapped = _dict(jobs[job["name"]].get("connections"))
         for cname, value in _dict(job.get("connections")).items():
-            if cname not in HTTP_PARTS or cname not in mapped:
+            part = http_part(cname)
+            if part is None or cname not in mapped:
                 continue
             conn = _dict(conns.get(mapped[cname]))
             where = f"{runner.get('name')}'s job {job['name']} connection {cname} ({mapped[cname]})"
             if conn.get("driver") != "http":
                 out.append(f"{p}: {where} is not an http connection, but purpose {pid} names "
-                           f"{cname} for the {cname} part it reaches")
+                           f"{cname} for the {part} part it reaches")
                 continue
             expected = conn.get("credential", PUBLIC_CREDENTIAL)
             if value != expected:

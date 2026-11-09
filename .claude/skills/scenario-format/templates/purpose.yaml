@@ -41,12 +41,14 @@
 # source and target, roles[].part, trace[].part, data_moved.writes, ddl:
 # keys); a history reads each database part but target as gm_src_<part>
 # (gm_src_source_lab). A pg_cron job runs in a database part, no runner.
-# Endpoint material (v0.5): material/api/<node>/routes/ and db/, the
-# endpoints a purpose brings to a customer's api node, the layout of a
-# domain's producers/api/<node>/; a receiver with no stream of its own (an
-# authority, a head office) keeps its stub in the purpose (material/receiver/),
-# a partner with streams of its own stays in its domain's
-# producers/partners/<partner>/.
+# Endpoint material (v0.5): material/api/<node>/routes/ and db/, and
+# optionally api.yaml (the endpoints' hosts and credentials, their
+# connections; checked as a domain's, its endpoints exactly those of
+# routes/; spec D438), the endpoints a purpose brings to a customer's api
+# node, the layout of a domain's producers/api/<node>/; a receiver with no
+# stream of its own (an authority, a head office) keeps its stub in the
+# purpose (material/receiver/), a partner with streams of its own stays in
+# its domain's producers/partners/<partner>/.
 #
 # The ops schema (v0.5 master spec 12.1): a purpose's own tables in a
 # domain's database (its ledgers, incidents, watermarks) live in schema ops,
@@ -100,9 +102,11 @@ jobs:                               # non-empty
       <source>: <shop_etl>          #   script's names (its job's connections:), or the job's one
       <target>: <bi_etl>            #   connection's name. From v0.5 an HTTP connection (the
                                     #   scheduler's http driver), named for the part it reaches
-                                    #   (api, partner, receiver), -> the HTTP credential it calls
-                                    #   with (schedule.yaml's credential), or public for a public
-                                    #   endpoint
+                                    #   (api, partner, receiver), or <part>_<w>, one per hostname
+                                    #   of a part reached under several (partner_central; spec
+                                    #   D438), -> the HTTP credential it calls with
+                                    #   (schedule.yaml's credential), or public for a public
+                                    #   endpoint; any other name is a database connection
     feeder: <feed-medicines-register>   # optional: a periodic job (weekly, monthly, yearly; v0.5):
                                     # its daily feeder, a job of this purpose, the witness within
                                     # the aging. No periodic report runs on demand in v0.5
@@ -122,7 +126,7 @@ trace:                              # non-empty: each place the purpose leaves s
 
 # --- Invariants -------------------------------------------------------
 invariants:                         # non-empty
-  - id: <R1>                        # [A-Z][0-9]+, once in the purpose (R1, L2, M3, E4)
+  - id: <R1>                        # [A-Z]{1,2}[0-9]+, once in the purpose (R1, L2, LO1, EX5)
     statement: <one sentence, stated against the source>
     check: <checks/rollup-matches-source.sh>   # a file of checks/
     parameters: {}                  # may be {}: name -> {description, default, required}, the
@@ -193,8 +197,10 @@ ddl:                                # optional: the DDL a part's database needs 
 # --- Data moved -------------------------------------------------------
 data_moved:                         # one entry per job, so governance can be checked against it
   - job: <rollup-hourly>            # a job of this purpose
-    reads: []                       # may be []: classification keys <database>.<table>.<column>
-                                    # of a class other than internal the job reads
+    reads: []                       # may be []: classification keys <database>.<table>.<column>,
+                                    # or <database>.<schema>.<table>.<column> outside public
+                                    # (clinic.ops.notifications.payload), of a class other than
+                                    # internal the job reads
     writes: [<target:rpt.sales_hourly>]   # <part>:<table>, where it writes them (a declared
                                     # part, source_<w> included)
 

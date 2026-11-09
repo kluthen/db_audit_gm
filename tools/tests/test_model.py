@@ -2169,7 +2169,7 @@ class TestPurposeDefinitionRefusals(V04CopyTest):
         self.assertProblems(text, f"{self.L}: invariants[R1]: duplicate invariant id",
                             "purposes/fixture-sales-copy/checks/missing.sh: missing file "
                             "(invariants[R1].check, a file of checks/)",
-                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z][0-9]+",
+                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z]{{1,2}}[0-9]+",
                             "purposes/fixture-sales-copy/gm.md: missing file (invariants[r2].check")
 
     def test_data_moved(self):
@@ -3971,6 +3971,35 @@ class TestV05Composed(V05ComposedTest):
                            "maps partner to public, but producer's job post-lab-orders connection "
                            "partner (xlab) calls with xlab_results")
 
+    def test_an_http_connection_per_hostname(self):
+        """Chunk 33's (c) (spec D438): partner_central, one of the partner
+        part's hostnames, checked as partner is against the runner's job."""
+        def purpose(d):
+            conns = d["jobs"][0]["connections"]
+            conns["partner_central"] = conns.pop("partner")
+        def runner(conn):
+            def change(d):
+                conns = next(j for j in d["jobs"] if j["name"] == "post-lab-orders")[
+                    "connections"]
+                conns.pop("partner", None)
+                conns["partner_central"] = conn
+            return change
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", purpose)
+        self.edit_yaml(self.JOBS, runner("xlab"))
+        self.load()
+        p = "scenario.yaml: purposes[fx-lab-orders].parts.runner"
+        self.edit_yaml(self.JOBS, runner("app"))
+        self.assertRefused(f"{p}: producer's job post-lab-orders connection partner_central (app) "
+                           "is not an http connection, but purpose fx-lab-orders names "
+                           "partner_central for the partner part it reaches")
+        self.edit_yaml(self.JOBS, runner("xlab"))
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", lambda d: d["jobs"][0][
+            "connections"].update(partner_central="centres_customer"))
+        self.assertRefused(f"{p}: purpose fx-lab-orders's job post-lab-orders maps "
+                           "partner_central to centres_customer, but producer's job "
+                           "post-lab-orders connection partner_central (xlab) calls with "
+                           "xlab_results")
+
     def test_public_for_an_endpoint_with_no_credential(self):
         self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
                           lambda d: d["jobs"][0]["connections"].update(partner="public"))
@@ -4024,10 +4053,64 @@ class TestPurposeV05Refusals(V05ComposedTest):
             d["jobs"][0]["connections"]["api"] = "Not-A-Key"
         text = self.purpose_problems(change)
         self.assertProblems(text, f"{self.L}: jobs[post-lab-orders].connections.receiver: an HTTP "
-                            "connection is named for the part it reaches, and the purpose "
-                            "declares no receiver part",
+                            "connection is named for the part it reaches (receiver, or "
+                            "receiver_<w> for one of its hostnames), and the purpose declares "
+                            "no receiver part",
                             f"{self.L}: jobs[post-lab-orders].connections.api: 'Not-A-Key' is "
                             "not the HTTP credential it calls with")
+
+    def test_an_http_connection_per_hostname(self):
+        """Chunk 33's (c) (spec D438): <part>_<w>, one connection per hostname
+        of a part, checked as its part; any other name a database's."""
+        def change(conns):
+            def apply(d):
+                d["jobs"][0]["connections"].update(conns)
+            return apply
+        p = f"{self.L}: jobs[post-lab-orders].connections"
+        self.assertEqual(self.purpose_problems(change({
+            "partner_central": "centres_customer", "partner_south": "centres_customer",
+            "api_lookup": "public", "partners": "Not-Checked", "partner_": "x-y",
+            "receivers_x": "a-b"})), "")
+        self.setUp()
+        text = self.purpose_problems(lambda d: (change({
+            "partner_central": "centres_customer", "receiver_authority": "authority_customer"})(d),
+            d["parts"].pop("partner"), d["jobs"][0]["connections"].pop("partner")))
+        self.assertProblems(text, f"{p}.partner_central: an HTTP connection is named for the part "
+                            "it reaches (partner, or partner_<w> for one of its hostnames), and "
+                            "the purpose declares no partner part",
+                            f"{p}.receiver_authority: an HTTP connection is named for the part "
+                            "it reaches (receiver, or receiver_<w>")
+        self.setUp()
+        self.assertIn(f"{p}.partner_central: 'Centres-Key' is not the HTTP credential it calls "
+                      "with", self.purpose_problems(change({"partner_central": "Centres-Key"})))
+
+    def test_invariant_ids(self):
+        """Chunk 33's (a) (spec D438): one or two capitals, then digits."""
+        def ids(*values):
+            def apply(d):
+                first = d["invariants"][0]
+                d["invariants"] = [dict(first, id=values[0])] + [
+                    dict(first, id=v, judged="runs") for v in values[1:]]
+            return apply
+        self.assertEqual(self.purpose_problems(ids("LO1", "EX5", "R1")), "")
+        text = self.purpose_problems(ids("E1", "r2", "ABC1", "EX"))
+        self.assertProblems(text, f"{self.L}: invariants[r2].id: 'r2' is not [A-Z]{{1,2}}[0-9]+, "
+                            "one or two capitals then digits (LO1, R1)",
+                            f"{self.L}: invariants[ABC1].id: 'ABC1' is not",
+                            f"{self.L}: invariants[EX].id: 'EX' is not")
+
+    def test_data_moved_reads(self):
+        """Chunk 33's (b) (spec D438): the scenario's classification key, an
+        ops column's four parts included."""
+        def reads(*keys):
+            return lambda d: d["data_moved"][0].update(reads=list(keys))
+        self.assertEqual(self.purpose_problems(reads("clinic.ops.notifications.payload",
+                                                     "clinic.owners.name")), "")
+        text = self.purpose_problems(reads("owners.name", "a.b.c.d.e"))
+        self.assertProblems(text, f"{self.L}: data_moved[post-lab-orders].reads: 'owners.name' is "
+                            "not a classification key <database>.<table>.<column> "
+                            "(<database>.<schema>.<table>.<column> outside public",
+                            f"{self.L}: data_moved[post-lab-orders].reads: 'a.b.c.d.e' is not")
 
     def test_periodic(self):
         self.assertIn(f"{self.L}: jobs[weekly-orders].feeder: weekly-orders is not another job",
@@ -4081,6 +4164,41 @@ class TestPurposeV05Refusals(V05ComposedTest):
                             "purposes/fx-lab-orders/material/api/lab-api/db/orders.py: missing",
                             "purposes/fx-lab-orders/material/api/lab-api/notes.txt: not endpoint "
                             "material")
+
+    def test_endpoint_api_yaml(self):
+        """Chunk 33's (d) (spec D438, capture W4 item 0): material/api/<node>/
+        api.yaml, optional, checked as a domain's, naming exactly routes/."""
+        node = self.catalog_root / self.PURPOSE / "material/api/lab-api"
+        for folder in ("routes", "db"):
+            (node / folder / "orders.py").rename(node / folder / "exchanges.py")
+        api = {"endpoints": {"exchanges": {"hosts": ["lab-api"],
+                                           "credentials": ["clinic_centres"]}},
+               "connections": {"clinic-exchanges": {
+                   "driver": "sql/postgresql", "target": "db:5432/clinic",
+                   "role": "vet_exchange", "pool": {"size": 2}}}}
+        (node / "api.yaml").write_text(yaml.safe_dump(api))
+        self.assertEqual(self.purpose_problems(), "")
+        rel = "purposes/fx-lab-orders/material/api/lab-api"
+        api["streams"] = {}
+        api["endpoints"]["ghost"] = {"hosts": ["lab-api"]}
+        (node / "api.yaml").write_text(yaml.safe_dump(api))
+        for folder in ("routes", "db"):
+            (node / folder / "extra.py").write_text("")
+        (node / "README.md").write_text("x")
+        text = self.purpose_problems()
+        self.assertProblems(text, f"{rel}/api.yaml: streams: not a key of a api.yaml fragment "
+                            "(endpoints, connections)",
+                            f"{rel}/api.yaml: endpoints.ghost: routes/ghost.py does not exist "
+                            "(api.yaml names exactly the endpoints of routes/)",
+                            f"{rel}/routes/extra.py: not an endpoint of api.yaml",
+                            f"{rel}/README.md: not endpoint material (api.yaml, routes/, db/)")
+        self.assertNotIn("exchanges", text)
+        (node / "api.yaml").write_text("endpoints:\n  exchanges: {hosts: lab-api}\n"
+                                       "endpoints: {}\n")
+        self.assertIn(f"{rel}/api.yaml: cannot be read", self.purpose_problems())
+        (node / "api.yaml").write_text("endpoints:\n  exchanges: {hosts: lab-api}\n")
+        self.assertIn(f"{rel}/api.yaml: endpoints.exchanges.hosts: not a non-empty list",
+                      self.purpose_problems())
 
     def test_classification(self):
         text = self.purpose_problems(lambda d: d["classification"]["columns"].update(
