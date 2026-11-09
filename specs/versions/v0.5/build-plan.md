@@ -1516,7 +1516,8 @@ messages purpose 16's history, not the derivation's (O229, spec D404).
 
 ### Chunk 17 — `bastion` 0.5.0 and the data register
 
-Status: in progress
+Status: merged (w4, 46bd5c1)
+Record: 17a 041d59a, 17b cd6b8d1, merge 46bd5c1. bastion 0.5.0's stack test 114 PASS; fixture-register 20 entries, a 226-line handout (the spec's "about 150" is the clinic's, chunk 27 to weigh); outside the plan's text: a skill rule that a view joins the activity of its classified column, scenario-document's cron-renaming line corrected to W4 item 2, a register fault on `data-register.md` accepted unmapped (T305); the bastion lacked an HTTP client against access model 4, fixed on the wave branch after G11.2 (wave log, W4-a).
 Wave: 4
 Depends on: chunks 7, 11 and 12 to 16 (waves 2 and 3); chunk 32,
 merged into `v0.5-w4` before this chunk merges (merge order on
@@ -2491,7 +2492,7 @@ by chunks 18 to 21 and every fixture after. As built: W4-f.
 
 ### Chunk 33 — The purpose loader's forms for the clinic's purposes: invariant ids, `ops` keys in data moved, a partner's several hostnames, endpoint `api.yaml`
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: chunks 17 and 32 (in wave, both merged: `model.py`'s,
 `test_model.py`'s and the skill's last holders); inserted after chunk
