@@ -6279,3 +6279,20 @@ The driver's session closes mid-wave. State for the next driver:
   `[[platform]]` in `.tech`); then G18 by `spec-writer` (W4's format
   items, D438, D440, and the scenario-document row for a purpose's
   pg_cron job). No wave sync (no intent register).
+
+### Driver resumed; chunks 18, 19, 21 resumed with fresh owners, 2026-11-09
+
+A fresh driver took the wave at `9d74de5`. No chunk branch had a new
+commit or a live owner; each worktree held uncommitted work (18b's
+purposes 2 and 3 and `fixture-send-outs`; 19's exchanges short test;
+21's bookings, imaging and vault fixtures and the CA checks' fix). The
+stopped owners' background runs were still alive on the host lock (21's
+bookings run running, its imaging run, 19's exchanges run and 18b's DDL
+test queued); left to finish, their logs handed to the new owners as
+first evidence. Fresh `coding-leader`s resume 18 (18b), 19 and 21 (21a,
+then 21b), each from its brief plus a resume note (scratchpad
+`brief-18r.md`, `brief-19r.md`, `brief-21r2.md`, `resume-*.md`): review
+and commit the uncommitted state as WIP if sound, then continue. Chunk
+20 starts at the first free slot once chunk 19 has merged (its
+`office.sql` and the authority's block are 20's byte-for-byte
+reference); its brief is `brief-20.md`. G11.2 still with the owner.
