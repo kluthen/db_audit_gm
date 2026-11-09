@@ -1,0 +1,13 @@
+# Fixed-time operations of the centre's integration engine for the readings'
+# shipping to the vault, a fragment (purpose 14; vet-machinery-domain.md,
+# "cold-storage-archive"; cold-storage.md 2; capture W4 items 0 and 6), in
+# scenario time: the first run at 00:40, the resends hourly to 05:40. The
+# script holds the machinery's two databases as mach_archive (vitals,
+# biomed) and cold storage's upload with the customer's account key
+# (cold-storage). Written for the node machines and the hostname
+# cold-storage; the GM adapts them.
+jobs:
+  - name: ship-partitions
+    key: archive.ship
+    connections: {vitals: vitals, biomed: biomed, partner: cold-storage}
+    at: "40 0-5 * * *"
