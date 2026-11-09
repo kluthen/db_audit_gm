@@ -1,10 +1,11 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v13 (2026-11-09): capture W4's preflight corrections (spec
-D431–D437): chunk 32 inserted into wave 4 (the purposes' extra parts,
-`pg_cron` jobs on a database part, `gm_check`'s read policy, O243
-closed), gate G18; chunks 17 to 21's scope, Files and fixtures; wave
-4's row, edges and order.
+Status: v14 (2026-11-09): chunk 19's loader gaps (spec D438–D441):
+chunk 33 inserted into wave 4 (the purpose loader's invariant ids,
+`ops` keys in data moved, endpoint `api.yaml`, a partner's several
+hostnames), cut once chunk 17 had merged, merged before the format
+checks of 18 to 21; G18's items; wave 4's row, edges and order.
+v13 wrote in D431–D437.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -108,7 +109,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G15 | The owner's judgement at release close: the short tests as run, G13's run, the named known limits and what stays v1.0 gating | The owner | Release close | open |
 | G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 | G17 | [formats.md](../../formats.md) and master spec 5 carry chunk 29's format items as built (spec D401): a part's `data/keys.sql`, `composition.yaml`'s `left_out:`, a `history` on a purpose with no feeder and its `target` on the partners' database, a domain's `data/cron.sql` (spec D405), the purposes' DDL step in `load-data`'s order. Written from W3-f | `spec-writer`, after wave 3's gate | Release gate item 6 | done (2026-11-05, wave log) |
-| G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433). Written from W4-a to W4-f | `spec-writer`, after wave 4's gate | Release gate item 6 | open |
+| G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433); the invariant ids, `data_moved.reads` in the scenario's key form, HTTP connections `<part>_<w>` and endpoint material's `api.yaml` ("Purpose definition"; spec D438), one end-to-end invariant per round trip (spec D440). Written from W4-a to W4-g | `spec-writer`, after wave 4's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -123,7 +124,7 @@ none is a gate.
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
 | 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | merged into `main` (2026-11-05, b9fe67e) |
-| 4 | 17, 18, 19, 20, 21, 32 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16: six chunks, the model's maximum | in progress |
+| 4 | 17, 18, 19, 20, 21, 32, 33 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16; chunk 33 (spec D439, cut once 17 and 32 had merged) merged before the format checks of 18 to 21 and chunk 19's restart: seven chunks, one past the model's six: 33 is a fix-sized gap a running chunk found, every purpose of 18 to 21 fails without it, so it cannot wait for wave 5 | in progress |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
 ```
@@ -184,6 +185,11 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
                          6 (18), 5 (19), 9 (20), 14 to 16 (21) only; their parts,
                          `pg_cron` jobs and `gm_check`'s reads fixed by W4 items 0,
                          7 and 8; spec D431)
+17, 32 ──> 33           (inserted into wave 4 after chunk 19 stopped, cut from
+                         `v0.5-w4` once both had merged: `model.py`,
+                         `test_model.py` and the scenario-format skill; spec D439)
+33 ──> 18, 19, 20, 21   (in-wave: their purposes' format checks, and 19's restart;
+                         the four forms fixed by spec D438)
 18 ──> 22;  11, 17 ──> 23;  20 ──> 24;  6, 14, 16, 32 ──> 25
 2, 8, 11, 17 ──> 26
 17, 22, 23, 24, 25, 26 ──> 27   (in-wave: the fault ids and seed changes of
@@ -249,6 +255,16 @@ merge: 18's purpose 6, 19's purpose 5, 20's purpose 9, 21's purposes
 purpose checks and `inject.py` chunk 32's, under that merge order;
 `domains/vet-core/` is chunk 19's alone, vet-machinery's and
 vet-portal's `data/cron.sql` chunk 17's.
+Chunk 33 (spec D439) takes chunk 19's slot once inserted, cut from
+`v0.5-w4` (17 and 32 merged); `model.py`, `test_model.py` and the
+scenario-format skill are then its alone in wave 4. Chunks 18, 20 and
+21 build on beside it; each takes `v0.5-w4` in once 33 has merged,
+before running its format check and merging. Chunk 19 restarts from
+its WIP (`ce468eb`) with a fresh owner once 33 has merged, its branch taking `v0.5-w4` in first. The
+chains 32 (or 17), 33, 18 to 21 run three chunks long, past the
+model's two: kept, since 17 and 32 had merged before 33 was cut (no
+start waits, spec D402's reasoning) and D438 fixes the forms the four
+read.
 
 Wave 5: chunks 22 to 26 run as κ allows; chunk 27 is cut once all five
 have merged.
@@ -1616,7 +1632,8 @@ D433); the `cron.sql` database refusal (spec D433).
 Status: in progress
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
-purpose 6's format check and fixture only (in wave, spec D431)
+purpose 6's format check and fixture only (in wave, spec D431); chunk
+33 for its purposes' format checks (in wave, spec D439)
 Architecture capture: W4 items 0 and 3, for chunks 19 to 22: **where a
 purpose's `history.sql` and endpoint material sit** beside v0.4's
 per-part folders, and the `ops` block every purpose writes (`ops.runs`,
@@ -1669,8 +1686,12 @@ per-part folders, and the `ops` block every purpose writes (`ops.runs`,
 Status: blocked (on the loader gaps found by chunk 19, WIP ce468eb)
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
-purpose 5's format check and fixture only (in wave, spec D431)
-Architecture capture: W4 items 0 and 4.
+purpose 5's format check and fixture only (in wave, spec D431); chunk
+33 before its restart from `ce468eb` (in wave, spec D439)
+Architecture capture: W4 items 0 and 4; spec D438 (its HTTP
+connections `partner_central`, `partner_south`, `partner_abroad`, its
+endpoint `api.yaml`), D440 (EX2 the inbound trip's end-to-end
+invariant), D441 (its roles' grants as the roles table lists them).
 
 - Goal: `vet-centre-exchanges` and `vet-notifiable-diseases` in
   `purposes/`, with the centres' and the authority's stubs.
@@ -1712,7 +1733,8 @@ Architecture capture: W4 items 0 and 4.
 Status: planned
 Wave: 4
 Depends on: chunks 3, 8, 9, 12, 13, 14 and 29 (waves 1 to 3); chunk 32
-for purpose 9's format check and fixture only (in wave, spec D431)
+for purpose 9's format check and fixture only (in wave, spec D431);
+chunk 33 for its purposes' format checks (in wave, spec D439)
 Architecture capture: W4 items 0 and 5, for chunk 24: the feeders' times
 and queries, `office`'s tables and roles, the planted periods.
 
@@ -1759,7 +1781,8 @@ Status: in progress
 Wave: 4
 Depends on: chunks 11, 13, 15, 16 and 29 (waves 2 and 3); chunk 32 for
 the format check and fixtures of purposes 14, 15 and 16 only (in wave,
-spec D431)
+spec D431); chunk 33 for its purposes' format checks (in wave, spec
+D439); `mach_archive`'s grants as the roles table lists them (spec D441)
 Architecture capture: W4 items 0, 6 and 7, which keep purpose 14's planted manifests
 (cold-storage.md 2) within W2 item 3's history rule, its `target` the
 partners' database (spec D366), and purpose 16's planted messages
@@ -2465,6 +2488,69 @@ by chunks 18 to 21 and every fixture after. As built: W4-f.
   32a (d), step (2c), with its tests and the `postgres` and `gmctl.md`
   lines; 32b (a) to (c), with their tests and the skill's items; in
   order, each its own commit, the chunk merging once 32b's is made.
+
+### Chunk 33 — The purpose loader's forms for the clinic's purposes: invariant ids, `ops` keys in data moved, a partner's several hostnames, endpoint `api.yaml`
+
+Status: planned
+Wave: 4
+Depends on: chunks 17 and 32 (in wave, both merged: `model.py`'s,
+`test_model.py`'s and the skill's last holders); inserted after chunk
+19 stopped on loader gaps (spec D438, D439), built by a `coding-executor` handed the brief by the driver
+("Read first")
+Architecture capture: spec D438, read by chunks 18 to 21 and every
+purpose after. As built: W4-g.
+
+- Goal: `model.py`'s purpose checks accept the forms master spec 12.1
+  and 12.2 already use, so no wave-4 purpose stops on them (spec
+  D438).
+- Scope: in:
+  - **(a) invariant ids** `^[A-Z]{1,2}[0-9]+$` (`INVARIANT_ID_RE`),
+    its message naming the form (LO1, R1);
+  - **(b) `data_moved[].reads`** checked with
+    `SCENARIO_CLASSIFICATION_KEY_RE` (`<database>.<table>.<column>`,
+    or `<database>.<schema>.<table>.<column>` outside `public`), in
+    place of the three-part `CLASSIFICATION_KEY_RE`, dropped if then
+    unused;
+  - **(c) HTTP connections** named `^(api|partner|receiver)(_[a-z][a-z0-9]*)?$`:
+    a `<part>_<w>` checked as its base part wherever the bare name is
+    today (`_check_purpose_v05`: the base part declared, the value a
+    credential or `public`; `_check_purpose_http`: the runner's
+    connection it maps to is `http`, its credential the value). Any
+    other name stays a database connection, unchecked as today;
+  - **(d) endpoint material**: `_check_endpoint_material` accepts
+    `material/api/<node>/api.yaml`, optional, checked as a domain's
+    `producers/api/<node>/api.yaml` is (`_check_api_fragment`); when
+    present, its `endpoints` name exactly the endpoints of `routes/`;
+    `routes/` and `db/` paired as today; anything else still refused;
+  - the scenario-format skill's purpose items (invariant id, data
+    moved, HTTP connections, endpoint material) and
+    `templates/purpose.yaml`'s comments for (a) to (d).
+  - Out: the purposes (18 to 21); `render.py`, `localimpl.py`,
+    `compose.py` (the endpoint's `api.yaml` reaches a node through the
+    scenario layer `compose/<node>/`, which compose merges today);
+    formats.md and master spec 5 (G18).
+- Files: `tools/gm/model.py` (the purpose checks and the four
+  constants); `tools/tests/test_model.py`;
+  `.claude/skills/scenario-format/{SKILL.md,templates/purpose.yaml}`.
+- Spec sections: master spec 12.1, 12.2; formats.md "Purpose
+  definition"; capture W4 item 0; spec D438.
+- Done when: unit tests show (a) `LO1`, `EX5`, `R1` accepted and `r2`,
+  `ABC1`, `EX` refused; (b) `clinic.ops.notifications.payload` and
+  `clinic.owners.name` accepted, `owners.name` refused; (c)
+  `partner_central: centres_customer` accepted with a `partner` part
+  and refused without one, a bad credential refused, and in a scenario
+  a `partner_central` mapped to a non-`http` connection, or to one
+  calling with another credential, refused; (d) `api.yaml` with
+  `endpoints.exchanges` and `connections` beside
+  `routes/exchanges.py` and `db/exchanges.py` accepted, and refused: an
+  `api.yaml` key outside `endpoints`/`connections`, an endpoint with no
+  `routes/` file, a `routes/` file its `api.yaml` does not name, any
+  other file; chunk 19's two purposes at `ce468eb`, checked by hand
+  (`git archive` into a scratch catalogue), show no id, reads-key,
+  HTTP-name or endpoint message, the end-to-end count left (chunk 19's,
+  spec D440); the unit suite passes.
+- Verification: chunk checks.
+- Split rule: none (one module, one test file, two documents).
 
 ## Release gate
 
