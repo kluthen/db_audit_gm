@@ -6046,3 +6046,44 @@ gains D438's and D440's items. No owner question.
 `coding-executor`, cut from `v0.5-w4` at the commit holding this entry,
 taking chunk 19's slot (κ: 18, 21, 33). Chunk 19 resumes from `ce468eb`
 with a fresh owner once 33 has merged; chunk 20 at the next free slot.
+
+### G11.2 — dependency preflight on `curl` in `bastion` 0.5.0 (security-advisor, 2026-11-09)
+
+Asked by the driver after chunk 17's report (the bastion has no HTTP
+client, against access model 4's "HTTP clients"; players now hold
+partner credentials, D365). **Verdict: NEEDS-HUMAN-DECISION**, the
+advisor recommending acceptance:
+- Version: Debian trixie `curl`/`libcurl4t64` 8.14.1-2+deb13u7
+  (trixie-security's latest), the same build, and the same 13 pulled-in
+  packages, as in `api`, `grafana`, `health-check`, `pgwatch`,
+  `scheduler` (checked with `dpkg-query`), `prometheus` and
+  `postgres-exporter`. New to the bastion: libbrotli1, libidn2-0,
+  libnghttp2-14, libnghttp3-9, libpsl5t64, librtmp1, libssh2-1t64,
+  libgnutls30t64, libtasn1-6, libp11-kit0, libffi8, libunistring5.
+- Findings at or above medium with no fix in trixie: curl 39 advisories
+  (Debian: 32 "no DSA", 7 unimportant; curl's own ratings Low but three
+  Medium — Negotiate reuse, unused; cross-origin Digest state; a proxy
+  password, no proxy used; the one High already fixed in deb13u7);
+  rtmpdump 2 (only an `rtmp://` URL), gnutls28 4 and p11-kit 2 (loaded
+  by librtmp only), nghttp2 1 (nghttpx, unreachable).
+- Why accepting is proportionate: an interactive client run by the
+  unprivileged `player`, no listener; the bugs need a hostile server the
+  player chooses; the worst outcome (code as `player`, a credential
+  leaked to a host the player picked) gives nothing the player lacks.
+  Alternatives worse: trixie-backports 8.21 (no security support, half
+  the batch), `wget` (2 high unfixed).
+- Coverage gap noted: the seven other images' curl was never checked;
+  `.tech` has no curl `[[platform]]`. At wave 4's post-change check the
+  advisor proposes adding one (all eight images), after which a sweep
+  opens about 30 curl items needing one triage pass or the owner's
+  `[[ignore]]`.
+
+**For the owner** (gate G11.2): accept shipping curl 8.14.1-2+deb13u7
+in `bastion` 0.5.0, and by extension the seven images already carrying
+it, with these trixie-unfixed issues (record: reason as above,
+approved by the owner, until 2027-02-01 or the next trixie curl security
+upload)? The driver recommends **accept**: refused, the bastion keeps no
+HTTP client until Debian 14, against access model 4 and chunk 17's
+handed-over credentials. Until the answer, the fix (curl in the
+bastion's Dockerfile, its stack test calling the partner with `curl`,
+`docs/player.md`) is held; nothing else in the wave waits on it.
