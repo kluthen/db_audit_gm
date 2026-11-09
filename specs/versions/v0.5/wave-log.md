@@ -6366,3 +6366,23 @@ on tests whose 16:00 run falls after the judged moment, SO4 strict
 release round; risk SO3 cannot see an extra payload key (stub drops
 unknown fields). Chunk 19 adds the centres `left_out:` line to
 fixture-orders and fixture-send-outs when it merges (D435).
+
+### Chunk 21a merged, 2026-11-09 23:45
+
+Merge `702bd40` (21a `ecaff1a`; v0.5-w4 taken in at `e0e9edd`, root
+README's purpose table resolved as a shared list). Fixtures: bookings
+54/54 in 1202 s, imaging 67/67 in 1518 s (IO1 as specified; the test now
+plants on an open consultation and closes it after T0; IO2's failure was
+check-sql's `True`), vault 48/48 in 327 s. Unit suite 1224 OK. Worktree
+kept for 21b; fresh owner dispatched with `resume-21d.md`.
+For G18 / spec-writer: vault's T0 lands at 21:MM local (test asserts
+"before the 22:00 partition jobs"); partners-db has no gm_check pg_hba
+line (D383); CA checks' exit-3 cadence path never ran; the vault fixture
+follows the chunk text (no `equipment`), unlike vet-machinery-domain.md's
+Testing table.
+Driver ruling (format skill, not a spec change): a fixture whose third
+party has a `player_doc` maps `partners.md` on its bastion. 21b fixes
+fixture-portal (its README lists the page as shipped); fixture-vault and
+fixture-restore go on the wave gate's fix list.
+Chunk 19 adds the centres `left_out:` line to fixture-bookings, -imaging
+and -vault too when it merges.
