@@ -6544,3 +6544,21 @@ Part 1 (06:20-08:36), all passing:
   deployment; EX1-EX5, ND1-ND5 exit 0.
 - **fixture-send-outs** (launcher 07:38, lock taken by the test at
   07:40): 32/32, 1426 s from the deployment.
+
+### Owner's rulings, 2026-11-10 09:25
+
+- **G11.2 accepted:** Debian `curl` goes into `bastion` 0.5.0 (no version
+  bump: 0.5.0 is unreleased), risk accepted until 2027-02-01 or the next
+  trixie curl security upload. Built, stack-tested and post-change
+  checked after the gate queue; the advisor records it in `.tech`.
+- **Security decisions (advisor's triage of 2026-11-09), all as
+  recommended:** the 50 `[[ignore]]` entries until 2027-05-01; patch bump
+  whenever an image's content changes (tag kept only for an identical
+  `dpkg-query` list); Prometheus to 3.16.x in a later wave, never wave 4;
+  python3.13 upgraded on armenelos (the owner's command); c-ares into
+  `.tech` with its ignore; the 19 orphan items deleted from
+  `SECURITY_TODO.md`. `.tech` is edited on this wave branch, so it reaches
+  main with the wave. grafana 0.3.1 (plugin 13.2.5) and Prometheus 3.16
+  go to spec-writer for placement (wave 5 or the release gate) with G18.
+- **Fake aging:** the weekend test did not run; the owner plans it for
+  the coming weekend or the next. D114/D132 stand meanwhile.
