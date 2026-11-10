@@ -1734,7 +1734,7 @@ invariant), D441 (its roles' grants as the roles table lists them).
 
 ### Chunk 20 — The periodic reports: purposes 7, 8, 9, 10 and 12
 
-Status: planned
+Status: in progress (20a merged, a8df8ee; 20b next)
 Wave: 4
 Depends on: chunks 3, 8, 9, 12, 13, 14 and 29 (waves 1 to 3); chunk 32
 for purpose 9's format check and fixture only (in wave, spec D431);

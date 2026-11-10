@@ -6448,3 +6448,17 @@ For G18 / spec-writer, and two for the owner's report:
   scenario with both retargets purpose 5's (its gm.md says so).
 - AM2 needs a herd treatment on the judged day (herd visits Tue/Thu):
   fixture takes T0 on a local Wednesday or Friday, or plants one.
+
+### Chunk 20a merged, 2026-11-10 04:15
+
+Merge `a8df8ee` (20a `d365213`): purposes 7, 8, 12 and fixture-reports
+(8 nodes, standby, backoffice). Run 1 (03:50-04:10): 65 PASS, 0 FAIL,
+766 s (load-data 581 s); every feeder writes its day once from the
+standby, a second move writes 0; a monthly job off its date writes
+nothing; MR1-4, AM1-4, WT1-3 exit 0 unfaulted; WT3 exit 1 with corrupted
+SQL. Unit 1227 OK; gmctl fit 1.75/2 CPU, 2G/4G, 7.86G/8G disk.
+New: the fixture's standby reserves 1.75G disk, not the capacity table's
+2.25G (8.36G would not fit 8G); `backoffice` is `no-access` like every
+fixture runner, though the access model gives scheduler nodes
+`fixable-file` (chunk 24 may change it). 20b risk: purpose 9's feeder at
+00:30 versus T0 ~01:07 (resume-20c.md). Fresh 20b owner dispatched.
