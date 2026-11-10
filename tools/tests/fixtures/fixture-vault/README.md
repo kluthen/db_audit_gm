@@ -51,8 +51,8 @@ A veterinary hospital keeps its machines' raw readings on site for the last full
 The story as the players read it: `player/story.md`. The partner as the
 players read it: `player/partners.md#cold-storage` (Cold Storage,
 `cold-storage`, an off-site archive service, the vault, round-trip, its
-nodes `partners-api` and `partners-db`). The bastion's seed files map no
-`partners.md`: the page is not in the starter pack.
+nodes `partners-api` and `partners-db`). The bastion's seed files map
+`partners.md`: the page is in the starter pack.
 
 ## 3. Topology
 
@@ -83,7 +83,8 @@ nodes `partners-api` and `partners-db`). The bastion's seed files map no
 - **Published ports**: 22 (default host port 2222), 8080 (default host
   port 8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+  `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` →
+  `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface:
 the web front serves the starter-pack page alone, and the tools password
@@ -356,8 +357,9 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, `player/issues.md`, the partners `player/partners.md`.
+  It does not carry this document's warning, and nothing in it names a
+  hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `machines`: `nodes/machines/postgresql.conf`,
