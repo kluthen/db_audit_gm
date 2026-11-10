@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stack test of the bastion brick (build plan v0.1, chunk 3, v0.2,
-# chunk 7, v0.4, chunk 19a, and v0.5, chunk 17a, Done when).
+# chunk 7, v0.4, chunk 19a, and v0.5, chunk 17a, Done when; gate G11.2).
 #
 # Deploys the bastion, a PostgreSQL node and a stub web interface as a
 # three-service Swarm stack (stack.test.yml), with the starter pack
@@ -36,7 +36,8 @@
 #     register" after the data policy), partners.md's
 #     {{credential:demo_customer}} replaced by the mounted secret in the home
 #     and on the page, the value accepted by the external lab's endpoint
-#     (the stub, holding the same secret) and a wrong one refused; cold
+#     (the stub, holding the same secret; with bash alone and with curl,
+#     the players' HTTP client, run as player) and a wrong one refused; cold
 #     storage's console route: GET /cold-storage/ and GET
 #     /cold-storage/manifests (query kept) reach the stub as / and
 #     /manifests with Host cold-storage, POST /cold-storage/shipments, any
@@ -250,6 +251,12 @@ w=$(order "$key")
 w=$(order "wrong$key")
 [ "$w" = "HTTP/1.1 401 Unauthorized" ] && pass "a wrong credential is refused by the partner's endpoint ($w)" \
     || fail "a wrong credential at the partner: $w"
+# The players' HTTP client (access model 4; gate G11.2): curl, run as player.
+w=$(pb "curl --version | head -n 1" 2>&1) || true
+case $w in "curl "*) pass "curl runs as player on the bastion ($w)" ;; *) fail "curl --version as player: $w" ;; esac
+w=$(pb "curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $key' http://northfield-lab:9090/orders" 2>&1) || true
+[ "$w" = 200 ] && pass "the credential accepted by the partner's endpoint through curl, as player ($w)" \
+    || fail "curl to the partner with the credential: $w"
 pb "echo 'audit notes' > ~/report.md" && pass "~/report.md is writable" || fail "~/report.md not writable"
 m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow | tr '\n' ' ')
 [ "$m" = "750 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow " ] \

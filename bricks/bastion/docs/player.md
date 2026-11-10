@@ -65,7 +65,8 @@ http://<address>:<web port>/
 - **`~/report.md`**: write your findings there. The game master can read
   it when you hand in your final answer.
 - **Tools**: `ssh`, `psql` and the other PostgreSQL 18 client tools,
-  `nano`, `vi`, `less`.
+  `curl` (to call the partners' services, for instance), `nano`, `vi`,
+  `less`.
 
 ## Reaching the other nodes
 

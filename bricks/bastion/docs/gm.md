@@ -32,6 +32,13 @@ The image:
   `libcmark-gfm-extensions0.29.0.gfm.13`; gate G13), which renders the
   starter pack into the front's page at start-up (D222). The build
   asserts it runs, renders a table with `-e table`, and omits raw HTML.
+- `curl` 8.14.1 from Debian (package `curl`, unpinned, installed with
+  `--no-install-recommends`; `libcurl4t64` and its libraries with it;
+  gate G11.2, accepted by the owner on 2026-11-10 with trixie's unfixed
+  curl issues until 2027-02-01 or the next trixie curl security upload),
+  the players' HTTP client (access model 4): they call the partners'
+  endpoints with the credentials `partners.md` hands over. The build
+  asserts `curl --version` runs.
 - s6-overlay 3.2.3.2 (x86_64), same archives and SHA-256 as the PostgreSQL
   brick.
 - Generic: no scenario content, no host key, no password in the image.
