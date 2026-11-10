@@ -31,4 +31,18 @@ connections:
     role: sched_reports
     pool:
       size: 1
+  # from scenario: compose/backoffice/schedule.yaml
+  lab-reports:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_reports
+    pool:
+      size: 1
+  # from scenario: compose/backoffice/schedule.yaml
+  headoffice:
+    driver: http
+    target: head-office:8000
+    credential: headoffice_customer
+    pool: 1
+    timeout: 10s
 streams: []

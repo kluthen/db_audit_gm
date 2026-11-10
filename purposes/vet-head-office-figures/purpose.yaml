@@ -1,0 +1,160 @@
+# Purpose 9, the head office's figures (v0.5 master spec 11.3, 12.1, 12.2
+# purpose 9; clinic-purposes.md 13; one-centre 1; vet-housing O189; spec
+# D300, D318, D436; capture W4 items 0 and 5 of
+# specs/versions/v0.5/wave-log.md): a pushed obligation, periodic. The
+# centre's activity per local day, section and measure (the consultations,
+# the admissions and discharges, the census and the housing units at
+# midnight, the new owners and animals, the lab's tests and its outside
+# orders' turnaround), fed daily into the back office's database office from
+# the record's standby and the lab; the month's figures posted to the
+# franchise's head office on the 1st, retried each morning to the 5th, then
+# escalated.
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic (read on its standby, standby; the history reads the
+# primary), source_lab lab/lab, target records/office, runner backoffice,
+# receiver partners-api (hostname head-office, the stub
+# material/receiver/headoffice/). The GM adapts the names as it copies;
+# gm.md says where each name lives. office's DDL goes into records' data file
+# (office.sql once, then data.sql); material/history.sql plants the past.
+id: vet-head-office-figures
+title: The centre's monthly activity figures to the franchise's head office, fed daily into the back office
+domains: [vet-core, vet-housing, vet-lab]
+kind: pushed-obligation
+
+parts:
+  source: the core's record, clinic, with housing's tables (read on its standby; the history reads the primary)
+  source_lab: the laboratory's database, lab (its tests and outside orders, read on its only node)
+  target: the back office's database, office (the daily and the monthly figures)
+  runner: the back office's report runner, backoffice
+  receiver: the partners' api node, serving the head office under its hostname
+
+jobs:
+  - name: feed-daily-figures
+    key: figures.feed
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      yesterday's figures (the customer's local date), one row per section and measure: per section of the
+      centre the consultations begun per kind, the stays admitted and ended, the stays, the units occupied
+      and the units in service at the day's closing midnight (figures.feed.read on the standby); the new
+      owners and animals; the lab's tests released per discipline and priority, the outside orders placed
+      and their tests' median turnaround (figures.feed.lab on the lab), once a day; one runs row.
+    cadence: "30 0 * * *"
+    connections:
+      clinic: vet_reports
+      lab: lab_reports
+      office: office_jobs
+  - name: send-monthly-figures
+    key: figures.send
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      run daily, acting on the 1st to the 5th only (the customer's local date; any other day writes
+      nothing): the past month's figures per section and measure, summed from the daily rows (the
+      turnaround the median of its days', figures.send.compute) on its first run and kept, posted to the
+      head office's POST /figures (up to three attempts a run); acknowledged, its reference kept; still
+      unacknowledged after the 5th's attempts, escalated; a month acknowledged or escalated not sent
+      again; one runs row.
+    cadence: "0 5 * * *"
+    connections:
+      clinic: vet_reports
+      office: office_jobs
+      receiver: headoffice_customer
+    feeder: feed-daily-figures
+
+trace:
+  - kind: published-results
+    part: target
+    table: daily_figures
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: monthly_figures
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: HO1
+    statement: >-
+      Each feed-daily-figures run since the judged moment holds its local day's counts, equal to the
+      sources' (the record, housing and the lab).
+    check: checks/ho1-daily-counts.sh
+    parameters: {}
+    witness: every day, about 85 consultations, 8 admissions, about 40 occupied units.
+    judged: runs
+  - id: HO2
+    statement: Each feed-daily-figures run's day holds one row per section and measure, none missing.
+    check: checks/ho2-one-row-each.sh
+    parameters: {}
+    witness: every feeder run.
+    judged: runs
+  - id: HO3
+    statement: >-
+      A month's figures equal the sum of its days (the turnaround the median of its days'), sent by the
+      5th and acknowledged, or escalated.
+    check: checks/ho3-month-code.sh
+    parameters: {}
+    witness: the planted months, against which the send's code runs; the 1st's run if the GM places one.
+    judged: code
+
+history: material/history.sql
+
+data_moved:
+  - job: feed-daily-figures
+    reads: []
+    writes: [target:daily_figures, target:runs]
+  - job: send-monthly-figures
+    reads: []
+    writes: [target:monthly_figures, target:runs, receiver:headoffice.figures]
+
+roles:
+  - name: vet_reports
+    part: source
+    reads: [business_settings, sites, sections, consultations, stays, owners, animals, housing_units,
+            housing_placements]
+    writes: []
+  - name: lab_reports
+    part: source_lab
+    reads: [lab_tests, lab_orders, lab_order_tests, lab_accounts]
+    writes: []
+  - name: office_jobs
+    part: target
+    reads: [daily_figures, monthly_figures]
+    writes: [daily_figures, monthly_figures, runs]
+
+classification:
+  columns:
+    office.daily_figures.id: internal
+    office.daily_figures.day: internal
+    office.daily_figures.section: internal
+    office.daily_figures.measure: internal
+    office.daily_figures.value: internal
+    office.daily_figures.run_id: internal
+    office.monthly_figures.id: internal
+    office.monthly_figures.month: internal
+    office.monthly_figures.section: internal
+    office.monthly_figures.measure: internal
+    office.monthly_figures.value: internal
+    office.monthly_figures.sent_at: internal
+    office.monthly_figures.reference: internal
+    office.monthly_figures.acknowledged_at: internal
+    office.monthly_figures.escalated_at: internal
+    office.monthly_figures.run_id: internal
+    office.runs.id: internal
+    office.runs.purpose: internal
+    office.runs.job: internal
+    office.runs.started_at: internal
+    office.runs.finished_at: internal
+    office.runs.rows_read: internal
+    office.runs.rows_written: internal

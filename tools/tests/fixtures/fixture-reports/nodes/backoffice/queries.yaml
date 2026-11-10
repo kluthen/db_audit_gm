@@ -212,3 +212,130 @@ queries:
                                     - (%(month)s::date - interval '3 months')::date)), 2)
         FROM m JOIN four f USING (staff_id) LEFT JOIN b USING (staff_id)
        ORDER BY m.staff_id
+  # from scenario: compose/backoffice/queries.yaml
+  figures.feed:
+    script: scripts/head_office_figures.py:feed
+    options:
+      read: figures.feed.read
+      lab: figures.feed.lab
+  # from scenario: compose/backoffice/queries.yaml
+  figures.send:
+    script: scripts/head_office_figures.py:send
+    options:
+      compute: figures.send.compute
+      first_day: 1
+      last_day: 5
+      attempts: 3
+  # from scenario: compose/backoffice/queries.yaml
+  figures.feed.read:
+    sql: |-
+      WITH sec AS (
+        SELECT sc.id, sc.kind FROM sections sc JOIN sites si ON si.id = sc.site_id WHERE si.kind = 'own'),
+      grid AS (
+        SELECT sec.id, sec.kind, m.measure FROM sec CROSS JOIN (VALUES ('consultations.scheduled'),
+               ('consultations.emergency'), ('consultations.herd-visit'), ('consultations.in-hospital'),
+               ('admissions'), ('discharges'), ('stays.midnight'), ('units.occupied'), ('units.in-service')) m (measure)),
+      counts AS (
+        SELECT section_id, 'consultations.' || kind AS measure, count(*) AS n FROM consultations
+         WHERE started_at >= %(lo)s AND started_at < %(hi)s GROUP BY 1, 2
+        UNION ALL
+        SELECT section_id, 'admissions', count(*) FROM stays WHERE admitted_at >= %(lo)s AND admitted_at < %(hi)s
+         GROUP BY 1
+        UNION ALL
+        SELECT section_id, 'discharges', count(*) FROM stays
+         WHERE discharged_at >= %(lo)s AND discharged_at < %(hi)s GROUP BY 1
+        UNION ALL
+        SELECT section_id, 'stays.midnight', count(*) FROM stays
+         WHERE admitted_at < %(hi)s AND (discharged_at IS NULL OR discharged_at >= %(hi)s) GROUP BY 1
+        UNION ALL
+        SELECT u.section_id, 'units.occupied', count(*) FROM housing_placements p
+          JOIN housing_units u ON u.id = p.unit_id
+         WHERE p.from_at < %(hi)s AND (p.until_at IS NULL OR p.until_at >= %(hi)s) GROUP BY 1
+        UNION ALL
+        SELECT section_id, 'units.in-service', count(*) FROM housing_units
+         WHERE NOT (state = 'out-of-service' AND state_since_at <= %(hi)s) GROUP BY 1)
+      SELECT g.kind, g.measure, coalesce(sum(c.n), 0)::numeric
+        FROM grid g LEFT JOIN counts c ON c.section_id = g.id AND c.measure = g.measure
+       GROUP BY g.kind, g.measure
+      UNION ALL SELECT 'centre', 'owners.new', count(*)::numeric FROM owners
+       WHERE registered_at >= %(lo)s AND registered_at < %(hi)s
+      UNION ALL SELECT 'centre', 'animals.new', count(*)::numeric FROM animals
+       WHERE registered_at >= %(lo)s AND registered_at < %(hi)s
+       ORDER BY 1, 2
+  # from scenario: compose/backoffice/queries.yaml
+  figures.feed.lab:
+    sql: |-
+      WITH grid AS (
+        SELECT DISTINCT 'tests.' || t.discipline || '.' || p.priority AS measure
+          FROM lab_tests t CROSS JOIN (VALUES ('routine'), ('urgent')) p (priority)),
+      released AS (
+        SELECT 'tests.' || t.discipline || '.' || o.priority AS measure, count(*) AS n
+          FROM lab_order_tests ot JOIN lab_orders o ON o.id = ot.order_id JOIN lab_tests t ON t.id = ot.test_id
+         WHERE ot.released_at >= %(lo)s AND ot.released_at < %(hi)s GROUP BY 1)
+      SELECT 'lab', g.measure, coalesce(r.n, 0)::numeric FROM grid g LEFT JOIN released r USING (measure) UNION ALL SELECT 'lab', 'orders.outside', count(*)::numeric
+        FROM lab_orders o JOIN lab_accounts a ON a.id = o.account_id
+       WHERE a.kind = 'practice' AND o.ordered_at >= %(lo)s AND o.ordered_at < %(hi)s
+      UNION ALL SELECT 'lab', 'turnaround.outside.median-minutes',
+             round((percentile_cont(0.5) WITHIN GROUP (
+               ORDER BY extract(epoch FROM ot.released_at - o.received_at) / 60))::numeric, 2)
+        FROM lab_order_tests ot JOIN lab_orders o ON o.id = ot.order_id JOIN lab_accounts a ON a.id = o.account_id
+       WHERE a.kind = 'practice' AND ot.status = 'released' AND ot.released_at >= %(lo)s
+         AND ot.released_at < %(hi)s AND o.received_at IS NOT NULL
+       ORDER BY 1, 2
+  # from scenario: compose/backoffice/queries.yaml
+  figures.send.compute:
+    sql: |-
+      SELECT section, measure,
+             CASE WHEN starts_with(measure, 'turnaround.')
+                  THEN round((percentile_cont(0.5) WITHIN GROUP (ORDER BY value))::numeric, 2)
+                  ELSE sum(value) END
+        FROM daily_figures
+       WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+       GROUP BY section, measure ORDER BY section, measure
+  # from scenario: compose/backoffice/queries.yaml
+  charges.feed:
+    script: scripts/lab_statements.py:feed
+    options:
+      read: charges.feed.read
+  # from scenario: compose/backoffice/queries.yaml
+  charges.close:
+    script: scripts/lab_statements.py:close
+    options:
+      compute: charges.close.compute
+  # from scenario: compose/backoffice/queries.yaml
+  charges.feed.read:
+    sql: |-
+      SELECT c.id, e.event, c.account_id, c.order_id, c.order_test_id, t.code, c.kind, c.amount, o.patient_ref,
+             o.client_surname
+        FROM lab_charges c
+        JOIN lab_accounts a ON a.id = c.account_id
+        JOIN lab_orders o ON o.id = c.order_id
+        LEFT JOIN lab_order_tests ot ON ot.id = c.order_test_id
+        LEFT JOIN lab_tests t ON t.id = ot.test_id
+        CROSS JOIN LATERAL (
+          SELECT 'billable' AS event WHERE c.billable_on = %(day)s::date
+          UNION ALL
+          SELECT 'void' WHERE c.voided_at >= %(lo)s AND c.voided_at < %(hi)s) e
+       WHERE a.kind = 'practice'
+       ORDER BY c.id, e.event
+  # from scenario: compose/backoffice/queries.yaml
+  charges.close.compute:
+    sql: |-
+      WITH stated AS (
+        SELECT DISTINCT charge_id FROM lab_charge_lines
+         WHERE event = 'billable' AND day < (%(month)s::date + interval '1 month')::date),
+      month_lines AS (
+        SELECT account_id, count(*) FILTER (WHERE event = 'billable') AS lines,
+               coalesce(sum(amount) FILTER (WHERE event = 'billable'), 0) AS billable,
+               coalesce(sum(amount) FILTER (WHERE event = 'void' AND charge_id IN (SELECT charge_id FROM stated)), 0)
+                 AS voided
+          FROM lab_charge_lines
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY account_id),
+      brackets (from_total, pct) AS (VALUES (0, 3), (200, 5), (400, 10), (600, 15)) SELECT m.account_id, m.lines, m.billable, m.voided, m.billable - m.voided AS total, b.pct,
+             round((m.billable - m.voided) * b.pct / 100, 2) AS discount,
+             (m.billable - m.voided) - round((m.billable - m.voided) * b.pct / 100, 2) AS due
+        FROM month_lines m
+        CROSS JOIN LATERAL (SELECT pct FROM brackets WHERE from_total <= greatest(m.billable - m.voided, 0)
+                             ORDER BY from_total DESC LIMIT 1) b
+       ORDER BY m.account_id

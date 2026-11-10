@@ -1,0 +1,63 @@
+# The lab's statements' jobs on the back office's report runner, a fragment
+# (purpose 10, vet-lab-statements; clinic-purposes.md 14; vet-lab rule 13;
+# capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md):
+# scripts/lab_statements.py. Each script names, in its options, the SQL key
+# it runs: the feeder's reading query on the lab (charges.feed.read: %(day)s
+# the local day, %(lo)s and %(hi)s its bounds), the close's computation on
+# office (charges.close.compute: %(month)s the closed month's first day). The
+# script reads them from this file at each run, so an edit here is the job's
+# code. The close's discount brackets (3 to 15 % by the month's total, game
+# values) are in its query.
+queries:
+  charges.feed:
+    script: scripts/lab_statements.py:feed
+    options: {read: charges.feed.read}
+  charges.close:
+    script: scripts/lab_statements.py:close
+    options: {compute: charges.close.compute}
+
+  # yesterday's charge events of the practices' accounts: each charge made
+  # billable that day (billable_on, the release's local date) and each
+  # voided that day, with its order, test, kind, amount and the order's
+  # patient reference and client surname; never the centre's account
+  charges.feed.read:
+    sql: >-
+      SELECT c.id, e.event, c.account_id, c.order_id, c.order_test_id, t.code, c.kind, c.amount, o.patient_ref,
+             o.client_surname
+        FROM lab_charges c
+        JOIN lab_accounts a ON a.id = c.account_id
+        JOIN lab_orders o ON o.id = c.order_id
+        LEFT JOIN lab_order_tests ot ON ot.id = c.order_test_id
+        LEFT JOIN lab_tests t ON t.id = ot.test_id
+        CROSS JOIN LATERAL (
+          SELECT 'billable' AS event WHERE c.billable_on = %(day)s::date
+          UNION ALL
+          SELECT 'void' WHERE c.voided_at >= %(lo)s AND c.voided_at < %(hi)s) e
+       WHERE a.kind = 'practice'
+       ORDER BY c.id, e.event
+  # each practice account's statement for the month, from office's lines:
+  # the billable lines and their sum, less the month's voids of charges
+  # stated (billable) by the month's end; the bracket by the total (3 % from
+  # 0, 5 % from 200, 10 % from 400, 15 % from 600, game values), the
+  # discount on the total, rounded once, and the amount due
+  charges.close.compute:
+    sql: >-
+      WITH stated AS (
+        SELECT DISTINCT charge_id FROM lab_charge_lines
+         WHERE event = 'billable' AND day < (%(month)s::date + interval '1 month')::date),
+      month_lines AS (
+        SELECT account_id, count(*) FILTER (WHERE event = 'billable') AS lines,
+               coalesce(sum(amount) FILTER (WHERE event = 'billable'), 0) AS billable,
+               coalesce(sum(amount) FILTER (WHERE event = 'void' AND charge_id IN (SELECT charge_id FROM stated)), 0)
+                 AS voided
+          FROM lab_charge_lines
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY account_id),
+      brackets (from_total, pct) AS (VALUES (0, 3), (200, 5), (400, 10), (600, 15))
+      SELECT m.account_id, m.lines, m.billable, m.voided, m.billable - m.voided AS total, b.pct,
+             round((m.billable - m.voided) * b.pct / 100, 2) AS discount,
+             (m.billable - m.voided) - round((m.billable - m.voided) * b.pct / 100, 2) AS due
+        FROM month_lines m
+        CROSS JOIN LATERAL (SELECT pct FROM brackets WHERE from_total <= greatest(m.billable - m.voided, 0)
+                             ORDER BY from_total DESC LIMIT 1) b
+       ORDER BY m.account_id

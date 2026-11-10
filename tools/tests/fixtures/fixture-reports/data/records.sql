@@ -1,7 +1,7 @@
 -- records' data file (tools/tests, v0.5 chunk 20; capture W4 item 5): the
 -- purposes' share, office.sql copied once (the back office's database office,
--- which no domain holds), then the data.sql of purposes 7, 8 and 12, in that
--- order. load-data runs it as postgres, connected to postgres, before the
+-- which no domain holds), then the data.sql of purposes 7, 8, 12, 9 and 10, in
+-- that order. load-data runs it as postgres, connected to postgres, before the
 -- domains' loads; vet-core then creates clinic beside it.
 -- office.sql: the back office's database office (v0.5 master spec 11.3,
 -- 12.1 item 5, 12.2; clinic-purposes.md, "The roles the purposes add" and
@@ -279,4 +279,122 @@ RESET ROLE;
 -- back office's staff, the inspector's queries).
 GRANT SELECT, INSERT ON working_time_days, rest_breaches, working_time_months TO office_jobs;
 GRANT SELECT ON working_time_days, rest_breaches, working_time_months TO office_reader;
+\connect postgres
+-- data.sql of vet-head-office-figures' target, office (v0.5 master spec
+-- 11.3, 12.1 item 5, 12.2 purpose 9; clinic-purposes.md 13, "The roles the
+-- purposes add" and "`office` at T0"; one-centre 1; capture W4 item 5 of
+-- specs/versions/v0.5/wave-log.md): the centre's daily activity figures and
+-- the months sent to the franchise's head office, in the back office's
+-- database. The GM copies it into the primary's (records') data file after
+-- office.sql (copied once for every periodic purpose); load-data streams that
+-- file into psql as postgres, connected to postgres. The planted past is
+-- material/history.sql's.
+--
+-- Each output row carries the run that wrote it (run_id, office's runs);
+-- day is the customer's local day, month its first day. No unique key on a
+-- day's rows: "one row per day, section and measure" is the feeder's care
+-- and the checks' judgement (HO2).
+\connect office
+SET ROLE office;
+
+-- One row a local day, section and measure (feed-daily-figures): section
+-- the core's section kind (horse, farm, domestic) for the record's and
+-- housing's measures, centre for the new owners and animals, lab for the
+-- laboratory's; value a count, or the outside orders' median turnaround in
+-- minutes (none on a day with no outside test released).
+CREATE TABLE daily_figures (
+    id      bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    day     date          NOT NULL,
+    section text          NOT NULL,
+    measure text          NOT NULL,
+    value   numeric(12,2),
+    run_id  bigint        NOT NULL REFERENCES runs (id));
+CREATE INDEX daily_figures_day_idx ON daily_figures (day, section, measure);
+
+-- One row a month, section and measure (send-monthly-figures, the 1st to
+-- the 5th): the month's figure summed from its days (the turnaround the
+-- median of its days'), as posted to the head office; its reference when
+-- acknowledged, or its escalation on the 5th. The send columns are the
+-- month's, the same on each of its rows.
+CREATE TABLE monthly_figures (
+    id              bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    month           date          NOT NULL,
+    section         text          NOT NULL,
+    measure         text          NOT NULL,
+    value           numeric(12,2),
+    sent_at         timestamptz,
+    reference       text,
+    acknowledged_at timestamptz,
+    escalated_at    timestamptz,
+    run_id          bigint        NOT NULL REFERENCES runs (id));
+CREATE INDEX monthly_figures_month_idx ON monthly_figures (month, section, measure);
+RESET ROLE;
+
+-- office_jobs writes them (the report runner; a retry or an escalation
+-- updates a month's send columns), office_reader reads them.
+GRANT SELECT, INSERT ON daily_figures, monthly_figures TO office_jobs;
+GRANT UPDATE (sent_at, reference, acknowledged_at, escalated_at) ON monthly_figures TO office_jobs;
+GRANT SELECT ON daily_figures, monthly_figures TO office_reader;
+\connect postgres
+-- data.sql of vet-lab-statements' target, office (v0.5 master spec 11.3,
+-- 12.1 item 5, 12.2 purpose 10; clinic-purposes.md 14, "The roles the
+-- purposes add" and "`office` at T0"; vet-lab rule 13; capture W4 item 5 of
+-- specs/versions/v0.5/wave-log.md): the practices' charge lines and their
+-- monthly statements, in the back office's database. The GM copies it into
+-- the primary's (records') data file after office.sql (copied once for every
+-- periodic purpose); load-data streams that file into psql as postgres,
+-- connected to postgres. The planted past is material/history.sql's.
+--
+-- Each output row carries the run that wrote it (run_id, office's runs);
+-- day is the customer's local day. No unique key on a day's lines: "once" is
+-- the feeder's care and the checks' judgement (ST1).
+\connect office
+SET ROLE office;
+
+-- One line a charge event of a local day (feed-lab-charges): a practice's
+-- charge made billable that day (the release's local date, the lab's
+-- billable_on), or voided that day (voided_at), with its order, test (none
+-- for the handling fee), kind, amount, and the order's patient reference
+-- and client surname as the practice gave them (personal: the statement
+-- lists the practice's own clients' orders). Never the centre's account.
+CREATE TABLE lab_charge_lines (
+    id             bigint       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    day            date         NOT NULL,
+    event          text         NOT NULL CHECK (event IN ('billable', 'void')),
+    charge_id      integer      NOT NULL,                -- the lab's lab_charges.id
+    account_id     integer      NOT NULL,                -- the lab's lab_accounts.id
+    order_id       integer      NOT NULL,
+    order_test_id  integer,
+    test_code      text,
+    kind           text         NOT NULL,                -- test, handling, urgent
+    amount         numeric(8,2) NOT NULL,
+    patient_ref    text,
+    client_surname text,
+    run_id         bigint       NOT NULL REFERENCES runs (id));
+CREATE INDEX lab_charge_lines_day_idx ON lab_charge_lines (day, account_id);
+CREATE INDEX lab_charge_lines_charge_idx ON lab_charge_lines (charge_id);
+
+-- One statement a month and practice account with charges
+-- (close-lab-statements, the 1st): its billable lines and their sum, the
+-- voids of charges stated before, the total, the volume discount's bracket
+-- (3 to 15 % by the total, a game value), the discount on the total and the
+-- amount due.
+CREATE TABLE lab_statements (
+    id           bigint        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    month        date          NOT NULL,                 -- its first day
+    account_id   integer       NOT NULL,
+    lines        integer       NOT NULL,
+    billable     numeric(10,2) NOT NULL,
+    voided       numeric(10,2) NOT NULL,
+    total        numeric(10,2) NOT NULL,
+    discount_pct integer       NOT NULL,
+    discount     numeric(10,2) NOT NULL,
+    due          numeric(10,2) NOT NULL,
+    run_id       bigint        NOT NULL REFERENCES runs (id));
+CREATE INDEX lab_statements_month_idx ON lab_statements (month, account_id);
+RESET ROLE;
+
+-- office_jobs writes them (the report runner), office_reader reads them.
+GRANT SELECT, INSERT ON lab_charge_lines, lab_statements TO office_jobs;
+GRANT SELECT ON lab_charge_lines, lab_statements TO office_reader;
 \connect postgres

@@ -1,9 +1,10 @@
 # The scenario layer of node backoffice, the back office's report runner
 # (v0.5 master spec 8.4, 11.3, 12.2; capture W4 items 0 and 5): the jobs of
-# purposes 7 (vet-medicines-registers), 8 (vet-antimicrobial-use) and 12
-# (vet-working-time) as the GM copies them, each purpose's
-# material/runner/jobs.yaml in that order. Scenario time; render shifts the
-# hours. The periodic jobs run daily and act on their own local date (D436).
+# purposes 7 (vet-medicines-registers), 8 (vet-antimicrobial-use), 12
+# (vet-working-time), 9 (vet-head-office-figures) and 10 (vet-lab-statements)
+# as the GM copies them, each purpose's material/runner/jobs.yaml in that
+# order. Scenario time; render shifts the hours. The periodic jobs run daily
+# and act on their own local date (D436).
 jobs:
   - name: feed-medicines-register
     key: meds.register
@@ -41,3 +42,19 @@ jobs:
     key: worktime.close
     connections: {clinic: clinic-reports, office: office}
     at: "0 5 * * *"
+  - name: feed-daily-figures
+    key: figures.feed
+    connections: {clinic: clinic-reports, lab: lab-reports, office: office}
+    at: "30 0 * * *"
+  - name: send-monthly-figures
+    key: figures.send
+    connections: {clinic: clinic-reports, office: office, receiver: headoffice}
+    at: "0 5 * * *"
+  - name: feed-lab-charges
+    key: charges.feed
+    connections: {lab: lab-reports, office: office}
+    at: "30 2 * * *"
+  - name: close-lab-statements
+    key: charges.close
+    connections: {lab: lab-reports, office: office}
+    at: "0 4 * * *"

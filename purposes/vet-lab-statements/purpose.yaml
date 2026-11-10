@@ -1,0 +1,152 @@
+# Purpose 10, the lab's statements (v0.5 master spec 11.3, 12.1, 12.2 purpose
+# 10; clinic-purposes.md 14; vet-lab rule 13; spec D294, D300, D304, D436;
+# capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md): pulled,
+# periodic. The practices' charges made billable or voided each local day,
+# fed daily into the back office's database office from the laboratory's
+# database on its only node (the lab has no standby); on the 1st each
+# practice account's statement for the past month, its volume discount by
+# the month's total. The centre's own account is never charged nor stated.
+#
+# Material (material/) is written for the clinic's mapping: source lab/lab
+# (read on its only node at night), target records/office, runner
+# backoffice. The GM adapts the names as it copies; gm.md says where each
+# name lives. office's DDL goes into records' data file (office.sql once,
+# then data.sql); material/history.sql plants the past.
+id: vet-lab-statements
+title: The practices' monthly statements from the lab's charges, fed daily into the back office
+domains: [vet-lab]
+kind: pulled
+
+parts:
+  source: the laboratory's database, lab (the practices' charges, read on its only node at night)
+  target: the back office's database, office (the charge lines, the statements)
+  runner: the back office's report runner, backoffice
+
+jobs:
+  - name: feed-lab-charges
+    key: charges.feed
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      yesterday's charge events of the practices' accounts (the customer's local date): each charge made
+      billable that day (its release's date) and each voided that day, with its order, test, kind, amount,
+      the order's patient reference and client surname (charges.feed.read on the lab), once a day; never
+      the centre's account; one runs row.
+    cadence: "30 2 * * *"
+    connections:
+      lab: lab_reports
+      office: office_jobs
+  - name: close-lab-statements
+    key: charges.close
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      run daily, acting on the 1st only (the customer's local date; any other day writes nothing): each
+      practice account's statement for the past month from the feeder's lines (charges.close.compute):
+      the billable lines summed, less the month's voids of charges stated, the bracket by the total (3 %
+      from 0, 5 % from 200, 10 % from 400, 15 % from 600, game values), the discount on the total rounded
+      once, the amount due; one runs row.
+    cadence: "0 4 * * *"
+    connections:
+      lab: lab_reports
+      office: office_jobs
+    feeder: feed-lab-charges
+
+trace:
+  - kind: published-results
+    part: target
+    table: lab_charge_lines
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: lab_statements
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: ST1
+    statement: >-
+      Each feed-lab-charges run since the judged moment holds every practice's charge made billable or
+      voided on its local day, once, its amount equal to the lab's.
+    check: checks/st1-charges-once.sh
+    parameters: {}
+    witness: about 60 charges a working day; voids on cancellations and unfit samples.
+    judged: runs
+  - id: ST2
+    statement: The centre's internal account is never charged nor stated (lab rule 13).
+    check: checks/st2-centre-never-charged.sh
+    parameters: {}
+    witness: the centre's own orders, every day.
+    judged: runs
+  - id: ST3
+    statement: >-
+      A statement equals its month's billable charges less the voids of charges stated, with its
+      bracket's discount on the total.
+    check: checks/st3-statement-code.sh
+    parameters: {}
+    witness: the planted months, against which the statement's code runs; the 1st's run if the GM places one.
+    judged: code
+
+history: material/history.sql
+
+data_moved:
+  - job: feed-lab-charges
+    reads: [lab.lab_orders.patient_ref, lab.lab_orders.client_surname]
+    writes: [target:lab_charge_lines, target:runs]
+  - job: close-lab-statements
+    reads: []
+    writes: [target:lab_statements, target:runs]
+
+roles:
+  - name: lab_reports
+    part: source
+    reads: [lab_settings, lab_charges, lab_accounts, lab_orders, lab_order_tests, lab_tests]
+    writes: []
+  - name: office_jobs
+    part: target
+    reads: [lab_charge_lines, lab_statements]
+    writes: [lab_charge_lines, lab_statements, runs]
+
+classification:
+  columns:
+    office.lab_charge_lines.id: internal
+    office.lab_charge_lines.day: internal
+    office.lab_charge_lines.event: internal
+    office.lab_charge_lines.charge_id: internal
+    office.lab_charge_lines.account_id: internal
+    office.lab_charge_lines.order_id: internal
+    office.lab_charge_lines.order_test_id: internal
+    office.lab_charge_lines.test_code: internal
+    office.lab_charge_lines.kind: internal
+    office.lab_charge_lines.amount: internal
+    office.lab_charge_lines.patient_ref: personal
+    office.lab_charge_lines.client_surname: personal
+    office.lab_charge_lines.run_id: internal
+    office.lab_statements.id: internal
+    office.lab_statements.month: internal
+    office.lab_statements.account_id: internal
+    office.lab_statements.lines: internal
+    office.lab_statements.billable: internal
+    office.lab_statements.voided: internal
+    office.lab_statements.total: internal
+    office.lab_statements.discount_pct: internal
+    office.lab_statements.discount: internal
+    office.lab_statements.due: internal
+    office.lab_statements.run_id: internal
+    office.runs.id: internal
+    office.runs.purpose: internal
+    office.runs.job: internal
+    office.runs.started_at: internal
+    office.runs.finished_at: internal
+    office.runs.rows_read: internal
+    office.runs.rows_written: internal

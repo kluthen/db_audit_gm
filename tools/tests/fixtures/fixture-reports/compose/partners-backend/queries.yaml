@@ -1,9 +1,15 @@
 # The scenario layer of node partners-backend (v0.5 master spec 8.4, 10.2;
-# capture W4 item 0): purpose 8's authority stub's queries as the GM copies
-# them (material/receiver/authority/queries.yaml).
+# capture W4 item 0): purpose 8's authority stub's queries and purpose 9's
+# head office stub's, as the GM copies them (each purpose's
+# material/receiver/<prefix>/queries.yaml).
 queries:
   authority.normal:
     sql: >-
       INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'),
       ('authority', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  headoffice.normal:
+    sql: >-
+      INSERT INTO headoffice.state (hostname, name, value) VALUES ('head-office', 'delay_ms', '0'),
+      ('head-office', 'fail_one_in', '50')
       ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

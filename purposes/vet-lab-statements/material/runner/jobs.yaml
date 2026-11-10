@@ -1,0 +1,17 @@
+# Fixed-time operation of the back office's report runner for the lab's
+# statements, a fragment (purpose 10; clinic-purposes.md 14; capture W4 items
+# 0 and 5 of specs/versions/v0.5/wave-log.md), in scenario time: the feeder at
+# 02:30, yesterday's charges; the statements at 04:00, run daily and acting
+# on the 1st only (the customer's local date; spec D436). Script jobs reading
+# the laboratory's database on its only node as lab_reports (the lab has no
+# standby, D304) and writing office as office_jobs. Written for the runner
+# backoffice; the GM adapts it.
+jobs:
+  - name: feed-lab-charges
+    key: charges.feed
+    connections: {lab: lab-reports, office: office}
+    at: "30 2 * * *"
+  - name: close-lab-statements
+    key: charges.close
+    connections: {lab: lab-reports, office: office}
+    at: "0 4 * * *"

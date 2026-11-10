@@ -17,7 +17,7 @@ local implementation (`local/<playground>/`, git-ignored), not here; this
 document describes the scenario and the host topology it was designed
 for, not any one playground.
 
-# Reports fixture, purposes 7, 8 and 12 on vet-core's record read on its standby, with the authority's stub
+# Reports fixture, purposes 7, 8, 9, 10 and 12 on vet-core's record read on its standby and on the lab, with the authority's and the head office's stubs
 
 ## 1. Scenario information
 
@@ -25,7 +25,7 @@ for, not any one playground.
 |---|---|
 | Id | `fixture-reports` |
 | Version | `0.1.0` |
-| Title | Reports fixture, purposes 7, 8 and 12 on vet-core's record read on its standby, with the authority's stub |
+| Title | Reports fixture, purposes 7, 8, 9, 10 and 12 on vet-core's record read on its standby and on the lab, with the authority's and the head office's stubs |
 | Date | 2026-11-10 |
 | Origin | hand-written |
 | Session length | 60 minutes |
@@ -45,12 +45,12 @@ for, not any one playground.
 
 ## 2. Background
 
-A veterinary hospital of a regional franchise keeps its medical record in one PostgreSQL database, records, with a read-only standby where its reports read, and its laboratory's in another, lab. Each night its back office's report runner feeds the medicines registers, the antimicrobial use and the staff's working time into the back office's database, closes them each month, and once a year reports the antimicrobial use to the national veterinary authority.
+A veterinary hospital of a regional franchise keeps its medical record in one PostgreSQL database, records, with a read-only standby where its reports read, and its laboratory's in another, lab. Each night its back office's report runner feeds the medicines registers, the antimicrobial use, the staff's working time, the activity figures and the lab's charges to the practices into the back office's database, closes them each month (the practices' statements, the figures sent to the franchise's head office), and once a year reports the antimicrobial use to the national veterinary authority.
 
 The story as the players read it: `player/story.md`. The partners as the
 players read them: `player/partners.md` (the veterinary authority,
-`authority`, outbound, on `partners-api`, `partners-backend` and
-`partners-db`).
+`authority`, and the franchise's head office, `head-office`, both
+outbound, on `partners-api`, `partners-backend` and `partners-db`).
 
 ## 3. Topology
 
@@ -124,7 +124,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data, restored from `data/records.sql` (the back office's `office`: purpose 7's `office.sql`, then the `data.sql` of purposes 7, 8 and 12; the domains `vet-core`, `vet-housing` and `vet-scheduling` are loaded into the database `clinic`, see section 1):
+Data, restored from `data/records.sql` (the back office's `office`: purpose 7's `office.sql`, then the `data.sql` of purposes 7, 8, 12, 9 and 10; the domains `vet-core`, `vet-housing` and `vet-scheduling` are loaded into the database `clinic`, see section 1):
 
 - Database `office`, owner `office`:
 
@@ -142,6 +142,10 @@ Data, restored from `data/records.sql` (the back office's `office`: purpose 7's 
   | `working_time_days` | each staff member's local day (shifts, planned and clocked hours, night hours, call-outs), fed at 09:30 for yesterday |
   | `rest_breaches` | each shift begun after a rest shorter than the minimum, from the day's clocked shifts |
   | `working_time_months` | each staff member's month (hours, night hours, call-outs, breaches, the four months' weekly average), on the 1st at 05:00 |
+  | `daily_figures` | the centre's activity per local day, section and measure (consultations, admissions, discharges, the stays and housing units at midnight, new owners and animals, the lab's tests and turnaround), fed at 00:30 |
+  | `monthly_figures` | the month's figures per section and measure, summed from the days, sent to the head office from the 1st at 05:00, its reference or its escalation on the 5th |
+  | `lab_charge_lines` | the lab's charges to the practices made billable or voided per local day (order, test, kind, amount, the practice's patient reference and client surname), fed at 02:30 |
+  | `lab_statements` | each practice account's monthly statement (billable less voids, the volume discount's bracket, the amount due), on the 1st at 04:00 |
 
 #### Node `standby`
 
@@ -290,7 +294,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 256MB | 64MB .. 512MB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data, restored from `data/partners-db.sql` (the database `partners` and the authority's stub, purpose 8's `data.sql`; the centres' and the lab's two partners' state from the domains, see section 1):
+Data, restored from `data/partners-db.sql` (the database `partners`, the authority's stub, purpose 8's `data.sql`, and the head office's, purpose 9's; the centres' and the lab's two partners' state from the domains, see section 1):
 
 - Database `partners`, owner `postgres`:
 
@@ -299,6 +303,9 @@ Data, restored from `data/partners-db.sql` (the database `partners` and the auth
   | `authority.amu_reports` | the authority's stub, one row a yearly report acknowledged (its key, its reference, the body as first acknowledged) |
   | `authority.amu_report_calls` | every call to the authority's reports endpoint, its number and the status answered (one in fifty 503) |
   | `authority.state` | the authority's stub's state (delay_ms 0, fail_one_in 50) |
+  | `headoffice.figures` | the head office's stub, one row a month's figures acknowledged (its key, its reference, the body as first acknowledged) |
+  | `headoffice.figure_calls` | every call to the head office's figures endpoint, its number and the status answered (one in fifty 503) |
+  | `headoffice.state` | the head office's stub's state (delay_ms 0, fail_one_in 50) |
   | `centres.exchanges` | the other centres' stub, one row an exchange a centre holds, the history's open ones planted (its fragments left out) |
   | `xlab.orders` | the external lab's stub, one row a send-out it holds, the history's open ones planted (its fragments left out) |
   | `practices.orders` | the practices' stub, one row an order posted to lab-api, the history's open ones planted (their fragments left out) |
@@ -311,11 +318,13 @@ Data, restored from `data/partners-db.sql` (the database `partners` and the auth
 | `bastion` | `standby` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `lab` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `standby` | `records` | streaming replication from the standby's slot, as replicator | postgresql 5432 | continuous |
-| `backoffice` | `standby` | the feeders' and the reports' reads of the record, as vet_reports and sched_reports | postgresql 5432 | 01:30, 01:45, 02:00, 09:30 daily; the periodic jobs daily at 03:00 to 05:00, acting on their own date |
+| `backoffice` | `standby` | the feeders' and the reports' reads of the record, as vet_reports and sched_reports | postgresql 5432 | 00:30, 01:30, 01:45, 02:00, 09:30 daily; the periodic jobs daily at 03:00 to 05:00, acting on their own date |
+| `backoffice` | `lab` | the head office's figures' and the lab's charges' reads of the lab, as lab_reports (the lab has no standby) | postgresql 5432 | 00:30 and 02:30 daily; the statements daily at 04:00, acting on the 1st |
 | `backoffice` | `records` | the back office's registers, reports and runs, as office_jobs | postgresql 5432 | with each job |
 | `backoffice` | `partners-api` | the yearly antimicrobial-use report to the authority (authority_customer) | http 8000 | 15 January, 04:00 |
-| `partners-backend` | `partners-db` | the authority's baseline, as authority | postgresql 5432 | every minute |
-| `partners-api` | `partners-db` | the authority's records, as authority | postgresql 5432 | per request |
+| `backoffice` | `partners-api` | the month's figures to the head office (headoffice_customer) | http 8000 | the 1st to the 5th, 05:00 |
+| `partners-backend` | `partners-db` | the authority's and the head office's baselines, as authority and headoffice | postgresql 5432 | every minute |
+| `partners-api` | `partners-db` | the authority's and the head office's records, as authority and headoffice | postgresql 5432 | per request |
 
 ### Purposes
 
@@ -350,6 +359,30 @@ this scenario.
 | Part | Mapped to |
 |---|---|
 | `source` | `records/clinic` |
+| `target` | `records/office` |
+| `runner` | `backoffice` |
+
+#### Purpose `vet-head-office-figures`
+
+Defined in `purposes/vet-head-office-figures/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `records/clinic` |
+| `source_lab` | `lab/lab` |
+| `target` | `records/office` |
+| `runner` | `backoffice` |
+| `receiver` | `partners-api` |
+
+#### Purpose `vet-lab-statements`
+
+Defined in `purposes/vet-lab-statements/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `lab/lab` |
 | `target` | `records/office` |
 | `runner` | `backoffice` |
 
@@ -438,9 +471,11 @@ None.
   - `backoffice`: `nodes/backoffice/queries.yaml`,
     `nodes/backoffice/jobs.yaml`, `nodes/backoffice/schedule.yaml`,
     `nodes/backoffice/scripts/` (`antimicrobial_use.py`,
+    `head_office_figures.py`, `lab_statements.py`,
     `medicines_registers.py`, `working_time.py`)
   - `partners-api`: `nodes/partners-api/api.yaml`,
-    `nodes/partners-api/routes/` (`authority_amu_reports.py`),
+    `nodes/partners-api/routes/` (`authority_amu_reports.py`,
+    `headoffice_figures.py`),
     `nodes/partners-api/db/` (the same)
   - `partners-backend`: `nodes/partners-backend/queries.yaml`,
     `nodes/partners-backend/jobs.yaml`,
@@ -450,7 +485,7 @@ None.
 - **Restored-backup data**, streamed in after deployment:
   - `records`: `data/records.sql` (the back office's `office`);
     `partners-db`: `data/partners-db.sql` (the database `partners`, the
-    authority's stub); first;
+    authority's and the head office's stubs); first;
   - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
     `data/load.sql`, into `records/clinic`, and the other centres'
     `producers/partners/centres/data.sql`, into `partners` on
@@ -462,10 +497,13 @@ None.
     `producers/partners/practices/data.sql`, into `partners` on
     `partners-db`; in `composition.yaml`'s order;
   - the purposes' planted past, read from the catalogue:
-    `vet-medicines-registers`', `vet-antimicrobial-use`' and
-    `vet-working-time`'s `material/history.sql`, in `records/office`,
-    reading the record through `gm_src_source`; the domains' coherence
-    checks; then `standby` cloned from `records`.
+    `vet-medicines-registers`', `vet-antimicrobial-use`',
+    `vet-working-time`'s and `vet-head-office-figures`'
+    `material/history.sql`, in `records/office`, reading the record
+    through `gm_src_source` (and purpose 9 the lab through
+    `gm_src_source_lab`), and `vet-lab-statements`', reading the lab
+    through `gm_src_source`; the domains' coherence checks; then
+    `standby` cloned from `records`.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
