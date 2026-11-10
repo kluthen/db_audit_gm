@@ -1781,7 +1781,8 @@ and queries, `office`'s tables and roles, the planted periods.
 
 ### Chunk 21 — The parts' flows: purposes 11, 13, 14, 15 and 16
 
-Status: in progress (21a merged, 702bd40; 21b next)
+Status: merged (w4, d55429c)
+Record: 21a ecaff1a, merge 702bd40 (bookings 54/54 in 1202 s, imaging 67/67 in 1518 s, vault 48/48 in 327 s); 21b 34d0694, merge d55429c (fixture-portal 108 PASS in 1307 s; RL1-RL6, MS1-MS6 exit 0, exit 2 with gm_check_read dropped). Outside the plan's text: extra grants (vet_portal_sync, lab_release, portal_dispatch), send-messages' stopped rows, trigger checks judging a satisfied trigger at once, RL5 judged from the judged moment (load stamps synced_at), vault T0 at 21:MM, the vault fixture without equipment, partners.md mapping on fixture-vault and fixture-restore left for the gate; all in the wave log for G18.
 Wave: 4
 Depends on: chunks 11, 13, 15, 16 and 29 (waves 2 and 3); chunk 32 for
 the format check and fixtures of purposes 14, 15 and 16 only (in wave,
