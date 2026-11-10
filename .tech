@@ -17,7 +17,9 @@
 # 2026-11-04 at v0.5 wave 2's gate G10, grafana 0.3.0 gaining a dashboard
 # seed and no package; grafana 0.3.0 rebuilt on Grafana 13.3.0 the same day,
 # owner ruling D396, its 129 Debian packages at the versions recorded
-# below). The Go binaries downloaded as release tarballs
+# below; bastion 0.5.0 rebuilt with curl at v0.5 wave 4's gate G11.2
+# (91aad3f, 157 packages) and prometheus 0.2.0 and postgres-exporter 0.2.0
+# read 2026-11-10). The Go binaries downloaded as release tarballs
 # (prometheus, promtool, grafana and its bundled Prometheus data source
 # plugin, postgres_exporter, pgwatch) are described by one CycloneDX SBOM
 # each, bricks/<brick>/sbom/<binary>.cdx.json, which osv-scanner reads on
@@ -90,7 +92,7 @@ source = "bricks/*/Dockerfile ARG S6_OVERLAY_VERSION, sha256-pinned release arch
 name = "OpenSSH server and client"
 version = "10.0"
 cpe = "cpe:2.3:a:openbsd:openssh"
-source = "Debian openssh-server 1:10.0p1-7+deb13u4, every brick, api 0.1.0, pgwatch 0.1.0 and health-check 0.1.0 included (apt, unpinned; upstream 10.0p1; re-checked 2026-11-04)"
+source = "Debian openssh-server 1:10.0p1-7+deb13u4, every brick, api 0.1.0, pgwatch 0.1.0 and health-check 0.1.0 included (apt, unpinned; upstream 10.0p1; re-checked 2026-11-04, bastion 0.5.0, prometheus 0.2.0 and postgres-exporter 0.2.0 on 2026-11-10), on Debian glibc 2.41 (libc6 2.41-12+deb13u4), never musl. sshd: PasswordAuthentication yes on bastion only (the players' login), no elsewhere; UsePAM no everywhere"
 
 [[platform]]
 name = "sudo"
@@ -108,7 +110,7 @@ source = "Debian libssl3t64 and openssl 3.5.7-1~deb13u3 (trixie-security) in eve
 name = "curl / libcurl (Debian)"
 version = "8.14.1"
 cpe = "cpe:2.3:a:haxx:curl"
-source = "Debian curl and libcurl4t64 8.14.1-2+deb13u7 (trixie-security's latest, uploaded 2026-10-14; apt, unpinned). bastion 0.5.0: added with --no-install-recommends (gate G11.2, owner accepted 2026-11-10), the players' HTTP client for the partners' endpoints, run by the unprivileged player, no listener; this entry is written from the G11.2 preflight (2026-11-09), the image is not built yet: its dpkg-query check is due at v0.5 wave 4's sync. Also in api 0.1.0, grafana 0.3.0, health-check 0.1.0, pgwatch 0.1.0 and scheduler 0.3.0 (dpkg-query 2026-11-09, the same build and the same 13 pulled-in packages), prometheus 0.2.0 and postgres-exporter 0.2.0 (same Dockerfile line, built after deb13u7's upload; their dpkg-query also due at the sync). NVD matches 42 CVEs on 8.14.1 (2026-11-10): 19 fixed by Debian backports up to deb13u7, 1 not affected in Debian (CVE-2026-80231), 22 open in trixie (16 no-DSA minor, 6 unimportant), accepted below until 2027-02-01 or the next trixie curl security upload, whichever comes first. librtmp1's gnutls28 and p11-kit and nghttp2's nghttpx findings fall under the same acceptance (G11.2). Watch: the Debian tracker's curl, and curl.se/docs/vuln-8.14.1.html"
+source = "Debian curl and libcurl4t64 8.14.1-2+deb13u7 (trixie-security's latest, uploaded 2026-10-14; apt, unpinned), the OpenSSL build (curl -V: libcurl/8.14.1 OpenSSL/3.5.7 with nghttp2, nghttp3, libssh2, librtmp, OpenLDAP, libpsl, libidn2, brotli, zstd). bastion 0.5.0: added with --no-install-recommends (gate G11.2, owner accepted 2026-11-10), the players' HTTP client for the partners' endpoints, run by the unprivileged player, no listener; image built 2026-11-10 from 91aad3f, dpkg-query the same day: 14 packages over bastion 0.4.0, curl, libcurl4t64 and libbrotli1 1.1.0-2+deb13u1, libffi8 3.4.8-2, libgnutls30t64 3.8.9-3+deb13u4, libidn2-0 2.3.8-2, libnghttp2-14 1.64.0-1.1+deb13u1, libnghttp3-9 1.8.0-1, libp11-kit0 0.25.5-3, libpsl5t64 0.21.2-1.1+b1, librtmp1 2.4+20151223.gitfa8646d.1-2+b5, libssh2-1t64 1.11.1-1+deb13u2, libtasn1-6 4.20.0-2+deb13u1, libunistring5 1.3-2 (libldap2 2.6.10+dfsg-1 and libsasl2-2 2.1.28+dfsg1-9 were already there, through libpq5). Also in api 0.1.0, grafana 0.3.0, health-check 0.1.0, pgwatch 0.1.0 and scheduler 0.3.0 (dpkg-query 2026-11-09), prometheus 0.2.0 and postgres-exporter 0.2.0 (dpkg-query 2026-11-10: curl already in their 0.1.0 images), all at deb13u7 with the same libraries as bastion. NVD matches 42 CVEs on 8.14.1 (2026-11-10): 19 fixed by Debian backports up to deb13u7, 1 not affected in Debian (CVE-2026-80231), 22 open in trixie (16 no-DSA minor, 6 unimportant), accepted below until 2027-02-01 or the next trixie curl security upload, whichever comes first. The Debian tracker lists 17 more curl issues open in trixie that NVD has not matched yet (urgency not yet assigned, 2026-11-10; CVE-2026-107928 needs a GnuTLS build, not this one): each surfaces as a new finding once NVD analyses it, triaged then. The pulled-in libraries on the Debian tracker (2026-11-10): brotli, libssh2, libidn2, libpsl, libffi, libtasn1-6, libunistring and nghttp3 nothing open in trixie; gnutls28 6 unimportant (certificate-checking nits; used here only by librtmp); openldap 5 unimportant (slapd, LMDB, NSS); nghttp2 CVE-2026-58055 (the nghttpx proxy, not the library); p11-kit CVE-2026-13757 and -18938 (no-DSA minor, its RPC server, never run; the second 32-bit only); rtmpdump CVE-2026-112060 and -112061 (undetermined: a malicious RTMP server against the client, reached only by a player running curl rtmp:// in their own session); cyrus-sasl2 CVE-2026-107161 (DIGEST-MD5 client plugin overflow, fix due in a trixie point release; that plugin's package libsasl2-modules is in none of the eight images, only libsasl2-modules-db). None gets a platform entry: NVD would add only backport false positives, and their fixes arrive with an unpinned rebuild; they fall under the same acceptance (G11.2). Watch: the Debian tracker's curl, rtmpdump and cyrus-sasl2, and curl.se/docs/vuln-8.14.1.html"
 
 # --- per brick ------------------------------------------------------------------
 
@@ -140,7 +142,7 @@ source = "Debian libcares2 1.34.5-1+deb13u1 in pgbouncer 0.1.1 (apt, unpinned; d
 name = "nginx (bastion web front, health-check status page)"
 version = "1.26.3"
 cpe = "cpe:2.3:a:f5:nginx_open_source"
-source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.5.0 (the 0.4.0 image retagged) and nginx and nginx-common 1.26.3-3+deb13u10 in health-check 0.1.0 (apt, unpinned; gate G9, re-checked 2026-11-04). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04)"
+source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.5.0 (rebuilt with curl 2026-11-10, nginx unchanged) and nginx and nginx-common 1.26.3-3+deb13u10 in health-check 0.1.0 (apt, unpinned; gate G9, re-checked 2026-11-04). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04)"
 
 [[platform]]
 name = "pg_cron (PostgreSQL extension, postgres brick)"
@@ -204,7 +206,7 @@ source = "bricks/grafana/Dockerfile ARG GRAFANA_VERSION=13.3.0, GRAFANA_BUILD=40
 name = "Python"
 version = "3.13.5"
 cpe = "cpe:2.3:a:python:python"
-source = "Debian python3.13 3.13.5-2+deb13u5 (apt, unpinned): scheduler 0.3.0 (with python3-psycopg 3.2.6, python3-yaml 6.0.2), api 0.1.0 (with python3-yaml 6.0.2 and libyaml-0-2 0.2.5-2, safe loading only, gate G11.1; its PyPI wheels in bricks/api/requirements.txt, no pip in the image) and the GM host's python3 running tools/gmctl (armenelos still on 3.13.5-2+deb13u4 on 2026-11-10: its apt lists for the trixie suite date from 2026-07-11, so deb13u5 is not offered yet; CVE-2026-0864's ignore waits for that upgrade)"
+source = "Debian python3.13 3.13.5-2+deb13u5 (apt, unpinned): scheduler 0.3.0 (with python3-psycopg 3.2.6, python3-yaml 6.0.2), api 0.1.0 (with python3-yaml 6.0.2 and libyaml-0-2 0.2.5-2, safe loading only, gate G11.1; its PyPI wheels in bricks/api/requirements.txt, no pip in the image) and the GM host's python3 running tools/gmctl (armenelos upgraded from 3.13.5-2+deb13u4 to deb13u5 on 2026-11-10 after its stale trixie main Packages list was removed; apt-cache policy python3.13: installed 3.13.5-2+deb13u5, candidate the same)"
 
 # --- accepted risks (owner ruling 2026-11-10; advisor triage 2026-11-01 and 2026-11-09) ---
 
@@ -346,7 +348,7 @@ reason = "fixed by Debian backport 1.26.3-3+deb13u7, images run deb13u10"
 approved_by = "bastien"
 until = 2027-05-01
 
-# python3.13 (Debian 3.13.5-2+deb13u5 in the images; CVE-2026-0864 waits for the host's upgrade)
+# python3.13 (Debian 3.13.5-2+deb13u5 in the images and, from 2026-11-10, on the host)
 
 [[ignore]]
 id = "CVE-2026-4519"
@@ -387,6 +389,12 @@ until = 2027-05-01
 [[ignore]]
 id = "CVE-2026-4224"
 reason = "fixed by Debian backport 3.13.5-2+deb13u2"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-0864"
+reason = "fixed by Debian backport 3.13.5-2+deb13u5 (images and, once upgraded, the host)"
 approved_by = "bastien"
 until = 2027-05-01
 
