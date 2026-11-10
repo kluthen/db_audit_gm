@@ -137,7 +137,7 @@ From [clinic-purposes.md](clinic-purposes.md) 5 to 8. Each is a cascade
 | T46 | Deliveries made one after another with a long timeout | one practice's dead callback (a partner outage) holding every delivery: all practices late (PR1) | `lab_callbacks` stalled behind one account, from the outage | `interfaces`' script | new | D, V |
 | T47 | A new `delivery_key` on each attempt | duplicates at the practices after each slow answer (PR2) | keys per order and kind, at the stub's 503s (one in fifty) | `interfaces`' script | adapts `purpose-retry-without-key` | M |
 | T48 | Amendments never delivered (the query takes `final` only), or no incident after the sixth attempt | practices holding superseded results, or results never delivered, nobody told (PR1, PR5) | amendments with no delivery, about 4 a day; failed deliveries with no incident | `interfaces`' script | new | M |
-| T49 | A natural identifier or the client's surname in a send-out (lab rule 11) | personal data sent to a third party (SO3) | the stub's received payloads, at the 16:00 send-out | `interfaces`' script | adapts `governance-personal-copied` | M, V |
+| T49 | A natural identifier or the client's surname in a send-out (lab rule 11) | personal data sent to a third party (SO3) | the stub's kept send-outs, at the 16:00 send-out: the identifier or surname in a catalogue field (the label); the stub keeps those fields only, so a variant adding a key of its own brings a stub keeping the whole body as its material (D452) | `interfaces`' script | adapts `governance-personal-copied` | M, V |
 | T50 | A new `send_key` on each retry | the external lab running a test twice (SO2) | send-outs with two external accessions, at a chase | `interfaces`' script | adapts `purpose-retry-without-key` | M |
 | T51 | `lab-api`'s answer endpoint matching on the external accession, which a resend changes | answers recorded nowhere: results that never come back (SO4) | the stub's posted answers with no recorded result, at each answer after a resend | `lab-api`'s `db/` | new | V |
 | T52 | `send-outs` scheduled in UTC, after the courier left at a positive shift | send-outs a day late, every day (SO1) | sent-out tests packed the next day | `interfaces`' `jobs.yaml` | adapts `purpose-day-boundary-wrong-zone` | M |
@@ -225,7 +225,7 @@ copied here: the part's page is their one home.
 
 | Part | Traps | False alarms | Notes |
 |---|---|---|---|
-| [`vet-scheduling`](vet-scheduling-domain.md#traps-step-8) | T100–T128 (29) | 5 | T122 dormant: `sched_upcoming` is not built, no appointment reminders in v0.5 (D321) |
+| [`vet-scheduling`](vet-scheduling-domain.md#traps-step-8) | T100–T128 (29) | 7 | T122 dormant: `sched_upcoming` is not built, no appointment reminders in v0.5 (D321) |
 | [`vet-housing`](vet-housing-domain.md#traps-step-8) | T150–T171 (22) | 4 | T150, the faulty display (D287's own case), is s9 of the test selection, judged on the report (D325) |
 | [`vet-machinery`](vet-machinery-domain.md#traps-step-8) | T200–T237 (38) | 6 | cold storage's heavy-data traps among them (its section 4); T208, no partition created ahead, a trap for the GM, not in the selection (D325) |
 | [`vet-portal`](vet-portal-domain.md#traps-step-8) | T250–T295 (46) | 6 | T270, the animals' policy without the ownership's end, is s5 of the test selection (D325) |

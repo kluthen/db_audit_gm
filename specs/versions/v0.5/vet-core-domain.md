@@ -404,7 +404,7 @@ grow. Monthly counts show the trend, and the live rates continue it.
 | Table | Key, main columns |
 |---|---|
 | `medicines` | `id`; name, authorisation number, ATCvet code, form, `antimicrobial`, `controlled`, withdrawal days for meat and milk, allowed for a food-chain horse |
-| `medicine_batches` | `id`; medicine, batch number, site, expires on, quantity received (at load only: stock receipts are out of v0.5) |
+| `medicine_batches` | `id`; medicine, batch number, site, expires on, quantity received (at load only: stock receipts are out of v0.5); the load sizes each batch's receipt to at least the history's administrations and dispensings drawn from it, plus, for a batch still in date at `load_epoch`, a month of its average daily use (one unit at least), so no batch's stock, nor a controlled one's monthly balance, falls below zero (D451; as first built 938 of 1 260 controlled balances closed negative) |
 | `prescriptions` | `id`; consultation, an animal or a herd, vet, issued at, valid until (five days for an antimicrobial) |
 | `prescription_lines` | `id`; prescription, medicine, dose, unit, frequency, days, `cascade`, meat and milk withdrawal days, withdrawal ends on |
 | `administrations` | `id`; animal, stay, prescription line, medicine, batch, quantity, scheduled at, given at, given by |

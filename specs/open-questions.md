@@ -48,7 +48,9 @@ O230 was reserved and never used (chunk 9's stop, settled as D372–D380
 without a question).
 O233 was reserved and never used (capture W3's corrections, settled as
 D401–D407). O244 and O245 were reserved and never used (capture W4's
-corrections, settled as D431–D437).
+corrections, settled as D431–D437). O248 was reserved and never used
+(wave 4's gate G18 and the owner's rulings of 2026-11-10, settled as
+D443–D457 with O247).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -225,7 +227,8 @@ D419), kept here verbatim until v0.5's archive moves them. O239 to
 O242, raised by the documents' as-built passes on chunks 13 and 16
 (D422, D423), closed by the driver as recommended (D424–D427), are kept
 likewise, and so is O243, raised by the same pass and closed by capture
-W4 (D432):
+W4 (D432). O247, raised by placing the owner's security rulings of
+2026-11-10, is open:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -335,6 +338,21 @@ W4 (D432):
   [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320),
   [access model](versions/v0.5/access-model.md),
   [build plan](versions/v0.5/build-plan.md) chunks 21, 25.
+- **O247** (v0.5, wave 5; **open**, for the owner; raised by D448) —
+  `grafana`'s data-source plugin update (brotli GO-2026-6888, chunk 34):
+  `grafana` 0.3.0 rebuilt, or 0.3.1? The advisor's triage, accepted on
+  2026-11-10, names 0.3.1, and the patch-bump rule (D445) gives a
+  changed image the next patch version; but the same day the owner kept
+  `bastion` 0.5.0 for `curl` because 0.5.0 is unreleased (D443), and
+  master spec 6.7 folds a change into an unreleased version. `grafana`
+  0.3.0 is v0.5's own bump, unreleased like `bastion` 0.5.0. 0.3.1 means a
+  version never released replaced before release, every `grafana` pin
+  re-pinned (the existing monitoring scenarios and the fixtures with a
+  `grafana` node) and the faults applying to it listing 0.3.1.
+  Recommended: rebuild 0.3.0 (its tag moved, as `bastion` 0.5.0's), D445
+  binding released versions; chunk 34 is written so, 0.3.1 adding the
+  re-pins to its commit. Refs: [build plan](versions/v0.5/build-plan.md)
+  chunk 34; [master spec](versions/v0.5/master-spec.md) 6.7.
 
 
 ## v0.6: the setup's entry point

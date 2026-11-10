@@ -1355,3 +1355,134 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   schemas. Now in: [clinic-purposes](versions/v0.5/clinic-purposes.md)
   "The roles the purposes add"; vet-scheduling 11, vet-machinery 13 and
   Testing, master spec 9.4, 9.6; [build plan](versions/v0.5/build-plan.md) chunk 21.
+- **D443 (2026-11-10, the owner, gate G11.2): Debian `curl`
+  8.14.1-2+deb13u7 goes into `bastion` 0.5.0 without a version bump
+  (0.5.0 is unreleased); its trixie-unfixed client-side issues, and those
+  of the seven images carrying the same build, are accepted until
+  2027-02-01 or the next trixie `curl` security upload, whichever comes
+  first.** As recommended: the players' HTTP client for the credentials
+  `partners.md` hands over (access model 4). Now in:
+  [master spec](versions/v0.5/master-spec.md) 5, 6.7, 7.3;
+  [build plan](versions/v0.5/build-plan.md) G11.2; `.tech` (the advisor's).
+- **D444 (2026-11-10, the owner, the security advisor's triage of
+  2026-11-09, as recommended): the 50 `.tech` `[[ignore]]` entries hold
+  until 2027-05-01; python3.13 is upgraded on armenelos (the owner's
+  command); c-ares joins `.tech` with its ignore; the 19 orphan items
+  leave `SECURITY_TODO.md`.** `.tech` is edited on `v0.5-w4` (a39f555)
+  and reaches `main` with the wave. Now in:
+  [build plan](versions/v0.5/build-plan.md) "Settled with the owner".
+- **D445 (2026-11-10, the owner, the same triage): A brick's tag names
+  one Debian package list: a rebuild that changes an image's content (a
+  Debian package version, a pinned binary's release) takes the next
+  patch version, with its re-pins in the same wave; a rebuild keeps its
+  tag only for an identical `dpkg-query` list.** Read with master spec
+  6.7 (a change to an unreleased version folds into it), as the owner
+  kept `bastion` 0.5.0 for `curl` the same day (D443); `grafana` 0.3.0's
+  case is O247. Now in: [master spec](versions/v0.5/master-spec.md) 6.7,
+  7.5; [build plan](versions/v0.5/build-plan.md) "Workflow deltas"; `.tech`'s header.
+- **D446 (2026-11-10, the owner, the same triage): Prometheus moves to
+  its 3.16.x line in a later wave of v0.5, never wave 4.** For
+  GO-2026-6865 (klauspost/compress) and grpc GHSA-2v4p-qf9q-27wj, fixed
+  on 3.16 only and not reachable as run (`.tech`); the placement is
+  D448's. Now in: [master spec](versions/v0.5/master-spec.md) 6.7, 7.5.
+- **D447 (2026-11-10, the owner, wave 4's gate, option A): `pms`'s
+  `sched.bookings.arrive` stamps an arrival when it records it: it takes
+  a `booked` booking whose hashed arrival moment (`starts_at` + δ) has
+  passed and sets `arrived_at = now()`; BS1's 2-minute rule stands.** The
+  back-dated stamp (`least(now(), starts_at + δ)`) made a correct
+  check-in of a booking reached late in the 10:00 burst look late, a
+  false BS1 verdict in a game. Gate fix 7840cb8. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#the-producer-profiles-step-6)
+  (`sched.bookings.arrive`); [master spec](versions/v0.5/master-spec.md) 9.4.
+- **D448 (2026-11-10, spec-writer, placing D446 and the plugin): Chunk 34
+  is inserted into wave 5, not the release gate: `grafana` 0.3.0 with its
+  bundled Prometheus data-source plugin at 13.2.5 or later (brotli
+  GO-2026-6888), from the first Grafana release bundling it, else the
+  catalogue plugin sha256-pinned; `prometheus` 0.2.1 on Prometheus
+  3.16.x, its SBOMs, stack test and re-pins in one commit; preflights
+  G11.3 and G11.4 before its branch, post-change checks before wave 5's
+  gate.** The release gate verifies and never builds; D446 names a wave;
+  chunk 27 must pin the versions it ships. Now in:
+  [build plan](versions/v0.5/build-plan.md) chunk 34, "Gates", "Waves";
+  [master spec](versions/v0.5/master-spec.md) 5, 6.7, 7.5.
+- **D449 (2026-11-10, wave 4's gate, D447's consequence): T115's variant
+  holds `sched.bookings.arrive`'s transaction 30 to 90 seconds after its
+  stamp (the desk printing its label inside it), a timeline change; its
+  witness is the arrivals so held past a check-in run's start.** With
+  arrivals stamped when recorded, a watermark from the run's start
+  misses nothing unheld. T115 is in neither the test selection nor a
+  wave 5 chunk. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#traps-step-8) T115.
+- **D450 (2026-11-10, chunk 20's reading, as the driver recommended):
+  On-call shifts take no part in the 11 hours' rest comparison (WT2,
+  `feed-working-time`); their call-outs count in the hours (rule 3).** A
+  call-out is clocked as the whole on-call span, so counting it gives
+  about 494 breaches a year against the rota's none, a false trap; T125
+  still overstates hours. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#12-vet-working-time-the-working-time-record)
+  (WT2, false alarms); [master spec](versions/v0.5/master-spec.md) 9.4, 12.2.
+- **D451 (2026-11-10, chunk 20's data finding): Chunk 35 is inserted
+  into wave 5 for a `coding-executor`: vet-core's load sizes each
+  medicine batch's receipt to at least the history's administrations
+  and dispensings from it, plus a month of its average use for a batch
+  in date at `load_epoch`; every planted partner reference takes its
+  stub's live form (`AMU<year>-NNNN`, `HO<YYYYMM>-NNNN`).** 938 of 1 260
+  planted controlled balances closed negative, and the planted
+  references read unlike the live ones: two false traps in reports the
+  players read. D278 stands: receipts at load only. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#entities);
+  [purposes](versions/v0.5/clinic-purposes.md) 11 to 13;
+  [build plan](versions/v0.5/build-plan.md) chunk 35.
+- **D452 (2026-11-10, chunk 18, documents to as-built): `lab_dispatch`
+  also reads `lab_settings (utc_offset_hours)`; PR1 judges each delivery
+  a release made due (an interim, the final, an amendment); PR3 judges
+  each attempt at its posting; SO1 the days whose 16:00 run follows the
+  judged moment; SO4 the first release round after the answer; SO3 the
+  catalogue fields the stub keeps, so T49's variant uses one.** Within
+  the approved rules. Now in: [purposes](versions/v0.5/clinic-purposes.md)
+  6, 7 and the roles table; [traps](versions/v0.5/clinic-traps.md) T49;
+  [master spec](versions/v0.5/master-spec.md) 12.2.
+- **D453 (2026-11-10, chunk 19, documents to as-built): ND3's keeper,
+  from the lab, is the keeper's name and the practice's account (vet-lab
+  holds no address); ND4 is judged at the quarter hour at or after the
+  deadline, 3 minutes later; EX5 at a working day's 09:00 chase plus 15
+  minutes; EX1 to EX4 run in shell with their verdict in SQL.** Within
+  the approved rules. Now in: [purposes](versions/v0.5/clinic-purposes.md) 8, 9.
+- **D454 (2026-11-10, chunk 20, documents to as-built): a `code` check
+  runs the job's loaded SQL on the last planted period; AM4's run tries
+  three times, then sets `escalated_at`; the balances are signed by the
+  lowest-id vet employed; the brackets are 3, 5, 10 and 15 % from 0, 200,
+  400 and 600; a statement subtracts voids of stated charges only;
+  `monthly_figures` is month × section × measure (about 684 rows), its
+  turnaround the median of the days' medians.** Within the approved rules;
+  the sizes measured. Now in: [purposes](versions/v0.5/clinic-purposes.md)
+  11 to 14, "`office` at T0"; [formats](formats.md) "Purpose definition".
+- **D455 (2026-11-10, chunk 21, documents to as-built): `vet_portal_sync`
+  reads `animals.registered_at`, `consultations.state` and `sections (id,
+  kind)`, `lab_release` `lab_samples (id, collected_at)`,
+  `portal_dispatch` accounts' id, owner and display name;
+  `send-messages` stops a queued row whose basis changed (`failed_at`,
+  its reason, no incident); RL2, RL3, RL5 and MS5 judge a satisfied
+  trigger at once; RL5 reads closed accounts touched since their closure
+  and the judged moment; the vault fixture holds `records`, not
+  `equipment`, its T0 a minute of 21:00–21:59 local.** Within the approved
+  rules. Now in: [vet-portal](versions/v0.5/vet-portal-domain.md#vet-portal-release-the-copies-and-the-release-gate)
+  15, 16 and its roles; [purposes](versions/v0.5/clinic-purposes.md#the-roles-the-purposes-add);
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#testing-in-v05-d314).
+- **D456 (2026-11-10, wave 4's findings for wave 5): chunk 22's fixed s1
+  reading releases the urgent test itself when `lis` has not within 5
+  minutes; chunk 24's fixture gives `backoffice` the access model's
+  `fixable-file`, so s3's fix and the moved feeders are the players';
+  chunk 26's scenario document lists a `pg_cron` job a purpose's `ddl:`
+  schedules; chunk 27's story names the vet signing the balances, and
+  purpose 5's `clinic-reports` targets the standby as purpose 7's.**
+  `lis` released no urgent order within 10 minutes at intensity 4 in
+  chunk 18's runs; time is placed, never waited for. Now in:
+  [build plan](versions/v0.5/build-plan.md) chunks 22, 24, 26, 27.
+- **D457 (2026-11-10, spec-writer): Wave 5 holds eight chunks, 22 to 27,
+  34 and 35, two past the model's six; 34 and 35 start first, a chunk
+  merging after 34 re-pins its own new fixtures to `prometheus` 0.2.1,
+  chunk 24's fixture runs once 35 has merged, and chunk 27 is cut once
+  all seven have.** 34 is the owner's placement (D446), 35 a fix-sized
+  data correction chunks 24 and 27 read; v0.5 has no later wave. Now in:
+  [build plan](versions/v0.5/build-plan.md) "Waves", chunks 34, 35.
