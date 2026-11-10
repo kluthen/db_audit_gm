@@ -1,0 +1,7 @@
+# queries.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from scenario: compose/partners-backend/queries.yaml
+  authority.normal:
+    sql: INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'), ('authority',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

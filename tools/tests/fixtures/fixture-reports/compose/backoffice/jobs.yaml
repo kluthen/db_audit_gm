@@ -1,0 +1,43 @@
+# The scenario layer of node backoffice, the back office's report runner
+# (v0.5 master spec 8.4, 11.3, 12.2; capture W4 items 0 and 5): the jobs of
+# purposes 7 (vet-medicines-registers), 8 (vet-antimicrobial-use) and 12
+# (vet-working-time) as the GM copies them, each purpose's
+# material/runner/jobs.yaml in that order. Scenario time; render shifts the
+# hours. The periodic jobs run daily and act on their own local date (D436).
+jobs:
+  - name: feed-medicines-register
+    key: meds.register
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 1 * * *"
+  - name: feed-controlled-drugs
+    key: meds.controlled
+    connections: {clinic: clinic-reports, office: office}
+    at: "45 1 * * *"
+  - name: close-medicines-register
+    key: meds.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 3 * * *"
+  - name: balance-controlled-drugs
+    key: meds.balance
+    connections: {clinic: clinic-reports, office: office}
+    at: "15 3 * * *"
+  - name: inventory-controlled-drugs
+    key: meds.inventory
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 3 * * *"
+  - name: feed-antimicrobial-use
+    key: amu.feed
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 2 * * *"
+  - name: report-antimicrobial-use
+    key: amu.report
+    connections: {clinic: clinic-reports, office: office, receiver: authority}
+    at: "0 4 * * *"
+  - name: feed-working-time
+    key: worktime.feed
+    connections: {sched: sched-reports, clinic: clinic-reports, office: office}
+    at: "30 9 * * *"
+  - name: close-working-time
+    key: worktime.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 5 * * *"

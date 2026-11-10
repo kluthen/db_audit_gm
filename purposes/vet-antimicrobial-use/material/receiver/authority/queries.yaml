@@ -1,0 +1,12 @@
+# queries.yaml of the authority's stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; capture W2 item 6, W4 item 0): its baseline key,
+# byte-identical in purposes 5 and 8. delay_ms the milliseconds its routes add
+# before each answer; fail_one_in the standing 503 (every call whose number,
+# authority.calls, is a multiple of it answers 503: one in fifty), which both
+# routes read. A fault's key (authority.<behaviour>) upserts other values.
+queries:
+  authority.normal:
+    sql: >-
+      INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'),
+      ('authority', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
