@@ -6607,3 +6607,31 @@ judged 1); lengthening the window past 10:00 local would restore
 evidence.
 Next: wave sync (security-advisor's post-change check; no intent
 register, no documentalist), G18, the owner's report.
+
+### Wave sync and G18, 2026-11-10
+
+- **Security post-change check** (`efcd336`, `.tech` only): `bastion`
+  0.5.0 rebuilt with curl/libcurl4t64 8.14.1-2+deb13u7 (14 new
+  packages, nothing open that is reachable); prometheus 0.2.0 and
+  postgres-exporter 0.2.0 read (curl as recorded); the wave's only new
+  dependency is curl in the bastion; python3.13 upgraded on armenelos
+  (deb13u5), CVE-2026-0864's ignore added. 97 open, 73 set aside.
+  `bastion` keeps 0.5.0 (unreleased, never deployed outside the wave's
+  tests).
+- **No intent register:** no documentalist sync.
+- **G18 done** (`e2381be`): formats.md v32; master spec 5, 6, 6.2, 6.6,
+  12.1 (and 6.7, 7.3, 7.5, 9.4, 12.2 by the rulings). D443-D457; O247
+  open (grafana 0.3.0 rebuilt or 0.3.1; rec. 0.3.0, unreleased); O248
+  reserved unused. Wave 5 grows to chunks 22-27, 34 (grafana plugin,
+  prometheus 0.2.1 on 3.16.x) and 35 (vet-core's controlled receipts
+  sized to the year's use; planted partner references in the stubs'
+  live form). `doc-ids compare main v0.5-w4`: 0 collisions.
+
+### Wave 4 — report to the owner, 2026-11-10
+
+Chunks merged: 32, 17, 33, 18, 19, 21, 20 (inserted: 32, 33). Gate passed
+(all items under 30 min; fixes `4ac27ad`, `9ee55dd`, `91aad3f`,
+`7840cb8`). Owner decisions open: O247 (grafana tag); 20 curl
+false-positive ignores (`curl-fp-ignore.toml`); CVE-2026-123158's ignore
+(OpenSSH, musl-only). Merge into main on the owner's word; wave 5 in a
+fresh session.
