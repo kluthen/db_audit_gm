@@ -6580,3 +6580,30 @@ booking whose hashed arrival moment has passed and sets
 `arrived_at = now()`; BS1's 2-minute rule stands. spec-writer records it
 (vet-scheduling-domain.md row 816) with G18; the fix lands on the wave
 branch as a gate fix (chunk 13b's fragment and the fixture copies).
+
+### Wave gate — part 2 and result, 2026-11-10 17:05
+
+Queue part 2 (08:40-12:15, then reruns), on the merged branch:
+- **unit-final** 1227 OK (209 s); after the BS1 fix 1227 OK (204 s).
+- **Fixtures:** portal 108/108 (1297 s); tarnbeck-outdoor-shop smoke
+  26/26 (827 s); orders 30/30 (1194 s); clinic-load 23/23 (1302 s);
+  reports 94/94 (910 s from the deployment); housing (place) 40/40
+  (1248 s); imaging 67/67 (1286 s); lab-core 44/44 on rerun (694 s; the
+  first run died on the owner's Docker upgrade at 09:24); bookings 54/54
+  on the second rerun (1183 s; BS1 43 s) after gate fix `7840cb8`.
+- **Gate fixes:** `4ac27ad`, `9ee55dd` (partners.md on fixture-vault and
+  fixture-restore); `91aad3f` (curl in `bastion` 0.5.0, G11.2, stack test
+  116/116); `7840cb8` (pms stamps an arrival when it records it, owner's
+  ruling; `sched.bookings.arrive` in vet-scheduling's pms and
+  fixture-bookings' copy; the domain's gm.md stream row reworded;
+  compose --check clean on all 13).
+- Every item under 30 minutes. **Gate passed.**
+For G18 / spec-writer from the BS1 fix: T115's witness (check-in's
+watermark against arrivals committed later) relied on the back-dating;
+the stamp-to-commit gap is now milliseconds, so the trap needs a held
+transaction on `sched.bookings.arrive` in its variant or a restated
+witness. fixture-bookings now sees fewer arrivals in its window (3, BS1
+judged 1); lengthening the window past 10:00 local would restore
+evidence.
+Next: wave sync (security-advisor's post-change check; no intent
+register, no documentalist), G18, the owner's report.
