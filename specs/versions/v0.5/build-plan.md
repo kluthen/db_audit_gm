@@ -1686,7 +1686,8 @@ per-part folders, and the `ops` block every purpose writes (`ops.runs`,
 
 ### Chunk 19 — The exchanges and the notifications: purposes 4 and 5
 
-Status: in progress
+Status: merged (w4, c9abb0e)
+Record: 19 6ae6fa7 (after the first owner's WIP ce468eb), merge c9abb0e. fixture-exchanges 42 PASS in 1480 s, EX1-EX5 and ND1-ND5 unfaulted; unit suite 1226 OK; compose --check clean on all 12 composed fixtures; centres `left_out:` added to fixture-orders, -send-outs and -vault. Outside the plan's text: EX1-EX4 in shell with the verdict in SQL (the postgres brick has no Python); the test's inbound answer leg uses the centre's own fresh request; ND3 judges surname plus keeper.account (vet-lab holds no address), ND4 and EX5 interpretations, all in the wave log for G18.
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 5's format check and fixture only (in wave, spec D431); chunk

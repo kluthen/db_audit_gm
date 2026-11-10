@@ -6406,3 +6406,18 @@ trigger at once; the lab's two third parties list `nodes: []` in
 fixture-portal; the W4-e build choices in the 21b report (stub id, 503
 cadence, `messaging.message_calls`, watermarks). Risk: the portal run
 sits at the 30-min limit.
+
+### Chunk 19 merged, 2026-11-10 02:10
+
+Merge `c9abb0e` (19 `6ae6fa7`). fixture-exchanges run 3 (01:37): 42 PASS,
+0 FAIL, 1480 s; EX1-EX5, ND1-ND5 exit 0 unfaulted. Run 2 had failed only
+on EX1-EX4 (`python3: not found` on partners-db): rewritten in shell with
+the verdict in SQL, verdicts identical on the loaded data. Unit suite
+1226 OK. Centres `left_out:` now in every composed fixture but
+fixture-exchanges (which composes them); seven READMEs' "left out" phrase
+edited in place (scenario files unchanged). For G18 / spec-writer: ND3
+(surname + keeper.account, no address in vet-lab), ND4 (quarter hour at
+or after the deadline + 3 min), EX5 (09:00 chase + 15 min, Mon-Fri),
+EX1-EX4's mechanism (shell + SQL), the inbound leg on the centre's own
+request. Rerun note: fixture-exchanges' launcher starts at :37.
+Chunk 20 dispatched (`brief-20.md`).
