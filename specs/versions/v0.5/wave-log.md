@@ -6421,3 +6421,30 @@ or after the deadline + 3 min), EX5 (09:00 chase + 15 min, Mon-Fri),
 EX1-EX4's mechanism (shell + SQL), the inbound leg on the centre's own
 request. Rerun note: fixture-exchanges' launcher starts at :37.
 Chunk 20 dispatched (`brief-20.md`).
+
+### Chunk 20 paused, 2026-11-10
+
+Owner paused on context at WIP `0620551` (branch
+v0.5-c20-periodic-reports, cut from `cdf8a80`): purposes 7, 8, 12 built,
+format checks clean, histories and compute keys checked in a throwaway
+postgres (planted periods present, a month sums its days), checks MR1-4,
+AM1-4, WT1-3 exit 0 planted / exit 1 corrupted on a harness; unit 1227
+OK. Not done: fixture-reports and its run, 20b (purposes 9, 10). Fresh
+owner dispatched with `resume-20b.md`.
+For G18 / spec-writer, and two for the owner's report:
+- WT2: on-call shifts take no part in the rest comparison (counting
+  call-outs gives ~494 breaches a year, against vet-scheduling's
+  false-alarm line on the 11 hours' rest).
+- Data: vet-core's controlled batches receive far less than a year
+  moves; 938 of 1 260 planted balances close negative, a likely false
+  trap for players. MR4 judges the identity, not the stock. Domain data
+  fix to route to spec-writer.
+- AM4: up to 3 attempts in the 15 January run, then `escalated_at`.
+- MR4, AM3, WT3 judge the job's loaded SQL against the check's rule on
+  the last planted period; planted figures not judged.
+- Balances signed by the lowest-id employed vet; planted references
+  `amu-<year>` vs live `AMU<year>-NNNN`.
+- `clinic-reports` targets the standby here, records in purpose 5: a
+  scenario with both retargets purpose 5's (its gm.md says so).
+- AM2 needs a herd treatment on the judged day (herd visits Tue/Thu):
+  fixture takes T0 on a local Wednesday or Friday, or plants one.
