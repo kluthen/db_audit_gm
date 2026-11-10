@@ -6476,3 +6476,20 @@ portal run needs launch at host minute :40 (T0 08:52 local, ~8 min
 margin); RL6/MS1 depend on traffic arriving within the run.
 Gate fix list so far: fixture-vault and fixture-restore map
 `partners.md` on their bastion (format skill).
+
+### Chunk 20 merged, 2026-11-10 06:20
+
+20b merge `2738845` (20b `74910fd`). fixture-reports run 2 (05:50-06:11):
+94 PASS, 0 FAIL, 848 s; HO1-3, ST1-3 and 20a's checks exit 0 unfaulted;
+feeders write once then 0; jobs off their date write nothing. Unit 1227
+OK. gmctl fit 1.95/2 CPU, 2.4G/4G, 7.86G/8G (hand-over snapshot doesn't
+fit: no snapshot in this fixture). For G18 / spec-writer: discount
+brackets (game values 3/5/10/15 % from 0/200/400/600); voids count only
+for charges stated by month's end (every planted `voided` is 0);
+the month's turnaround is the median of the days' medians; monthly_figures
+grain month x section x measure (684 rows, vs clinic-purposes' estimate
+of 12); measure readings (tests at release, turnaround receipt→release,
+units in service from `state_since_at`); escalation sets `escalated_at`
+only (no incidents table in `office`). Risk: fixture-reports needs
+load-data to start before 00:30 local (~30 min margin).
+All wave-4 chunks merged (32, 17, 33, 18, 19, 21, 20). Next: wave gate.

@@ -1734,7 +1734,8 @@ invariant), D441 (its roles' grants as the roles table lists them).
 
 ### Chunk 20 — The periodic reports: purposes 7, 8, 9, 10 and 12
 
-Status: in progress (20a merged, a8df8ee; 20b next)
+Status: merged (w4, 2738845)
+Record: 20a d365213, merge a8df8ee (fixture-reports 65 PASS in 766 s); 20b 74910fd, merge 2738845 (fixture-reports 94 PASS in 848 s; MR, AM, WT, HO, ST checks exit 0 unfaulted, ST3/WT3 exit 1 on corruption). Outside the plan's text: WT2 leaves on-call out of the rest comparison, negative planted controlled balances (vet-core data), AM4's attempts, code-invariant checks, discount brackets 3/5/10/15 % from 0/200/400/600, voids only for stated charges, monthly_figures at month x section x measure (684 rows), measure readings, the fixture's standby disk 1.75G, backoffice no-access; all in the wave log for G18.
 Wave: 4
 Depends on: chunks 3, 8, 9, 12, 13, 14 and 29 (waves 1 to 3); chunk 32
 for purpose 9's format check and fixture only (in wave, spec D431);
