@@ -1486,3 +1486,4 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   all seven have.** 34 is the owner's placement (D446), 35 a fix-sized
   data correction chunks 24 and 27 read; v0.5 has no later wave. Now in:
   [build plan](versions/v0.5/build-plan.md) "Waves", chunks 34, 35.
+- **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.

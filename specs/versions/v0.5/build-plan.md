@@ -453,16 +453,13 @@ rulings"):
 | A changed image takes the next patch version, its tag kept only for an identical `dpkg-query` list | D445 | every wave gate's rebuilds (workflow deltas); 34 |
 | Prometheus to 3.16.x in a later wave | D446 | 34 (spec D448) |
 | An arrival stamped when `pms` records it; BS1's 2 minutes stand | D447 | built at wave 4's gate (`7840cb8`) |
+| O247: `grafana` 0.3.0 rebuilt for the plugin update, not 0.3.1; D445's bump binds released versions | D458 | chunk 34 as written |
+| The 20 curl NVD false positives and CVE-2026-123158 (OpenSSH, musl only) set aside in `.tech` until 2027-05-01 | D458 | `.tech` at wave 4's merge |
 
 ## Pending with the owner
 
 None is a gate; where one touches a chunk:
 
-- **O247, `grafana`'s version for the plugin update** (spec D448):
-  0.3.0 rebuilt, as `bastion` 0.5.0 kept its version for `curl`
-  (recommended), or 0.3.1 as the advisor's triage named it. Chunk 34 is
-  written on the recommendation; 0.3.1 adds every `grafana` pin's
-  re-pin and the `applies_to` of the faults on it to its commit.
 - **The `api` image's source** (G6, wave log): the project's first PyPI
   set and first lockfile, `bricks/api/requirements.txt`, taken as the
   advisor recommends, as G6 allowed. Touches chunk 5; should the owner
@@ -2626,7 +2623,7 @@ release, any configuration 3.16 changes in the brick's seed files.
   the images v0.5 ships, each brick's tag naming one package list
   (spec D445).
 - Scope: in:
-  - **(a) `grafana` 0.3.0** (O247: 0.3.1 if the owner rules so): its
+  - **(a) `grafana` 0.3.0** (O247 closed by D458: 0.3.0): its
     bundled Prometheus data-source plugin at 13.2.5 or later (brotli
     GO-2026-6888), from the first Grafana release bundling it (the
     Dockerfile's version and checksum moved, `.tech`'s Grafana line the

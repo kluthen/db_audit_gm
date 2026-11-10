@@ -665,3 +665,133 @@ id = "CVE-2025-15224"
 reason = "Debian trixie curl 8.14.1-2+deb13u7: unimportant in trixie, no fix in trixie; client-side only, run by players as unprivileged player against servers they choose (G11.2); until the next trixie curl security upload if sooner"
 approved_by = "bastien"
 until = 2027-02-01
+
+# curl NVD false positives (Debian backports deb13u1-u7; CVE-2026-80231 not affecting Debian).
+# Owner approved 2026-11-10 (spec D458).
+
+[[ignore]]
+id = "CVE-2025-9086"
+reason = "fixed by Debian backport 8.14.1-2+deb13u1, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2025-10148"
+reason = "fixed by Debian backport 8.14.1-2+deb13u1, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2025-13034"
+reason = "fixed by Debian backport 8.14.1-2+deb13u3, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-3805"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-5773"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-6276"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-1965"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-3784"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-5545"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-4873"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-6253"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2025-14524"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2025-14819"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-3783"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-6429"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-7168"
+reason = "fixed by Debian backport 8.14.1-2+deb13u4, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-8924"
+reason = "fixed by Debian backport 8.14.1-2+deb13u7, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-8927"
+reason = "fixed by Debian backport 8.14.1-2+deb13u7, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-8286"
+reason = "fixed by Debian backport 8.14.1-2+deb13u7, images run 8.14.1-2+deb13u7"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-80231"
+reason = "Debian: not affected in trixie (tracker fixed version 0, unimportant)"
+approved_by = "bastien"
+until = 2027-05-01
+
+# OpenSSH, owner approved 2026-11-10 (spec D458).
+[[ignore]]
+id = "CVE-2026-123158"
+reason = "musl libc without PAM only (Alpine); every brick runs Debian openssh on glibc 2.41; Debian unimportant"
+approved_by = "bastien"
+until = 2027-05-01

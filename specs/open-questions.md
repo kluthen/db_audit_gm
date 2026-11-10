@@ -338,7 +338,7 @@ W4 (D432). O247, raised by placing the owner's security rulings of
   [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320),
   [access model](versions/v0.5/access-model.md),
   [build plan](versions/v0.5/build-plan.md) chunks 21, 25.
-- **O247** (v0.5, wave 5; **open**, for the owner; raised by D448) —
+- **O247** (v0.5, wave 5; **closed** by D458, 2026-11-10: rebuild 0.3.0; raised by D448) —
   `grafana`'s data-source plugin update (brotli GO-2026-6888, chunk 34):
   `grafana` 0.3.0 rebuilt, or 0.3.1? The advisor's triage, accepted on
   2026-11-10, names 0.3.1, and the patch-bump rule (D445) gives a
