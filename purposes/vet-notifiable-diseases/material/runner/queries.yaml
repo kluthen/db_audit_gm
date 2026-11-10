@@ -1,0 +1,14 @@
+# The notifiable diseases' three script keys on the centre's integration
+# engine, a fragment (purpose 5; clinic-purposes.md 9; capture W4 items 0 and
+# 4): scripts/notifiable_diseases.py. batch bounds the new triggers and the
+# retries a run posts.
+queries:
+  notify.vet:
+    script: scripts/notifiable_diseases.py:notify_vet
+    options: {batch: 20}
+  notify.lab:
+    script: scripts/notifiable_diseases.py:notify_lab
+    options: {batch: 20}
+  notify.escalate:
+    script: scripts/notifiable_diseases.py:escalate
+    options: {}

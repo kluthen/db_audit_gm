@@ -1,0 +1,11 @@
+# Fixed-time operation of the back office's report runner for the notifiable
+# diseases, a fragment (purpose 5; clinic-purposes.md 9; capture W4 items 0
+# and 4), in scenario time: at 02:15, yesterday's notifications (the
+# customer's local date), both sources, copied into office. A script job
+# reading the record and the lab as the domains' report roles and writing
+# office as office_jobs. Written for the runner backoffice; the GM adapts it.
+jobs:
+  - name: copy-notifications
+    key: notify.copy
+    connections: {clinic: clinic-reports, lab: lab-reports, office: office}
+    at: "15 2 * * *"

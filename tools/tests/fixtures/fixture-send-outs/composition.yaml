@@ -18,3 +18,4 @@ left_out:
   - {domain: vet-core, producer: pms, reason: "no practice software node in the send-outs fixture (eight nodes at most, D314)"}
   - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node in the send-outs fixture (eight nodes at most, D314): the lab's identity lookups are lis's, left out too"}
   - {domain: vet-lab, producer: lis, reason: "no information system node in the send-outs fixture (eight nodes at most, D314): the short test receives, validates and releases as lis would (time placed)"}
+  - {domain: vet-core, producer: partners/centres, reason: "the partners' nodes carry the lab's partners only (eight nodes at most, D314): the other centres' stub (purpose 4's) is fixture-exchanges' (spec D435)"}

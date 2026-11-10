@@ -1,0 +1,22 @@
+# api.yaml of the other centres' stub, one folder for three partners, a
+# fragment for partners-api (v0.5 master spec 10.2, 12.2 purpose 4;
+# vet-core-domain.md, "The partners the core meets"; clinic-purposes.md 8;
+# capture W4 items 0 and 4, W2 item 6, W2-f; partners/README.md). Prefix
+# centres, three hostnames: aldermoor-central (site 2), aldermoor-south (site
+# 3) and aldermoor-abroad (sites 4-6, the centres abroad as one). Their
+# exchanges endpoint (the clinic's request, a resend, its answer and report
+# on a centre's own request) behind the customer's own key with the centres,
+# centres_customer (purpose 4's); their tick and a new request behind the
+# back end's partners_backend. The tick posts each centre's answers, reports
+# and own requests to clinic-api as clinic_centres (connection
+# centres-clinic), purpose 4's exchange endpoints.
+endpoints:
+  centres_exchanges:
+    hosts: [aldermoor-central, aldermoor-south, aldermoor-abroad]
+    credentials: [centres_customer]
+  centres_tick:
+    hosts: [aldermoor-central, aldermoor-south, aldermoor-abroad]
+    credentials: [partners_backend]
+connections:
+  centres-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: centres, pool: {size: 2}}
+  centres-clinic: {driver: http, target: clinic-api:8000, credential: clinic_centres, pool: 1, timeout: 10s}

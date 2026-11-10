@@ -1,0 +1,24 @@
+# Schedule of the centre's integration engine for the notifiable diseases, a
+# fragment (purpose 5; clinic-purposes.md 9; capture W4 items 0 and 4): the
+# record as vet_interfaces, the lab as vet-lab's lab_dispatch, the authority's
+# hostname on the partners' api node with the customer's own key with the
+# authority, authority_customer; no stream. Written for the nodes records,
+# lab and the hostname authority; the GM adapts the targets as it copies.
+connections:
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 2}
+  lab-dispatch:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_dispatch
+    pool: {size: 1}
+  authority:
+    driver: http
+    target: authority:8000
+    credential: authority_customer
+    pool: 1
+    timeout: 10s
+streams: []

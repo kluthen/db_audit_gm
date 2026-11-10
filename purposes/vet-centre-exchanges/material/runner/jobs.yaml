@@ -1,0 +1,19 @@
+# Fixed-time operations of the centre's integration engine for the exchanges
+# with the other centres, a fragment (purpose 4; clinic-purposes.md 8;
+# capture W4 items 0 and 4), in scenario time: every five minutes the
+# requests, answers and reports to post; at 09:00 on working days (Monday to
+# Friday, the day-of-week list the cron subset takes) the chase. Both script
+# jobs hold the record's connection and one HTTP connection per centre
+# hostname (the stub dispatches by hostname). Written for the nodes
+# interfaces, records and partners-api's hostnames; the GM adapts them.
+jobs:
+  - name: sync-exchanges
+    key: exchanges.sync
+    connections: {clinic: clinic, partner_central: centres-central, partner_south: centres-south,
+                  partner_abroad: centres-abroad}
+    at: "*/5 * * * *"
+  - name: chase-exchanges
+    key: exchanges.chase
+    connections: {clinic: clinic, partner_central: centres-central, partner_south: centres-south,
+                  partner_abroad: centres-abroad}
+    at: "0 9 * * 1,2,3,4,5"
