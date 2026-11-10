@@ -1,0 +1,197 @@
+# Purpose 16, the portal's notices and reminders (v0.5 master spec 12.2
+# purpose 16; vet-portal-domain.md, "vet-portal-messages"; clinic-purposes.md
+# "The roles the purposes add"; spec D293, D320, D324, D404, D432; capture W4
+# items 0, 6 and 7 of specs/versions/v0.5/wave-log.md): pushed (v0.4's P3,
+# customer mailing) to a third party, the franchise's messaging service, a
+# transactional part (invitations, resets, closures, document notices) and a
+# consent-bound one (reminders).
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/portal, target partners-db/partners (the messaging stub's record,
+# its history only), runner interfaces, partner the messaging service's
+# hostname messaging on partners-api. The stub, material/partner/messaging/,
+# laid out as producers/partners/<prefix>/: api.yaml, routes/ and db/ into
+# compose/partners-api/, queries.yaml and schedule.yaml into
+# compose/partners-backend/, data.sql after partners/shared/partners-db/
+# data.sql in partners-db's data file. The GM adapts the names as it copies;
+# gm.md says where each name lives. ddl.source and history are read from the
+# catalogue by load-data, never copied. Its checks read the portal's tables
+# under row-level security as gm_check, through the gm_check_read policies
+# load-data adds at step (2c), and refuse to judge (exit 2) when one is gone
+# (spec D432).
+id: vet-portal-messages
+title: The owners' portal's document notices and vaccination reminders handed to the franchise's messaging service
+domains: [vet-portal]
+kind: pushed
+
+parts:
+  source: the owners' portal, portal (accounts, the copies, documents, consent events, the outbox, ops.*)
+  target: the partners' database, partners, where the messaging service keeps what it received (the history plants it)
+  runner: the centre's integration engine, interfaces
+  partner: the franchise's messaging service, POST /messages under the hostname messaging
+
+jobs:
+  - name: queue-notices
+    key: messages.notices
+    part: runner
+    source: source
+    target: source
+    method: script
+    computes: >-
+      the documents published since the watermark (less two minutes): one document-notice queued for
+      each account that sees it (the current owner, a keeper granted access now, a herd's keeper),
+      active, its channel not none, once per document and account; in one portal transaction with the
+      watermark and the run's ops.runs row.
+    cadence: "*/5 * * * *"
+    connections:
+      portal: portal_dispatch
+  - name: queue-reminders
+    key: messages.reminders
+    part: runner
+    source: source
+    target: source
+    method: script
+    computes: >-
+      at 09:00 local, the domestic animals and horses alive in the copy whose yearly due day is 14 days
+      ahead, whose current owner's account is not closed and whose latest reminders event is a grant:
+      one reminder per animal and due day, with its withdrawal link; with the run's row.
+    cadence: "0 9 * * *"
+    connections:
+      portal: portal_dispatch
+  - name: send-messages
+    key: messages.send
+    part: runner
+    source: source
+    target: source
+    method: script
+    computes: >-
+      the outbox's unsent rows, oldest first (reminders only from 08:00 to 20:00 local, their consent,
+      owner, animal and account checked again), each posted to the messaging service with its message
+      key, five seconds' timeout; 202 provider_id and sent_at; otherwise the attempt counted and retried
+      with the same key, at the sixth failed_at and one ops.incidents row; then one portal transaction
+      with the run's row.
+    cadence: "* * * * *"
+    connections:
+      portal: portal_dispatch
+      partner: messaging_customer
+
+trace:
+  - kind: outbox-rows
+    part: source
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.watermarks
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: MS1
+    statement: >-
+      At most one notice per document and account, one reminder per animal and due day, one message
+      at the service per message_key.
+    check: checks/ms1-once.sh
+    parameters: {}
+    witness: every message queued or received since the judged moment; each 503, one call in fifty, retried with its key.
+    judged: runs
+  - id: MS2
+    statement: >-
+      Every reminder sent since the judged moment had its owner's reminders consent at sent_at, by the
+      latest event; transactional messages exempt.
+    check: checks/ms2-consent.sh
+    parameters: {}
+    witness: a reminder sent since the judged moment, about 25 a day; withdrawals about 4 a day, by link, portal and desk.
+    judged: runs
+  - id: MS3
+    statement: >-
+      Every reminder's sent_at falls between 08:00 and 20:00, the customer's time.
+    check: checks/ms3-sending-hours.sh
+    parameters: {}
+    witness: a reminder sent since the judged moment, the 09:00 queue.
+    judged: runs
+  - id: MS4
+    statement: >-
+      Every payload carries its template, the animal's name and a link, and names its recipient only:
+      never a result, a diagnosis, an identifier, another owner; an invitation or reset a token, never
+      a password.
+    check: checks/ms4-payload.sh
+    parameters: {}
+    witness: every message sent since the judged moment.
+    judged: runs
+  - id: MS5
+    statement: >-
+      Every document published since the judged moment, for an active account whose channel is not
+      none, has its notice accepted by the service within 15 minutes, or an incident by its sixth
+      attempt.
+    check: checks/ms5-notice-accepted.sh
+    parameters: {}
+    witness: a document published since the judged moment for an active account with a channel, about 75 a day, in bursts at the rounds.
+    judged: triggers
+  - id: MS6
+    statement: >-
+      No reminder for an animal dead, or to anyone but its current owner, by the core at sent_at; no
+      message to a closed account.
+    check: checks/ms6-recipient-current.sh
+    parameters: {}
+    witness: the daily reminders sent since the judged moment; one or two deaths and three sales a day.
+    judged: runs
+
+data_moved:
+  - job: queue-notices
+    reads: [portal.portal_documents.id, portal.portal_documents.published_at, portal.portal_accounts.display_name,
+            portal.portal_accounts.email, portal.portal_accounts.phone, portal.portal_accounts.notify_by,
+            portal.portal_animals.name, portal.portal_ownerships.owner_id, portal.portal_consent_events.granted]
+    writes: [source:portal_outbox, source:ops.watermarks, source:ops.runs]
+  - job: queue-reminders
+    reads: [portal.portal_animals.animal_id, portal.portal_animals.name, portal.portal_animals.species,
+            portal.portal_accounts.display_name, portal.portal_accounts.email, portal.portal_accounts.phone,
+            portal.portal_consent_events.granted, portal.portal_settings.reminder_lead_days]
+    writes: [source:portal_outbox, source:ops.runs]
+  - job: send-messages
+    reads: [portal.portal_outbox.message_key, portal.portal_outbox.channel, portal.portal_outbox.address,
+            portal.portal_outbox.template, portal.portal_outbox.payload]
+    writes: [source:portal_outbox, source:ops.incidents, source:ops.runs]
+
+roles:
+  - name: portal_dispatch
+    part: source
+    reads: ["portal_accounts (id, owner_id, display_name, email, phone, status, notify_by)", portal_animals,
+            portal_ownerships, portal_herds, "portal_documents (id, animal_id, herd_id, record_at, published_at)",
+            portal_consent_events, portal_settings, portal_outbox, "ops.*"]
+    writes: ["portal_outbox (insert: notices, reminders; sent_at, attempts, last_status, provider_id, failed_at)",
+             ops.incidents, ops.watermarks, ops.runs]
+
+ddl:
+  source: material/source/ddl.sql
+
+history: material/history.sql
+
+classification:
+  columns:
+    portal.ops.runs.id: internal
+    portal.ops.runs.purpose: internal
+    portal.ops.runs.job: internal
+    portal.ops.runs.started_at: internal
+    portal.ops.runs.finished_at: internal
+    portal.ops.runs.rows_read: internal
+    portal.ops.runs.rows_written: internal
+    portal.ops.incidents.id: internal
+    portal.ops.incidents.purpose: internal
+    portal.ops.incidents.job: internal
+    portal.ops.incidents.kind: internal
+    portal.ops.incidents.ref: internal
+    portal.ops.incidents.opened_at: internal
+    portal.ops.incidents.reason: internal
+    portal.ops.incidents.run_id: internal
+    portal.ops.watermarks.purpose: internal
+    portal.ops.watermarks.name: internal
+    portal.ops.watermarks.at: internal
+    portal.ops.watermarks.last_id: internal
+    portal.ops.watermarks.run_id: internal

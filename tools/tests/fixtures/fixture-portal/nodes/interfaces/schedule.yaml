@@ -4,9 +4,38 @@
 intensity: 1.0
 connections:
   # from scenario: compose/interfaces/schedule.yaml
-  portal-api:
+  portal-clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_portal_sync
+    pool:
+      size: 1
+  # from scenario: compose/interfaces/schedule.yaml
+  portal-lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_release
+    pool:
+      size: 1
+  # from scenario: compose/interfaces/schedule.yaml
+  portal-sync:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_sync
+    pool:
+      size: 1
+  # from scenario: compose/interfaces/schedule.yaml
+  portal-dispatch:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_dispatch
+    pool:
+      size: 1
+  # from scenario: compose/interfaces/schedule.yaml
+  messaging:
     driver: http
-    target: portal-api:8000
+    target: messaging:8000
+    credential: messaging_customer
     pool: 1
-    timeout: 10s
+    timeout: 5s
 streams: []

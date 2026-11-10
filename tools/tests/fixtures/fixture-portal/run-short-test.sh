@@ -1,13 +1,23 @@
 #!/bin/sh
-# Short test of the portal fixture (v0.5 build plan, chunk 16b; spec D403,
-# D404, D405, D406, D369; master spec 9.7; capture W3 items 0 and 5, W3-e,
-# W3-f): vet-core's record, vet-lab's laboratory and vet-portal's owners'
-# portal loaded by gmctl load-data from the domains (the keys streamed ahead
-# of each part's load and of its partners' data.sql; the portal's derivation
-# after the core's and the lab's loads, as composition.yaml sanctions it;
-# vet-portal's data/cron.sql on records; the coherence check after), the
-# portal's API, portal-api, as portal_api over TLS, and the owners' traffic
+# Short test of the portal fixture (v0.5 build plan, chunks 16b and 21b; spec
+# D403, D404, D405, D406, D369, D432; master spec 9.7; capture W3 items 0 and
+# 5, W3-e, W3-f, W4 items 6 and 7): vet-core's record, vet-lab's laboratory
+# and vet-portal's owners' portal loaded by gmctl load-data from the domains
+# (the keys streamed ahead of each part's load and of its partners' data.sql;
+# purposes 15's and 16's DDL at step (2b), gm_check's read policies at (2c);
+# the portal's derivation after the core's and the lab's loads, as
+# composition.yaml sanctions it; purpose 16's history planting the messaging
+# stub's last 14 days; vet-portal's data/cron.sql on records; the coherence
+# check after), the portal's API, portal-api, as portal_api over TLS, the
+# integration engine running purposes 15 (vet-portal-release) and 16
+# (vet-portal-messages), the messaging service's stub and the owners' traffic
 # on the partners' three nodes. On one host, under 30 minutes.
+#
+# T0 is placed by the shift (whole hours) just before 09:00 local, for the
+# reminders' queue (vet-portal-domain.md, "Testing"): the local minute is the
+# host's UTC minute, so launch the test about SETUP seconds before a host
+# minute :50 (reserve the host lock's window accordingly); start-load is held
+# until 08:52 local, and T0 at 08:59 or later fails the run.
 #
 # On a copy of tools/tests/fixtures/fixture-portal (bastion 0.5.0, records,
 # lab and partners-db: postgres 0.5.0, portal-api and partners-api: api
@@ -31,9 +41,26 @@
 #     (again 401), its new password logs in; the fifth wrong password 423,
 #     then the right one 423; a past session's token refused (401); the desk
 #     201 with portal_desk, 401 without; portal_api's sessions over TLS;
-#   - inject -> start-load (T0): the owners' traffic for six minutes, every
-#     call in owners.visits, each document opened a portal_views row, each
-#     login a session, each listing the animals the policy shows;
+#   - load-data: the purposes' roles, policies and watermarks, gm_check's
+#     read policy on the portal's ten tables, the stub's planted messages;
+#   - inject -> start-load (T0, 08:52-08:58 local), then, written by the test
+#     as postgres (no pms, no lis): an owner and an animal registered, a sale,
+#     a death, a consultation closed and another signed, a lab test
+#     technically validated and another released, an amendment; a reminder
+#     withdrawn by its link; the next send made a 503 (the stub's call
+#     counter); an account closed. Within the jobs' windows: the copies, the
+#     account invited and its invitation at the stub, activated with the
+#     stub's token; only the signed, the released and the amendment
+#     published, the former version superseded; the notice accepted with its
+#     key; the 503 retried with the same key; the 09:00 reminders for the due
+#     animals with consent, the withdrawn one excluded, sent within the hours;
+#     the closure message at the stub;
+#   - the owners' traffic: every call in owners.visits, each document opened a
+#     portal_views row, each login a session, each listing the animals the
+#     policy shows;
+#   - the purposes' checks RL1-RL6 and MS1-MS6 as gmctl check runs them
+#     (CHECK_SINCE T0): each judges (exit 0); then, gm_check_read dropped
+#     on the portal's ten tables, every RL and MS check refuses (exit 2);
 #   -> teardown, then nothing labelled with the game id is left.
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
@@ -56,7 +83,8 @@ IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
-WATCH=360                                # seconds of the owners' traffic after T0
+SETUP=600                                # seconds from the render to T0, about: deploy, load-data, the pre-T0 cases
+DEADLINE=960                             # seconds after T0 the test waits at most for the purposes' outputs
 started=$(date +%s)
 
 failures=0
@@ -164,8 +192,21 @@ fi
 GAME=$(sed -n 's/^game_id: *//p' "$LDIR/implementation.yaml")
 [ -n "$GAME" ] || { echo "no game id in $LDIR/implementation.yaml" >&2; exit 1; }
 info "game id $GAME"
-# Hand-over 8 to 9 hours ahead at 20:00 local: T0 between 11:00 and 12:00 local.
-HANDOVER=$(date -u -d "@$(( ($(date +%s) / 3600 + 9) * 3600 ))" +%Y-%m-%dT%H:00Z)
+# The shift that puts T0 (about SETUP seconds from now) in the 08:00 local
+# hour, and the next hand-over moment that shift makes the designed 20:00.
+set -- $(python3 - "$SETUP" <<'EOF2'
+import datetime, sys
+now = datetime.datetime.now(datetime.timezone.utc)
+t0 = now + datetime.timedelta(seconds=int(sys.argv[1]))
+shift = (8 - t0.hour + 11) % 24 - 11              # -11..12, render's compute_shift
+moment = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=9)   # past the 8h aging floor
+while (moment.hour + shift) % 24 != 20:
+    moment += datetime.timedelta(hours=1)
+print(moment.strftime("%Y-%m-%dT%H:00Z"), shift, (t0 + datetime.timedelta(hours=shift)).strftime("%H:%M"))
+EOF2
+)
+HANDOVER=$1 SHIFT=$2 LOCAL_T0=$3
+info "render --handover $HANDOVER, shift $SHIFT: T0 expected about $LOCAL_T0 local (held to 08:52)"
 $GMCTL render "$SCN" --playground "$PG" --handover "$HANDOVER"
 [ -z "$(labelled)" ] || { echo "objects of game $GAME already exist" >&2; exit 1; }
 
@@ -180,13 +221,16 @@ for node in ("bastion", "records", "lab", "interfaces", "portal-api", "partners-
 EOF
 )
 line() { printf '%s\n' "$st" | sed -n "$1p"; }
-same "stack: none on the bastion, records, lab, interfaces" "bastion - records - lab - interfaces -" \
-    "$(line 1) $(line 2) $(line 3) $(line 4)"
+same "stack: none on the bastion, records, lab" "bastion - records - lab -" "$(line 1) $(line 2) $(line 3)"
+same "stack: the purposes' four role passwords and messaging_customer on interfaces" \
+    "interfaces http_messaging_customer role_lab_release_password role_portal_dispatch_password role_portal_sync_password role_vet_portal_sync_password" \
+    "$(line 4)"
 same "stack: portal_desk and portal_api's password on portal-api" \
     "portal-api http_portal_desk role_portal_api_password" "$(line 5)"
-same "stack: partners_backend and owners' password on partners-api" \
-    "partners-api http_partners_backend role_owners_password" "$(line 6)"
-same "stack: partners_backend on partners-backend" "partners-backend http_partners_backend" "$(line 7)"
+same "stack: messaging_customer, partners_backend, the stub's and owners' passwords on partners-api" \
+    "partners-api http_messaging_customer http_partners_backend role_messaging_password role_owners_password" "$(line 6)"
+same "stack: partners_backend and the stub's password on partners-backend" \
+    "partners-backend http_partners_backend role_messaging_password" "$(line 7)"
 same "stack: none on partners-db" "partners-db -" "$(line 8)"
 
 # --- deployment ---------------------------------------------------------------
@@ -218,8 +262,8 @@ info "sizes: clinic $(dbsql records clinic "SELECT pg_size_pretty(pg_database_si
 same "load-data: the portal's ten tables under forced row-level security, owned by portal" "10 10 portal" \
     "$(dbsql records portal "SELECT count(*) FILTER (WHERE relrowsecurity) || ' ' || count(*) FILTER (WHERE relforcerowsecurity) || ' '
        || string_agg(DISTINCT pg_get_userbyid(relowner), ',') FROM pg_class WHERE relname LIKE 'portal\_%' AND relkind = 'r'")"
-same "load-data: portal_api and portal_housekeeping have SCRAM passwords, portal none" \
-    "portal:f portal_api:t portal_housekeeping:t" \
+same "load-data: portal_api, portal_housekeeping and the purposes' portal_dispatch and portal_sync have SCRAM passwords, portal none" \
+    "portal:f portal_api:t portal_dispatch:t portal_housekeeping:t portal_sync:t" \
     "$(dbsql records postgres "SELECT string_agg(rolname || ':' || CASE WHEN rolpassword LIKE 'SCRAM-SHA-256\$%' THEN 't' ELSE 'f' END, ' ' ORDER BY rolname)
                                FROM pg_authid WHERE rolname LIKE 'portal%'")"
 same "load-data: no key function left in the catalog" "0" \
@@ -233,9 +277,17 @@ same "load-data: the owners' key is the load's (portal_hmac of account 2 verifie
 same "load-data: the owners' logins are the portal's open accounts" \
     "$(dbsql records portal "SELECT count(*) || ' ' || count(*) FILTER (WHERE status = 'active') FROM portal_accounts WHERE status <> 'closed'")" \
     "$(dbsql partners-db partners "SELECT count(*) || ' ' || count(*) FILTER (WHERE status = 'active') FROM owners.accounts")"
-same "the roles on partners own their schemas only" "owners:owners practices:practices xlab:xlab" \
+same "the roles on partners own their schemas only" "messaging:messaging owners:owners practices:practices xlab:xlab" \
     "$(dbsql partners-db partners "SELECT string_agg(nspname || ':' || pg_get_userbyid(nspowner), ' ' ORDER BY nspname)
-                                   FROM pg_namespace WHERE nspname IN ('xlab', 'practices', 'owners')")"
+                                   FROM pg_namespace WHERE nspname IN ('xlab', 'practices', 'owners', 'messaging')")"
+same "load-data (2b): the purposes' roles, their policies <table>_sync (7) and <table>_dispatch (8), their watermarks at load_epoch" \
+    "lab_release portal_dispatch portal_sync vet_portal_sync|7 8|vet-portal-messages:notices vet-portal-release:identity vet-portal-release:records vet-portal-release:results" \
+    "$(dbsql lab postgres "SELECT string_agg(rolname, ' ') FROM pg_roles WHERE rolname = 'lab_release'") $(dbsql records postgres "SELECT string_agg(rolname, ' ' ORDER BY rolname) FROM pg_roles WHERE rolname IN ('vet_portal_sync', 'portal_sync', 'portal_dispatch')")|$(dbsql records portal "SELECT count(*) FILTER (WHERE policyname LIKE '%\_sync') || ' ' || count(*) FILTER (WHERE policyname LIKE '%\_dispatch') FROM pg_policies")|$(dbsql records portal "SELECT string_agg(purpose || ':' || name, ' ' ORDER BY purpose, name) FROM ops.watermarks")"
+same "load-data (2c): gm_check_read on the portal's ten tables" "10" \
+    "$(dbsql records portal "SELECT count(*) FROM pg_policies WHERE policyname = 'gm_check_read' AND tablename LIKE 'portal\_%'")"
+same "purpose 16's history: the stub holds the outbox's sent rows of the 14 days before load_epoch, owners may read them" \
+    "$(dbsql records portal "SELECT count(*) FROM portal_outbox WHERE sent_at >= (SELECT at FROM ops.watermarks WHERE name = 'notices') - interval '14 days' AND sent_at < (SELECT at FROM ops.watermarks WHERE name = 'notices')") t" \
+    "$(dbsql partners-db partners "SELECT count(*) || ' ' || CASE WHEN has_table_privilege('owners', 'messaging.messages', 'SELECT') THEN 't' ELSE 'f' END FROM messaging.messages")"
 same "the external lab's stub holds the lab's open send-outs" \
     "$(dbsql lab lab "SELECT count(*) FROM lab_send_outs WHERE status IN ('sent', 'accepted')")" \
     "$(dbsql partners-db partners "SELECT count(*) FROM xlab.orders WHERE answered_at IS NULL")"
@@ -365,27 +417,220 @@ EOF
 same "portal_api's sessions arrive over TLS" "t" \
     "$(dbsql records postgres "SELECT coalesce(bool_and(s.ssl), false) FROM pg_stat_activity a JOIN pg_stat_ssl s USING (pid) WHERE a.usename = 'portal_api'")"
 
-# --- T0: the owners' traffic --------------------------------------------------
+# --- T0: placed just before 09:00 local -----------------------------------------
+local_hm() { dbsql records portal "SELECT to_char(now() AT TIME ZONE 'UTC' + utc_offset_hours * interval '1 hour', 'HH24MI') FROM portal_settings"; }
+i=0
+while [ "$(local_hm)" -lt 0852 ] && [ "$(local_hm)" -ge 0800 ] && [ "$i" -lt 900 ]; do sleep 5; i=$((i + 5)); done
+[ "$i" -eq 0 ] || info "start-load held $i s, until 08:52 local"
 info "gmctl inject"
 $GMCTL inject "$SCN" --playground "$PG" >/dev/null && pass "inject (no state fault: f1 is a seed-file fault)" || fail "inject"
 info "gmctl start-load"
 T0=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 if $GMCTL start-load "$SCN" --playground "$PG" >/dev/null; then pass "start-load (T0 $T0)"; else fail "start-load"; exit 1; fi
+T0S=$(date +%s)
+LT0=$(local_hm)
+if [ "$LT0" -ge 0800 ] && [ "$LT0" -lt 0859 ]; then
+    pass "T0 just before 09:00 local, the reminders' queue ($LT0)"
+else
+    fail "T0 not between 08:00 and 08:59 local ($LT0): relaunch about $SETUP s before a host minute :50"
+    exit 1
+fi
 i=0
 while [ "$i" -lt 30 ]; do
     case $(bstatus) in running\ *) break ;; esac
     sleep 2; i=$((i + 2))
 done
 case $(bstatus) in running\ *) pass "partners-backend running: $(bstatus)" ;; *) fail "partners-backend not running: [$(bstatus)]" ;; esac
-info "local time at T0: $(dbsql records portal "SELECT to_char(now() AT TIME ZONE 'UTC' + utc_offset_hours * interval '1 hour', 'Dy HH24:MI') FROM portal_settings")"
-info "the owners' traffic for $WATCH s"
-sleep "$WATCH"
+istatus() { docker exec "$(ctr interfaces)" cat /run/scheduler/status 2>/dev/null || true; }
+ilog() { docker exec "$(ctr interfaces)" cat "$SCHEDLOG" 2>/dev/null || true; }
+case $(istatus) in running\ *) pass "interfaces running: $(istatus)" ;; *) fail "interfaces not running: [$(istatus)]" ;; esac
+
+# --- the gates, written by the test as postgres (no pms, no lis) -------------------
+# The witnesses, chosen in the copy and the core as T0 leaves them: a sold
+# animal (X, a dog whose owner and a buyer have active accounts), a dying one
+# (Y), one whose signed consultation is published and notified (Z, its owner
+# active with a channel), all three not due for a reminder; a due animal (W)
+# whose owner withdraws the reminders through a reminder's link; an account
+# to close (K).
+DUE=$(dbsql records portal "SELECT ((now() AT TIME ZONE 'UTC') + utc_offset_hours * interval '1 hour')::date + reminder_lead_days FROM portal_settings")
+pick=$(dbsql records portal "
+WITH due AS (SELECT n.animal_id FROM portal_animals n WHERE make_date(extract(year FROM '$DUE'::date)::integer, 1, 1) + (n.animal_id::bigint * 211 % 365)::integer = '$DUE'::date),
+cur AS (SELECT w.animal_id, w.owner_id, a.id AS account_id FROM portal_ownerships w
+          JOIN portal_animals n ON n.animal_id = w.animal_id AND n.status = 'alive' AND n.species = 'dog'
+          JOIN portal_accounts a ON a.owner_id = w.owner_id AND a.status = 'active' AND a.notify_by = 'email'
+         WHERE w.role = 'owner' AND w.until_at IS NULL AND w.owner_id > 901
+           AND w.animal_id NOT IN (SELECT animal_id FROM due)
+           AND NOT EXISTS (SELECT 1 FROM portal_ownerships k WHERE k.animal_id = w.animal_id AND k.role = 'keeper')
+           AND EXISTS (SELECT 1 FROM portal_documents d WHERE d.animal_id = w.animal_id AND d.kind = 'consultation')),
+one AS (SELECT DISTINCT ON (owner_id) * FROM cur ORDER BY owner_id, animal_id)
+SELECT string_agg(animal_id || ':' || owner_id, ' ' ORDER BY owner_id) FROM (SELECT * FROM one ORDER BY owner_id LIMIT 5) x")
+set -- $pick
+X=${1%%:*}; X_SELLER=${1#*:}; X_BUYER=${2#*:}; Y=${3%%:*}; Z=${4%%:*}; Z_OWNER=${4#*:}; K=${5#*:}
+W=$(dbsql records portal "
+SELECT n.animal_id || ':' || a.id || ':' || (SELECT o.message_key FROM portal_outbox o WHERE o.account_id = a.id AND o.template = 'reminder' ORDER BY o.id DESC LIMIT 1)
+  FROM portal_animals n JOIN portal_ownerships w ON w.animal_id = n.animal_id AND w.role = 'owner' AND w.until_at IS NULL
+  JOIN portal_accounts a ON a.owner_id = w.owner_id AND a.status = 'active'
+ WHERE n.status = 'alive' AND n.species IN ('dog', 'cat', 'rabbit', 'ferret', 'horse')
+   AND make_date(extract(year FROM '$DUE'::date)::integer, 1, 1) + (n.animal_id::bigint * 211 % 365)::integer = '$DUE'::date
+   AND (SELECT e.granted FROM portal_consent_events e WHERE e.owner_id = w.owner_id AND e.purpose = 'reminders' ORDER BY e.at DESC, e.id DESC LIMIT 1)
+   AND EXISTS (SELECT 1 FROM portal_outbox o WHERE o.account_id = a.id AND o.template = 'reminder')
+   AND (SELECT count(*) FROM portal_ownerships v WHERE v.owner_id = w.owner_id AND v.role = 'owner' AND v.until_at IS NULL) = 1
+ ORDER BY n.animal_id LIMIT 1")
+W_ANIMAL=${W%%:*}; rest=${W#*:}; W_ACCOUNT=${rest%%:*}; W_KEY=${rest#*:}
+info "witnesses: sold $X ($X_SELLER -> $X_BUYER), dying $Y, signed for $Z (owner $Z_OWNER), withdrawn $W_ANIMAL (account $W_ACCOUNT), closing $K; reminders due $DUE"
+# The heredocs go to files first: dash mis-parses a heredoc holding parentheses inside $(...).
+cat > "$tmp/gates.sql" <<EOF
+BEGIN;
+INSERT INTO owners (id, kind, name, email, phone, address, country, registered_at)
+SELECT max(id) + 1, 'person', 'Short Test Owner', 'short-test-owner-$T0S@example.org', '+33 6 00 00 00 00', '1 rue du Test', 'FR', now()
+  FROM owners RETURNING id \\gset no_
+INSERT INTO animals (id, species, breed, sex, born_on, name, food_chain, registered_at)
+SELECT max(id) + 1, 'cat', 'European', 'female', current_date - 400, 'Testcat', 'not-applicable', now() FROM animals
+RETURNING id \\gset na_
+INSERT INTO ownerships (animal_id, owner_id, role, from_at) VALUES (:na_id, :no_id, 'owner', now());
+UPDATE ownerships SET until_at = now() WHERE animal_id = $X AND role = 'owner' AND until_at IS NULL;
+INSERT INTO ownerships (animal_id, owner_id, role, from_at) VALUES ($X, $X_BUYER, 'owner', now());
+UPDATE animals SET status = 'died', died_at = now(), death_kind = 'natural' WHERE id = $Y;
+INSERT INTO consultations (id, animal_id, site_id, section_id, vet_id, kind, started_at, ended_at, state)
+SELECT (SELECT max(id) + 1 FROM consultations), $Z, c.site_id, c.section_id, c.vet_id, 'emergency',
+       now() - interval '30 minutes', now() - interval '5 minutes', 'closed'
+  FROM consultations c WHERE c.animal_id = $Z ORDER BY c.id DESC LIMIT 1 RETURNING id \\gset closed_
+INSERT INTO consultations (id, animal_id, site_id, section_id, vet_id, kind, started_at, ended_at, state, signed_at)
+SELECT (SELECT max(id) + 1 FROM consultations), $Z, c.site_id, c.section_id, c.vet_id, 'emergency',
+       now() - interval '25 minutes', now() - interval '2 minutes', 'signed', now()
+  FROM consultations c WHERE c.animal_id = $Z ORDER BY c.id DESC LIMIT 1 RETURNING id \\gset signed_
+COMMIT;
+SELECT :no_id, :na_id, :closed_id, :signed_id;
+EOF
+gates=$(docker exec -i -u postgres "$(ctr records)" psql -XAtq -v ON_ERROR_STOP=1 -d clinic < "$tmp/gates.sql" 2>&1 || true)
+set -- $(printf '%s' "$gates" | tail -n 1 | tr '|' ' ')
+NEW_OWNER=$1 NEW_ANIMAL=$2 CLOSED=$3 SIGNED=$4
+[ -n "$SIGNED" ] && pass "gates in clinic: owner $NEW_OWNER and animal $NEW_ANIMAL registered, $X sold, $Y dead, consultation $CLOSED closed and $SIGNED signed" \
+    || { fail "gates in clinic not written: $gates"; exit 1; }
+cat > "$tmp/lgates.sql" <<'EOF'
+BEGIN;
+SELECT string_agg(id::text, ' ' ORDER BY id) AS ids FROM (
+  SELECT t.id FROM lab_order_tests t JOIN lab_orders o ON o.id = t.order_id
+   WHERE o.account_id = 1 AND o.animal_id IS NOT NULL AND t.released_at IS NULL
+     AND t.status IN ('ordered', 'in-progress', 'technical') ORDER BY t.id DESC LIMIT 2) x \gset t_
+SELECT split_part(:'t_ids', ' ', 1) AS rel, split_part(:'t_ids', ' ', 2) AS tech \gset
+UPDATE lab_order_tests SET status = 'released', technical_at = coalesce(technical_at, now()), technical_by = coalesce(technical_by, 71),
+       released_at = now(), released_by = 79 WHERE id = :rel;
+UPDATE lab_order_tests SET status = 'technical', technical_at = now(), technical_by = 71 WHERE id = :tech;
+SELECT r.id AS rid, r.order_test_id AS amt FROM lab_results r JOIN lab_order_tests t ON t.id = r.order_test_id
+  JOIN lab_orders o ON o.id = t.order_id
+ WHERE o.account_id = 1 AND o.animal_id IS NOT NULL AND t.released_at < now() - interval '1 day' AND r.numeric_value IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM lab_results y WHERE y.supersedes_id = r.id)
+   AND NOT EXISTS (SELECT 1 FROM lab_results z WHERE z.order_test_id = t.id AND z.supersedes_id IS NOT NULL)
+ ORDER BY t.released_at DESC LIMIT 1 \gset
+INSERT INTO lab_results (id, order_test_id, analyte_id, numeric_value, flag, interval_id, measured_at, supersedes_id,
+                         amended_by, amended_at, amendment_reason)
+SELECT (SELECT max(id) + 1 FROM lab_results), r.order_test_id, r.analyte_id, r.numeric_value + 1, r.flag, r.interval_id,
+       now(), r.id, 79, now(), 'transcription error' FROM lab_results r WHERE r.id = :rid;
+COMMIT;
+SELECT :rel, :tech, :amt;
+EOF
+lgates=$(docker exec -i -u postgres "$(ctr lab)" psql -XAtq -v ON_ERROR_STOP=1 -d lab < "$tmp/lgates.sql" 2>&1 || true)
+set -- $(printf '%s' "$lgates" | tail -n 1 | tr '|' ' ')
+RELEASED=$1 TECHNICAL=$2 AMENDED=$3
+[ -n "$AMENDED" ] && pass "gates in lab: test $RELEASED released, $TECHNICAL technically validated only, test $AMENDED's result amended" \
+    || { fail "gates in lab not written: $lgates"; exit 1; }
+GATES_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# A reminder's link withdraws W's owner's consent before the 09:00 queue; the
+# next call at the stub answers 503 (its counter put before a multiple of 50).
+out=$tmp/t0.jsonl
+probe > "$out" <<EOF
+{"method": "POST", "path": "/unsubscribe/$W_KEY"}
+{"method": "POST", "path": "/login", "body": {"email": "$(dbsql records portal "SELECT email FROM portal_accounts WHERE owner_id = $K")", "password": "$(secret "$K")"}}
+EOF
+tally "$(python3 - "$out" <<'EOF'
+import json, sys
+a = [json.loads(l) for l in open(sys.argv[1])]
+print(("PASS" if a[0]["status"] in (200, 204) else "FAIL") + f"  a reminder's withdrawal link used ({a[0]['status']})")
+print(("PASS" if a[1]["status"] == 201 else "FAIL") + f"  the account to close logs in ({a[1]['status']})")
+EOF
+)"
+KTOK=$(sed -n 2p "$out" | python3 -c 'import json, sys; q = json.loads(sys.stdin.read()); print(json.loads(q["body"]).get("token", "") if q["status"] == 201 else "")')
+CLOSE=$(printf '%s\n' "{\"method\": \"POST\", \"path\": \"/me/close\", \"cookie\": \"$KTOK\"}" | probe | python3 -c 'import json, sys; print(json.loads(sys.stdin.read())["status"])')
+same "account of owner $K closed (POST /me/close)" "200" "$CLOSE"
+dbsql partners-db partners "SELECT setval('messaging.calls', (SELECT (last_value / 50 + 1) * 50 - 1 FROM messaging.calls), true)" >/dev/null
+info "the stub's next call is number $(dbsql partners-db partners "SELECT last_value + 1 FROM messaging.calls"): a 503"
+
+# --- waiting for the purposes' outputs ---------------------------------------------
+# Polled every 20 s, at most DEADLINE seconds after T0: the copies (RL5's ten
+# minutes), the publications (RL2's fifteen), the notice and the invitation
+# at the stub, the 09:00 reminders sent.
+state() {
+    printf '%s %s %s %s %s %s %s\n' \
+        "$(dbsql records portal "SELECT count(*) FROM portal_accounts WHERE owner_id = $NEW_OWNER AND status IN ('invited', 'active')")" \
+        "$(dbsql records portal "SELECT (SELECT count(*) FROM portal_animals WHERE animal_id = $NEW_ANIMAL) + (SELECT count(*) FROM portal_animals WHERE animal_id = $Y AND status = 'died') + (SELECT count(*) FROM portal_ownerships WHERE animal_id = $X AND owner_id = $X_BUYER AND until_at IS NULL)")" \
+        "$(dbsql records portal "SELECT count(*) FROM portal_documents WHERE source_ref IN ('C-$SIGNED', 'T-$RELEASED') OR (source_ref = 'T-$AMENDED' AND version > 1)")" \
+        "$(dbsql records portal "SELECT count(*) FROM portal_outbox o JOIN portal_documents d ON d.id = o.document_id WHERE d.source_ref = 'C-$SIGNED' AND o.sent_at IS NOT NULL")" \
+        "$(dbsql partners-db partners "SELECT count(*) FROM messaging.messages WHERE template = 'invitation' AND address = 'short-test-owner-$T0S@example.org'")" \
+        "$(dbsql records portal "SELECT count(*) FILTER (WHERE sent_at IS NULL AND failed_at IS NULL) || '/' || count(*) FROM portal_outbox WHERE template = 'reminder' AND due_on = '$DUE'")" \
+        "$(dbsql records portal "SELECT count(*) FROM portal_outbox WHERE template = 'closure' AND owner_id = $K AND sent_at IS NOT NULL")"
+}
+while :; do
+    st=$(state)
+    case $st in "1 3 3 1 1 0/"[1-9]*" 1") break ;; esac
+    [ $(( $(date +%s) - T0S )) -lt "$DEADLINE" ] || { info "deadline reached: [$st]"; break; }
+    sleep 20
+done
+info "outputs at T0+$(( $(date +%s) - T0S )) s, local $(local_hm): [$st] (account, copies, documents, notice sent, invitation at the stub, reminders unsent/queued, closure sent)"
+
+# --- the copies (RL5) ----------------------------------------------------------------
+same "the new owner's account invited within 10 minutes, its invitation queued and at the stub" "1 1 1" \
+    "$(dbsql records portal "SELECT count(*) FILTER (WHERE a.invited_at <= '$GATES_AT'::timestamptz + interval '10 minutes') || ' ' || sum((SELECT count(*) FROM portal_outbox x WHERE x.account_id = a.id AND x.template = 'invitation')) FROM portal_accounts a WHERE a.owner_id = $NEW_OWNER") $(dbsql partners-db partners "SELECT count(*) FROM messaging.messages WHERE template = 'invitation' AND address = 'short-test-owner-$T0S@example.org'")"
+same "the copies: the new animal and its ownership, the sale (the seller's ended, the buyer's open), the death" \
+    "1 1 1 1 died" \
+    "$(dbsql records portal "SELECT (SELECT count(*) FROM portal_animals WHERE animal_id = $NEW_ANIMAL) || ' ' || (SELECT count(*) FROM portal_ownerships WHERE animal_id = $NEW_ANIMAL AND owner_id = $NEW_OWNER AND until_at IS NULL) || ' ' || (SELECT count(*) FROM portal_ownerships WHERE animal_id = $X AND owner_id = $X_SELLER AND until_at IS NOT NULL AND role = 'owner' AND from_at < until_at AND until_at >= '$T0'::timestamptz - interval '1 minute') || ' ' || (SELECT count(*) FROM portal_ownerships WHERE animal_id = $X AND owner_id = $X_BUYER AND until_at IS NULL) || ' ' || (SELECT status FROM portal_animals WHERE animal_id = $Y)")"
+# Activation from the stub's token (the owners' route may have used it first).
+TOKEN=$(dbsql partners-db partners "SELECT split_part(payload ->> 'link', '/activate/', 2) FROM messaging.messages WHERE template = 'invitation' AND address = 'short-test-owner-$T0S@example.org'")
+NEW_ACCOUNT=$(dbsql records portal "SELECT id FROM portal_accounts WHERE owner_id = $NEW_OWNER")
+act=$(printf '%s\n' "{\"method\": \"POST\", \"path\": \"/accounts/activate\", \"body\": {\"token\": \"$TOKEN\", \"password\": \"short-test-$T0S\", \"reminders\": true}}" | probe)
+astatus=$(printf '%s' "$act" | python3 -c 'import json, sys; print(json.loads(sys.stdin.read())["status"])')
+same "activation with the stub's token: 200, the account active (or the owners' route's own activation)" "active" \
+    "$( [ "$astatus" = 200 ] || [ "$(dbsql partners-db partners "SELECT count(*) FROM owners.visits WHERE account_id = ${NEW_ACCOUNT:-0} AND call = 'POST /accounts/activate' AND status = 200")" -gt 0 ] && dbsql records portal "SELECT status FROM portal_accounts WHERE id = ${NEW_ACCOUNT:-0}")"
+
+# --- the release gate (RL1 to RL3) -------------------------------------------------------
+same "published: the signed consultation, the released test, the amendment's version 2; not the closed consultation nor the technical test" \
+    "$(printf '%s\n' "C-$SIGNED:1" "T-$AMENDED:2" "T-$RELEASED:1" | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')" \
+    "$(dbsql records portal "SELECT string_agg(source_ref || ':' || version, ' ' ORDER BY (source_ref || ':' || version) COLLATE \"C\") FROM portal_documents WHERE source_ref IN ('C-$SIGNED', 'C-$CLOSED', 'T-$RELEASED', 'T-$TECHNICAL') OR (source_ref = 'T-$AMENDED' AND published_at >= '$T0')")"
+same "each within 15 minutes of its gate, the amended test's former version superseded" "t t" \
+    "$(dbsql records portal "SELECT bool_and(published_at <= gated_at + interval '15 minutes') FROM portal_documents WHERE published_at >= '$T0'") $(dbsql records portal "SELECT superseded_at IS NOT NULL FROM portal_documents WHERE source_ref = 'T-$AMENDED' AND version = (SELECT max(version) - 1 FROM portal_documents WHERE source_ref = 'T-$AMENDED')")"
+
+# --- the messages (MS) --------------------------------------------------------------------
+same "the signed consultation's notice accepted with its key: at the stub, its provider id the stub's" "1 true" \
+    "$(dbsql records portal "SELECT count(*) || ' ' || bool_and(o.provider_id = md5('messaging:' || o.message_key)::uuid) FROM portal_outbox o JOIN portal_documents d ON d.id = o.document_id WHERE d.source_ref = 'C-$SIGNED' AND o.sent_at IS NOT NULL")"
+retried=$(dbsql partners-db partners "SELECT string_agg(c.message_key || ' ' || c.status, ',' ORDER BY c.call) FROM messaging.message_calls c WHERE c.message_key = (SELECT message_key FROM messaging.message_calls WHERE status = 503 AND at >= '$T0' ORDER BY call LIMIT 1)")
+info "the 503'd key's calls: $retried"
+case $retried in *" 503,"*" 202"*) pass "a 503 retried with the same key, then accepted" ;; *) fail "no 503 retried with the same key: [$retried]" ;; esac
+expected=$(dbsql records portal "
+WITH r AS (SELECT started_at FROM ops.runs WHERE purpose = 'vet-portal-messages' AND job = 'queue-reminders' ORDER BY id DESC LIMIT 1)
+SELECT coalesce(string_agg(n.animal_id::text, ' ' ORDER BY n.animal_id), '') FROM r, portal_animals n
+  JOIN portal_ownerships w ON w.animal_id = n.animal_id AND w.role = 'owner' AND w.until_at IS NULL
+  JOIN portal_accounts a ON a.owner_id = w.owner_id AND a.status <> 'closed'
+ WHERE n.status = 'alive' AND n.species IN ('dog', 'cat', 'rabbit', 'ferret', 'horse')
+   AND make_date(extract(year FROM '$DUE'::date)::integer, 1, 1) + (n.animal_id::bigint * 211 % 365)::integer = '$DUE'::date
+   AND (SELECT e.granted FROM portal_consent_events e WHERE e.owner_id = w.owner_id AND e.purpose = 'reminders' AND e.at <= r.started_at ORDER BY e.at DESC, e.id DESC LIMIT 1)")
+queued=$(dbsql records portal "SELECT coalesce(string_agg(animal_id::text, ' ' ORDER BY animal_id), '') FROM portal_outbox WHERE template = 'reminder' AND due_on = '$DUE'")
+info "reminders due $DUE: $(echo $queued | wc -w) queued"
+same "the 09:00 reminders: the due animals with consent, one each" "$expected" "$queued"
+case " $queued " in *" $W_ANIMAL "*) fail "the withdrawn animal $W_ANIMAL got a reminder" ;; *) pass "the reminder withdrawn by its link excluded (animal $W_ANIMAL)" ;; esac
+same "the reminders sent, within 08:00-20:00 local" "0 true" \
+    "$(dbsql records portal "SELECT count(*) FILTER (WHERE o.sent_at IS NULL) || ' ' || coalesce(bool_and((o.sent_at AT TIME ZONE 'UTC' + s.utc_offset_hours * interval '1 hour')::time BETWEEN s.reminders_from AND s.reminders_until), true) FROM portal_outbox o, portal_settings s WHERE o.template = 'reminder' AND o.due_on = '$DUE'")"
+same "the closure message at the stub, nothing else sent to the closed account after it" "1 0" \
+    "$(dbsql partners-db partners "SELECT count(*) FILTER (WHERE template = 'closure' AND received_at >= '$T0') || ' ' || count(*) FILTER (WHERE template <> 'closure' AND received_at > (SELECT max(received_at) FROM messaging.messages WHERE template = 'closure' AND account_id = $K)) FROM messaging.messages WHERE account_id = $K")"
+ierrs=$(ilog | grep ' error ' || true)
+same "interfaces ran its six jobs without an error" "0" "$(printf '%s' "$ierrs" | grep -c . || true)"
+[ -z "$ierrs" ] || printf '%s\n' "$ierrs" | head -n 8 | cut -c1-300 | sed 's/^/....  interfaces: /'
+info "interfaces' runs since T0: $(dbsql records portal "SELECT string_agg(job || ' ' || n, ', ' ORDER BY job) FROM (SELECT job, count(*) n FROM ops.runs WHERE started_at >= '$T0' GROUP BY job) x")"
+
+# --- the owners' traffic --------------------------------------------------------------
 visits=$(dbsql partners-db partners "SELECT count(*) || ' ' || count(DISTINCT account_id) FROM owners.visits WHERE at >= '$T0'")
 info "owners.visits since T0 (calls, accounts): $visits; by call: $(dbsql partners-db partners "SELECT string_agg(call || ' ' || coalesce(status::text, '-') || ' ' || n, ', ' ORDER BY call, status)
   FROM (SELECT call, status, count(*) n FROM owners.visits WHERE at >= '$T0' GROUP BY 1, 2) x")"
 [ "${visits%% *}" -gt 0 ] && pass "the owners' route recorded its calls in owners.visits" || fail "no call in owners.visits since T0"
-# Each recorded call against portal: a document opened with its view, a
-# login with its session, a listing with the animals the policy shows.
 opened=$(dbsql partners-db partners "SELECT coalesce(string_agg(account_id || ':' || document_ids[1] || ':' || to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ' '), '')
   FROM owners.visits WHERE at >= '$T0' AND call = 'GET /documents/{id}' AND status = 200")
 missing=0
@@ -398,22 +643,43 @@ info "documents opened since T0: $(echo $opened | wc -w)"
 same "each document the route opened has its portal_views row" "0" "$missing"
 logins=$(dbsql partners-db partners "SELECT count(*) FROM owners.visits WHERE at >= '$T0' AND call = 'POST /login' AND status = 201")
 same "each login the route made has its session" "$logins" \
-    "$(dbsql records portal "SELECT count(*) FROM portal_sessions WHERE created_at >= '$T0' AND account_id IN ($(dbsql partners-db partners "SELECT coalesce(string_agg(DISTINCT account_id::text, ','), '0') FROM owners.visits WHERE at >= '$T0'"))")"
-listed=$(dbsql partners-db partners "SELECT coalesce(string_agg(account_id || ':' || coalesce(array_to_string(animal_ids, ','), ''), ' '), '') FROM owners.visits
-  WHERE at >= '$T0' AND call = 'GET /animals' AND status = 200")
-wrong=0
-for v in $listed; do
-    acc=${v%%:*}; got=${v#*:}
-    want=$(printf "BEGIN;\nSELECT set_config('portal.owner_id', (SELECT owner_id::text FROM portal_accounts WHERE id = $acc), true) \\\\g /dev/null\nSET LOCAL ROLE portal_api;\nSELECT coalesce(string_agg(animal_id::text, ',' ORDER BY animal_id), '') FROM portal_animals;\nROLLBACK;\n" \
-        | docker exec -i -u postgres "$(ctr records)" psql -XAtq -d portal)
-    [ "$want" = "$got" ] || { wrong=$((wrong + 1)); info "account $acc listed [$got], the policy shows [$want]"; }
-done
-info "listings since T0: $(echo $listed | wc -w)"
-same "each listing the route recorded is the animals the policy shows its owner" "0" "$wrong"
+    "$(dbsql records portal "SELECT count(*) FROM portal_sessions WHERE created_at >= '$T0' AND account_id IN ($(dbsql partners-db partners "SELECT coalesce(string_agg(DISTINCT account_id::text, ','), '0') FROM owners.visits WHERE at >= '$T0'")) AND account_id <> (SELECT id FROM portal_accounts WHERE owner_id = $K)")"
+info "PUT /me/preferences through gm_api's _call: $(dbsql partners-db partners "SELECT coalesce(string_agg(status::text, ' '), 'none this run') FROM owners.visits WHERE at >= '$T0' AND call = 'PUT /me/preferences'")"
 errs=$(blog | grep ' error ' || true)
 same "partners-backend ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"
 [ -z "$errs" ] || printf '%s\n' "$errs" | head -n 8 | cut -c1-300 | sed 's/^/....  partners-backend: /'
 info "portal-api's request log: $(docker exec "$(ctr portal-api)" sh -c 'grep -c " request " /var/log/api/api.log' 2>/dev/null) requests, $(docker exec "$(ctr portal-api)" sh -c 'grep -c " error " /var/log/api/api.log || true' 2>/dev/null) errors"
+
+# --- the purposes' checks, as gmctl check runs them ---------------------------------------
+# RL1-RL5 and MS2-MS6 on the runner (interfaces), RL6 and MS1 on partners-db,
+# each fed to `sh -s` as root with CHECK_SINCE at T0.
+run_check() {   # run_check <purpose> <file> -> "<exit> <output>"
+    case $2 in rl6-*|ms1-*) node=partners-db ;; *) node=interfaces ;; esac
+    o=$(docker exec -i -u root -e "CHECK_SINCE=$T0" "$(ctr $node)" sh -s < "$REPO/purposes/$1/checks/$2" 2>&1) && e=0 || e=$?
+    printf '%s %s\n' "$e" "$(printf '%s' "$o" | tr '\n' ' ' | cut -c1-260)"
+}
+CHECKS="vet-portal-release:rl1-no-document-before-gate.sh vet-portal-release:rl2-gate-published.sh
+vet-portal-release:rl3-amendment-versioned.sh vet-portal-release:rl4-no-identifying-content.sh
+vet-portal-release:rl5-copies-current.sh vet-portal-release:rl6-owner-scope.sh vet-portal-messages:ms1-once.sh
+vet-portal-messages:ms2-consent.sh vet-portal-messages:ms3-sending-hours.sh vet-portal-messages:ms4-payload.sh
+vet-portal-messages:ms5-notice-accepted.sh vet-portal-messages:ms6-recipient-current.sh"
+info "the checks at T0+$(( $(date +%s) - T0S )) s, CHECK_SINCE $T0"
+for c in $CHECKS; do
+    r=$(run_check "${c%%:*}" "${c#*:}")
+    case $r in "0 "*) pass "${c#*:}: exit 0: ${r#* }" ;; *) fail "${c#*:}: exit ${r%% *} (fixed expected): ${r#* }" ;; esac
+done
+# gm_check_read dropped on the portal's ten tables: every check refuses to judge (exit 2,
+# D432), never a verdict on an empty read.
+docker exec -i -u postgres "$(ctr records)" psql -XAtq -d portal >/dev/null <<'EOF'
+SELECT format('DROP POLICY IF EXISTS gm_check_read ON %I', tablename) FROM pg_policies WHERE policyname = 'gm_check_read' AND tablename LIKE 'portal\_%' \gexec
+EOF
+same "gm_check_read dropped on the portal's ten tables" "0" \
+    "$(dbsql records portal "SELECT count(*) FROM pg_policies WHERE policyname = 'gm_check_read'")"
+for c in $CHECKS; do
+    r=$(run_check "${c%%:*}" "${c#*:}")
+    case $r in "2 "*) pass "gm_check_read dropped: ${c#*:} cannot judge (exit 2)" ;;
+        *) fail "gm_check_read dropped: ${c#*:} exit ${r%% *}: ${r#* }" ;; esac
+done
 
 # --- teardown -------------------------------------------------------------
 info "gmctl teardown"

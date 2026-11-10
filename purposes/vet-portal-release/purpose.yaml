@@ -1,0 +1,215 @@
+# Purpose 15, the portal's copies and release gate (v0.5 master spec 12.2
+# purpose 15; vet-portal-domain.md, "vet-portal-release"; clinic-purposes.md
+# "The roles the purposes add"; spec D320, D324, D404, D432; capture W4 items
+# 0, 6 and 7 of specs/versions/v0.5/wave-log.md): a pulled flow, the portal
+# filling its own store from the record and the lab (v0.4's P1 shape), with a
+# release gate (v0.4's stress test). The results are read from the lab's
+# release, never from the core's requests (T43 cannot break the gate).
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic, source_lab lab/lab, target records/portal, runner
+# interfaces. The GM adapts the names as it copies; gm.md says where each
+# name lives. ddl.source, ddl.source_lab and ddl.target are read from the
+# catalogue by load-data (step 2b), never copied. Its checks read the
+# portal's tables under row-level security as gm_check, through the
+# gm_check_read policies load-data adds at step (2c), and refuse to judge
+# (exit 2) when one is gone (spec D432).
+id: vet-portal-release
+title: The owners' portal's copies of the record and its release gate for consultations, discharges and results
+domains: [vet-core, vet-lab, vet-portal]
+kind: pulled
+
+parts:
+  source: the core's medical record, clinic (owners, animals, ownerships, herds, signed consultations, ended stays)
+  source_lab: the laboratory's database, lab (the centre's released tests and their results)
+  target: the owners' portal, portal (accounts, the copies, the documents, invitations, ops.*)
+  runner: the centre's integration engine, interfaces
+
+jobs:
+  - name: sync-portal-identity
+    key: portal.identity
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      from clinic, since the watermark (less two minutes): the owners registered, an account invited
+      each with its invitation queued (random one-time link, kept hashed), an owner with an account
+      never touched; the animals registered or dead, the ownerships started or ended, the herds whose
+      keeper changed, upserted into the copies; in one portal transaction with the watermark and the
+      run's ops.runs row.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_portal_sync
+      portal: portal_sync
+  - name: publish-records
+    key: portal.records
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      from clinic, the consultations signed and the stays ended since the watermark: a document each,
+      version 1 (C- or S- and the record's id), its body the diagnoses' labels and the prescriptions, or the stay's
+      dates and outcome, no free text; a document already published skipped by its reference and
+      version; in one portal transaction with the watermark and the run's row.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_portal_sync
+      portal: portal_sync
+  - name: publish-results
+    key: portal.results
+    part: runner
+    source: source_lab
+    target: target
+    method: script
+    computes: >-
+      from lab, account 1's order tests released and their results amended since the watermark: a
+      document (T- and the test's id) at the release (the values in force), a new version at each amendment, the
+      former superseded; the pathologist's name from clinic's staff; in one portal transaction with
+      the watermark and the run's row.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_portal_sync
+      lab: lab_release
+      portal: portal_sync
+
+trace:
+  - kind: run-ledger
+    part: target
+    table: ops.watermarks
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: RL1
+    statement: >-
+      No document before its gate: every document published since the judged moment has its gate
+      passed at or before published_at (a result's test released in the lab, a consultation signed, a
+      stay ended).
+    check: checks/rl1-no-document-before-gate.sh
+    parameters: {}
+    witness: every publication, about 140 a day; the urgent results technically validated before their release, about 15 a day.
+    judged: runs
+  - id: RL2
+    statement: >-
+      Every gate passed since the judged moment has its document within 15 minutes, once (one version 1
+      per source_ref).
+    check: checks/rl2-gate-published.sh
+    parameters: {}
+    witness: a gate passed since the judged moment, about 140 a day, in bursts at the rounds and the morning's signing.
+    judged: triggers
+  - id: RL3
+    statement: >-
+      Every centre result amended since the judged moment has its new version within 15 minutes, the
+      former superseded.
+    check: checks/rl3-amendment-versioned.sh
+    parameters: {}
+    witness: a centre result amended since the judged moment, about 2 a day.
+    judged: triggers
+  - id: RL4
+    statement: >-
+      No copy or document carries an address, a natural identifier, free text or a staff contact; no
+      document comes from an account other than 1.
+    check: checks/rl4-no-identifying-content.sh
+    parameters: {}
+    witness: every publication and every copy written since the judged moment.
+    judged: runs
+  - id: RL5
+    statement: >-
+      Every owner registered since the judged moment has an account invited within 10 minutes; every
+      ownership started or ended, every death, is in the copy within 10 minutes; no closed account is
+      reopened.
+    check: checks/rl5-copies-current.sh
+    parameters: {}
+    witness: a registration, an ownership's start or end or a death since the judged moment; 13 owners, 20 animals, about 3 transfers and one or two deaths a day.
+    judged: triggers
+  - id: RL6
+    statement: >-
+      Every account sees exactly the animals the core says it owns now, or keeps with a standing
+      consent; and of each only documents from within the current ownership: judged on the owners'
+      recorded visits (owners.visits), each listing and document against the core at that moment.
+    check: checks/rl6-owner-scope.sh
+    parameters: {}
+    witness: an owner's recorded visit since the judged moment, about 150 a day; about 9 a day by an owner who has sold an animal in the year.
+    judged: runs
+
+data_moved:
+  - job: sync-portal-identity
+    reads: [clinic.owners.id, clinic.owners.kind, clinic.owners.name, clinic.owners.email, clinic.owners.phone,
+            clinic.owners.registered_at, clinic.animals.id, clinic.animals.name, clinic.animals.species,
+            clinic.animals.sex, clinic.animals.born_on, clinic.animals.herd_id, clinic.animals.status,
+            clinic.animals.died_at, clinic.ownerships.animal_id, clinic.ownerships.owner_id,
+            clinic.ownerships.role, clinic.ownerships.from_at, clinic.ownerships.until_at, clinic.herds.id,
+            clinic.herds.keeper_owner_id]
+    writes: [target:portal_accounts, target:portal_animals, target:portal_ownerships, target:portal_herds,
+             target:portal_outbox, target:ops.watermarks, target:ops.runs]
+  - job: publish-records
+    reads: [clinic.consultations.id, clinic.consultations.kind, clinic.consultations.started_at,
+            clinic.consultations.signed_at, clinic.diagnoses.code, clinic.diagnosis_codes.label,
+            clinic.prescription_lines.dose, clinic.prescription_lines.withdrawal_ends_on, clinic.medicines.name,
+            clinic.stays.admitted_at, clinic.stays.discharged_at, clinic.stays.outcome, clinic.staff.name]
+    writes: [target:portal_documents, target:ops.watermarks, target:ops.runs]
+  - job: publish-results
+    reads: [lab.lab_orders.animal_id, lab.lab_order_tests.released_at, lab.lab_order_tests.released_by,
+            lab.lab_results.numeric_value, lab.lab_results.text_value, lab.lab_results.flag,
+            lab.lab_results.amended_at, lab.lab_analytes.name, lab.lab_reference_intervals.low,
+            lab.lab_reference_intervals.high, clinic.staff.name]
+    writes: [target:portal_documents, target:ops.watermarks, target:ops.runs]
+
+roles:
+  - name: vet_portal_sync
+    part: source
+    reads: ["owners (id, kind, name, email, phone, registered_at)",
+            "animals (id, name, species, sex, born_on, herd_id, status, died_at, registered_at)", ownerships,
+            "herds (id, keeper_owner_id)",
+            "consultations (id, animal_id, herd_id, kind, section_id, vet_id, started_at, signed_at, state)",
+            diagnoses, diagnosis_codes, prescriptions, prescription_lines, "medicines (id, name)", stays,
+            "staff (id, name)", "sections (id, kind)"]
+    writes: []
+  - name: lab_release
+    part: source_lab
+    reads: ["lab_orders (id, account_id, animal_id, ordered_at)", lab_order_tests, lab_results, lab_tests,
+            lab_analytes, lab_reference_intervals, "lab_samples (id, collected_at)"]
+    writes: []
+  - name: portal_sync
+    part: target
+    reads: [portal_accounts, portal_animals, portal_ownerships, portal_herds, portal_documents, portal_settings,
+            portal_outbox, "ops.*"]
+    writes: ["portal_accounts (insert; display_name, email, phone, synced_at)", portal_animals,
+             portal_ownerships, portal_herds, "portal_documents (insert; superseded_at)",
+             "portal_outbox (insert: invitations)", ops.watermarks, ops.runs]
+
+ddl:
+  source: material/source/ddl.sql
+  source_lab: material/source_lab/ddl.sql
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    portal.ops.runs.id: internal
+    portal.ops.runs.purpose: internal
+    portal.ops.runs.job: internal
+    portal.ops.runs.started_at: internal
+    portal.ops.runs.finished_at: internal
+    portal.ops.runs.rows_read: internal
+    portal.ops.runs.rows_written: internal
+    portal.ops.incidents.id: internal
+    portal.ops.incidents.purpose: internal
+    portal.ops.incidents.job: internal
+    portal.ops.incidents.kind: internal
+    portal.ops.incidents.ref: internal
+    portal.ops.incidents.opened_at: internal
+    portal.ops.incidents.reason: internal
+    portal.ops.incidents.run_id: internal
+    portal.ops.watermarks.purpose: internal
+    portal.ops.watermarks.name: internal
+    portal.ops.watermarks.at: internal
+    portal.ops.watermarks.last_id: internal
+    portal.ops.watermarks.run_id: internal

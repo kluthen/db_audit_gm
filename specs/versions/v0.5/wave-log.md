@@ -6462,3 +6462,17 @@ New: the fixture's standby reserves 1.75G disk, not the capacity table's
 fixture runner, though the access model gives scheduler nodes
 `fixable-file` (chunk 24 may change it). 20b risk: purpose 9's feeder at
 00:30 versus T0 ~01:07 (resume-20c.md). Fresh 20b owner dispatched.
+
+### Chunk 21 merged, 2026-11-10 05:10
+
+21b merge `d55429c` (21b `34d0694`). fixture-portal run 3 (04:40-05:02):
+108 PASS, 0 FAIL, 1307 s; copies, release gate, RL6 visits, messages
+(503 retried, 27 reminders, closure) shown; the 12 RL/MS checks exit 0,
+and exit 2 with gm_check_read dropped. Run 2's failure: the `messaging`
+role not admitted on partners-db's pg_hba. Unit 1227 OK. New for G18:
+RL5 judges "touched since closure" from the judged moment, since the
+load stamps every account's `synced_at` with the load epoch. Risks: the
+portal run needs launch at host minute :40 (T0 08:52 local, ~8 min
+margin); RL6/MS1 depend on traffic arriving within the run.
+Gate fix list so far: fixture-vault and fixture-restore map
+`partners.md` on their bastion (format skill).
