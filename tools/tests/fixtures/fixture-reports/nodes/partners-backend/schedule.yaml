@@ -10,9 +10,21 @@ connections:
     role: authority
     pool:
       size: 1
+  # from scenario: compose/partners-backend/schedule.yaml
+  headoffice-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: headoffice
+    pool:
+      size: 1
 streams:
   # from scenario: compose/partners-backend/schedule.yaml
   - key: authority.normal
     connection: authority-db
+    rate: 1/min
+    arrivals: even
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: headoffice.normal
+    connection: headoffice-db
     rate: 1/min
     arrivals: even

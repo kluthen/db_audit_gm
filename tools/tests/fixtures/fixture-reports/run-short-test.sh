@@ -1,17 +1,17 @@
 #!/bin/sh
 # Short test of the reports fixture (v0.5 build plan, chunk 20; master spec
-# 11.1, 11.3, 12.1, 12.2 purposes 7, 8 and 12, 18.1; spec D435, D436; capture
-# W4 items 0 and 5): the periodic reports on vet-core's record, read on its
-# standby, writing the back office's database office. On one host, under 30
-# minutes from the deployment.
+# 11.1, 11.3, 12.1, 12.2 purposes 7, 8, 9, 10 and 12, 18.1; spec D435, D436;
+# capture W4 items 0 and 5): the periodic reports on vet-core's record, read
+# on its standby, and on the lab's database, writing the back office's
+# database office. On one host, under 30 minutes from the deployment.
 #
 # Time is placed, never waited for (master spec 18.1): the hand-over is
-# planned so that T0 falls at about 01:10 local, before the first feeder
-# (01:30), so yesterday is the feeders' to write (the histories plant a
-# feeder's day d only when d + 1 at its hour is before load_epoch). Each
-# feeder is then moved to the next minute in the runner's jobs.yaml (UTC,
-# the runner reloaded), and the monthly close with them, on a date not its
-# own. The local minute is the real one (the shift is whole hours): before
+# planned so that T0 falls at about 00:10 local, before the first feeder
+# (00:30, the head office's figures), load_epoch about ten minutes before it,
+# so yesterday is the feeders' to write (the histories plant a feeder's day d
+# only when d + 1 at its hour is before load_epoch). Each feeder is then
+# moved to the next minute in the runner's jobs.yaml (UTC, the runner
+# reloaded), and three periodic jobs with them, on a date not their own. The local minute is the real one (the shift is whole hours): before
 # render the test waits, if need be, until a deployment starting then reaches
 # T0 at about :10 (REPORTS_PREP_MINUTES, default 13, the minutes from the
 # deployment to T0); that wait is not the run's. AM2 needs a herd treatment
@@ -24,21 +24,24 @@
 #   gmctl compose --check -> fit (2 CPU / 4G / 8G) -> render -> deploy ->
 #   load-data, then:
 #   - load-data: office's tables, the planted periods (the last planted
-#     month's extract and working-time months the sums of their days), the
-#     standby streaming;
-#   - inject -> start-load (T0, about 01:10 local); yesterday unplanted in
+#     month's extract, working-time months, figures and statements the sums
+#     of their days), the standby streaming;
+#   - inject -> start-load (T0, about 00:10 local); yesterday unplanted in
 #     every feeder's table, the day before planted; a herd treatment
 #     yesterday (recorded if none);
-#   - the four feeders and close-medicines-register moved to the next minute
-#     (one reload): each feeder writes yesterday once, one runs row, read on
-#     the standby (its log's connections, none on records); the close, on a
-#     date not its own, writes neither output nor runs row;
-#   - the eleven checks (MR1 to MR4, AM1 to AM4, WT1 to WT3) on backoffice,
-#     CHECK_SINCE T0: each exit 0;
-#   - the four feeders moved again: each writes nothing (its day held), one
+#   - the six feeders and three periodic jobs (close-medicines-register,
+#     send-monthly-figures, close-lab-statements) moved to the next minute
+#     (one reload): each feeder writes yesterday once, one runs row, the
+#     record read on the standby (its log's connections, none on records),
+#     the lab on its node; each periodic job, on a date not its own, writes
+#     neither output nor runs row;
+#   - the seventeen checks (MR1 to MR4, AM1 to AM4, WT1 to WT3, HO1 to HO3,
+#     ST1 to ST3) on backoffice, CHECK_SINCE T0: each exit 0;
+#   - the six feeders moved again: each writes nothing (its day held), one
 #     more runs row with 0 written; the runs checks again, exit 0;
 #   - WT3 on a corrupted close (the month's night hours from the hours
-#     worked, in the runner's queries.yaml): exit 1; restored: exit 0;
+#     worked) and ST3 on a corrupted statement (the 5 % bracket at 6 %), in
+#     the runner's queries.yaml: exit 1; restored: exit 0;
 #   - no error in the runner's log;
 #   -> teardown, then nothing labelled with the game id is left.
 #
@@ -68,7 +71,11 @@ PREP=${REPORTS_PREP_MINUTES:-13}
 P7=$REPO/purposes/vet-medicines-registers/checks
 P8=$REPO/purposes/vet-antimicrobial-use/checks
 P12=$REPO/purposes/vet-working-time/checks
-FEEDERS="feed-medicines-register feed-controlled-drugs feed-antimicrobial-use feed-working-time"
+P9=$REPO/purposes/vet-head-office-figures/checks
+P10=$REPO/purposes/vet-lab-statements/checks
+FEEDERS="feed-medicines-register feed-controlled-drugs feed-antimicrobial-use feed-working-time feed-daily-figures"
+FEEDERS="$FEEDERS feed-lab-charges"
+PERIODIC="close-medicines-register send-monthly-figures close-lab-statements"
 
 failures=0
 passes=0
@@ -191,7 +198,7 @@ else
 fi
 
 # --- time placement ---------------------------------------------------------
-# T0 at about :10 real (local 01:10): wait, if need be, so that a deployment
+# T0 at about :10 real (local 00:10): wait, if need be, so that a deployment
 # starting now reaches T0 then.
 now=$(date +%s)
 min=$(( (now + PREP * 60) / 60 % 60 ))
@@ -206,7 +213,7 @@ T0EST=$(( started + PREP * 60 ))
 HANDOVER=$(python3 - "$T0EST" <<'EOF'
 import datetime, sys
 t0 = datetime.datetime.fromtimestamp(int(sys.argv[1]), datetime.timezone.utc)
-shift = (1 - t0.hour + 11) % 24 - 11                  # local 01 at T0, in -11..12
+shift = (0 - t0.hour + 11) % 24 - 11                  # local 00 at T0, in -11..12
 planned_hour = (14 - shift) % 24                       # the designed hand-over, 14:00 local
 moment = (t0 + datetime.timedelta(hours=9)).replace(minute=0, second=0, microsecond=0)
 while moment.hour != planned_hour:
@@ -240,8 +247,8 @@ EOF
 )
 line() { printf '%s\n' "$st" | sed -n "$1p"; }
 same "stack: no credential on the bastion" "bastion -" "$(line 1)"
-same "stack: backoffice holds the authority's credential and its three roles' passwords" \
-    "backoffice http_authority_customer role_office_jobs_password role_sched_reports_password role_vet_reports_password" "$(line 2)"
+same "stack: backoffice holds the authority's and the head office's credentials and its four roles' passwords" \
+    "backoffice http_authority_customer http_headoffice_customer role_lab_reports_password role_office_jobs_password role_sched_reports_password role_vet_reports_password" "$(line 2)"
 
 # --- deployment ---------------------------------------------------------------
 info "gmctl deploy"
@@ -263,14 +270,16 @@ else
     fail "load-data"
     exit 1
 fi
-same "load-data: office's twelve tables, owned by office" \
-    "amu_reports antimicrobial_use controlled_balances controlled_inventories controlled_movements medicines_register register_extracts regulatory_submissions rest_breaches runs working_time_days working_time_months office" \
+same "load-data: office's sixteen tables, owned by office" \
+    "amu_reports antimicrobial_use controlled_balances controlled_inventories controlled_movements daily_figures lab_charge_lines lab_statements medicines_register monthly_figures register_extracts regulatory_submissions rest_breaches runs working_time_days working_time_months office" \
     "$(dbsql records office "SELECT string_agg(tablename, ' ' ORDER BY tablename) || ' ' || string_agg(DISTINCT tableowner, ',') FROM pg_tables WHERE schemaname = 'public'")"
 info "planted: $(dbsql records office "SELECT (SELECT count(*) FROM medicines_register) || ' register lines, ' || (SELECT count(*) FROM controlled_movements) || ' controlled movements, '
   || (SELECT count(DISTINCT month) FROM register_extracts) || ' extracts (months), ' || (SELECT count(*) FROM controlled_balances) || ' balances, '
   || (SELECT count(*) FROM controlled_inventories) || ' inventory rows, ' || (SELECT count(*) FROM antimicrobial_use) || ' antimicrobial-use rows, '
   || (SELECT count(*) FROM amu_reports) || ' amu reports, ' || (SELECT count(*) FROM working_time_days) || ' working-time days, '
   || (SELECT count(*) FROM working_time_months) || ' months, ' || (SELECT count(*) FROM rest_breaches) || ' breaches, '
+  || (SELECT count(*) FROM daily_figures) || ' daily figures, ' || (SELECT count(DISTINCT month) FROM monthly_figures) || ' months of figures, '
+  || (SELECT count(*) FROM lab_charge_lines) || ' charge lines, ' || (SELECT count(*) FROM lab_statements) || ' statements, '
   || (SELECT count(*) FROM runs) || ' runs'")"
 same "planted: the last year's antimicrobial-use report, acknowledged with its reference" "t" \
     "$(dbsql records office "SELECT bool_and(reference IS NOT NULL AND acknowledged_at IS NOT NULL) AND count(*) > 0 FROM amu_reports WHERE year = date_trunc('year', current_date - interval '1 year')::date")"
@@ -287,6 +296,24 @@ same "a planted month ($W): each staff member's working time the sum of their da
        FROM (SELECT staff_id, sum(worked_hours) AS w, sum(night_hours) AS n, sum(call_outs) AS c FROM working_time_days
               WHERE day >= '$W' AND day < ('$W'::date + interval '1 month')::date GROUP BY staff_id) d
        FULL JOIN (SELECT staff_id, worked_hours, night_hours, call_outs FROM working_time_months WHERE month = '$W') m USING (staff_id)" | sed 's/true$/t/')"
+F=$(dbsql records office "SELECT max(month) FROM monthly_figures")
+same "a planted month ($F): each figure the sum of its days (the turnaround the median), acknowledged with its reference" "0 t t" \
+    "$(dbsql records office "SELECT count(*) FILTER (WHERE d.v IS DISTINCT FROM m.value) || ' ' || (count(*) > 0)::text || ' '
+         || bool_and(m.reference = 'figures-' || to_char(m.month, 'YYYY-MM') AND m.acknowledged_at IS NOT NULL)::text
+       FROM (SELECT section, measure, CASE WHEN starts_with(measure, 'turnaround.')
+                    THEN round((percentile_cont(0.5) WITHIN GROUP (ORDER BY value))::numeric, 2) ELSE sum(value) END AS v
+               FROM daily_figures WHERE day >= '$F' AND day < ('$F'::date + interval '1 month')::date GROUP BY 1, 2) d
+       FULL JOIN (SELECT month, section, measure, value, reference, acknowledged_at FROM monthly_figures WHERE month = '$F') m
+            USING (section, measure)" | sed 's/true/t/g')"
+L=$(dbsql records office "SELECT max(month) FROM lab_statements")
+same "a planted month ($L): each practice's statement its lines' billable sum, its total less the bracket's discount, no centre's" "0 t 0" \
+    "$(dbsql records office "SELECT count(*) FILTER (WHERE d.b IS DISTINCT FROM s.billable OR d.n IS DISTINCT FROM s.lines
+                                OR s.due IS DISTINCT FROM s.total - s.discount OR s.total IS DISTINCT FROM s.billable - s.voided)
+         || ' ' || (count(*) > 0)::text || ' ' || count(*) FILTER (WHERE s.account_id = 1)
+       FROM (SELECT account_id, count(*) FILTER (WHERE event = 'billable') AS n,
+                    coalesce(sum(amount) FILTER (WHERE event = 'billable'), 0) AS b
+               FROM lab_charge_lines WHERE day >= '$L' AND day < ('$L'::date + interval '1 month')::date GROUP BY 1) d
+       FULL JOIN (SELECT * FROM lab_statements WHERE month = '$L') s USING (account_id)" | sed 's/true/t/g')"
 same "the standby streaming from records, in recovery" "streaming t" \
     "$(dbsql records postgres "SELECT string_agg(state, ',') FROM pg_stat_replication") $(dbsql standby postgres "SELECT pg_is_in_recovery()" | sed 's/true/t/')"
 
@@ -300,7 +327,7 @@ if $GMCTL start-load "$SCN" --playground "$PG" >/dev/null; then pass "start-load
 LOCAL=$(dbsql records clinic "SELECT to_char(now() AT TIME ZONE timezone, 'Dy YYYY-MM-DD HH24:MI') FROM business_settings")
 Y=$(dbsql records clinic "SELECT (now() AT TIME ZONE timezone)::date - 1 FROM business_settings")
 info "local time at T0: $LOCAL; yesterday $Y"
-case $LOCAL in *\ 00:*|*\ 01:[012]?) pass "T0 before 01:30 local, the first feeder's hour ($LOCAL)" ;; *) fail "T0 not before 01:30 local ($LOCAL)" ;; esac
+case $LOCAL in *\ 00:[012]?) pass "T0 before 00:30 local, the first feeder's hour ($LOCAL)" ;; *) fail "T0 not before 00:30 local ($LOCAL)" ;; esac
 i=0
 while [ "$i" -lt 30 ]; do
     case $(sstatus backoffice) in running\ *) break ;; esac
@@ -309,11 +336,12 @@ done
 case $(sstatus backoffice) in running\ *) pass "backoffice running: $(sstatus backoffice)" ;; *) fail "backoffice not running: [$(sstatus backoffice)]" ;; esac
 held() {   # held <day>: each feeder table's row count for the day
     dbsql records office "SELECT (SELECT count(*) FROM medicines_register WHERE day = '$1') || ' ' || (SELECT count(*) FROM controlled_movements WHERE day = '$1')
-      || ' ' || (SELECT count(*) FROM antimicrobial_use WHERE day = '$1') || ' ' || (SELECT count(*) FROM working_time_days WHERE day = '$1')"
+      || ' ' || (SELECT count(*) FROM antimicrobial_use WHERE day = '$1') || ' ' || (SELECT count(*) FROM working_time_days WHERE day = '$1')
+      || ' ' || (SELECT count(*) FROM daily_figures WHERE day = '$1') || ' ' || (SELECT count(*) FROM lab_charge_lines WHERE day = '$1')"
 }
-same "yesterday unplanted in the four feeders' tables (theirs to write)" "0 0 0 0" "$(held "$Y")"
+same "yesterday unplanted in the six feeders' tables (theirs to write)" "0 0 0 0 0 0" "$(held "$Y")"
 set -- $(held "$(date -d "$Y - 1 day" +%F)")
-if [ "$1" -gt 0 ] && [ "$3" -gt 0 ] && [ "$4" -gt 0 ]; then pass "the day before planted: $* (register, controlled, antimicrobial, working time)"
+if [ "$1" -gt 0 ] && [ "$3" -gt 0 ] && [ "$4" -gt 0 ] && [ "$5" -gt 0 ]; then pass "the day before planted: $* (register, controlled, antimicrobial, working time, figures, charges)"
 else fail "the day before not planted: [$*]"; fi
 
 # --- a herd treatment yesterday (AM2's witness) -----------------------------------
@@ -338,51 +366,64 @@ fi
 i=0; while [ "$i" -lt 30 ] && [ "$(herd standby)" != "$(herd records)" ]; do sleep 1; i=$((i + 1)); done
 same "the standby holds it" "$(herd records)" "$(herd standby)"
 
-# --- the feeders and the monthly close moved to the next minute ----------------------
+# --- the feeders and three periodic jobs moved to the next minute ----------------------
 EXTRACTS=$(dbsql records office "SELECT count(*) FROM register_extracts")
-move $FEEDERS close-medicines-register
+MONTHS=$(dbsql records office "SELECT count(*) FROM monthly_figures")
+STATEMENTS=$(dbsql records office "SELECT count(*) FROM lab_statements")
+move $FEEDERS $PERIODIC
 A=$MOVED
 info "moved at $(date -u -d "@$A" +%H:%M:%S) UTC"
-all_ran "$A" $FEEDERS close-medicines-register
+all_ran "$A" $FEEDERS $PERIODIC
 runs_of() {   # runs_of <job>: its office runs rows since T0, as count:rows_written,...
     dbsql records office "SELECT count(*) || ':' || coalesce(string_agg(rows_written::text, ',' ORDER BY id), '') FROM runs WHERE job = '$1' AND started_at >= '$T0'"
 }
 set -- $(held "$Y")
-info "yesterday written: $1 register lines, $2 controlled movements, $3 antimicrobial rows, $4 working-time days"
+info "yesterday written: $1 register lines, $2 controlled movements, $3 antimicrobial rows, $4 working-time days, $5 figures, $6 charge lines"
 same "feed-medicines-register: one run, yesterday written, its lines as its run row says" "1:$1" "$(runs_of feed-medicines-register)"
 same "feed-controlled-drugs: one run, its movements as its run row says" "1:$2" "$(runs_of feed-controlled-drugs)"
 same "feed-antimicrobial-use: one run, its rows as its run row says" "1:$3" "$(runs_of feed-antimicrobial-use)"
 same "feed-working-time: one run, its days as its run row says" "1:$4" "$(runs_of feed-working-time)"
-if [ "$1" -gt 0 ] && [ "$3" -gt 0 ] && [ "$4" -gt 0 ]; then pass "the feeders wrote yesterday"; else fail "a feeder wrote nothing for yesterday: [$*]"; fi
+same "feed-daily-figures: one run, its figures as its run row says" "1:$5" "$(runs_of feed-daily-figures)"
+same "feed-lab-charges: one run, its lines as its run row says" "1:$6" "$(runs_of feed-lab-charges)"
+if [ "$1" -gt 0 ] && [ "$3" -gt 0 ] && [ "$4" -gt 0 ] && [ "$5" -gt 0 ] && [ "$6" -gt 0 ]; then pass "the feeders wrote yesterday"; else fail "a feeder wrote nothing for yesterday: [$*]"; fi
 same "the herd treatment counted under its herd's species" "t" \
     "$(dbsql records office "SELECT coalesce(sum(herds_treated) > 0, false) FROM antimicrobial_use WHERE day = '$Y'" | sed 's/true/t/; s/false/f/')"
 same "close-medicines-register on a date not its own: no runs row" "0:" "$(runs_of close-medicines-register)"
 same "close-medicines-register on a date not its own: no extract written" "$EXTRACTS" "$(dbsql records office "SELECT count(*) FROM register_extracts")"
-case $(slog backoffice | grep 'script job=close-medicines-register' | tail -n 1) in
-    *"not this job's date"*) pass "close-medicines-register said so: $(slog backoffice | grep 'script job=close-medicines-register' | tail -n 1 | cut -d' ' -f3-)" ;;
-    *) fail "close-medicines-register's log: [$(slog backoffice | grep 'close-medicines-register' | tail -n 2)]" ;;
-esac
+same "send-monthly-figures on a date not its own: no runs row" "0:" "$(runs_of send-monthly-figures)"
+same "send-monthly-figures on a date not its own: no figures written" "$MONTHS" "$(dbsql records office "SELECT count(*) FROM monthly_figures")"
+same "close-lab-statements on a date not its own: no runs row" "0:" "$(runs_of close-lab-statements)"
+same "close-lab-statements on a date not its own: no statement written" "$STATEMENTS" "$(dbsql records office "SELECT count(*) FROM lab_statements")"
+for job in $PERIODIC; do
+    case $(slog backoffice | grep "script job=$job" | tail -n 1) in
+        *"not this job's date"*) pass "$job said so: $(slog backoffice | grep "script job=$job" | tail -n 1 | cut -d' ' -f3-)" ;;
+        *) fail "$job's log: [$(slog backoffice | grep "$job" | tail -n 2)]" ;;
+    esac
+done
 s=$(pglog standby | grep -c 'connection authorized: user=\(vet\|sched\)_reports database=clinic' || true)
 r=$(pglog records | grep -c 'connection authorized: user=\(vet\|sched\)_reports' || true)
 if [ "$s" -gt 0 ] && [ "$r" -eq 0 ]; then pass "read on the standby: $s connections as vet_reports or sched_reports there, none on records"
 else fail "the reads: $s connections on the standby, $r on records"; fi
+l=$(pglog lab | grep -c 'connection authorized: user=lab_reports database=lab' || true)
+if [ "$l" -gt 0 ]; then pass "the lab read on its node: $l connections as lab_reports"; else fail "no connection as lab_reports on lab"; fi
 
-# --- the eleven checks --------------------------------------------------------------
-for c in "$P7"/mr*.sh "$P8"/am*.sh "$P12"/wt*.sh; do check "$c"; done
+# --- the seventeen checks -------------------------------------------------------------
+for c in "$P7"/mr*.sh "$P8"/am*.sh "$P12"/wt*.sh "$P9"/ho*.sh "$P10"/st*.sh; do check "$c"; done
 
 # --- the feeders moved again: their day held -------------------------------------------
 before=$(held "$Y")
 move $FEEDERS
 B=$MOVED
 all_ran "$B" $FEEDERS
-same "the rerun: yesterday unchanged in the four tables" "$before" "$(held "$Y")"
+same "the rerun: yesterday unchanged in the six tables" "$before" "$(held "$Y")"
 set -- $before
-same "the rerun: one more runs row each, 0 written" "2:$1,0 2:$2,0 2:$3,0 2:$4,0" \
+same "the rerun: one more runs row each, 0 written" "2:$1,0 2:$2,0 2:$3,0 2:$4,0 2:$5,0 2:$6,0" \
     "$(for j in $FEEDERS; do printf '%s ' "$(runs_of "$j")"; done | sed 's/ $//')"
-for c in "$P7"/mr1-*.sh "$P7"/mr2-*.sh "$P7"/mr3-*.sh "$P8"/am1-*.sh "$P8"/am2-*.sh "$P12"/wt1-*.sh "$P12"/wt2-*.sh; do check "$c"; done
+for c in "$P7"/mr1-*.sh "$P7"/mr2-*.sh "$P7"/mr3-*.sh "$P8"/am1-*.sh "$P8"/am2-*.sh "$P12"/wt1-*.sh "$P12"/wt2-*.sh \
+         "$P9"/ho1-*.sh "$P9"/ho2-*.sh "$P10"/st1-*.sh "$P10"/st2-*.sh; do check "$c"; done
 
 # --- WT3 on a corrupted close ------------------------------------------------------------
-edit_close() {   # edit_close <from> <to>: one replacement in worktime.close.compute's SQL
+edit_close() {   # edit_close <from> <to>: one replacement in the runner's queries.yaml
     docker exec -i -u 0 "$(ctr backoffice)" python3 - "$QUERIES" "$1" "$2" <<'EOF'
 import sys
 path, old, new = sys.argv[1:4]
@@ -395,6 +436,10 @@ edit_close "sum(night_hours) AS night" "sum(worked_hours) AS night"
 check "$P12/wt3-month-code.sh" 1
 edit_close "sum(worked_hours) AS night" "sum(night_hours) AS night"
 check "$P12/wt3-month-code.sh" 0
+edit_close "(200, 5)" "(200, 6)"
+check "$P10/st3-statement-code.sh" 1
+edit_close "(200, 6)" "(200, 5)"
+check "$P10/st3-statement-code.sh" 0
 
 errs=$(slog backoffice | grep ' error ' || true)
 same "backoffice ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"

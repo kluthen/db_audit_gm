@@ -2,10 +2,17 @@
 # W4 items 0 and 5): the authority's stub as purpose 8 (vet-antimicrobial-use)
 # writes it, its material/receiver/authority/api.yaml, routes/ and db/: the
 # yearly antimicrobial-use reports, POST /amu-reports under the hostname
-# authority, behind the customer's own key (authority_customer).
+# authority, behind the customer's own key (authority_customer); then the
+# head office's stub as purpose 9 (vet-head-office-figures) writes it,
+# material/receiver/headoffice/: the monthly figures, POST /figures under
+# the hostname head-office (headoffice_customer).
 endpoints:
   authority_amu_reports:
     hosts: [authority]
     credentials: [authority_customer]
+  headoffice_figures:
+    hosts: [head-office]
+    credentials: [headoffice_customer]
 connections:
   authority-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: authority, pool: {size: 2}}
+  headoffice-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: headoffice, pool: {size: 2}}

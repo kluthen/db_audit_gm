@@ -25,8 +25,10 @@ FIXTURES = REPO / "tools" / "tests" / "fixtures"
 BEGIN, END = "-- ops: begin", "-- ops: end"
 OFFICE_GLOB = "*/material/target/office.sql"
 # The periodic reports (chunk 20): no ddl:, their office tables in records'
-# data file, the authority's stub shared with purpose 5.
-PERIODIC_PURPOSES = ("vet-medicines-registers", "vet-antimicrobial-use", "vet-working-time")
+# data file, the authority's stub shared with purpose 5, the head office's
+# purpose 9's.
+PERIODIC_PURPOSES = ("vet-medicines-registers", "vet-antimicrobial-use", "vet-working-time",
+                     "vet-head-office-figures", "vet-lab-statements")
 CLINIC_PURPOSES = {"fixture-orders": ("vet-lab-centre-orders", "vet-lab-critical-calls"),
                    "fixture-send-outs": ("vet-lab-practice-results", "vet-lab-send-outs"),
                    "fixture-reports": PERIODIC_PURPOSES}

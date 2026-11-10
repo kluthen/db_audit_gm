@@ -5,3 +5,7 @@ queries:
   authority.normal:
     sql: INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'), ('authority',
       'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from scenario: compose/partners-backend/queries.yaml
+  headoffice.normal:
+    sql: INSERT INTO headoffice.state (hostname, name, value) VALUES ('head-office', 'delay_ms', '0'), ('head-office',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

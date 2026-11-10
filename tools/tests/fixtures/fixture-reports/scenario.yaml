@@ -1,17 +1,19 @@
 # Reports fixture of v0.5 (build plan chunk 20; spec D435, D436, D438;
 # capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md). Not a game:
 # the periodic reports, purposes 7 (vet-medicines-registers), 8
-# (vet-antimicrobial-use) and 12 (vet-working-time), on vet-core's record
-# (records/clinic, with vet-housing and vet-scheduling) read on its standby,
-# standby, and writing the back office's database office (records/office):
+# (vet-antimicrobial-use), 12 (vet-working-time), 9 (vet-head-office-figures)
+# and 10 (vet-lab-statements), on vet-core's record (records/clinic, with
+# vet-housing and vet-scheduling) read on its standby, standby, and on the
+# lab's database, and writing the back office's database office (records/office):
 # loaded by gmctl load-data from the domains, office from records' data file
 # (office.sql once, then each purpose's data.sql), the purposes' planted past
 # by their history.sql after the domains' loads, the standby cloned last; the
 # laboratory (vet-lab, lab/lab), which the head office's figures and the
-# lab's statements read; the back office's report runner, backoffice
-# (scheduler 0.3.0), running the three purposes' jobs; the partners' three
-# nodes, serving the authority (purpose 8's yearly report on purpose 5's
-# stub); and the bastion: eight nodes on one host. Left out
+# lab's statements read on its only node; the back office's report runner,
+# backoffice (scheduler 0.3.0), running the five purposes' jobs; the
+# partners' three nodes, serving the authority (purpose 8's yearly report on
+# purpose 5's stub) and the head office (purpose 9's stub); and the bastion:
+# eight nodes on one host. Left out
 # (composition.yaml): every producer of the four domains. gmctl compose
 # writes nodes/backoffice/, nodes/partners-api/ and nodes/partners-backend/
 # from the scenario layers compose/<node>/, where the purposes' material is
@@ -21,7 +23,7 @@
 # --- Scenario information --------------------------------------------
 id: fixture-reports
 version: 0.1.0
-title: Reports fixture, purposes 7, 8 and 12 on vet-core's record read on its standby, with the authority's stub
+title: Reports fixture, purposes 7, 8, 9, 10 and 12 on vet-core's record read on its standby and on the lab, with the authority's and the head office's stubs
 date: 2026-11-10
 origin: hand-written
 session_length_minutes: 60
@@ -30,15 +32,17 @@ background: >-
   A veterinary hospital of a regional franchise keeps its medical record in
   one PostgreSQL database, records, with a read-only standby where its reports
   read, and its laboratory's in another, lab. Each night its back office's
-  report runner feeds the medicines registers, the antimicrobial use and the
-  staff's working time into the back office's database, closes them each
-  month, and once a year reports the antimicrobial use to the national
-  veterinary authority.
+  report runner feeds the medicines registers, the antimicrobial use, the
+  staff's working time, the activity figures and the lab's charges to the
+  practices into the back office's database, closes them each month (the
+  practices' statements, the figures sent to the franchise's head office),
+  and once a year reports the antimicrobial use to the national veterinary
+  authority.
 
 # --- Aging and difficulty ---------------------------------------------
 aging:
   minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
-  handover_at: "14:00"               # the short test plans the hand-over so T0 falls at about 01:20 local
+  handover_at: "14:00"               # the short test plans the hand-over so T0 falls at about 00:10 local
 difficulty:
   score: 1                          # its one fault instance (master spec 15.1)
   level: easy
@@ -73,10 +77,22 @@ purposes:
       source: records/clinic
       target: records/office
       runner: backoffice
+  - id: vet-head-office-figures
+    parts:
+      source: records/clinic
+      source_lab: lab/lab
+      target: records/office
+      runner: backoffice
+      receiver: partners-api
+  - id: vet-lab-statements
+    parts:
+      source: lab/lab
+      target: records/office
+      runner: backoffice
 
 # --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
-# The authority (purpose 5's stub, purpose 8's route) on the partners' three
-# nodes. The other centres and the lab's two partners, their fragments left
+# The authority (purpose 5's stub, purpose 8's route) and the head office
+# (purpose 9's stub) on the partners' three nodes. The other centres and the lab's two partners, their fragments left
 # out, are not declared: their state is loaded on partners-db all the same
 # (W3-f (b)), their roles connect from no node.
 third_parties:
@@ -87,6 +103,13 @@ third_parties:
     nodes: [partners-api, partners-backend, partners-db]
     hostname: authority
     player_doc: player/partners.md#the-veterinary-authority
+  - id: head-office
+    name: The franchise's head office
+    stands_for: the regional franchise's head office, receiving each centre's monthly activity figures
+    role: outbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: head-office
+    player_doc: player/partners.md#the-head-office
 
 # --- Topology ---------------------------------------------------------
 networks:
@@ -165,7 +188,7 @@ nodes:
         initial: "on"
         envelope: {allowed: ["on"]}
     data:
-      file: data/records.sql        # the back office's office (office.sql, the purposes' data.sql); vet-core makes clinic
+      file: data/records.sql        # the back office's office (office.sql, the five purposes' data.sql); vet-core makes clinic
       databases:
         - name: office
           owner: office
@@ -194,6 +217,14 @@ nodes:
               description: each shift begun after a rest shorter than the minimum, from the day's clocked shifts
             - name: working_time_months
               description: each staff member's month (hours, night hours, call-outs, breaches, the four months' weekly average), on the 1st at 05:00
+            - name: daily_figures
+              description: the centre's activity per local day, section and measure (consultations, admissions, discharges, the stays and housing units at midnight, new owners and animals, the lab's tests and turnaround), fed at 00:30
+            - name: monthly_figures
+              description: the month's figures per section and measure, summed from the days, sent to the head office from the 1st at 05:00, its reference or its escalation on the 5th
+            - name: lab_charge_lines
+              description: the lab's charges to the practices made billable or voided per local day (order, test, kind, amount, the practice's patient reference and client surname), fed at 02:30
+            - name: lab_statements
+              description: each practice account's monthly statement (billable less voids, the volume discount's bracket, the amount due), on the 1st at 04:00
 
   - name: standby
     brick:
@@ -392,7 +423,7 @@ nodes:
         initial: "on"
         envelope: {allowed: ["on"]}
     data:
-      file: data/partners-db.sql    # the database partners and the authority's stub (purpose 8's data.sql)
+      file: data/partners-db.sql    # the database partners, the authority's stub (purpose 8's data.sql) and the head office's (purpose 9's)
       databases:
         - name: partners
           owner: postgres
@@ -403,6 +434,12 @@ nodes:
               description: every call to the authority's reports endpoint, its number and the status answered (one in fifty 503)
             - name: authority.state
               description: the authority's stub's state (delay_ms 0, fail_one_in 50)
+            - name: headoffice.figures
+              description: the head office's stub, one row a month's figures acknowledged (its key, its reference, the body as first acknowledged)
+            - name: headoffice.figure_calls
+              description: every call to the head office's figures endpoint, its number and the status answered (one in fifty 503)
+            - name: headoffice.state
+              description: the head office's stub's state (delay_ms 0, fail_one_in 50)
             - name: centres.exchanges
               description: the other centres' stub, one row an exchange a centre holds, the history's open ones planted (its fragments left out)
             - name: xlab.orders
@@ -435,7 +472,12 @@ flows:
     to: standby
     what: the feeders' and the reports' reads of the record, as vet_reports and sched_reports
     how: postgresql 5432
-    cadence: 01:30, 01:45, 02:00, 09:30 daily; the periodic jobs daily at 03:00 to 05:00, acting on their own date
+    cadence: 00:30, 01:30, 01:45, 02:00, 09:30 daily; the periodic jobs daily at 03:00 to 05:00, acting on their own date
+  - from: backoffice
+    to: lab
+    what: the head office's figures' and the lab's charges' reads of the lab, as lab_reports (the lab has no standby)
+    how: postgresql 5432
+    cadence: 00:30 and 02:30 daily; the statements daily at 04:00, acting on the 1st
   - from: backoffice
     to: records
     what: the back office's registers, reports and runs, as office_jobs
@@ -446,14 +488,19 @@ flows:
     what: the yearly antimicrobial-use report to the authority (authority_customer)
     how: http 8000
     cadence: 15 January, 04:00
+  - from: backoffice
+    to: partners-api
+    what: the month's figures to the head office (headoffice_customer)
+    how: http 8000
+    cadence: the 1st to the 5th, 05:00
   - from: partners-backend
     to: partners-db
-    what: the authority's baseline, as authority
+    what: the authority's and the head office's baselines, as authority and headoffice
     how: postgresql 5432
     cadence: every minute
   - from: partners-api
     to: partners-db
-    what: the authority's records, as authority
+    what: the authority's and the head office's records, as authority and headoffice
     how: postgresql 5432
     cadence: per request
 
