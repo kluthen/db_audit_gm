@@ -1,0 +1,439 @@
+# Send-outs fixture of v0.5 (build plan chunk 18b; spec D403, D435; capture
+# W4 items 0 and 3 of specs/versions/v0.5/wave-log.md). Not a game:
+# vet-core's record (records/clinic) and vet-lab's laboratory (lab/lab),
+# loaded by gmctl load-data from the domains (each schema.sql, vet-core's
+# then vet-lab's data/keys.sql streamed ahead of vet-lab's load.sql and of
+# its two partners' data.sql, run into partners on partners-db), the
+# coherence check after, then (step (2b)) the purposes' DDL in lab:
+# vet-lab-practice-results' and vet-lab-send-outs' (the ops schema,
+# lab_dispatch's grants). Eight nodes on one host: the bastion; records and
+# lab; the lab's order API, lab-api (api 0.1.0), as lab_api behind
+# lab_centre, lab_practices and lab_xlab; the integration engine,
+# interfaces (scheduler 0.3.0, role transformer), running purpose 2's
+# deliveries and purpose 3's send-outs and chase (compose/interfaces/, the
+# purposes' material/runner/ as written); and the partners' three nodes,
+# serving the region's practices (hostname practices) and the external
+# reference lab (hostname northfield-lab), vet-lab's two stubs. Left out
+# (composition.yaml): vet-core's pms and api/clinic-api, vet-lab's lis:
+# the short test receives, validates and releases as lis would. gmctl
+# compose writes nodes/lab-api/, nodes/interfaces/, nodes/partners-api/ and
+# nodes/partners-backend/ from the domains' producers and the scenario
+# layers. Deployed by its short test, run-short-test.sh (T0 a weekday about
+# 15:50 local, before the 16:00 send-out). One harmless seed-file fault
+# (f1), as the core fixture's.
+
+# --- Scenario information --------------------------------------------
+id: fixture-send-outs
+version: 0.1.0
+title: Send-outs fixture, the lab's deliveries to the region's practices and its send-outs to the external reference lab, with the partners' stubs
+date: 2026-11-09
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record in one PostgreSQL
+  database, records, and its laboratory's in another, lab; an integration
+  engine delivers the lab's results to the region's practices' callbacks
+  and posts the day's send-outs to an outside reference laboratory, whose
+  answers come back days later through the lab's order API.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "00:00"               # T0 about 15:50 local, before the 16:00 send-out (run-short-test.sh)
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+
+# --- Purposes (v0.5 master spec 12) ----------------------------------
+# Purposes 2 and 3 on the integration engine, source and target the lab's
+# database, their partner part the partners' api node (the practices'
+# hostname, the external lab's).
+purposes:
+  - id: vet-lab-practice-results
+    parts: {source: lab/lab, target: lab/lab, runner: interfaces, partner: partners-api}
+  - id: vet-lab-send-outs
+    parts: {source: lab/lab, target: lab/lab, runner: interfaces, partner: partners-api}
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+# The lab's two partners, their stubs composed on the partners' three nodes.
+third_parties:
+  - id: northfield-lab
+    name: Northfield Veterinary Laboratories
+    stands_for: the external reference laboratory the lab sends what it cannot run
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: northfield-lab
+    player_doc: player/partners.md#northfield-veterinary-laboratories
+  - id: regional-practices
+    name: The region's practices
+    stands_for: the 120 referring practices with an account at the lab
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: practices
+    player_doc: player/partners.md#the-regions-practices
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic (players' SSH and SQL sessions, the applications' SQL and HTTP, the partners' nodes)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+
+  - name: lab
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.4
+        memory: 384M
+        disk: 1G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/lab/postgresql.conf
+      pg_hba.conf: nodes/lab/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+
+  - name: lab-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/lab-api/api.yaml
+      routes/: nodes/lab-api/routes/
+      db/: nodes/lab-api/db/
+    knobs: []
+
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+      scripts/: nodes/interfaces/scripts/
+    knobs: []
+
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/partners-backend/queries.yaml
+      jobs.yaml: nodes/partners-backend/jobs.yaml
+      schedule.yaml: nodes/partners-backend/schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope: {min: 32MB, max: 64MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 16MB}
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope: {min: 16MB, max: 64MB}
+      - setting: max_connections
+        initial: 40
+        envelope: {min: 20, max: 60}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 512MB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: xlab.orders
+              description: the external lab's stub, one row a send-out it holds (send_key, its accession, the test, due_at, its answer), the history's open ones planted
+            - name: xlab.state
+              description: the external lab's stub's state (delay_ms 0)
+            - name: practices.orders
+              description: the practices' stub, one row an order posted to lab-api (account, client_ref, accession), the history's open ones planted
+            - name: practices.deliveries
+              description: the practices' stub, one row a delivery_key acknowledged, repeats counted
+            - name: practices.state
+              description: the practices' stub's state (delay_ms 0, the customer's utc_offset)
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab-api
+    what: players' SSH sessions; an order needs a credential the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: lab-api
+    to: lab
+    what: the intake, an order's state, the released results feed, the external lab's answers, as lab_api
+    how: postgresql 5432
+    cadence: per request
+  - from: interfaces
+    to: lab
+    what: purposes 2 and 3 read the orders, tests, results and samples and write the deliveries, send-outs, sent-out events and their ops tables, as lab_dispatch
+    how: postgresql 5432
+    cadence: every minute, at 16:00 on weekdays, every 15 minutes
+  - from: interfaces
+    to: partners-api
+    what: purpose 2's deliveries to the practices' callbacks (hostname practices, credential practices_customer); purpose 3's send-outs and chases to the external lab (hostname northfield-lab, credential xlab_customer)
+    how: http 8000
+    cadence: every minute, at 16:00 on weekdays, every 15 minutes
+  - from: partners-backend
+    to: partners-api
+    what: the partners' ticks (practices.order, xlab.answer), with the credential partners_backend
+    how: http 8000
+    cadence: 2.9 an hour on the practices' hours; 6 an hour, Monday to Saturday 08:00-20:00
+  - from: partners-backend
+    to: partners-db
+    what: the partners' baseline streams, each as its own role (practices, xlab)
+    how: postgresql 5432
+    cadence: every minute
+  - from: partners-api
+    to: partners-db
+    what: the stubs' state and records, each as its own role (practices, xlab)
+    how: postgresql 5432
+    cadence: per request
+  - from: partners-api
+    to: lab-api
+    what: the practices' orders (credential lab_practices) and the external lab's answers (credential lab_xlab)
+    how: http 8000
+    cadence: per tick
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    lab: laptop
+    lab-api: laptop
+    interfaces: laptop
+    partners-api: laptop
+    partners-backend: laptop
+    partners-db: laptop

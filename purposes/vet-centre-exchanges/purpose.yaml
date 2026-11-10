@@ -1,0 +1,254 @@
+# Purpose 4, the exchanges with the other centres of the franchise (v0.5
+# master spec 12.1, 12.2 purpose 4; clinic-purposes.md 8; vet-core-domain.md,
+# "The partners the core meets"; spec D285, D286, D293, D306; capture W4
+# items 0 and 4 of specs/versions/v0.5/wave-log.md): a round trip both ways.
+# The core records transfers and examinations in exchanges; the centre's
+# integration engine posts its requests, and its answers and reports to the
+# other centres' requests, to the centres' stubs (vet-core's
+# producers/partners/centres/, three hostnames), chases the unanswered and
+# escalates; the centres answer, report and ask at the purpose's endpoints on
+# clinic-api, which only answer (D270).
+#
+# Material (material/) is written for the clinic's mapping: source and target
+# records/clinic, runner interfaces, api clinic-api, partner partners-api (the
+# centres' hostnames aldermoor-central, aldermoor-south, aldermoor-abroad).
+# The GM adapts the names as it copies; gm.md says where each name lives.
+# ddl.target is read from the catalogue by load-data (step 2b), never copied.
+id: vet-centre-exchanges
+title: Exchanges with the franchise's other centres, both ways, answered, reported, chased and escalated
+domains: [vet-core]
+kind: round-trip
+
+parts:
+  source: the core's record, clinic (exchanges, the animal's record, its owner)
+  target: the same database, its exchanges' sent columns and the purpose's ops tables
+  runner: the centre's integration engine, interfaces, posting and chasing
+  api: the core's lookup API, clinic-api, which the purpose's exchange endpoints join
+  partner: the partners' api node, serving the three centres under their hostnames
+
+jobs:
+  - name: sync-exchanges
+    key: exchanges.sync
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the outbound requests not yet sent (POST /exchanges to the centre's hostname, with the
+      animal's identity, its record's summary and its current owner's name and contact; sent
+      once the call returns 2xx), the inbound answers and reports not yet posted (POST
+      /exchanges/{key}/answer and /report), each post one ops.exchange_messages row with its
+      HTTP status, and one ops.runs row, in one transaction after the calls.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_interfaces
+      partner_central: centres_customer
+      partner_south: centres_customer
+      partner_abroad: centres_customer
+  - name: chase-exchanges
+    key: exchanges.chase
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      on working days, the outbound requests sent and unanswered: a working day after sending
+      resent once with the same exchange_key, two working days after sending one ops.incidents
+      row (kind unanswered, ref the key), once; each resend one ops.exchange_messages row, and
+      one ops.runs row.
+    cadence: "0 9 * * 1,2,3,4,5"
+    connections:
+      clinic: vet_interfaces
+      partner_central: centres_customer
+      partner_south: centres_customer
+      partner_abroad: centres_customer
+
+round_trips:
+  - asks: customer
+    request:
+      job: sync-exchanges
+      counterpart: the centre's stub, POST /exchanges under its hostname (partners-api)
+      sends: >-
+        a transfer or an examination the practice software recorded (exchanges, direction out):
+        its exchange_key, the record's id as ref, kind, reason, the animal's identity, its
+        record's summary (its last three closed consultations' dates and findings) and its
+        current owner's name, e-mail and phone
+    correlation: exchange_key, a UUID, kept on a resend
+    answers:
+      - form: received
+        when: at once (201)
+        carries: the exchange_key and the requests counted under it
+      - form: accepted
+        when: within a working day, at clinic-api's POST /exchanges/{key}/answer
+        carries: the accepted date (a transfer the day itself)
+      - form: rejected
+        when: within a working day, at the same endpoint (declined, about one examination in ten)
+        carries: the answer declined
+      - form: a result
+        when: one to three days after an accepted examination, at POST /exchanges/{key}/report
+        carries: the examination's report
+    timeout:
+      after: no answer a working day after sending
+      then: resent with the same exchange_key by chase-exchanges; after a second working day, an ops.incidents row
+    reactions: [the exchange accepted (the transfer goes ahead; a booking later with vet-scheduling) or declined (the requesting vet's to redirect), the report filed with the exchange]
+  - asks: partner
+    request:
+      job: centres.request.central, centres.request.south, centres.request.abroad (vet-core's centres stub, on the partners' back end)
+      counterpart: clinic-api's POST /exchanges, as vet_exchange
+      sends: an examination for a patient of the centre's own, its summary (species, age, the centre's record number), the reason
+    correlation: the partner's exchange_key
+    answers:
+      - form: received
+        when: at once (201; the same key again 200)
+        carries: the exchange_key
+      - form: accepted
+        when: once the practice software's vets decide (pms's exchanges.decide, about one a day), posted by sync-exchanges within 10 minutes
+        carries: the accepted date
+      - form: rejected
+        when: likewise, declined
+        carries: the answer declined
+      - form: a result
+        when: once the vets report (pms's exchanges.report), posted by sync-exchanges within 10 minutes
+        carries: the report
+    timeout:
+      after: the stub's own, out of the customer's side
+      then: the stub posts its request again under the same key while clinic-api has not taken it
+    reactions: [the practice software's vets decide and report (pms's exchanges.decide and exchanges.report); an accepted examination booked by vet-scheduling]
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.exchange_messages
+    run_column: run_id
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.watermarks
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+  - kind: run-ledger
+    part: api
+    file: /var/log/api/api.log
+
+invariants:
+  - id: EX1
+    statement: >-
+      Every outbound exchange recorded since the judged moment is received by its centre within
+      10 minutes of its request.
+    check: checks/ex1-received-in-time.sh
+    parameters: {}
+    witness: >-
+      an outbound exchange recorded since the judged moment, ten minutes old: about one a day
+      (the practice software's exchanges.request, office hours, and the transfers of its
+      discharges), rare.
+    judged: triggers
+  - id: EX2
+    statement: >-
+      End to end, the inbound trip: every request a centre posted since the judged moment is
+      recorded in exchanges at once, and its answer and its report reach the centre within 10
+      minutes of the vets' decision and report (D440).
+    check: checks/ex2-inbound-end-to-end.sh
+    parameters: {}
+    witness: >-
+      a centre's request posted since the judged moment, or an inbound exchange the vets answered
+      or reported since then: about one a day, business hours; the inbound exchanges in flight at
+      T0, planted on both sides.
+    judged: end-to-end
+  - id: EX3
+    statement: >-
+      One exchange_key per exchange, kept on a resend, and each answer recorded on its own
+      exchange.
+    check: checks/ex3-one-key.sh
+    parameters: {}
+    witness: >-
+      a request the centres hold since the judged moment, or a chase's resend; an answer the
+      centres posted since then.
+    judged: runs
+  - id: EX4
+    statement: >-
+      An exchange carries what the franchise's agreement allows: this animal's record and its
+      current owner's contact, never another animal's or another owner's.
+    check: checks/ex4-agreement.sh
+    parameters: {}
+    witness: a request posted to a centre since the judged moment.
+    judged: runs
+  - id: EX5
+    statement: >-
+      End to end, every outbound exchange sent since the judged moment is answered within a
+      working day, or chased and then escalated.
+    check: checks/ex5-answered-or-escalated.sh
+    parameters: {}
+    witness: >-
+      the exchanges in flight at T0, planted on both sides, and the day's: an outbound one sent
+      since the judged moment and a working day old.
+    judged: end-to-end
+
+data_moved:
+  - job: sync-exchanges
+    reads: [clinic.animals.id, clinic.animals.microchip, clinic.animals.ueln, clinic.animals.passport_number,
+            clinic.animals.ear_tag, clinic.owners.id, clinic.owners.name, clinic.owners.email,
+            clinic.owners.phone, clinic.ownerships.owner_id]
+    writes: [target:ops.exchange_messages, target:ops.watermarks, target:ops.runs, partner:centres.exchanges,
+             partner:centres.messages]
+  - job: chase-exchanges
+    reads: [clinic.animals.id, clinic.animals.microchip, clinic.animals.ueln, clinic.animals.passport_number,
+            clinic.animals.ear_tag, clinic.owners.id, clinic.owners.name, clinic.owners.email,
+            clinic.owners.phone, clinic.ownerships.owner_id]
+    writes: [target:ops.exchange_messages, target:ops.incidents, target:ops.runs, partner:centres.messages]
+
+roles:
+  - name: vet_interfaces
+    part: source
+    reads: [exchanges, sites, business_settings, "animals (id, species, breed, sex, born_on, name, microchip, ueln,
+            passport_number, ear_tag)", ownerships, "owners (id, kind, name, email, phone)",
+            "consultations (id, animal_id, state, started_at, findings)", "ops.*"]
+    writes: ["exchanges (state, sent_at)", ops.exchange_messages, ops.incidents, ops.watermarks, ops.runs]
+  - name: vet_exchange
+    part: source
+    reads: [exchanges, "sites (id, code, kind)", "ops.*"]
+    writes: [exchanges (inbound rows), "exchanges (state, accepted_for, answered_at, report, reported_at) of outbound
+             rows", ops.exchange_messages, ops.runs]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    clinic.ops.exchange_messages.id: internal
+    clinic.ops.exchange_messages.run_id: internal
+    clinic.ops.exchange_messages.exchange_id: internal
+    clinic.ops.exchange_messages.exchange_key: internal
+    clinic.ops.exchange_messages.kind: internal
+    clinic.ops.exchange_messages.direction: internal
+    clinic.ops.exchange_messages.centre: internal
+    clinic.ops.exchange_messages.http_status: internal
+    clinic.ops.exchange_messages.at: internal
+    clinic.ops.runs.id: internal
+    clinic.ops.runs.purpose: internal
+    clinic.ops.runs.job: internal
+    clinic.ops.runs.started_at: internal
+    clinic.ops.runs.finished_at: internal
+    clinic.ops.runs.rows_read: internal
+    clinic.ops.runs.rows_written: internal
+    clinic.ops.incidents.id: internal
+    clinic.ops.incidents.purpose: internal
+    clinic.ops.incidents.job: internal
+    clinic.ops.incidents.kind: internal
+    clinic.ops.incidents.ref: internal
+    clinic.ops.incidents.opened_at: internal
+    clinic.ops.incidents.reason: internal
+    clinic.ops.incidents.run_id: internal
+    clinic.ops.watermarks.purpose: internal
+    clinic.ops.watermarks.name: internal
+    clinic.ops.watermarks.at: internal
+    clinic.ops.watermarks.last_id: internal
+    clinic.ops.watermarks.run_id: internal

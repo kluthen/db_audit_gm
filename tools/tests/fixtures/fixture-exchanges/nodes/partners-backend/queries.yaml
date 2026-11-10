@@ -1,0 +1,30 @@
+# queries.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.normal:
+    sql: INSERT INTO centres.state (hostname, name, value) SELECT h, 'delay_ms', '0' FROM unnest(ARRAY['aldermoor-central',
+      'aldermoor-south', 'aldermoor-abroad']) AS h ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value,
+      set_at = now()
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.central:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.south:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.abroad:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.central:
+    call: POST /request
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.south:
+    call: POST /request
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.abroad:
+    call: POST /request
+  # from scenario: compose/partners-backend/queries.yaml
+  authority.normal:
+    sql: INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'), ('authority',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

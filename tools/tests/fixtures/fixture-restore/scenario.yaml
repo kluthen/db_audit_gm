@@ -73,6 +73,7 @@ nodes:
       README.md: player/README.md
       story.md: player/story.md
       issues.md: player/issues.md
+      partners.md: player/partners.md
     knobs: []
 
   - name: records

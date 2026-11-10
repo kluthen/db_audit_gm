@@ -19,3 +19,4 @@ GRANT USAGE ON SCHEMA ops TO intake_watch;
 GRANT SELECT, INSERT ON ops.runs TO intake_watch;
 GRANT SELECT ON stays TO intake_watch;
 CREATE POLICY intake_current ON stays FOR SELECT TO intake_watch USING (discharged_at IS NULL);
+ALTER TABLE stays ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY;   -- read by step (2c)

@@ -1,0 +1,61 @@
+# The antimicrobial use's jobs on the back office's report runner, a fragment
+# (purpose 8, vet-antimicrobial-use; clinic-purposes.md 12; capture W4 items 0
+# and 5 of specs/versions/v0.5/wave-log.md): scripts/antimicrobial_use.py.
+# Each script names, in its options, the SQL key it runs: the feeder's
+# reading query on the standby (amu.feed.read: %(lo)s and %(hi)s the local
+# day's bounds), the report's computation on office (amu.report.compute:
+# %(year)s the reported year's first day, %(species)s the species due). The
+# script reads them from this file at each run, so an edit here is the job's
+# code. The report's options: the species due and from when (core rule 4:
+# cattle now, sheep, goats and horses from mid-2027, dogs and cats from
+# mid-2030; a species is due in a report sent on or after its date), the
+# deadline (31 January, a game value), the attempts a run makes.
+queries:
+  amu.feed:
+    script: scripts/antimicrobial_use.py:feed
+    options: {read: amu.feed.read}
+  amu.report:
+    script: scripts/antimicrobial_use.py:report
+    options:
+      compute: amu.report.compute
+      due: {cattle: "2024-01-01", sheep: "2027-07-01", goat: "2027-07-01", horse: "2027-07-01",
+            dog: "2030-07-01", cat: "2030-07-01"}
+      deadline: "01-31"
+      attempts: 3
+
+  # yesterday's use of antimicrobials per species and ATCvet code: the doses
+  # given (the animal's species) and the dispensings (the animal's species,
+  # or for a herd treatment its herd's)
+  amu.feed.read:
+    sql: >-
+      WITH herd_species AS (
+        SELECT herd_id, min(species) AS species FROM animals WHERE herd_id IS NOT NULL GROUP BY herd_id),
+      uses AS (
+        SELECT an.species, m.atcvet_code, 'administration' AS use, a.quantity, a.animal_id, NULL::integer AS herd_id
+          FROM administrations a
+          JOIN medicines m ON m.id = a.medicine_id
+          JOIN animals an ON an.id = a.animal_id
+         WHERE m.antimicrobial AND a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+        UNION ALL
+        SELECT coalesce(an.species, hs.species), m.atcvet_code, 'dispensing', d.quantity, p.animal_id, p.herd_id
+          FROM dispensings d
+          JOIN prescription_lines l ON l.id = d.prescription_line_id
+          JOIN prescriptions p ON p.id = l.prescription_id
+          JOIN medicines m ON m.id = l.medicine_id
+          LEFT JOIN animals an ON an.id = p.animal_id
+          LEFT JOIN herd_species hs ON hs.herd_id = p.herd_id
+         WHERE m.antimicrobial AND d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s)
+      SELECT species, atcvet_code, count(*) FILTER (WHERE use = 'administration'),
+             count(*) FILTER (WHERE use = 'dispensing'), sum(quantity), count(DISTINCT animal_id),
+             count(DISTINCT herd_id)
+        FROM uses GROUP BY species, atcvet_code ORDER BY species, atcvet_code
+  # the year's use of the species due, per species and ATCvet code, summed
+  # from office's daily rows
+  amu.report.compute:
+    sql: >-
+      SELECT species, atcvet_code, sum(administrations), sum(dispensings), sum(quantity),
+             sum(animals_treated), sum(herds_treated)
+        FROM antimicrobial_use
+       WHERE day >= %(year)s::date AND day < (%(year)s::date + interval '1 year')::date
+         AND species = ANY (%(species)s::text[])
+       GROUP BY species, atcvet_code ORDER BY species, atcvet_code

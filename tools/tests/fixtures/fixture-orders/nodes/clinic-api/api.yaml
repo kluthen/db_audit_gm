@@ -1,0 +1,23 @@
+# api.yaml of node clinic-api, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+endpoints:
+  # from vet-core@regional-franchise: domains/vet-core/producers/api/clinic-api/api.yaml
+  animals:
+    hosts:
+    - clinic-api
+    credentials:
+    - clinic_lookup
+  # from vet-core@regional-franchise: domains/vet-core/producers/api/clinic-api/api.yaml
+  stays:
+    hosts:
+    - clinic-api
+    credentials:
+    - clinic_lookup
+connections:
+  # from vet-core@regional-franchise: domains/vet-core/producers/api/clinic-api/api.yaml
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_lookup
+    pool:
+      size: 4

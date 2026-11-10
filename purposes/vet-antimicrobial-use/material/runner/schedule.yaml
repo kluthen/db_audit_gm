@@ -1,0 +1,25 @@
+# Schedule of the back office's report runner for the antimicrobial use, a
+# fragment (purpose 8; clinic-purposes.md 12; capture W4 items 0 and 5): the
+# record read on its standby as the core's vet_reports, office written on
+# the primary as office_jobs, the authority called under its hostname with
+# the customer's key (authority_customer, as purpose 5's notifications); no
+# stream. Written for the nodes standby, records and partners-api; the GM
+# adapts the targets as it copies.
+connections:
+  clinic-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: vet_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+  authority:
+    driver: http
+    target: authority:8000
+    credential: authority_customer
+    pool: 1
+    timeout: 10s
+streams: []

@@ -1,0 +1,4 @@
+# The scenario layer of node pms (v0.5 master spec 8.4): its intensity, no
+# timeline. 1.0: the clinic's day, its consultations closing with their
+# analysis requests, which purpose 1 posts to the lab.
+intensity: 1.0

@@ -1,0 +1,24 @@
+# jobs.yaml of node interfaces, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: deliver-practice-results
+    key: practice-results.deliver
+    connections:
+      source: lab-dispatch
+      partner: practices
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: send-outs
+    key: send-outs.send
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: 0 16 * * 1,2,3,4,5
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: chase-send-outs
+    key: send-outs.chase
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: '*/15 * * * *'

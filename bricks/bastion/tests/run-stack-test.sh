@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stack test of the bastion brick (build plan v0.1, chunk 3, v0.2,
-# chunk 7, and v0.4, chunk 19a, Done when).
+# chunk 7, v0.4, chunk 19a, and v0.5, chunk 17a, Done when; gate G11.2).
 #
 # Deploys the bastion, a PostgreSQL node and a stub web interface as a
 # three-service Swarm stack (stack.test.yml), with the starter pack
@@ -31,7 +31,20 @@
 #   - with the routes emptied (spec D224): the front up on port 8080, 401
 #     without the password, the page alone with no web-interface section
 #     or link, the health check green, the data policy still copied;
-#   - without a data policy: no ~/data-policy.md, no section, no link;
+#   - v0.5 (master spec 7.3; spec D363, D365, D433): partners.md and
+#     data-register.md copied and on the page ("Partners" then "Data
+#     register" after the data policy), partners.md's
+#     {{credential:demo_customer}} replaced by the mounted secret in the home
+#     and on the page, the value accepted by the external lab's endpoint
+#     (the stub, holding the same secret; with bash alone and with curl,
+#     the players' HTTP client, run as player) and a wrong one refused; cold
+#     storage's console route: GET /cold-storage/ and GET
+#     /cold-storage/manifests (query kept) reach the stub as / and
+#     /manifests with Host cold-storage, POST /cold-storage/shipments, any
+#     other path or method under it and another partner's hostname 404;
+#   - without a data policy, partners.md and data-register.md: no file, no
+#     section, no link;
+#   - partners.md naming a credential with no secret: the container refused;
 #   - without a required starter file (issues.md): the container refused;
 #   - the validator green in every state the bastion starts in.
 # Everything it creates is removed on exit, volumes included.
@@ -60,8 +73,8 @@ PORT=${GMTEST_BASTION_PORT:-22222}
 WPORT=${GMTEST_BASTION_WEB_PORT:-28080}
 export GMTEST_BASTION_PORT=$PORT GMTEST_BASTION_WEB_PORT=$WPORT
 LABEL=dbagm.test=chunk3-bastion
-CONFIGS="starter_readme starter_story starter_issues starter_policy seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
-SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password"
+CONFIGS="starter_readme starter_story starter_issues starter_policy starter_partners starter_register seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
+SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password http_demo_customer"
 VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 
 failures=0
@@ -129,6 +142,12 @@ TOOLS_PASSWORD="t00ls:$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 printf '%s' "$TOOLS_PASSWORD" > "$tmp/tools_password"
 # The database node's monitoring role password (postgres 0.5.0); unused here.
 printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
+# The external lab's customer credential handed over (W4 item 1): 16
+# characters of the players' alphabet, as gmctl deploy writes one.
+DEMO_KEY=$(head -c 1024 /dev/urandom | LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789' | cut -c1-16)
+printf '%s' "$DEMO_KEY" > "$tmp/http_demo_customer"
+[ "${#DEMO_KEY}" -eq 16 ] || { echo "could not make the credential" >&2; exit 2; }
+sed "s/{{credential:demo_customer}}/$DEMO_KEY/" "$STARTER/partners.md" > "$tmp/partners.resolved"
 for p in player_password bad_password; do
     printf '#!/bin/sh\ncat %s\n' "$tmp/$p" > "$tmp/askpass_$p"
     chmod 0700 "$tmp/askpass_$p"
@@ -138,6 +157,8 @@ docker config create -l "$LABEL" "${STACK}_starter_readme" "$STARTER/README.md" 
 docker config create -l "$LABEL" "${STACK}_starter_story" "$STARTER/story.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_starter_issues" "$STARTER/issues.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_starter_policy" "$STARTER/data-policy.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_partners" "$STARTER/partners.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_register" "$STARTER/data-register.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$PG_FIXTURES/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$PG_FIXTURES/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$PG_FIXTURES/envelopes.conf" >/dev/null
@@ -148,6 +169,7 @@ docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/de
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_tools_password" "$tmp/tools_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_http_demo_customer" "$tmp/http_demo_customer" >/dev/null
 
 info "deploying stack $STACK (bastion published on ports $PORT and $WPORT)"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -203,11 +225,38 @@ eff=$(gm sshd -T -f /etc/ssh/sshd_config 2>/dev/null | grep -E '^(passwordauthen
 
 # --- home and starter pack ------------------------------------------------------
 ok=1
-for f in README.md story.md issues.md data-policy.md; do
+for f in README.md story.md issues.md data-policy.md data-register.md; do
     [ "$(pb cat "$f" 2>&1)" = "$(cat "$STARTER/$f")" ] || ok=0
 done
-[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md, data-policy.md)" \
+[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md, data-policy.md, data-register.md)" \
     || fail "starter pack content"
+w=$(pb cat partners.md 2>&1)
+if [ "$w" = "$(cat "$tmp/partners.resolved")" ] && ! printf '%s' "$w" | grep -q '{{credential:'; then
+    pass "~/partners.md copied with its placeholder replaced by the credential handed over"
+else
+    fail "~/partners.md: $w"
+fi
+# The value as the players read it, sent to the external lab's endpoint
+# (the stub, holding the same secret) from the bastion, with bash alone.
+order() {  # order <key>: the status line northfield-lab:9090 answers GET /orders with
+    pb "exec 3<>/dev/tcp/northfield-lab/9090 && printf 'GET /orders HTTP/1.0\r\nHost: northfield-lab\r\nAuthorization: Bearer %s\r\n\r\n' '$1' >&3 && head -n 1 <&3 | tr -d '\r'" 2>&1
+}
+key=$(pb "sed -n 's/^- key: \`\(.*\)\`$/\1/p' partners.md" 2>&1)
+i=0
+while [ "$i" -lt 30 ] && ! order "$key" | grep -q '^HTTP/1.1 '; do sleep 2; i=$((i + 2)); done
+w=$(order "$key")
+[ "$key" = "$DEMO_KEY" ] && [ "$w" = "HTTP/1.1 200 OK" ] \
+    && pass "the credential read in ~/partners.md is accepted by the partner's endpoint ($w)" \
+    || fail "the credential at the partner: key '$key', $w"
+w=$(order "wrong$key")
+[ "$w" = "HTTP/1.1 401 Unauthorized" ] && pass "a wrong credential is refused by the partner's endpoint ($w)" \
+    || fail "a wrong credential at the partner: $w"
+# The players' HTTP client (access model 4; gate G11.2): curl, run as player.
+w=$(pb "curl --version | head -n 1" 2>&1) || true
+case $w in "curl "*) pass "curl runs as player on the bastion ($w)" ;; *) fail "curl --version as player: $w" ;; esac
+w=$(pb "curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $key' http://northfield-lab:9090/orders" 2>&1) || true
+[ "$w" = 200 ] && pass "the credential accepted by the partner's endpoint through curl, as player ($w)" \
+    || fail "curl to the partner with the credential: $w"
 pb "echo 'audit notes' > ~/report.md" && pass "~/report.md is writable" || fail "~/report.md not writable"
 m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow | tr '\n' ' ')
 [ "$m" = "750 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow " ] \
@@ -341,13 +390,20 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
     && pass "/ with the tools password: the page, HTML in UTF-8" \
     || fail "/: $code $(tr -d '\r' < "$tmp/h" | grep -i '^content-type')"
 w=$(sections "$tmp/b")
-[ "$w" = "readme story issues data-policy web-interfaces " ] \
-    && pass "the page: README, story, issues, data policy, then the web interfaces ($w)" \
+[ "$w" = "readme story issues data-policy partners data-register web-interfaces " ] \
+    && pass "the page: README, story, issues, data policy, partners, data register, then the web interfaces ($w)" \
     || fail "the page's sections: $w"
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues #data-policy #web-interfaces /other/ /stub/ " ] \
+[ "$w" = "#readme #story #issues #data-policy #partners #data-register #web-interfaces /cold-storage/ /other/ /stub/ " ] \
     && pass "the page's links: its sections and the routes, nothing else ($w)" \
     || fail "the page's links: $w"
+if section "$tmp/b" partners | grep -q "<code>$DEMO_KEY</code>" && ! grep -q 'credential:' "$tmp/b"; then
+    pass "the partners section shows the credential handed over, no placeholder"
+else
+    fail "partners section: $(section "$tmp/b" partners)"
+fi
+section "$tmp/b" data-register | grep -q '<h1>Data register (stack test)</h1>' \
+    && pass "the data register rendered in its section" || fail "data register section: $(section "$tmp/b" data-register)"
 section "$tmp/b" readme | grep -q '<td>db</td>' && section "$tmp/b" readme | grep -q '<table>' \
     && pass "the README's table rendered as an HTML table" || fail "README table: $(section "$tmp/b" readme)"
 grep -q 'raw HTML omitted' "$tmp/b" && ! grep -qi '<script' "$tmp/b" \
@@ -367,6 +423,36 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing")
 [ "$code" = 404 ] && pass "a path outside the routes, no trailing slash: 404" || fail "/nothing: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/other/")
 [ "$code" = 502 ] && pass "a route whose upstream is down: 502" || fail "/other/: $code"
+# Cold storage's console (master spec 7.3, spec D363; W4 item 1): GET / and
+# GET /manifests only, under the partner's hostname.
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage/")
+if [ "$code" = 200 ] && grep -qx 'GET / HTTP/1.1' "$tmp/b" && grep -qix 'host: cold-storage' "$tmp/b" \
+   && ! grep -qi '^authorization:' "$tmp/b"; then
+    pass "console: GET /cold-storage/ reaches cold storage as GET / with Host cold-storage, no Authorization"
+else
+    fail "console GET /cold-storage/: $code $(head -n 3 "$tmp/b")"
+fi
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage/manifests?type=wal&from=2026-11-01")
+if [ "$code" = 200 ] && grep -qx 'GET /manifests?type=wal&from=2026-11-01 HTTP/1.1' "$tmp/b" \
+   && grep -qix 'host: cold-storage' "$tmp/b"; then
+    pass "console: GET /cold-storage/manifests reaches /manifests, its query string kept"
+else
+    fail "console GET /cold-storage/manifests: $code $(head -n 2 "$tmp/b")"
+fi
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage")
+[ "$code" = 301 ] && pass "console: /cold-storage redirects to /cold-storage/" || fail "/cold-storage: $code"
+for req in "POST /cold-storage/shipments" "GET /cold-storage/shipments" "POST /cold-storage/manifests" \
+           "PUT /cold-storage/" "DELETE /cold-storage/manifests" "GET /cold-storage/manifests/x" \
+           "GET /northfield-lab/" "GET /northfield-lab/orders" "GET /partners-api/"; do
+    code=$(web -u "player:$TOOLS_PASSWORD" -X "${req%% *}" -d '{}' "$URL${req#* }")
+    if [ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b"; then
+        pass "console: $req refused (404, never forwarded)"
+    else
+        fail "console: $req: $code $(head -n 2 "$tmp/b")"
+    fi
+done
+code=$(web "$URL/cold-storage/manifests")
+[ "$code" = 401 ] && pass "console: without the tools password, 401" || fail "console without the password: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 200 ] && pass "the other routes still answer" || fail "/stub/ after /other/: $code"
 users=$(gm ps -o user= -C nginx | sort -u | tr '\n' ' ')
@@ -392,7 +478,7 @@ out=$(gm /usr/local/lib/gm/healthcheck 2>&1); rc=$?
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $B)\" = true ]"
 check "root cannot write /usr/local/sbin" sh -c "! docker exec $B touch /usr/local/sbin/x"
 check "player cannot write sshd_config" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 'echo x >> /etc/ssh/sshd_config' </dev/null"
-for s in player_password player_ssh_key dba_password tools_password; do
+for s in player_password player_ssh_key dba_password tools_password http_demo_customer; do
     check "player cannot read the $s secret file" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /opt/gm/secrets/$s </dev/null"
 done
 check "player cannot read /etc/shadow" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /etc/shadow </dev/null"
@@ -438,11 +524,11 @@ else
 fi
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
 w=$(sections "$tmp/b")
-[ "$code" = 200 ] && [ "$w" = "readme story issues data-policy " ] \
-    && pass "without routes, the page alone: README, story, issues, data policy ($w)" \
+[ "$code" = 200 ] && [ "$w" = "readme story issues data-policy partners data-register " ] \
+    && pass "without routes, the page alone: README, story, issues, data policy, partners, data register ($w)" \
     || fail "without routes, the page: $code, sections $w"
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues #data-policy " ] && ! grep -q 'Web interfaces' "$tmp/b" \
+[ "$w" = "#readme #story #issues #data-policy #partners #data-register " ] && ! grep -q 'Web interfaces' "$tmp/b" \
     && pass "without routes, no web-interface section or link ($w)" || fail "without routes, links: $w"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 404 ] && pass "without routes, a former route's path: 404" || fail "/stub/ without routes: $code"
@@ -460,36 +546,60 @@ info "at rest without routes: bastion container memory $(docker stats --no-strea
 out=$(pb gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "gm-validate green without routes" || fail "validator without routes: exit $rc: $out"
 
-# --- no data policy: no file, no section, no link (spec D221) ---------------------
-# As a scenario without governance: data-policy.md not mapped, so not
-# mounted. The GM side removes the home's copy and the marker first, so
-# this start would copy it if it were there.
-info "removing the data policy from the starter pack"
-gm rm -f /home/player/data-policy.md /home/player/.gm-starter-copied
-docker service update --detach --config-rm "${STACK}_starter_policy" "$BASTION" >/dev/null 2>&1
+# --- no data policy, partners or register: no file, no section, no link ---------
+# As a scenario without governance: or partners (spec D221; v0.5 master
+# spec 7.3): data-policy.md, partners.md and data-register.md not mapped, so
+# not mounted, and no credential handed over. The GM side removes the home's
+# copies and the marker first, so this start would copy them if they were
+# there.
+info "removing the data policy, partners.md and data-register.md from the starter pack"
+gm rm -f /home/player/data-policy.md /home/player/partners.md /home/player/data-register.md \
+    /home/player/.gm-starter-copied
+docker service update --detach --config-rm "${STACK}_starter_policy" \
+    --config-rm "${STACK}_starter_partners" --config-rm "${STACK}_starter_register" \
+    --secret-rm "${STACK}_http_demo_customer" "$BASTION" >/dev/null 2>&1
 if B4=$(wait_healthy "$BASTION" "$B"); then
-    pass "bastion without a data policy healthy ($B4)"
+    pass "bastion without a data policy, partners or register healthy ($B4)"
     B=$B4
 else
-    fail "bastion without a data policy did not become healthy"
+    fail "bastion without a data policy, partners or register did not become healthy"
 fi
-check "no data policy in the starter pack" sh -c "! docker exec $B test -e /opt/gm/starter/data-policy.md"
-check "no ~/data-policy.md in the home" sh -c "! docker exec $B test -e /home/player/data-policy.md"
+for f in data-policy.md partners.md data-register.md; do
+    check "no $f in the starter pack" sh -c "! docker exec $B test -e /opt/gm/starter/$f"
+    check "no ~/$f in the home" sh -c "! docker exec $B test -e /home/player/$f"
+done
 check "the starter marker written again" docker exec "$B" test -f /home/player/.gm-starter-copied
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
 w=$(sections "$tmp/b")
 [ "$code" = 200 ] && [ "$w" = "readme story issues " ] \
-    && pass "without a data policy, the page: README, story, issues ($w)" \
-    || fail "without a data policy, the page: $code, sections $w"
+    && pass "without them, the page: README, story, issues ($w)" \
+    || fail "without them, the page: $code, sections $w"
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues " ] && ! grep -qi 'data policy' "$tmp/b" \
-    && pass "without a data policy, no such section or link ($w)" || fail "without a data policy, links: $w"
+[ "$w" = "#readme #story #issues " ] && ! grep -qi -e 'data policy' -e 'partners' -e 'data register' "$tmp/b" \
+    && pass "without them, no such section or link ($w)" || fail "without them, links: $w"
 out=$(pb gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "gm-validate green without a data policy" || fail "validator without a data policy: exit $rc: $out"
 
+# --- partners.md naming a credential with no secret: the container is refused -----
+info "partners.md back, its credential's secret not mounted"
+docker service update --detach --config-add \
+    "source=${STACK}_starter_partners,target=/opt/gm/starter/partners.md,uid=0,gid=0,mode=0444" \
+    "$BASTION" >/dev/null 2>&1
+i=0; found=0
+while [ "$i" -lt 90 ]; do
+    if docker service logs "$BASTION" 2>&1 \
+        | grep -q 'gm-entrypoint: fatal: partners.md: {{credential:demo_customer}}: no secret /opt/gm/secrets/http_demo_customer'; then
+        found=1; break
+    fi
+    sleep 3; i=$((i + 3))
+done
+[ "$found" = 1 ] && pass "a placeholder whose credential has no secret refused (demo_customer)" \
+    || fail "no refusal of partners.md's credential without its secret in the logs"
+
 # --- a required starter file missing: the container is refused --------------------
 info "removing issues.md from the starter pack"
-docker service update --detach --config-rm "${STACK}_starter_issues" "$BASTION" >/dev/null 2>&1
+docker service update --detach --config-rm "${STACK}_starter_partners" \
+    --config-rm "${STACK}_starter_issues" "$BASTION" >/dev/null 2>&1
 i=0; found=0
 while [ "$i" -lt 90 ]; do
     if docker service logs "$BASTION" 2>&1 \

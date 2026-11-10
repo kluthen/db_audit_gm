@@ -1,10 +1,15 @@
 # Stack test fixture for the bastion brick (v0.1 chunk 3, v0.2 chunk 7,
-# v0.4 chunk 19).
+# v0.4 chunk 19, v0.5 chunk 17a).
 # Three services: the bastion, a PostgreSQL node (the postgres image) and a
 # stub web interface (tests/fixtures/stub-upstream.pl in debian:13-slim),
 # on one overlay network. The bastion's web front routes `stub` to the stub
 # and `other` to a port where nothing listens; the starter pack includes
-# the optional data-policy.md. run-stack-test.sh later empties the routes
+# the optional data-policy.md. v0.5: the starter pack also has partners.md,
+# naming the credential demo_customer (mounted http_demo_customer, the same
+# secret the stub checks as the external lab's endpoint), and
+# data-register.md; the stub also answers as cold storage and the external
+# lab (network aliases cold-storage, northfield-lab), the front routing
+# cold-storage to it as cold storage's console. run-stack-test.sh later empties the routes
 # (the front still serves the page), then removes the data policy, then a
 # required starter file. Uses only what a rendered
 # Compose 3.8 stack file can express: no tmpfs `mode` or `exec` option.
@@ -27,7 +32,7 @@ services:
       retries: 5
       start_period: 30s
     environment:                    # as the renderer passes web_routes (capture W2-A)
-      GM_WEB_ROUTES: "other=stub:9091 stub=stub:9090"
+      GM_WEB_ROUTES: "cold-storage=cold-storage:9090:console other=stub:9091 stub=stub:9090"
     ports:
       - {target: 22, published: "${GMTEST_BASTION_PORT:-22222}", protocol: tcp, mode: host}
       - {target: 8080, published: "${GMTEST_BASTION_WEB_PORT:-28080}", protocol: tcp, mode: host}
@@ -40,11 +45,14 @@ services:
       - {source: starter_story, target: /opt/gm/starter/story.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_issues, target: /opt/gm/starter/issues.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_policy, target: /opt/gm/starter/data-policy.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_partners, target: /opt/gm/starter/partners.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_register, target: /opt/gm/starter/data-register.md, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
       - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
       - {source: tools_password, target: /opt/gm/secrets/tools_password, uid: "0", gid: "0", mode: 0400}
+      - {source: http_demo_customer, target: /opt/gm/secrets/http_demo_customer, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:
       replicas: 1
@@ -60,7 +68,11 @@ services:
     command: ["perl", "/stub-upstream.pl"]
     configs:
       - {source: stub_upstream, target: /stub-upstream.pl, uid: "0", gid: "0", mode: 0444}
-    networks: [net]
+    secrets:                        # the external lab's check of the customer's credential
+      - {source: http_demo_customer, target: /opt/partner/credential, uid: "65534", gid: "65534", mode: 0400}
+    networks:
+      net:
+        aliases: [cold-storage, northfield-lab]   # as the partners' api node's hostnames
     deploy:
       replicas: 1
       resources:
@@ -121,6 +133,8 @@ configs:
   starter_story: {external: true, name: gmtest-bastion_starter_story}
   starter_issues: {external: true, name: gmtest-bastion_starter_issues}
   starter_policy: {external: true, name: gmtest-bastion_starter_policy}
+  starter_partners: {external: true, name: gmtest-bastion_starter_partners}
+  starter_register: {external: true, name: gmtest-bastion_starter_register}
   seed_postgresql_conf: {external: true, name: gmtest-bastion_seed_postgresql_conf}
   seed_pg_hba_conf: {external: true, name: gmtest-bastion_seed_pg_hba_conf}
   envelopes: {external: true, name: gmtest-bastion_envelopes}
@@ -132,4 +146,5 @@ secrets:
   player_ssh_pubkey: {external: true, name: gmtest-bastion_player_ssh_pubkey}
   dba_password: {external: true, name: gmtest-bastion_dba_password}
   tools_password: {external: true, name: gmtest-bastion_tools_password}
+  http_demo_customer: {external: true, name: gmtest-bastion_http_demo_customer}
   monitoring_password: {external: true, name: gmtest-bastion_monitoring_password}

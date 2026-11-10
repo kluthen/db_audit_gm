@@ -1,0 +1,19 @@
+# Schedule of the back office's report runner for the lab's statements, a
+# fragment (purpose 10; clinic-purposes.md 14; capture W4 items 0 and 5): the
+# laboratory's database read on its only node (the lab has no standby, D304)
+# as the lab's lab_reports, office written on the record's primary as
+# office_jobs; no stream. lab-reports is purpose 9's identical entry, office
+# purposes 7 to 12's. Written for the nodes lab and records; the GM adapts the
+# targets as it copies.
+connections:
+  lab-reports:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+streams: []

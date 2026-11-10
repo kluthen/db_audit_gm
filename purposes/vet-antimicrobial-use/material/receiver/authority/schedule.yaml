@@ -1,0 +1,15 @@
+# schedule.yaml of the authority's stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; capture W2 item 6, W4 item 0; partners/README.md):
+# its baseline stream only, upserting its state once a minute as its own
+# role (the authority answers, with no stream). Byte-identical in purposes 5
+# and 8, which share the prefix (W4 item 0; compose merges identical entries
+# silently, W1-w). A fault's timeline change of authority.normal to
+# authority.<behaviour> is the scenario's. The GM copies it into the scenario
+# layer compose/partners-backend/.
+connections:
+  authority-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: authority, pool: {size: 1}}
+streams:
+  - key: authority.normal
+    connection: authority-db
+    rate: 1/min
+    arrivals: even

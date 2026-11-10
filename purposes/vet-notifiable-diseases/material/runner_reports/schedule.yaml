@@ -1,0 +1,23 @@
+# Schedule of the back office's report runner for the notifiable diseases, a
+# fragment (purpose 5; clinic-purposes.md 9; capture W4 items 0, 4 and 5):
+# the record and the lab read as the domains' report roles (the record on its
+# standby where the scenario has one: the GM retargets clinic-reports), office
+# written as office_jobs; no stream. Written for the nodes records and lab;
+# the GM adapts the targets as it copies.
+connections:
+  clinic-reports:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_reports
+    pool: {size: 1}
+  lab-reports:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+streams: []

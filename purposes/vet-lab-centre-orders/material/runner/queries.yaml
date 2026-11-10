@@ -1,0 +1,16 @@
+# Query repository of the integration engine, a fragment
+# (vet-lab-centre-orders; capture W4 items 0 and 3): the purpose's two jobs,
+# transformer scripts (scripts/lab_orders.py) reading and writing the record
+# and calling lab-api, each run's ops.runs row in the transaction of its
+# output.
+queries:
+  lab-orders.post:
+    script: scripts/lab_orders.py:post
+    options:
+      batch: 20                # orders (consultation and priority) posted a run at most
+  lab-orders.fetch:
+    script: scripts/lab_orders.py:fetch
+    options:
+      margin_minutes: 15       # the feed read again this far before the watermark: a release
+                               # committing after its released_at is never missed; the copies'
+                               # primary key keeps each request once

@@ -194,20 +194,22 @@ queries:
       kind: {choice: {1: 9, 2: 1}}
       r: {int: [0, 999999]}
   # --- work streams ----------------------------------------------------------------
-  # The oldest consultation, imaging or theatre booking starting within the
-  # next ten minutes, still booked: arrived at its start, give or take five
-  # minutes, never later than now; one in twenty (by a hash of its id) left
-  # for the no-show.
+  # The consultation, imaging or theatre booking still booked whose arrival
+  # moment (its start, give or take five minutes, by a hash of its id) has
+  # come, the oldest moment first: arrived, stamped when recorded (now(),
+  # never back-dated: the owner's ruling of 2026-11-10, BS1); one in twenty
+  # (by a hash of its id) left for the no-show.
   sched.bookings.arrive:
     sql: >-
       UPDATE sched_bookings
-         SET state = 'arrived',
-             arrived_at = least(now(), starts_at + ((hashint4(id) & 2147483647) % 11 - 5) * interval '1 minute')
+         SET state = 'arrived', arrived_at = now()
        WHERE id = (SELECT b.id FROM sched_bookings AS b
                     WHERE b.state = 'booked' AND b.kind IN ('consultation', 'imaging', 'surgery')
                       AND b.starts_at <= now() + interval '10 minutes' AND b.starts_at > now() - interval '30 minutes'
+                      AND b.starts_at + ((hashint4(b.id) & 2147483647) % 11 - 5) * interval '1 minute' <= now()
                       AND (hashint4(b.id) & 2147483647) % 20 <> 0
-                    ORDER BY b.starts_at, b.id LIMIT 1)
+                    ORDER BY b.starts_at + ((hashint4(b.id) & 2147483647) % 11 - 5) * interval '1 minute', b.id
+                    LIMIT 1)
   # A booking 30 minutes past its start (the settings' no-show delay), still
   # booked: a no-show; and a block ended, still booked: held.
   sched.bookings.no-show:

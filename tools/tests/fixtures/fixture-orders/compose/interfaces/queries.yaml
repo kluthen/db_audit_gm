@@ -1,0 +1,13 @@
+# The scenario layer of node interfaces: purpose 1's keys (purposes/
+# vet-lab-centre-orders/material/runner/queries.yaml), copied as written.
+queries:
+  lab-orders.post:
+    script: scripts/lab_orders.py:post
+    options:
+      batch: 20                # orders (consultation and priority) posted a run at most
+  lab-orders.fetch:
+    script: scripts/lab_orders.py:fetch
+    options:
+      margin_minutes: 15       # the feed read again this far before the watermark: a release
+                               # committing after its released_at is never missed; the copies'
+                               # primary key keeps each request once

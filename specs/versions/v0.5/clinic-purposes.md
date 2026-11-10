@@ -274,15 +274,21 @@ runner's log; the practices' stub's received deliveries (evidence).
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| PR1 | Every practice test released since the judged moment is in a final delivery acknowledged within 15 minutes, or after six failed attempts in an incident | triggers | about 40 a working day, in bursts at the rounds |
+| PR1 | Every delivery a practice test's release made due since the judged moment (an interim on an order's first release with tests still pending, the final on the release completing it, an amended one on an amendment) is acknowledged within 15 minutes, or after six failed attempts in an incident (D452) | triggers | about 40 a working day, in bursts at the rounds |
 | PR2 | A delivery keeps its `delivery_key` across attempts; one key per order, kind and revision | runs | the stub answers 503 to about one call in fifty, as standing behaviour (D214's precedent), so retries happen every day |
-| PR3 | No delivery carries a result not released (lab rule 1) | runs | interim reports while tests are technical |
+| PR3 | No delivery carries a result not released (lab rule 1), judged at each attempt's posting: a final only once its order is completed, an interim once a test of it is released, an amended one once an amendment is made (D452) | runs | interim reports while tests are technical |
 | PR4 | Each delivery goes to its own order's account's callback, never another practice's (lab rule 10) | runs | every delivery |
 | PR5 | End to end: every practice order received since the judged moment has its released results acknowledged at its callback within the tests' turnaround, the wait for the next round and 15 minutes | end-to-end | about 25 orders a working day, most resulted the same day |
 
 **Data moved**: `lab_orders.patient_ref`, `client_surname` and the
 results (personal, the practice's own client data, the lab its processor
 under GDPR Art 28) back to that practice only.
+
+**As built** (chunk 18, D452): `lab_dispatch` also reads
+`lab_settings (utc_offset_hours)` (the practices' local date, purpose 3's
+grant). The practices' stub keeps each delivery's key, account,
+accession and kind only, so PR3 reads when each attempt was posted
+against what the lab had released by then.
 
 **Candidate faults**:
 
@@ -328,14 +334,22 @@ orders and posted answers (evidence).
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| SO1 | Every sent-out test whose sample was received by 15:30 on a working day is accepted by the external lab that day, or in an incident | triggers | about 7 a working day; a 16:00 run in the aging, or the job moved to verify (D132) |
+| SO1 | Every sent-out test whose sample was received by 15:30 on a working day is accepted by the external lab that day, or in an incident; judged on the days whose 16:00 run falls after the judged moment, so a sample received before a fix made before 16:00 counts (D452) | triggers | about 7 a working day; a 16:00 run in the aging, or the job moved to verify (D132) |
 | SO2 | One `send_key` per send-out, kept on every retry: no test has two external accessions | runs | the chases; the stub's slow answers |
 | SO3 | A send-out carries the catalogue's fields only: no owner, client, natural identifier or clinical note | runs | every `send-outs` run |
-| SO4 | End to end, on the answer's leg: every answer the external lab posted since the judged moment is recorded against its send-out, and its test released by the end of the next release round | end-to-end | about eight send-outs in flight at T0, all the practices' (vet-lab step 6, D415), answered through the aging |
+| SO4 | End to end, on the answer's leg: every answer the external lab posted since the judged moment is recorded against its send-out, and its test released by the end of the next release round, the first to start after the answer is recorded (D452) | end-to-end | about eight send-outs in flight at T0, all the practices' (vet-lab step 6, D415), answered through the aging |
 
 The request's leg (posted at 16:00, answered days later) is longer than
 a session; SO1 and SO4 judge its two ends, and a fault between them
 leaves its backlog in the answer key (D286).
+
+**As built** (chunk 18, D452): the external lab's stub keeps the
+catalogue's fields of each send-out only (accession, label, external
+code, species, sex, age), dropping any other key, so SO3 judges a
+catalogue field's value (an identifier or a name in its place) and never
+sees an extra key; T49's variant plants the identifier in a kept field,
+or brings a stub keeping the whole body as its own material
+([clinic-traps](clinic-traps.md) T49).
 
 **Data moved**: none classed: the send-out carries the accession, the
 label and the animal's species, sex and age.
@@ -391,10 +405,16 @@ either way: key, kind, direction, HTTP status, at), `ops.incidents`,
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
 | EX1 | Every outbound exchange recorded since the judged moment is received by its centre within 10 minutes | triggers | about one a day, the transfers among them: rare (D306, point 6) |
-| EX2 | Every inbound request decided since the judged moment has its answer posted within 10 minutes, every report written its report posted within 10 minutes | triggers | about one a day, business hours |
+| EX2 | End to end, the inbound trip: every request a centre posted since the judged moment is recorded in `exchanges` at once, and its answer and its report reach the centre within 10 minutes of the vets' decision and report (D440) | end-to-end | about one a day, business hours; the inbound exchanges in flight at T0 |
 | EX3 | One `exchange_key` per exchange, kept on a resend; each answer recorded on its own exchange | runs | the chases; the in-flight exchanges at T0 |
 | EX4 | An exchange carries what the franchise's agreement allows: this animal's record and its owner's contact, never another animal's or another owner's | runs | every post |
-| EX5 | End to end: every outbound exchange sent since the judged moment is answered within a working day, or chased and then escalated | end-to-end | the exchanges in flight at T0, planted, and the day's |
+| EX5 | End to end, the outbound trip: every outbound exchange sent since the judged moment is answered within a working day, or chased and then escalated, each judged at its working day's 09:00 chase (Monday to Friday, the customer's time) plus 15 minutes (D453) | end-to-end | the exchanges in flight at T0, planted, and the day's |
+
+**As built** (chunk 19, D453): EX1 to EX4 run on the partners' node in
+shell with the verdict in SQL (the `postgres` brick has no Python), as
+every database-node check; EX2's short test answers the centre's own
+fresh request; `chase-exchanges` runs `0 9 * * 1,2,3,4,5` (a list, the
+cron subset taking no range).
 
 **Data moved**: the animal's identifiers, its record's summary, the
 owner's name and contact (personal), to another centre of the
@@ -452,8 +472,8 @@ witness (D214's precedent).
 |---|---|---|---|
 | ND1 | Every trigger since the judged moment is notified within its deadline | triggers | rare: a few a month (D306, point 6) |
 | ND2 | One notification accepted per trigger | runs | the stub's 503s, retried |
-| ND3 | A notification carries the disease, the species, the holding or the keeper's name and address, the notifying vet or lab and the date; never the clinical notes | runs | every post |
-| ND4 | Every notification sent since the judged moment has its reference, or an incident by the next escalation run | triggers | the stub's 503s |
+| ND3 | A notification carries the disease, the species, the holding or the keeper's name and address (from the lab, which holds no address, the keeper's name and the account of the practice holding the animal, D453), the notifying vet or lab and the date; never the clinical notes | runs | every post |
+| ND4 | Every notification sent since the judged moment has its reference, or an incident by the next escalation run (the quarter hour at or after its deadline, judged 3 minutes later, D453) | triggers | the stub's 503s |
 | ND5 | Every notification of yesterday is in `office`'s copies, once | runs | the nightly copy, when a day had one |
 
 **Data moved**: the animal's identifiers, the holding number, the
@@ -543,6 +563,17 @@ inventory. Periodic runs in the aging: none, unless the GM places one
 | MR3 | Each controlled-drugs feeder run holds every movement of its day once | runs | the anaesthetics of the day's procedures (about three consultations in ten) |
 | MR4 | A month's balance equals the previous closing less the month's movements, per batch | code | the planted months; the 1st's run if the GM places one |
 
+**As built** (chunk 20, D454): a `code` invariant (MR4, and AM3, HO3,
+ST3, vet-scheduling's WT3) runs the job's loaded SQL on the last planted
+period and compares its output with the check's own rule; the planted
+figures themselves are never judged. The balances are signed by the
+lowest-id vet employed at the close, whom the clinic scenario's story
+names. The load's controlled batches received far less than the year
+moves, so 938 of the 1 260 planted balances closed negative, a false
+trap: vet-core's load sizes each batch's receipt to its movements
+([vet-core](vet-core-domain.md#entities), D451; chunk 35); MR4
+judges the identity, not the stock.
+
 **Data moved**: `owners.name` and `address` (personal) into
 `office.medicines_register`, as the law requires; nothing else of the
 owner.
@@ -584,6 +615,14 @@ cattle's) and its reference.
 | AM3 | The yearly report covers the species due at its date, and equals the sum of its year's daily rows | code | last year's planted report; January's run if the GM places one |
 | AM4 | The report is acknowledged by its deadline, or escalated | triggers | January only: planted |
 
+**As built** (chunk 20, D454): the 15 January run posts each species'
+report up to three times, then sets `escalated_at`; `office` has no
+incidents table, so an escalation is that column on the output row (and
+HO3's likewise). AM2's witness needs a herd treatment on the judged day
+(herd visits on Tuesdays and Thursdays): a fixture takes T0 on a local
+Wednesday or Friday, or plants one. The planted report's reference takes
+the authority stub's live form, `AMU<year>-NNNN` (D451; chunk 35).
+
 **Data moved**: none classed: counts and quantities per species and
 medicine.
 
@@ -622,6 +661,18 @@ figures and the head office's references.
 | HO2 | One row per day, section and measure | runs | every feeder run |
 | HO3 | A month's figures equal the sum of its days, sent by the 5th and acknowledged, or escalated | code | the planted months; the 1st's run if the GM places one |
 
+**As built** (chunk 20, D454): `monthly_figures` has one row per month,
+section and measure, as the daily rows (about 684 planted, not 12); the
+lab's tests are counted at their release, the turnaround runs from the
+sample's receipt to the release, the units in service read
+`state_since_at`; a month's turnaround is the median of its days'
+medians, the head office's definition, so it differs from a median
+taken over the month's tests, which is no fault; an unanswered month
+sets `escalated_at`. The planted references take the head office stub's
+live form, `HO<YYYYMM>-NNNN` (D451; chunk 35). `send-monthly-figures`
+needs `load-data` to start before 00:30 local in a fixture with T0 just
+after midnight.
+
 **Data moved**: none classed: counts and durations.
 
 **Candidate faults**:
@@ -658,6 +709,16 @@ statements, one per account with charges.
 | ST1 | Each feeder run holds every charge made billable or voided on its day, once, its amount equal to the lab's | runs | about 60 charges a working day; voids on cancellations and unfit samples |
 | ST2 | The centre's internal account is never charged nor stated (lab rule 13) | runs | the centre's orders, every day |
 | ST3 | A statement equals its month's billable charges less voids, with its bracket's discount | code | the planted months; the 1st's run if the GM places one |
+
+**As built** (chunk 20, D454): the brackets are 3 % from 0, 5 % from
+200, 10 % from 400 and 15 % from 600 of the month's total (game values,
+in the close's query and ST3's rule), the discount taken once on the
+total. A statement subtracts the month's voids of charges already
+stated, billable by the month's end; the loaded charges are voided only
+before they become billable (a cancelled or unfit test is never
+released), so every planted statement's `voided` is 0, and the
+candidate "voids taken only for charges made on the same day" needs a
+void after billing the GM plants.
 
 **Data moved**: `lab_orders.patient_ref` and `client_surname`
 (personal) into `office.lab_charge_lines`: the practice's statement
@@ -774,22 +835,30 @@ its occupancy joins purpose 9 (D318).
 
 | Database | Role | Who | Reads | Writes |
 |---|---|---|---|---|
-| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `animals` (id, species, status, died at: 11) | `requests`' state, `exchanges`' sent and posted columns, `consultations`' open columns (`INSERT`, 11), `ops.*` |
-| `clinic` | `sched_interfaces` | `interfaces`' bookings jobs (11) | the `sched_` bookings, allocations, types, machines, hours, shifts, absences and settings, as [vet-scheduling](vet-scheduling-domain.md) lists them (D339); executes `sched_free_slots`, which runs with the caller's rights | bookings and allocations: bookings' state and links (`request_id`, `exchange_id`), new imaging and examination bookings with their allocations; `ops.*` |
-| `clinic` | `vet_portal_sync` | `interfaces`' release jobs (15) | `owners` (id, kind, name, email, phone, registered at: no address), `animals` (no identifiers), `ownerships`, `herds`, signed consultations, ended stays | nothing |
-| `clinic` | `vet_exchange` | `clinic-api`'s exchange endpoints | `exchanges` | inbound `exchanges`, the answers and reports received on outbound ones |
-| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4), those of the parts landing in `clinic` included (`vet-housing`'s and `vet-scheduling`'s, granted by their schemas) | nothing |
-| `lab` | `lab_dispatch` | `interfaces`' lab jobs (step 4) | as step 4 | as step 4, and `lab_notifications`' `notified_at`, channel and reference; `ops.*` |
+| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at; 4: id, animal, state, started at, findings; 5: id, animal, herd, vet; 11: id, booking, section; 13: id), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `sites`, `business_settings` (4, 5, 13: the working days), `ownerships` (4, 5), `animals` (11: id, species, status, died at; 4: id, species, breed, sex, born on, name and the four identifiers; 5: id, species), `owners` (4: id, kind, name, email, phone; 5: id, kind, name, address, country), `herds` (id, keeper, holding number: 5), `staff` (id, name: 5); `ops.*` | `requests`' state, `exchanges`' state and `sent_at` (4), `consultations`' open columns (`INSERT`, 11), `ops.*` |
+| `clinic` | `sched_interfaces` | `interfaces`' bookings jobs (11) | the `sched_` bookings, allocations, types, courses, rooms, machines, hours, shifts, absences and settings, as [vet-scheduling](vet-scheduling-domain.md) lists them (D339); executes `sched_free_slots`, which runs with the caller's rights, so reads every table it joins (courses and rooms included, D442) | bookings and allocations: bookings' state and links (`request_id`, `exchange_id`), new imaging and examination bookings with their allocations, allocations' `released_at` (the release trigger runs as its invoker, D442); `ops.*` |
+| `clinic` | `vet_portal_sync` | `interfaces`' release jobs (15) | `owners` (id, kind, name, email, phone, registered at: no address), `animals` (no identifiers; registered at, D455), `ownerships`, `herds`, signed consultations (`consultations`' state, D455), ended stays, `sections` (id, kind, D455) | nothing |
+| `clinic` | `vet_exchange` | `clinic-api`'s exchange endpoints | `exchanges`, `sites` (id, code, kind); `ops.*` | inbound `exchanges`, the answers and reports received on outbound ones (state, accepted for, answered at, report, reported at), `ops.*` |
+| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4), those of the parts landing in `clinic` included (`vet-housing`'s and `vet-scheduling`'s, granted by their schemas); `ops.notifications` (5's copy, with `USAGE` on `ops`) | nothing |
+| `lab` | `lab_dispatch` | `interfaces`' lab jobs (step 4) | as step 4; `lab_settings` (utc offset hours: 3, D452) | as step 4, and `lab_notifications`' `notified_at`, channel and reference; `ops.*` |
 | `lab` | `lab_watch` | the critical calls' `pg_cron` job | `lab_results`, `lab_critical_calls`, `lab_order_tests` | `ops.incidents`, `ops.runs` |
-| `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table | nothing |
-| `lab` | `lab_release` | `interfaces`' release jobs (15) | `lab_orders` (id, account, animal, ordered at: no identifiers or notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals` | nothing |
-| `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (accession, request, state, cancelled because, `cancelled_at`: the watermark on cancellations, D416), `mach_reports`, `mach_studies` (worklist, state) | `mach_worklist` (insert), `ops.*` |
-| `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings` | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
+| `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table; `ops.notifications` (5's copy, with `USAGE` on `ops`) | nothing |
+| `lab` | `lab_release` | `interfaces`' release jobs (15) | `lab_orders` (id, account, animal, ordered at: no identifiers or notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals`, `lab_samples` (id, collected at, D455) | nothing |
+| `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (id, accession, request, state, cancelled because, `cancelled_at`: the watermark on cancellations, D416), `mach_studies` (id, worklist, state), `mach_reports` (id, study, kind, status, signed at, supersedes), `mach_procedures` (id, code: an entry's `procedure_id`, `NOT NULL`, found by the request's code, D442) | `mach_worklist` (insert), `ops.*` |
+| `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings`, `mach_vitals_settings` and `mach_settings` (the zone and the kept window) | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
 | `portal` | `portal_sync` | the release jobs (15) | the copies, accounts, documents | accounts (insert; contacts; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
-| `portal` | `portal_dispatch` | the messages' jobs (16) | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox's queued rows and sending columns, `ops.*` |
+| `portal` | `portal_dispatch` | the messages' jobs (16) | accounts (id, owner, display name, status, channel, address: D455), the copies, documents, consent events, the outbox | the outbox's queued rows and sending columns, `ops.*` |
 | `office` | `office` | owns everything; no login | | |
 | `office` | `office_jobs` | `backoffice`'s writes | `office` | every `office` table; nothing elsewhere |
 | `office` | `office_reader` | the back office's staff and dashboards | `office` | nothing |
+
+A column list is the grant: each purpose's DDL grants the columns its
+own number names (`4: …`, purpose 4's; a list or table with no
+number: the purposes using that table), and a role several purposes
+share holds their union. `ops.*` is `USAGE` on `ops`, `SELECT, INSERT` on
+`ops.runs` and `ops.incidents`, `SELECT, INSERT, UPDATE` on
+`ops.watermarks`, and what the purpose's own `ops` tables need; a row
+naming `ops` tables instead (`lab_watch`) grants those only (D441, D442).
 
 **The office role** (point 4), the name [replication](replication.md#3-where-the-reports-write-a-back-office-database-d300)
 3 left to step 7: `office_jobs` writes `office` and reads nothing of the
@@ -802,9 +871,9 @@ a write grant. A report job holds two connections, as v0.4's
 | What | Rows planted |
 |---|---|
 | The medicines register and the controlled movements | about 90 000 and 9 000 |
-| Extracts, balances, the inventory | about 600 |
+| Extracts, balances, the inventory | the balances 1 260 as built, the extracts and the inventory a few dozen more (D454) |
 | Antimicrobial use per day | about 15 000 |
-| Daily figures, monthly figures | about 5 500, 12 |
+| Daily figures, monthly figures | about 5 500, about 684 (month, section and measure, D454) |
 | Lab charge lines, statements | about 17 000, about 1 400 |
 | Regulatory copies, run rows | about 50, about 3 000 |
 | Working-time days, months and breaches (12, `vet-scheduling`) | about 21 000 |

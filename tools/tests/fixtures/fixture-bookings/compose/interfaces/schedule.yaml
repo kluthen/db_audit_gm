@@ -1,15 +1,25 @@
 # The scenario layer of node interfaces (v0.5 master spec 8.4), the
-# integration engine: idle in v0.5 chunk 15's fixture. Chunk 21 adds the
-# imaging-orders purpose's material here (vet-machinery-domain.md, "What
-# interfaces gains"). Until then the scheduler holds one connection it never
-# opens (the program needs one), the lookup API behind the credential every
-# caller of the estate sends, no stream and no job.
+# integration engine: purpose 11's (vet-bookings-sync) material as the GM
+# copies it, its targets unchanged (records:5432/clinic), with the
+# scenario's intensity, which the scheduler needs and a fragment never
+# carries (no stream: it scales nothing here).
 intensity: 1.0
+# Schedule of the centre's integration engine for the agenda and the record,
+# a fragment (purpose 11; vet-scheduling-domain.md, "11. vet-bookings-sync";
+# capture W4 items 0 and 6): the record's connection as vet_interfaces
+# (clinic, the name and pool purposes 1, 4, 5 and 13 use identically) and
+# the agenda's as sched_interfaces (sched), both to records:5432/clinic,
+# where vet-scheduling lands beside the core; no stream (a transformer runs
+# jobs only). Written for the node records; the GM adapts the targets.
 connections:
-  clinic-api:
-    driver: http
-    target: clinic-api:8000
-    credential: clinic_lookup
-    pool: 1
-    timeout: 10s
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 2}
+  sched:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: sched_interfaces
+    pool: {size: 1}
 streams: []

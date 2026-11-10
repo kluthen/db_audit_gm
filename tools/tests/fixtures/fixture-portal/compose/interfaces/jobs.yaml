@@ -1,2 +1,40 @@
-# The scenario layer of node interfaces: no job until chunk 21.
-jobs: []
+# The scenario layer of node interfaces (v0.5 master spec 8.4), the integration
+# engine: purposes 15 (vet-portal-release) and 16 (vet-portal-messages), their
+# runner material as the GM copies it (purposes/<id>/material/runner/), the
+# names already the fixture's (records, lab, the hostname messaging).
+jobs:
+- name: sync-portal-identity
+  key: portal.identity
+  connections:
+    clinic: portal-clinic
+    portal: portal-sync
+  at: '*/5 * * * *'
+- name: publish-records
+  key: portal.records
+  connections:
+    clinic: portal-clinic
+    portal: portal-sync
+  at: '*/5 * * * *'
+- name: publish-results
+  key: portal.results
+  connections:
+    clinic: portal-clinic
+    lab: portal-lab
+    portal: portal-sync
+  at: '*/5 * * * *'
+- name: queue-notices
+  key: messages.notices
+  connections:
+    portal: portal-dispatch
+  at: '*/5 * * * *'
+- name: queue-reminders
+  key: messages.reminders
+  connections:
+    portal: portal-dispatch
+  at: 0 9 * * *
+- name: send-messages
+  key: messages.send
+  connections:
+    portal: portal-dispatch
+    partner: messaging
+  at: '* * * * *'

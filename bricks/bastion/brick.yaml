@@ -12,7 +12,13 @@
 # web front runs in every game, routes or none, its home the starter-pack
 # page; port 8080 is published and tools_password read in every game;
 # data-policy.md an optional seed file (seed.optional, v0.4 capture W1
-# item 4). Operating notes: docs/gm.md.
+# item 4). v0.5 (master spec 7.3, 13.2; spec D363, D365, D433; capture W4
+# item 1 of specs/versions/v0.5/wave-log.md): partners.md and
+# data-register.md optional seed files, "Partners" then "Data register" after
+# the data policy; partners.md's {{credential:<name>}} replaced by the mounted
+# http_<name> (the partners' credentials handed over); the front's one route
+# to a third party, cold storage's console (GET / and GET /manifests).
+# Operating notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
 id: bastion
@@ -41,10 +47,13 @@ parameters:                         # otherwise the scenario's content is the st
     description: >-
       the web interfaces the web front publishes: route name -> "node:port",
       each served under its own name (/name/, the upstream's own web_path) and linked from
-      the front's page; empty: the front serves the starter-pack page alone
+      the front's page; empty: the front serves the starter-pack page alone. From v0.5 one
+      route may target cold storage's hostname ("cold-storage: cold-storage:8000"): its
+      console, GET / and GET /manifests only (master spec 7.3, spec D363)
     default: {}
     required: false
-    shape: web-routes               # GM_WEB_ROUTES="name=node:port ...", sorted (capture W1, item 2)
+    shape: web-routes               # GM_WEB_ROUTES="name=node:port ...", sorted (capture W1, item 2);
+                                    # cold storage's console name=host:8000:console (W4 item 1)
 knobs: []
 
 # --- Player plane -----------------------------------------------------
@@ -87,7 +96,10 @@ healthcheck:                        # healthy while sshd is up and listening on 
   timeout: 5s
   retries: 5
   start_period: 30s
-secrets:
+secrets:                            # and, derived by render (v0.5, W4 item 1), one password
+                                    # http_<name> per credential a third_parties: entry hands
+                                    # over, at /opt/gm/secrets/http_<name>, 0:0 0400, read into
+                                    # partners.md by the entrypoint
   - name: player_password           # the players' login password, handed over by the GM
     kind: password
     handed_over: true
@@ -124,12 +136,19 @@ seed:                               # the starter pack: copied once into /home/p
     - story.md                      # story.md: player/story.md
     - issues.md                     # issues.md: player/issues.md
     - data-policy.md                # data-policy.md: player/data-policy.md, with governance:
-  optional: [data-policy.md]        # mapped only by a scenario with governance: (its policy)
+    - partners.md                   # partners.md: player/partners.md, with third_parties:; its
+                                    # {{credential:<name>}} replaced by http_<name> (v0.5)
+    - data-register.md              # data-register.md: player/data-register.md, with
+                                    # governance.register (v0.5, master spec 13.2)
+  optional: [data-policy.md, partners.md, data-register.md]   # each mapped only when the
+                                    # scenario has it (master spec 7.3)
   paths:                            # seed file -> its live in-container path
     README.md: /home/player/README.md
     story.md: /home/player/story.md
     issues.md: /home/player/issues.md
     data-policy.md: /home/player/data-policy.md
+    partners.md: /home/player/partners.md
+    data-register.md: /home/player/data-register.md
 protected_configs: []
 volumes:
   - name: home

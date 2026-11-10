@@ -1,0 +1,18 @@
+# Fixed-time operation of the back office's report runner for the head
+# office's figures, a fragment (purpose 9; clinic-purposes.md 13; capture W4
+# items 0 and 5 of specs/versions/v0.5/wave-log.md), in scenario time: the
+# feeder at 00:30, yesterday's figures; the month's figures at 05:00, run
+# daily and acting on the 1st to the 5th only (the customer's local date;
+# spec D436), posted to the head office. Script jobs reading the record on its
+# standby as vet_reports and the lab as lab_reports, writing office as
+# office_jobs, the send calling the head office with the customer's own key.
+# Written for the runner backoffice; the GM adapts it.
+jobs:
+  - name: feed-daily-figures
+    key: figures.feed
+    connections: {clinic: clinic-reports, lab: lab-reports, office: office}
+    at: "30 0 * * *"
+  - name: send-monthly-figures
+    key: figures.send
+    connections: {clinic: clinic-reports, office: office, receiver: headoffice}
+    at: "0 5 * * *"

@@ -1,0 +1,307 @@
+# Purpose 5, the notifiable diseases (v0.5 master spec 12.1, 12.2 purpose 5;
+# clinic-purposes.md 9; Regulation (EU) 2016/429 Art 18; spec D302, D304,
+# D306; capture W4 items 0 and 4 of specs/versions/v0.5/wave-log.md): a pushed
+# obligation, the owner's own example of the kind. Two triggers, one receiver
+# and one rule: a vet's notifiable diagnosis, suspected or confirmed, and a
+# lab notification of any customer's, each notified to the authority within
+# its deadline (an hour for category A, a day otherwise), referenced or
+# escalated; yesterday's notifications copied into the back office's
+# regulatory copies at 02:15.
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic, source_lab lab/lab, target records/office, runner
+# interfaces, runner_reports backoffice, receiver partners-api (hostname
+# authority). The GM adapts the names as it copies; gm.md says where each
+# name lives. ddl.source and ddl.source_lab are read from the catalogue by
+# load-data (step 2b), never copied; office's DDL (material/target/office.sql)
+# goes into records' data file, office belonging to no domain.
+id: vet-notifiable-diseases
+title: Notifiable diseases notified to the authority within their deadline, referenced or escalated, copied to the back office
+domains: [vet-core, vet-lab]
+kind: pushed-obligation
+
+parts:
+  source: the core's record, clinic (the vets' diagnoses, the triggers; the purpose's ops tables)
+  source_lab: the laboratory's database, lab (its notifications, the triggers; the purpose's ops tables)
+  target: the back office's database, office (regulatory_submissions, the copies)
+  runner: the centre's integration engine, interfaces, posting and escalating
+  runner_reports: the back office's report runner, backoffice, copying at night
+  receiver: the partners' api node, serving the authority under its hostname
+
+jobs:
+  - name: notify-vet
+    key: notify.vet
+    part: runner
+    source: source
+    target: source
+    method: script
+    computes: >-
+      the notifiable diagnoses (suspected or confirmed) recorded since the vet watermark with no
+      notification, posted to the authority keyed vet- and the diagnosis id, with the disease, species,
+      holding or keeper's name and address, the vet and the date, one ops.notifications row each;
+      the unreferenced ones of the last two days whose last post got no answer or a 5xx posted
+      again; one ops.runs row.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_interfaces
+      receiver: authority_customer
+  - name: notify-lab
+    key: notify.lab
+    part: runner
+    source: source_lab
+    target: source_lab
+    method: script
+    computes: >-
+      the lab's notifications not yet notified, every customer's, posted keyed lab- and the notification's id, one
+      ops.notifications row each, the retries as notify-vet's; a referenced one's notified_at,
+      channel and authority_ref written back; one ops.runs row.
+    cadence: "*/5 * * * *"
+    connections:
+      lab: lab_dispatch
+      receiver: authority_customer
+  - name: escalate-notifications
+    key: notify.escalate
+    part: runner
+    source: source
+    target: source_lab
+    method: script
+    computes: >-
+      in each database, the notifications with no reference past their deadline, or rejected, and
+      no incident: one ops.incidents row each, once; one ops.runs row in each database.
+    cadence: "*/15 * * * *"
+    connections:
+      clinic: vet_interfaces
+      lab: lab_dispatch
+  - name: copy-notifications
+    key: notify.copy
+    part: runner_reports
+    source: source
+    target: target
+    method: script
+    computes: >-
+      yesterday's notifications (the customer's local date), both databases, not yet copied: one
+      regulatory_submissions row each in office (kind notifiable-disease), and one runs row.
+    cadence: "15 2 * * *"
+    connections:
+      clinic: vet_reports
+      lab: lab_reports
+      office: office_jobs
+
+trace:
+  - kind: outbox-rows
+    part: source
+    table: ops.notifications
+    run_column: run_id
+  - kind: outbox-rows
+    part: source_lab
+    table: ops.notifications
+    run_column: run_id
+  - kind: outbox-rows
+    part: source
+    table: ops.incidents
+    run_column: run_id
+  - kind: outbox-rows
+    part: source_lab
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: source_lab
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: source
+    table: ops.watermarks
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: regulatory_submissions
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+  - kind: run-ledger
+    part: runner_reports
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: ND1
+    statement: >-
+      Every trigger since the judged moment (a vet's notifiable diagnosis, suspected or
+      confirmed; a lab notification of any customer's) is notified within its deadline: an hour
+      for category A, a day otherwise.
+    check: checks/nd1-notified-in-time.sh
+    parameters: {}
+    witness: >-
+      a trigger since the judged moment past its deadline: rare, a few a month (D306, point 6);
+      the planted lab notifications open at T0.
+    judged: triggers
+  - id: ND2
+    statement: One notification accepted per trigger.
+    check: checks/nd2-accepted-once.sh
+    parameters: {}
+    witness: a notification accepted since the judged moment; the stub's 503s, retried.
+    judged: runs
+  - id: ND3
+    statement: >-
+      A notification carries the disease, the species, the holding or the keeper's name and
+      address, the notifying vet or lab and the date; never the clinical notes.
+    check: checks/nd3-content.sh
+    parameters: {}
+    witness: a notification posted since the judged moment.
+    judged: runs
+  - id: ND4
+    statement: >-
+      Every notification sent since the judged moment has its reference, or an incident by the
+      next escalation run after its deadline (or after its rejection).
+    check: checks/nd4-referenced-or-escalated.sh
+    parameters: {}
+    witness: a notification sent since the judged moment and past its deadline; the stub's 503s.
+    judged: triggers
+  - id: ND5
+    statement: Every notification of yesterday is in office's copies, once.
+    check: checks/nd5-copied-once.sh
+    parameters: {}
+    witness: a copy-notifications run since the judged moment after a local day that had a notification.
+    judged: runs
+
+data_moved:
+  - job: notify-vet
+    reads: [clinic.owners.id, clinic.owners.name, clinic.owners.address, clinic.owners.country,
+            clinic.herds.holding_number, clinic.herds.keeper_owner_id, clinic.ownerships.owner_id,
+            clinic.ownerships.animal_id, clinic.staff.id, clinic.staff.name]
+    writes: [source:ops.notifications, source:ops.watermarks, source:ops.runs, receiver:authority.notifications]
+  - job: notify-lab
+    reads: [lab.lab_orders.client_surname, lab.lab_orders.patient_ref, lab.lab_orders.account_id]
+    writes: [source_lab:ops.notifications, source_lab:lab_notifications, source_lab:ops.runs,
+             receiver:authority.notifications]
+  - job: escalate-notifications
+    reads: []
+    writes: [source:ops.incidents, source:ops.runs, source_lab:ops.incidents, source_lab:ops.runs]
+  - job: copy-notifications
+    reads: [clinic.ops.notifications.payload, lab.ops.notifications.payload]
+    writes: [target:regulatory_submissions, target:runs]
+
+roles:
+  - name: vet_interfaces
+    part: source
+    reads: [diagnoses, diagnosis_codes, ownerships, business_settings, "consultations (id, animal_id, herd_id, vet_id)",
+            "animals (id, species)", "herds (id, keeper_owner_id, holding_number)",
+            "owners (id, kind, name, address, country)", "staff (id, name)", "ops.*"]
+    writes: [ops.notifications, ops.incidents, ops.watermarks, ops.runs]
+  - name: lab_dispatch
+    part: source_lab
+    reads: [lab_notifications, lab_order_tests, lab_orders, lab_accounts, "ops.*"]
+    writes: ["lab_notifications (notified_at, channel, authority_ref)", ops.notifications, ops.incidents, ops.runs]
+  - name: vet_reports
+    part: source
+    reads: [business_settings, ops.notifications]
+    writes: []
+  - name: lab_reports
+    part: source_lab
+    reads: [ops.notifications]
+    writes: []
+  - name: office_jobs
+    part: target
+    reads: [regulatory_submissions]
+    writes: [regulatory_submissions, runs]
+
+ddl:
+  source: material/source/ddl.sql
+  source_lab: material/source_lab/ddl.sql
+
+classification:
+  columns:
+    clinic.ops.notifications.id: internal
+    clinic.ops.notifications.run_id: internal
+    clinic.ops.notifications.trigger: internal
+    clinic.ops.notifications.trigger_id: internal
+    clinic.ops.notifications.notification_key: internal
+    clinic.ops.notifications.category: internal
+    clinic.ops.notifications.triggered_at: internal
+    clinic.ops.notifications.deadline: internal
+    clinic.ops.notifications.payload: personal
+    clinic.ops.notifications.first_sent_at: internal
+    clinic.ops.notifications.last_sent_at: internal
+    clinic.ops.notifications.attempts: internal
+    clinic.ops.notifications.last_status: internal
+    clinic.ops.notifications.reference: internal
+    clinic.ops.notifications.referenced_at: internal
+    lab.ops.notifications.id: internal
+    lab.ops.notifications.run_id: internal
+    lab.ops.notifications.trigger: internal
+    lab.ops.notifications.trigger_id: internal
+    lab.ops.notifications.notification_key: internal
+    lab.ops.notifications.category: internal
+    lab.ops.notifications.triggered_at: internal
+    lab.ops.notifications.deadline: internal
+    lab.ops.notifications.payload: personal
+    lab.ops.notifications.first_sent_at: internal
+    lab.ops.notifications.last_sent_at: internal
+    lab.ops.notifications.attempts: internal
+    lab.ops.notifications.last_status: internal
+    lab.ops.notifications.reference: internal
+    lab.ops.notifications.referenced_at: internal
+    clinic.ops.runs.id: internal
+    clinic.ops.runs.purpose: internal
+    clinic.ops.runs.job: internal
+    clinic.ops.runs.started_at: internal
+    clinic.ops.runs.finished_at: internal
+    clinic.ops.runs.rows_read: internal
+    clinic.ops.runs.rows_written: internal
+    clinic.ops.incidents.id: internal
+    clinic.ops.incidents.purpose: internal
+    clinic.ops.incidents.job: internal
+    clinic.ops.incidents.kind: internal
+    clinic.ops.incidents.ref: internal
+    clinic.ops.incidents.opened_at: internal
+    clinic.ops.incidents.reason: internal
+    clinic.ops.incidents.run_id: internal
+    clinic.ops.watermarks.purpose: internal
+    clinic.ops.watermarks.name: internal
+    clinic.ops.watermarks.at: internal
+    clinic.ops.watermarks.last_id: internal
+    clinic.ops.watermarks.run_id: internal
+    lab.ops.runs.id: internal
+    lab.ops.runs.purpose: internal
+    lab.ops.runs.job: internal
+    lab.ops.runs.started_at: internal
+    lab.ops.runs.finished_at: internal
+    lab.ops.runs.rows_read: internal
+    lab.ops.runs.rows_written: internal
+    lab.ops.incidents.id: internal
+    lab.ops.incidents.purpose: internal
+    lab.ops.incidents.job: internal
+    lab.ops.incidents.kind: internal
+    lab.ops.incidents.ref: internal
+    lab.ops.incidents.opened_at: internal
+    lab.ops.incidents.reason: internal
+    lab.ops.incidents.run_id: internal
+    lab.ops.watermarks.purpose: internal
+    lab.ops.watermarks.name: internal
+    lab.ops.watermarks.at: internal
+    lab.ops.watermarks.last_id: internal
+    lab.ops.watermarks.run_id: internal
+    office.runs.id: internal
+    office.runs.purpose: internal
+    office.runs.job: internal
+    office.runs.started_at: internal
+    office.runs.finished_at: internal
+    office.runs.rows_read: internal
+    office.runs.rows_written: internal
+    office.regulatory_submissions.id: internal
+    office.regulatory_submissions.kind: internal
+    office.regulatory_submissions.source: internal
+    office.regulatory_submissions.ref: internal
+    office.regulatory_submissions.payload: personal
+    office.regulatory_submissions.sent_at: internal
+    office.regulatory_submissions.reference: internal
+    office.regulatory_submissions.copied_at: internal
+    office.regulatory_submissions.run_id: internal

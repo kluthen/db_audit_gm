@@ -1,10 +1,11 @@
 # Bastion node for db_audit_gm (master spec 9.2).
 #
 # The players' only entry point: sshd (password login as `player`), the
-# PostgreSQL 18 client tools and an SSH client for the inner hop, and the
-# web front (nginx, port 8080), in every game: its home the starter-pack
-# page, rendered at start-up by cmark-gfm, and the monitoring web
-# interfaces when the scenario routes any (v0.4 master spec 7.3, D224).
+# PostgreSQL 18 client tools and an SSH client for the inner hop, curl (the
+# players' HTTP client), and the web front (nginx, port 8080), in every
+# game: its home the starter-pack page, rendered at start-up by cmark-gfm,
+# and the monitoring web interfaces when the scenario routes any (v0.4
+# master spec 7.3, D224).
 # Generic image: no scenario content. The starter pack and the secrets
 # arrive at run time at the fixed paths declared in brick.yaml.
 # Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
@@ -40,7 +41,9 @@ ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8
 # state are removed (its configuration is written under /run at start-up).
 # cmark-gfm, from Debian too, renders the starter pack into the front's
 # page (D222, gate G13): tables on (-e table), raw HTML omitted (its safe
-# default; never --unsafe), asserted below.
+# default; never --unsafe), asserted below. curl, from Debian too, is the
+# players' HTTP client (access model 4; gate G11.2, owner accepted
+# 2026-11-10): the partners' endpoints with the credentials handed over.
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
@@ -50,7 +53,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         "postgresql-client-${PG_MAJOR}" \
-        openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm; \
+        openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm curl; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -64,6 +67,7 @@ RUN set -eux; \
     test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/psql"; \
     test -x /usr/sbin/nginx; \
     command -v cmark-gfm; \
+    curl --version; \
     printf '| a |\n|---|\n| 1 |\n' | cmark-gfm -e table | grep -q '<table>'; \
     printf '<b>x</b>\n' | cmark-gfm | grep -q 'raw HTML omitted'
 

@@ -1,0 +1,26 @@
+# Schedule of the centre's integration engine for the readings' shipping, a
+# fragment (purpose 14; vet-machinery-domain.md, "What interfaces gains";
+# cold-storage.md 3; capture W4 items 0 and 6): the machinery's vitals and
+# biomed as mach_archive, and cold storage's upload under its hostname,
+# cold-storage (an alias of the partners' api node), with the customer's
+# one account key, cold_storage (a secret, never handed over), a minute's
+# timeout (the receipt's, cold-storage.md 2); no stream. Written for the
+# node machines; the GM adapts the targets.
+connections:
+  vitals:
+    driver: sql/postgresql
+    target: machines:5432/vitals
+    role: mach_archive
+    pool: {size: 1}
+  biomed:
+    driver: sql/postgresql
+    target: machines:5432/biomed
+    role: mach_archive
+    pool: {size: 1}
+  cold-storage:
+    driver: http
+    target: cold-storage:8000
+    credential: cold_storage
+    pool: 1
+    timeout: 60s
+streams: []

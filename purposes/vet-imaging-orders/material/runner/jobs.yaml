@@ -1,0 +1,16 @@
+# Fixed-time operations of the centre's integration engine for the imaging
+# round trip, a fragment (purpose 13; vet-machinery-domain.md,
+# "vet-imaging-orders"; capture W4 items 0 and 6), in scenario time: the
+# posts every minute, the reports and cancellations every five. Both script
+# jobs hold the record's connection as vet_interfaces (clinic) and the
+# PACS's as mach_orders (pacs). Written for the nodes records and machines;
+# the GM adapts them.
+jobs:
+  - name: post-imaging-orders
+    key: imaging.post
+    connections: {clinic: clinic, pacs: pacs}
+    at: "* * * * *"
+  - name: fetch-imaging-reports
+    key: imaging.fetch
+    connections: {clinic: clinic, pacs: pacs}
+    at: "*/5 * * * *"

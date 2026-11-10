@@ -1,0 +1,492 @@
+# gm/data-register.yaml: the true register of fixture-register (sealed). Generated
+# by the data-register skill from the files generated_from: lists; never edit by
+# hand: change an input and regenerate. It describes the system as designed and
+# composed, before any fault is planted.
+generated_from:
+  scenario.yaml: sha256:cd3fb5854434ec2f30deb932085871f041d90579b284133fa0fa087f6d08a8ac
+  composition.yaml: sha256:20b056d5b29d252fb317a207f5eecfa0f31d9974e97b76fccea5083d980deed5
+  data/classification.yaml: sha256:c13255d98b30e0aded3477e9d09c9a7975fd1623558e76bfd3046272acc7ca7d
+  player/data-policy.md: sha256:f9d9f2b0d9fe95b56d83ef73d2f47f0411ab3674f2f9585bf559df1f467c0c43
+  player/partners.md: sha256:241d2b78b1b1ee7c14e9f355140861391f94af868b6a59212778a201a8429465
+  gm/answer-key.yaml: sha256:ed9654948b6a91101148a00611f039db552a75833b4af825f7ac5c740aa0a695
+  catalog/domains/vet-core/data/register.yaml: sha256:73b8280acdc88031b1493c04d3dbd1e144e1a54bc93d8550eec7c06100498bc2
+  catalog/domains/vet-housing/data/register.yaml: sha256:f4e083cd4753b7a15b9c42c7b036c1e0ff637890f2cc0e8a2ff2a03501cb3d44
+  catalog/domains/vet-scheduling/data/register.yaml: sha256:c4521268cc3d211e17e75565bdebce365e32156e21c969f34b160957b2829546
+  catalog/domains/vet-lab/data/register.yaml: sha256:0b07ec2dc264d04960f262756985684d8e1ff5c8390965b9b4e057f23e0e31bd
+  catalog/domains/vet-machinery/data/register.yaml: sha256:cba9ab9753e2a1569d8fb14ec2d0b0dfb7b0144eb61d1cf39080df4528436774
+  catalog/domains/vet-portal/data/register.yaml: sha256:e2c1a00d7e0714aad6894593471b0dfee329ac3ba6e575f4390542ac633ff355
+controller: Aldermoor Veterinary Hospitals' centre
+contact: the franchise's data-protection officer
+policy: player/data-policy.md
+entries:
+  - id: vet-core-owners
+    department: The medical record
+    name: Owners, their animals and who owns them
+    purpose: Registering the owners, keepers and holdings who bring animals, the animals with their natural
+      identifiers and food-chain status, and each dated ownership, so the record follows the animal and
+      the portal reaches its current owner
+    people: [owners, keepers, holdings' keepers]
+    data:
+      personal: [clinic.owners.id, clinic.owners.name, clinic.owners.email, clinic.owners.phone, clinic.owners.address,
+        clinic.owners.country, clinic.herds.id, clinic.herds.holding_number, clinic.animals.id, clinic.animals.microchip,
+        clinic.animals.ueln, clinic.animals.passport_number, clinic.animals.ear_tag]
+      customer-linked: [clinic.herds.keeper_owner_id, clinic.ownerships.animal_id, clinic.ownerships.owner_id]
+    where:
+      - at: records/clinic
+        tables: [owners, animals, ownerships, herds]
+    shared_with:
+      - recipient: the owners' portal, records/portal
+        fields: [name, email, phone, animal_id, owner_id, herd_id, keeper_owner_id]
+    kept_for:
+      period: 5 years after the owner's last record entry (rule 9, a game value)
+      then: anonymised
+  - id: vet-core-staff
+    department: The medical record
+    name: The centre's staff
+    purpose: Knowing who examined, prescribed, gave, cared and signed, by the staff layout, and reaching
+      staff through the franchise's messaging service
+    people: [staff]
+    data:
+      personal: [clinic.staff.id, clinic.staff.name, clinic.staff.email]
+      customer-linked: []
+    where:
+      - at: records/clinic
+        tables: [staff]
+    shared_with:
+      - recipient: the owners' portal, records/portal
+        fields: [name]
+    kept_for:
+      period: 5 years after the staff member leaves, as long as the records they signed are kept (a game
+        value)
+      then: erased
+  - id: vet-core-referrals
+    department: The medical record
+    name: Referrals from the region's practices
+    purpose: Receiving referred animals from the region's practices and their vets, and sending each referral's
+      report back by letter
+    people: [referring vets, owners]
+    data:
+      personal: [clinic.referring_vets.id, clinic.referring_vets.name, clinic.referring_vets.email]
+      customer-linked: [clinic.referrals.animal_id]
+    where:
+      - at: records/clinic
+        tables: [referring_practices, referring_vets, referrals]
+    shared_with: []
+    kept_for:
+      period: 5 years from the referral's last entry (rule 9, a game value)
+      then: erased
+  - id: vet-core-record
+    department: The medical record
+    name: The medical record
+    purpose: Examining, diagnosing, treating and hospitalising animals, ordering analyses and imaging,
+      recording alerts, and notifying listed diseases to the authority (rules 7, 8)
+    people: [owners]
+    data:
+      personal: []
+      customer-linked: [clinic.stays.animal_id, clinic.consultations.animal_id, clinic.consultations.herd_id,
+        clinic.requests.animal_id, clinic.alerts.animal_id, clinic.animal_board.animal_id]
+    where:
+      - at: records/clinic
+        tables: [consultations, diagnoses, procedures, requests, stays, alerts, animal_board]
+    shared_with:
+      - recipient: the owners' portal, records/portal
+        fields: [animal_id, herd_id, kind, signed_at, diagnoses, admitted_at, discharged_at, outcome]
+    kept_for:
+      period: 5 years from the record's last entry (rule 9, a game value; no EU rule)
+      then: anonymised
+  - id: vet-core-medicines
+    department: The medical record
+    name: Prescriptions, administrations and supplies of medicines
+    purpose: Prescribing, giving and supplying medicines with their batch, quantity and withdrawal period,
+      keeping the medicines and controlled-drugs registers and the antimicrobial-use record (rules 1 to
+      6)
+    people: [owners, keepers]
+    data:
+      personal: []
+      customer-linked: [clinic.prescriptions.animal_id, clinic.prescriptions.herd_id, clinic.administrations.animal_id,
+        clinic.dispensings.owner_id]
+    where:
+      - at: records/clinic
+        tables: [prescriptions, prescription_lines, administrations, dispensings]
+    shared_with:
+      - recipient: the owners' portal, records/portal
+        fields: [medicine, dose, unit, frequency_hours, days, withdrawal_ends_on]
+    kept_for:
+      period: 5 years (Regulation (EU) 2019/6 Art 103, 108), 10 years for controlled drugs' movements
+        (the French rule, a game value)
+      then: erased
+  - id: vet-core-exchanges
+    department: The medical record
+    name: Exchanges with the franchise's other centres
+    purpose: Transferring animals to and asking examinations of the other centres, and answering theirs,
+      under the franchise's agreement (privileged flows)
+    people: [owners]
+    data:
+      personal: [clinic.exchanges.partner_patient]
+      customer-linked: [clinic.exchanges.animal_id]
+    where:
+      - at: records/clinic
+        tables: [exchanges]
+    shared_with: []
+    kept_for:
+      period: 5 years from the exchange's report (rule 9, a game value)
+      then: erased
+  - id: vet-housing-care
+    department: Housing
+    name: Placements, feeding plans and the care log
+    purpose: Housing each hospitalised animal, moving it as its care changes (isolation, intensive care),
+      feeding it by its plan or holding it nil by mouth, and recording the carers' actions, as the stay's
+      record (rules 2 to 5)
+    people: [owners, staff]
+    data:
+      personal: []
+      customer-linked: [clinic.housing_unit_board.animal_id]
+    where:
+      - at: records/clinic
+        tables: [housing_placements, housing_feeding_plans, housing_care_events, housing_unit_board]
+    shared_with: []
+    kept_for:
+      period: 5 years from the stay's end (rule 8, core rule 9, a game value)
+      then: erased
+  - id: vet-scheduling-agenda
+    department: Scheduling
+    name: The agenda, its rooms, machines and appointment types
+    purpose: Booking owners' animals, imaging studies, theatre plans, maintenance blocks and training
+      days on the centre's rooms and machines with the staff they take, never one resource in two places
+      at once (rules 1, 2, 5, 6)
+    people: [owners, staff]
+    data:
+      personal: []
+      customer-linked: [clinic.sched_bookings.animal_id]
+    where:
+      - at: records/clinic
+        tables: [sched_settings, sched_rooms, sched_hours, sched_machines, sched_types, sched_bookings,
+          sched_allocations]
+    shared_with: []
+    kept_for:
+      period: 5 years from the booking, as the clinical record (rule 10, core rule 9, a game value)
+      then: erased
+  - id: vet-scheduling-rota
+    department: Scheduling
+    name: The staff rota, its clocked hours and absences
+    purpose: Planning and publishing each staff member's shifts, recording the hours actually worked and
+      absences by kind only, the working-time record an inspector may ask for (Directive 2003/88/EC; CJEU
+      C-55/18; rules 3, 4)
+    people: [staff]
+    data:
+      personal: [clinic.sched_absences.note]
+      customer-linked: []
+    where:
+      - at: records/clinic
+        tables: [sched_shifts, sched_absences]
+    shared_with: []
+    kept_for:
+      period: 2 years (rule 10, the working-time record; a game value after Germany's rule)
+      then: erased
+  - id: vet-scheduling-training
+    department: Scheduling
+    name: The training centre's courses, sessions, trainees and certificates
+    purpose: Running the courses for vets, nurses, students, owners and handlers, their waiting lists,
+      attendance and certificates (GDPR Art 6(1)(b); rules 7, 8, 9)
+    people: [trainees]
+    data:
+      personal: [clinic.sched_trainees.id, clinic.sched_trainees.name, clinic.sched_trainees.email, clinic.sched_trainees.phone,
+        clinic.sched_trainees.referring_vet_id, clinic.sched_enrolments.certificate_number]
+      customer-linked: [clinic.sched_enrolments.trainee_id]
+    where:
+      - at: records/clinic
+        tables: [sched_courses, sched_sessions, sched_trainees, sched_enrolments]
+    shared_with: []
+    kept_for:
+      period: contacts 3 years after the trainee's last session, enrolments and certificates 5 years (rule
+        9, game values)
+      then: erased
+  - id: vet-lab-orders
+    department: The laboratory
+    name: Analysis orders and their samples
+    purpose: Receiving the centre's and the region's practices' orders, accessioning their samples, routing
+      each test in house or to the external lab, and keeping each sample's custody and storage (rules
+      5, 8, 10)
+    people: [owners, the practices' clients]
+    data:
+      personal: [lab.lab_orders.animal_id, lab.lab_orders.patient_ref, lab.lab_orders.client_surname,
+        lab.lab_orders.microchip, lab.lab_orders.ueln, lab.lab_orders.ear_tag, lab.lab_sample_events.other_party]
+      customer-linked: []
+    where:
+      - at: lab/lab
+        tables: [lab_orders, lab_samples, lab_order_tests, lab_sample_events]
+    shared_with:
+      - recipient: Northfield Veterinary Laboratories
+        fields: [accession, label, test, species, sex, age]
+      - recipient: the owners' portal, records/portal
+        fields: [animal_id, test, released_at]
+    kept_for:
+      period: orders 5 years (rule 12, a game value), then their personal columns; samples a week or two,
+        custody samples 60 days at most
+      then: anonymised
+  - id: vet-lab-results
+    department: The laboratory
+    name: Results, their validation and their quality control
+    purpose: Running the analysers and benches, quality control, flagging against reference intervals,
+      technical and clinical validation, amendments, critical-value calls (rules 1 to 4, 6)
+    people: [the practices' staff called]
+    data:
+      personal: [lab.lab_critical_calls.called_person]
+      customer-linked: []
+    where:
+      - at: lab/lab
+        tables: [lab_results, lab_batches, lab_qc_runs, lab_critical_calls]
+    shared_with:
+      - recipient: The region's practices
+        fields: [accession, kind, results]
+      - recipient: the owners' portal, records/portal
+        fields: [value, flag, unit, low, high]
+    kept_for:
+      period: 5 years (rule 12, a game value; ISO/IEC 17025 8.4.2 leaves it to the lab)
+      then: erased
+  - id: vet-machinery-imaging
+    department: The machines
+    name: Imaging studies and their reports
+    purpose: Scheduling and performing the imaging studies the vets order, archiving their images and
+      reporting them, with the owner's family name and the animal's name in the study as the DICOM standard
+      puts them (rules 1 to 3) and each ionising study's radiation record (rule 5)
+    people: [owners, staff]
+    data:
+      personal: [pacs.mach_studies.patient_id, pacs.mach_studies.patient_name, pacs.mach_worklist.animal_id,
+        pacs.mach_worklist.patient_id, pacs.mach_worklist.patient_name, pacs.mach_worklist.microchip,
+        pacs.mach_worklist.ueln, pacs.mach_worklist.ear_tag, pacs.mach_worklist.responsible_person]
+      customer-linked: []
+    where:
+      - at: machines/pacs
+        tables: [mach_pacs_settings, mach_procedures, mach_worklist, mach_studies, mach_series, mach_reports]
+    shared_with: []
+    kept_for:
+      period: 5 years from the study (rule 8; the professional code's five years for findings and technical
+        records)
+      then: erased
+  - id: vet-machinery-monitoring
+    department: The machines
+    name: Monitoring animals in theatre and intensive care
+    purpose: Watching the vital signs of the animals under anaesthesia and in intensive care on the central
+      station, charting them as the clinical record and raising alarms, from the core's current stays
+    people: [owners]
+    data:
+      personal: []
+      customer-linked: [vitals.mach_census.animal_id, vitals.mach_sessions.animal_id]
+    where:
+      - at: machines/vitals
+        tables: [mach_vitals_settings, mach_census, mach_sessions, mach_vitals, mach_vitals_chart, mach_alarms]
+    shared_with: []
+    kept_for:
+      period: the chart, sessions and alarms 5 years (rule 8); the raw vitals today and the last full
+        day on site, then the vault (cold storage, a game value)
+      then: erased
+  - id: vet-machinery-equipment
+    department: The machines
+    name: The machine registry and its maintenance
+    purpose: Keeping the registry of the centre's machines, their service visits, quality-assurance tests,
+      calibrations and downtimes (rule 6), with the vendors' engineers who visit
+    people: [vendors' service engineers, staff]
+    data:
+      personal: [biomed.mach_maintenance.engineer]
+      customer-linked: []
+    where:
+      - at: machines/biomed
+        tables: [mach_settings, mach_machines, mach_maintenance, mach_downtimes]
+    shared_with: []
+    kept_for:
+      period: the machine's life and 5 years (rule 8, a game value)
+      then: erased
+  - id: vet-portal-accounts
+    department: The owners' portal
+    name: The owners' portal accounts and their sessions
+    purpose: Inviting every owner of the record to the portal, letting them activate, log in and out,
+      reset their password and close their account, and keeping their sessions by a token's hash (rules
+      4, 5)
+    people: [owners, keepers]
+    data:
+      personal: [portal.portal_accounts.id, portal.portal_accounts.owner_id, portal.portal_accounts.display_name,
+        portal.portal_accounts.email, portal.portal_accounts.phone, portal.portal_accounts.invite_hash,
+        portal.portal_accounts.password_hash, portal.portal_sessions.token_hash]
+      customer-linked: [portal.portal_sessions.account_id]
+    where:
+      - at: records/portal
+        tables: [portal_accounts, portal_sessions]
+    shared_with:
+      - recipient: the franchise's messaging service
+        fields: [address]
+        processor: true
+    kept_for:
+      period: an account as long as it is open, its personal columns erased at once on closing (rule 5);
+        sessions 30 days after they end (rule 11, a game value)
+      then: erased
+  - id: vet-portal-copies
+    department: The owners' portal
+    name: The portal's copies of the core
+    purpose: Holding the animals, the ownerships and the herds as the core holds them, without address
+      or natural identifier, so that each account sees the animals its owner owns now, or keeps with the
+      owner's consent (rules 1, 3)
+    people: [owners, keepers]
+    data:
+      personal: []
+      customer-linked: [portal.portal_animals.animal_id, portal.portal_animals.herd_id, portal.portal_ownerships.animal_id,
+        portal.portal_ownerships.owner_id, portal.portal_herds.herd_id, portal.portal_herds.keeper_owner_id]
+    where:
+      - at: records/portal
+        tables: [portal_animals, portal_ownerships, portal_herds]
+    shared_with: []
+    kept_for:
+      period: as the core holds them, copied every few minutes (the core's rule 9, a game value)
+      then: erased
+  - id: vet-portal-documents
+    department: The owners' portal
+    name: Documents released to the owners, and their openings
+    purpose: Publishing signed consultations, released results and ended stays to the animal's current
+      owner once past their gate, amendments as new versions, and recording every document opened (rules
+      2, 3, 8)
+    people: [owners, keepers, staff]
+    data:
+      personal: [portal.portal_documents.vet_name]
+      customer-linked: [portal.portal_documents.animal_id, portal.portal_documents.herd_id, portal.portal_views.account_id]
+    where:
+      - at: records/portal
+        tables: [portal_documents, portal_views]
+    shared_with: []
+    kept_for:
+      period: documents 5 years, as the record they show (the core's rule 9); views 2 years (rule 11,
+        game values)
+      then: erased
+  - id: vet-portal-consents
+    department: The owners' portal
+    name: Owners' consents
+    purpose: Keeping every grant and withdrawal of the reminders' consent and of a keeper's access to
+      an animal, the latest the truth, as proof of consent (rule 6; GDPR Art 7(1), 7(3))
+    people: [owners, keepers]
+    data:
+      personal: []
+      customer-linked: [portal.portal_consent_events.owner_id, portal.portal_consent_events.animal_id,
+        portal.portal_consent_events.keeper_id]
+    where:
+      - at: records/portal
+        tables: [portal_consent_events]
+    shared_with: []
+    kept_for:
+      period: as long as the account and 5 years after (rule 11, a game value)
+      then: erased
+  - id: vet-portal-outbox
+    department: The owners' portal
+    name: Messages to the owners
+    purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging
+      service, each with its key, its address, its template, the animal's name and a link, the reminders
+      on consent (rules 6, 7)
+    people: [owners, keepers]
+    data:
+      personal: [portal.portal_outbox.account_id, portal.portal_outbox.owner_id, portal.portal_outbox.address,
+        portal.portal_outbox.animal_id, portal.portal_outbox.payload]
+      customer-linked: []
+    where:
+      - at: records/portal
+        tables: [portal_outbox]
+    shared_with:
+      - recipient: the franchise's messaging service
+        fields: [address, template, animal_name, link]
+        flow: messaging
+        processor: true
+    kept_for:
+      period: 2 years (rule 11, a game value)
+      then: erased
+internal:
+  - id: vet-core-operations
+    department: The medical record
+    name: Running the centre
+    where:
+      - at: records/clinic
+        tables: [business_settings, sites, sections, diagnosis_codes, medicines, medicine_batches]
+    kept_for:
+      period: as long as the centre runs; batches 5 years after their last supply (rule 2, a game value)
+      then: erased
+  - id: vet-housing-wards
+    department: Housing
+    name: The wards' units and their displays
+    where:
+      - at: records/clinic
+        tables: [housing_units, housing_displays]
+    kept_for:
+      period: while the unit or the display is in place, then 5 years with the records naming it (a game
+        value)
+      then: erased
+  - id: vet-lab-notifications
+    department: The laboratory
+    name: Notifications of listed diseases
+    where:
+      - at: lab/lab
+        tables: [lab_notifications]
+    kept_for:
+      period: 5 years (rule 12, a game value)
+      then: erased
+  - id: vet-lab-round-trips
+    department: The laboratory
+    name: Send-outs and the practices' deliveries
+    where:
+      - at: lab/lab
+        tables: [lab_send_outs, lab_callbacks]
+    kept_for:
+      period: 5 years (rule 12, a game value)
+      then: erased
+  - id: vet-lab-billing
+    department: The laboratory
+    name: Billing the practices
+    where:
+      - at: lab/lab
+        tables: [lab_charges, lab_prices, lab_accounts]
+    kept_for:
+      period: 10 years (national accounting law commonly, a game value)
+      then: erased
+  - id: vet-lab-catalogue
+    department: The laboratory
+    name: Running the lab
+    where:
+      - at: lab/lab
+        tables: [lab_settings, lab_analytes, lab_tests, lab_test_analytes, lab_reference_intervals]
+    kept_for:
+      period: as long as the lab runs; a replaced interval as long as a result flagged against it
+      then: erased
+  - id: vet-machinery-logs
+    department: The machines
+    name: The machines' logs
+    where:
+      - at: machines/biomed
+        tables: [mach_events]
+    kept_for:
+      period: 12 months on site (rule 4, a game value)
+      then: erased
+  - id: vet-machinery-telemetry
+    department: The machines
+    name: The machines' telemetry
+    where:
+      - at: machines/biomed
+        tables: [mach_readings, mach_readings_daily]
+    kept_for:
+      period: raw readings today and the last full day on site, then the vault; the daily aggregates 5
+        years (game values)
+      then: erased
+  - id: vet-portal-settings
+    department: The owners' portal
+    name: Running the portal
+    where:
+      - at: records/portal
+        tables: [portal_settings]
+    kept_for:
+      period: as long as the portal runs
+      then: erased
+index:
+  records/clinic: [vet-core-owners, vet-core-staff, vet-core-referrals, vet-core-record, vet-core-medicines,
+    vet-core-exchanges, vet-housing-care, vet-scheduling-agenda, vet-scheduling-rota, vet-scheduling-training,
+    vet-core-operations, vet-housing-wards]
+  lab/lab: [vet-lab-orders, vet-lab-results, vet-lab-notifications, vet-lab-round-trips, vet-lab-billing,
+    vet-lab-catalogue]
+  machines/pacs: [vet-machinery-imaging]
+  machines/vitals: [vet-machinery-monitoring]
+  machines/biomed: [vet-machinery-equipment, vet-machinery-logs, vet-machinery-telemetry]
+  records/portal: [vet-portal-accounts, vet-portal-copies, vet-portal-documents, vet-portal-consents,
+    vet-portal-outbox, vet-portal-settings]

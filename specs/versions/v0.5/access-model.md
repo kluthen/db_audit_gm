@@ -9,7 +9,8 @@ exact against what was built: the GM check role is kept off the
 partners' database from the network, and reads it on its node (8; spec
 D383); and a known gap added, the partner credentials the starter pack
 hands over, kept and tracked (13; spec D395, O231); after chunk 16, the portal's answers to a closed account as built
-(9.3; spec D428). Revises the [v0.4 access model](../v0.4/access-model.md),
+(9.3; spec D428); on 2026-11-09, by wave 4's preflight, the GM check
+role's read policy on tables with row security (8; spec D432). Revises the [v0.4 access model](../v0.4/access-model.md),
 which it replaces for v0.5 games; "Changes from v0.4" at the end lists
 what moved.
 
@@ -306,7 +307,11 @@ denials have no effect.
 - **The GM check role** (`gm_check`) keeps v0.4's reads, on every
   instance in the players' scope, the standby (by replication) and
   `machines`' three databases included (`CONNECT` granted by
-  `load-data`). It is not admitted to the partners' database from the
+  `load-data`); on a table with row security (the portal's ten) it
+  reads through a `gm_check_read` policy `load-data` adds, in players'
+  sight in `pg_policies` and marked "DO NOT TAMPER", as `cron.job`'s
+  since v0.4; a check finding it gone does not judge (spec D432). It is
+  not admitted to the partners' database from the
   network (its `pg_hba.conf` has no `host` line for it); the GM's
   checks read the partners' side through the GM's own plane (the exec
   operation on the partners' nodes, over that node's own socket; cold

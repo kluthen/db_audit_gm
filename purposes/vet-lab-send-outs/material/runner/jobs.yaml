@@ -1,0 +1,21 @@
+# Fixed-time operations of the integration engine, a fragment
+# (vet-lab-send-outs; clinic-purposes.md section 7; spec D436), in scenario
+# time: the day's send-outs packed and posted at 16:00 Monday to Friday;
+# the chase every 15 minutes, acting 08:00 to 19:59 Monday to Saturday in
+# the customer's local time and returning at once outside (a day-of-week
+# range written as a list, an hour window read by the script: the cron
+# subset render shifts, W4 item 0). Script jobs holding the lab's connection
+# and the external lab's stub's (spec D303).
+jobs:
+  - name: send-outs
+    key: send-outs.send
+    connections:               # the script's names -> the schedule's connections
+      source: lab-dispatch
+      partner: northfield-lab
+    at: "0 16 * * 1,2,3,4,5"
+  - name: chase-send-outs
+    key: send-outs.chase
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: "*/15 * * * *"

@@ -1,0 +1,13 @@
+# jobs.yaml of node pms, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/jobs.yaml
+  - name: administrations-round
+    key: administrations.round
+    connection: clinic
+    at: 0 2,6,10,14,18,22 * * *
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/jobs.yaml
+  - name: prescriptions-expire
+    key: prescriptions.expire
+    connection: clinic
+    at: 15 0 * * *

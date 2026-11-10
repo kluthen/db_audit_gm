@@ -1,0 +1,30 @@
+# schedule.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/partners-backend/schedule.yaml
+intensity: 1.0
+connections:
+  # from scenario: compose/partners-backend/schedule.yaml
+  authority-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: authority
+    pool:
+      size: 1
+  # from scenario: compose/partners-backend/schedule.yaml
+  headoffice-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: headoffice
+    pool:
+      size: 1
+streams:
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: authority.normal
+    connection: authority-db
+    rate: 1/min
+    arrivals: even
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: headoffice.normal
+    connection: headoffice-db
+    rate: 1/min
+    arrivals: even

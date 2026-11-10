@@ -290,7 +290,7 @@ On `pms` beside the core's (D276), connection `sched` (`records:5432/clinic`,
 | `sched.surgery.plan` | 0.6/h `office` | a theatre plan two to ten days ahead by the slot function |
 | `sched.trainees.enrol`, `sched.enrolments.cancel` | 0.38/h, 0.04/h `office` | an enrolment (a new trainee in three of four; waitlisted when full), a cancellation (the first waitlisted enrolled) |
 | `sched.absences.record` | 0.04/h `office` | an absence, leave nine in ten |
-| `sched.bookings.arrive` | 40/h `flat` | the oldest booking starting within ten minutes: arrived; one in twenty left for the no-show |
+| `sched.bookings.arrive` | 40/h `flat` | the booking whose arrival moment (its start, give or take five minutes, by a hash) has come, the oldest first: arrived, stamped when recorded; one in twenty left for the no-show |
 | `sched.bookings.no-show` | 10/h `flat` | a booking 30 minutes past its start: no-show; a past block: held |
 | `sched.bookings.move` | 4/h `office` | a future booking whose vet is absent: moved (cancelled `moved`, rebooked, source desk) |
 | `sched.shifts.clock` | 30/h `flat` | a clock-in and a clock-out (on-call on a call-out only) |

@@ -1,0 +1,7 @@
+# The notifications' copy on the back office's report runner, a fragment
+# (purpose 5; clinic-purposes.md 9; capture W4 items 0 and 4):
+# scripts/notifications_copy.py.
+queries:
+  notify.copy:
+    script: scripts/notifications_copy.py:copy
+    options: {}

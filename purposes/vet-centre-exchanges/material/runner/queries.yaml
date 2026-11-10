@@ -1,0 +1,11 @@
+# The exchanges' two script keys on the centre's integration engine, a
+# fragment (purpose 4; clinic-purposes.md 8; capture W4 items 0 and 4):
+# scripts/centre_exchanges.py, sync and chase. batch bounds the posts of each
+# kind a run makes.
+queries:
+  exchanges.sync:
+    script: scripts/centre_exchanges.py:sync
+    options: {batch: 20}
+  exchanges.chase:
+    script: scripts/centre_exchanges.py:chase
+    options: {batch: 50}

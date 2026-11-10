@@ -1,0 +1,15 @@
+# Purpose 4's endpoints on clinic-api, a fragment (v0.5 master spec 12.1,
+# 12.2 purpose 4; clinic-purposes.md 8; capture W4 items 0 and 4): the other
+# centres' requests (POST /exchanges) and their answers and reports on the
+# clinic's (POST /exchanges/{key}/answer, .../report), only answering (D270),
+# behind the credential the centres' stub sends, clinic_centres, read and
+# written as vet_exchange (connection clinic-exchanges). The GM copies it into
+# the scenario layer compose/clinic-api/, merged with vet-core's animals and
+# stays by gmctl compose. Written for the node names clinic-api and records
+# and the database clinic.
+endpoints:
+  exchanges:
+    hosts: [clinic-api]
+    credentials: [clinic_centres]
+connections:
+  clinic-exchanges: {driver: sql/postgresql, target: records:5432/clinic, role: vet_exchange, pool: {size: 2}}

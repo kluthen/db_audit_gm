@@ -1,0 +1,13 @@
+# schedule.yaml of the head office's stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; capture W2 item 6, W4 item 0; partners/README.md):
+# its baseline stream only, upserting its state once a minute as its own
+# role (the head office answers, with no stream). A fault's timeline change
+# of headoffice.normal to headoffice.<behaviour> is the scenario's. The GM
+# copies it into the scenario layer compose/partners-backend/.
+connections:
+  headoffice-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: headoffice, pool: {size: 1}}
+streams:
+  - key: headoffice.normal
+    connection: headoffice-db
+    rate: 1/min
+    arrivals: even

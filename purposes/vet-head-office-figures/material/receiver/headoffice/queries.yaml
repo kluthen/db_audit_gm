@@ -1,0 +1,12 @@
+# queries.yaml of the head office's stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; capture W2 item 6, W4 item 0): its baseline key.
+# delay_ms the milliseconds its route adds before each answer; fail_one_in
+# the standing 503 (every call whose number, headoffice.calls, is a multiple
+# of it answers 503: one in fifty). A fault's key (headoffice.<behaviour>)
+# upserts other values.
+queries:
+  headoffice.normal:
+    sql: >-
+      INSERT INTO headoffice.state (hostname, name, value) VALUES ('head-office', 'delay_ms', '0'),
+      ('head-office', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

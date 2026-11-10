@@ -1,0 +1,19 @@
+# Schedule of the back office's report runner for the medicines registers, a
+# fragment (purpose 7; clinic-purposes.md 11; capture W4 items 0 and 5): the
+# record read on its standby as the core's vet_reports (master spec 11.1:
+# the reports read there), office written on the primary as office_jobs; no
+# stream. Written for the nodes standby and records; the GM adapts the
+# targets as it copies (purpose 5's copy names the same connections, written
+# for a scenario without a standby).
+connections:
+  clinic-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: vet_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+streams: []

@@ -1,0 +1,478 @@
+# Exchanges fixture of v0.5 (build plan chunk 19; spec D435, D438, D440;
+# capture W4 items 0, 4 and 5 of specs/versions/v0.5/wave-log.md). Not a
+# game: purposes 4 (vet-centre-exchanges, the exchanges with the franchise's
+# other centres, both ways) and 5 (vet-notifiable-diseases, the vets' and the
+# lab's notifications to the authority, copied to the back office) on
+# vet-core's record (records/clinic) and vet-lab's laboratory (lab/lab),
+# loaded by gmctl load-data from the domains, the purposes' DDL at step (2b)
+# (purpose 4's ddl.target, purpose 5's ddl.source and ddl.source_lab), the
+# back office's database office from records' data file (purpose 5's
+# office.sql); the record's API, clinic-api (api 0.1.0), with purpose 4's
+# exchange endpoints beside vet-core's lookups; the integration engine,
+# interfaces (scheduler 0.3.0), running both purposes' jobs and, as
+# runner_reports, purpose 5's copy into office; the partners' three nodes,
+# serving the other centres (vet-core's centres stub, three hostnames) and
+# the authority (purpose 5's stub); and the bastion: eight nodes on one host.
+# Left out (composition.yaml): vet-core's pms, vet-lab's lis, lab-api and
+# two stubs' fragments. gmctl compose writes nodes/clinic-api/,
+# nodes/interfaces/, nodes/partners-api/ and nodes/partners-backend/ from the
+# domains' producers and the scenario layers compose/<node>/, where the
+# purposes' material is copied. Deployed by its short test,
+# run-short-test.sh. One harmless seed-file fault (f1), as the core
+# fixture's.
+
+# --- Scenario information --------------------------------------------
+id: fixture-exchanges
+version: 0.1.0
+title: Exchanges fixture, purposes 4 and 5 on vet-core's record and vet-lab's laboratory, with the centres' and the authority's stubs
+date: 2026-11-09
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital of a regional franchise keeps its medical record in
+  one PostgreSQL database, records, and its laboratory's in another, lab. It
+  exchanges patients with the franchise's other centres through its record's
+  API and its integration engine, and notifies listed diseases to the
+  national veterinary authority, keeping a copy in its back office's
+  database.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"               # the short test plans the hand-over so T0 falls at about 23:45 local
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+
+# --- Purposes (v0.4 master spec 6.7; v0.5 master spec 12) -------------
+purposes:
+  - id: vet-centre-exchanges
+    parts:
+      source: records/clinic
+      target: records/clinic
+      runner: interfaces
+      api: clinic-api
+      partner: partners-api
+  - id: vet-notifiable-diseases
+    parts:
+      source: records/clinic
+      source_lab: lab/lab
+      target: records/office
+      runner: interfaces
+      runner_reports: interfaces
+      receiver: partners-api
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+# The other centres (three hostnames on vet-core's one centres stub) and the
+# authority (purpose 5's stub), each on the partners' three nodes. The lab's
+# two partners, their fragments left out, are not declared: their state is
+# loaded on partners-db all the same (W3-f (b)), their roles connect from no
+# node.
+third_parties:
+  - id: aldermoor-central
+    name: Aldermoor Central
+    stands_for: the franchise's central national centre (site ALD-C)
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: aldermoor-central
+    player_doc: player/partners.md#aldermoor-central
+  - id: aldermoor-south
+    name: Aldermoor South
+    stands_for: the franchise's southern national centre (site ALD-S)
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: aldermoor-south
+    player_doc: player/partners.md#aldermoor-south
+  - id: aldermoor-abroad
+    name: Aldermoor abroad
+    stands_for: the franchise's three centres abroad, reached as one (sites ALD-BE, ALD-DE, ALD-LU)
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: aldermoor-abroad
+    player_doc: player/partners.md#aldermoor-abroad
+  - id: authority
+    name: The veterinary authority
+    stands_for: the national veterinary services, receiving the notifications of listed diseases
+    role: outbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: authority
+    player_doc: player/partners.md#the-veterinary-authority
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic (players' SSH and SQL sessions, the applications' SQL and HTTP, the partners' nodes)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+      partners.md: player/partners.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/records.sql        # the back office's office (purpose 5's office.sql); vet-core makes clinic
+      databases:
+        - name: office
+          owner: office
+          tables:
+            - name: runs
+              description: the back office's run ledger, one row a run of its jobs (copy-notifications here)
+            - name: regulatory_submissions
+              description: the copies of the regulatory submissions sent, one a notification of yesterday copied at 02:15 (kind notifiable-disease)
+
+  - name: lab
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.4
+        memory: 384M
+        disk: 1G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/lab/postgresql.conf
+      pg_hba.conf: nodes/lab/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: clinic-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/clinic-api/api.yaml
+      routes/: nodes/clinic-api/routes/
+      db/: nodes/clinic-api/db/
+    knobs: []
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+      scripts/: nodes/interfaces/scripts/
+    knobs: []
+
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/partners-backend/queries.yaml
+      jobs.yaml: nodes/partners-backend/jobs.yaml
+      schedule.yaml: nodes/partners-backend/schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope: {min: 32MB, max: 64MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 16MB}
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope: {min: 16MB, max: 64MB}
+      - setting: max_connections
+        initial: 40
+        envelope: {min: 20, max: 60}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 512MB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/partners-db.sql    # the database partners and the authority's stub (purpose 5's data.sql)
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: centres.exchanges
+              description: the other centres' stub, one row an exchange a centre holds (asked by the clinic or by the centre, its key, due_at, its answer and report), the history's open ones planted from core_exchange
+            - name: centres.messages
+              description: every message the centres' routes took, as received (request, answer, report), with the status answered
+            - name: centres.state
+              description: the centres' stub's state (delay_ms 0, the customer's utc_offset)
+            - name: authority.notifications
+              description: the authority's stub, one row a notification accepted (its key, its reference, the body as first accepted)
+            - name: authority.notification_calls
+              description: every call to the authority's notifications endpoint, its number and the status answered (one in fifty 503)
+            - name: authority.state
+              description: the authority's stub's state (delay_ms 0, fail_one_in 50)
+            - name: xlab.orders
+              description: the external lab's stub, one row a send-out it holds, the history's open ones planted (its fragments left out)
+            - name: practices.orders
+              description: the practices' stub, one row an order posted to lab-api, the history's open ones planted (their fragments left out)
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: clinic-api
+    what: players' SSH sessions; a lookup or an exchange needs a credential the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: clinic-api
+    to: records
+    what: the lookups, as vet_lookup; the centres' exchanges (their requests, answers and reports), as vet_exchange
+    how: postgresql 5432
+    cadence: per request
+  - from: interfaces
+    to: records
+    what: the exchanges to post and chase and the vets' notifiable diagnoses, as vet_interfaces; the notifications to copy, as vet_reports; the back office's copies, as office_jobs
+    how: postgresql 5432
+    cadence: every 5 and 15 minutes, 09:00 on working days, 02:15
+  - from: interfaces
+    to: lab
+    what: the lab's notifications to post and escalate, as lab_dispatch; the notifications to copy, as lab_reports
+    how: postgresql 5432
+    cadence: every 5 and 15 minutes, 02:15
+  - from: interfaces
+    to: partners-api
+    what: the clinic's requests, answers and reports to the centres (credential centres_customer, under each centre's hostname); the notifications to the authority (authority_customer)
+    how: http 8000
+    cadence: every 5 minutes
+  - from: partners-backend
+    to: partners-api
+    what: the centres' ticks and own requests, the stubs' baselines, with the credential partners_backend
+    how: http 8000, postgresql 5432 (partners-db)
+    cadence: every minute, every 5 minutes, about one request a day
+  - from: partners-api
+    to: clinic-api
+    what: the centres' requests, answers and reports, with the credential clinic_centres
+    how: http 8000
+    cadence: per tick
+  - from: partners-api
+    to: partners-db
+    what: the stubs' records, as centres and authority
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    lab: laptop
+    clinic-api: laptop
+    interfaces: laptop
+    partners-api: laptop
+    partners-backend: laptop
+    partners-db: laptop

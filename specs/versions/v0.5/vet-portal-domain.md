@@ -485,8 +485,9 @@ The one link slot (`invite_hash`, `invite_expires_at`) holds an
 invitation's or a reset's link, both 14 days; an `activation` consent
 event is written only when the reminders are granted. Row-level
 security binds every role but `portal` and superusers: `gm_check`'s
-`pg_read_all_data` reads no portal row, so a GM read of `portal`
-through `gm_src_*` needs a way in, open for W4's capture (O243).
+`pg_read_all_data` reads no portal row, so `load-data` gives it a
+`gm_check_read` policy on each of the ten tables, the way into a GM
+check's or a history's read through `gm_src_*` (spec D432).
 
 ### Application roles and grants
 
@@ -912,6 +913,15 @@ RL6 is judged on what the owners' route recorded each call returning,
 against the core's ownerships at that moment: the portal's owner scope
 end to end, wherever a fault sits (the copy, a policy, a function).
 
+**As built** (chunk 21b, D455): RL2, RL3 and RL5 (and MS5 below) judge a
+trigger already satisfied at once, before its deadline has passed, a
+pending one only once it has. The load stamps every account's
+`synced_at`, closed ones included, with `load_epoch`, so RL5's "no closed
+account reopened" reads accounts touched since both their closure and
+the judged moment. `vet_portal_sync` and `lab_release` read the columns
+the roles table below lists, `registered_at`, `consultations.state`,
+`sections` and `lab_samples (id, collected_at)` among them.
+
 **Data moved**: owners' names, e-mails and phones (personal) from
 `clinic` into `portal_accounts`; ownerships and animals' ids
 (customer-linked); the record's content (internal) and the vets' names
@@ -941,8 +951,8 @@ recent recipients).
 received in the last 14 days, its `target` the partners' database,
 `portal` its source: `portal_outbox`'s sent rows, read through
 `gm_src_source` after the derivation, the 193 open links' tokens
-among them (read as `gm_check`, which row-level security binds: the
-read needs a way in, open for W4's capture, O243). The stub's DDL is its receiver material, copied into the
+among them (read as `gm_check`, through its `gm_check_read` policy,
+D432). The stub's DDL is its receiver material, copied into the
 partners' node's data file, with `SELECT` granted to `owners`.
 
 **Jobs** (on `interfaces`, `portal` as `portal_dispatch`):
@@ -951,7 +961,7 @@ partners' node's data file, with `SELECT` granted to `owners`.
 |---|---|---|
 | `queue-notices` | `*/5 * * * *` | documents published since the watermark: one `document-notice` for each account that sees it (the current owner's, a granted keeper's), active, its channel not `none`; payload: the template, the animal's name, a link |
 | `queue-reminders` | `0 9 * * *` | domestic animals and horses alive in the copy whose due day is in 14 days, whose current owner's latest `reminders` event is a grant and whose account is not closed: one `reminder` per animal and due day, with its withdrawal link |
-| `send-messages` | `* * * * *` | the outbox's unsent rows (reminders only between 08:00 and 20:00), oldest first, each posted with its `message_key`, a five-second timeout; 202: `provider_id` and `sent_at`; otherwise the attempt counted, retried at the next run with the same key; after six attempts `failed_at` and an `ops.incidents` row; consent checked again for a reminder at sending time |
+| `send-messages` | `* * * * *` | the outbox's unsent rows (reminders only between 08:00 and 20:00), oldest first, each posted with its `message_key`, a five-second timeout; 202: `provider_id` and `sent_at`; otherwise the attempt counted, retried at the next run with the same key; after six attempts `failed_at` and an `ops.incidents` row; consent checked again for a reminder at sending time; a queued row whose basis changed before it was sent (the consent withdrawn, the owner or keeper changed, the animal dead, the account closed) is stopped: `failed_at` with its reason, no incident, since the service never failed (D455) |
 
 **Trace**: `portal_outbox`, `ops.watermarks`, `ops.incidents`,
 `ops.runs` in `portal`; the runner's log with each call; the stub's
@@ -978,10 +988,10 @@ flow: `to: messaging`, fields `address`, `template`, `animal_name`,
 
 | Database | Role | Who | Reads | Writes |
 |---|---|---|---|---|
-| `clinic` | `vet_portal_sync` | `interfaces`' release jobs | `owners` (id, kind, name, email, phone, registered at: a column grant, no address), `animals` (id, name, species, sex, born on, herd, status, died at: no identifiers), `ownerships`, `herds` (id, keeper), `consultations` (id, animal, herd, kind, section, vet, started at, signed at), `diagnoses`, `diagnosis_codes`, `prescriptions`, `prescription_lines`, `medicines` (id, name), `stays`, `staff` (id, name) | nothing |
-| `lab` | `lab_release` | `interfaces`' release jobs | `lab_orders` (id, account, animal, ordered at: a column grant, no identifiers or clinical notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals` | nothing |
+| `clinic` | `vet_portal_sync` | `interfaces`' release jobs | `owners` (id, kind, name, email, phone, registered at: a column grant, no address), `animals` (id, name, species, sex, born on, herd, status, died at, registered at: no identifiers), `ownerships`, `herds` (id, keeper), `consultations` (id, animal, herd, kind, section, vet, started at, signed at, state), `sections` (id, kind), `diagnoses`, `diagnosis_codes`, `prescriptions`, `prescription_lines`, `medicines` (id, name), `stays`, `staff` (id, name) | nothing |
+| `lab` | `lab_release` | `interfaces`' release jobs | `lab_orders` (id, account, animal, ordered at: a column grant, no identifiers or clinical notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals`, `lab_samples` (id, collected at) | nothing |
 | `portal` | `portal_sync` | the release jobs | the copies, accounts, documents | accounts (insert; contacts and `synced_at`; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
-| `portal` | `portal_dispatch` | the messages' jobs | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox (queued notices and reminders, sending columns), `ops.*` |
+| `portal` | `portal_dispatch` | the messages' jobs | accounts (id, owner, display name, status, channel, address: the recipient named in the payload, MS4), the copies, documents, consent events, the outbox | the outbox (queued notices and reminders, sending columns), `ops.*` |
 
 ### Points for the owner (step 7, ruled, D320)
 

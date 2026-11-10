@@ -1,0 +1,20 @@
+# Schedule of the centre's integration engine for the portal's messages, a
+# fragment (purpose 16; vet-portal-domain.md, "vet-portal-messages" and "The
+# roles the purposes add"; capture W4 items 0 and 6): the portal as
+# portal_dispatch (portal), and the messaging service under its hostname,
+# messaging (an alias of the partners' api node), with the customer's key
+# with the service, messaging_customer, a five-second timeout; no stream.
+# Written for the node records; the GM adapts the targets.
+connections:
+  portal-dispatch:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_dispatch
+    pool: {size: 1}
+  messaging:
+    driver: http
+    target: messaging:8000
+    credential: messaging_customer
+    pool: 1
+    timeout: 5s
+streams: []

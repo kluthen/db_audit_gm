@@ -1,0 +1,17 @@
+# Fixed-time operation of the back office's report runner for the
+# antimicrobial use, a fragment (purpose 8; clinic-purposes.md 12; capture W4
+# items 0 and 5 of specs/versions/v0.5/wave-log.md), in scenario time: the
+# feeder at 02:00, yesterday's use; the yearly report at 04:00, run daily and
+# acting on 15 January only (the customer's local date; spec D436), posted to
+# the authority. Script jobs reading the record on its standby as vet_reports
+# and writing office as office_jobs, the report calling the authority with
+# the customer's own key. Written for the runner backoffice; the GM adapts it.
+jobs:
+  - name: feed-antimicrobial-use
+    key: amu.feed
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 2 * * *"
+  - name: report-antimicrobial-use
+    key: amu.report
+    connections: {clinic: clinic-reports, office: office, receiver: authority}
+    at: "0 4 * * *"

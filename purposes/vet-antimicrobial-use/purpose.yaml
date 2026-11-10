@@ -1,0 +1,171 @@
+# Purpose 8, the antimicrobial use (v0.5 master spec 11.3, 12.1, 12.2 purpose
+# 8; clinic-purposes.md 12; core rule 4; spec D436; capture W4 items 0 and 5
+# of specs/versions/v0.5/wave-log.md): a pushed obligation, periodic. The
+# antimicrobials used per local day, species and ATCvet code, fed daily into
+# the back office's database office from the record's standby; on 15 January
+# last year's report for the species due, posted to the authority, its
+# reference and a copy kept, or escalated.
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic (read on its standby, standby), target records/office,
+# runner backoffice, receiver partners-api (hostname authority, the stub
+# shared with purpose 5). The GM adapts the names as it copies; gm.md says
+# where each name lives. office's DDL goes into records' data file
+# (office.sql once, then data.sql); material/history.sql plants the past.
+id: vet-antimicrobial-use
+title: The yearly antimicrobial-use report to the authority, fed daily into the back office
+domains: [vet-core]
+kind: pushed-obligation
+
+parts:
+  source: the core's record, clinic (the doses given and dispensings, read on its standby; the history reads the primary)
+  target: the back office's database, office (the daily use, the reports, their copies)
+  runner: the back office's report runner, backoffice
+  receiver: the partners' api node, serving the authority under its hostname
+
+jobs:
+  - name: feed-antimicrobial-use
+    key: amu.feed
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      yesterday's use of antimicrobials (the customer's local date), doses given and dispensings, per
+      species and ATCvet code, a herd treatment under its herd's species: doses, dispensings,
+      quantity, animals and herds treated (amu.feed.read on the standby), once a day; one runs row.
+    cadence: "0 2 * * *"
+    connections:
+      clinic: vet_reports
+      office: office_jobs
+  - name: report-antimicrobial-use
+    key: amu.report
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      run daily, acting on 15 January only (the customer's local date; any other day writes
+      nothing): last year's report for each species due that day, summed from the daily rows
+      (amu.report.compute), posted to the authority's POST /amu-reports (up to three attempts);
+      acknowledged, its reference and a regulatory_submissions copy (kind amu-report); else
+      escalated; one runs row.
+    cadence: "0 4 * * *"
+    connections:
+      clinic: vet_reports
+      office: office_jobs
+      receiver: authority_customer
+    feeder: feed-antimicrobial-use
+
+trace:
+  - kind: published-results
+    part: target
+    table: antimicrobial_use
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: amu_reports
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: regulatory_submissions
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: AM1
+    statement: >-
+      Each feed-antimicrobial-use run since the judged moment holds its local day's antimicrobial use
+      per species and medicine, equal to the source's.
+    check: checks/am1-daily-use.sh
+    parameters: {}
+    witness: the day's antimicrobial doses and dispensings, every day.
+    judged: runs
+  - id: AM2
+    statement: >-
+      Every use traces to a species: a herd treatment counts under its herd's species, nothing falls
+      out for lack of an animal.
+    check: checks/am2-species-traced.sh
+    parameters: {}
+    witness: the herd visits of Tuesdays and Thursdays, prescribing to herds.
+    judged: runs
+  - id: AM3
+    statement: >-
+      The yearly report covers the species due at its date, and equals the sum of its year's daily
+      rows.
+    check: checks/am3-report-code.sh
+    parameters: {}
+    witness: last year's planted report, against which the report's code runs; January's run if the GM places one.
+    judged: code
+  - id: AM4
+    statement: The report is acknowledged by its deadline (31 January), or escalated.
+    check: checks/am4-acknowledged-or-escalated.sh
+    parameters: {}
+    witness: January only; the planted report.
+    judged: triggers
+
+history: material/history.sql
+
+data_moved:
+  - job: feed-antimicrobial-use
+    reads: []
+    writes: [target:antimicrobial_use, target:runs]
+  - job: report-antimicrobial-use
+    reads: []
+    writes: [target:amu_reports, target:regulatory_submissions, target:runs, receiver:authority.amu_reports]
+
+roles:
+  - name: vet_reports
+    part: source
+    reads: [business_settings, sites, animals, administrations, dispensings, prescriptions, prescription_lines,
+            medicines]
+    writes: []
+  - name: office_jobs
+    part: target
+    reads: [antimicrobial_use, amu_reports]
+    writes: [antimicrobial_use, amu_reports, regulatory_submissions, runs]
+
+classification:
+  columns:
+    office.antimicrobial_use.id: internal
+    office.antimicrobial_use.day: internal
+    office.antimicrobial_use.species: internal
+    office.antimicrobial_use.atcvet_code: internal
+    office.antimicrobial_use.administrations: internal
+    office.antimicrobial_use.dispensings: internal
+    office.antimicrobial_use.quantity: internal
+    office.antimicrobial_use.animals_treated: internal
+    office.antimicrobial_use.herds_treated: internal
+    office.antimicrobial_use.run_id: internal
+    office.amu_reports.id: internal
+    office.amu_reports.year: internal
+    office.amu_reports.species: internal
+    office.amu_reports.deadline: internal
+    office.amu_reports.payload: internal
+    office.amu_reports.sent_at: internal
+    office.amu_reports.reference: internal
+    office.amu_reports.acknowledged_at: internal
+    office.amu_reports.escalated_at: internal
+    office.amu_reports.run_id: internal
+    office.regulatory_submissions.id: internal
+    office.regulatory_submissions.kind: internal
+    office.regulatory_submissions.source: internal
+    office.regulatory_submissions.ref: internal
+    office.regulatory_submissions.payload: personal
+    office.regulatory_submissions.sent_at: internal
+    office.regulatory_submissions.reference: internal
+    office.regulatory_submissions.copied_at: internal
+    office.regulatory_submissions.run_id: internal
+    office.runs.id: internal
+    office.runs.purpose: internal
+    office.runs.job: internal
+    office.runs.started_at: internal
+    office.runs.finished_at: internal
+    office.runs.rows_read: internal
+    office.runs.rows_written: internal

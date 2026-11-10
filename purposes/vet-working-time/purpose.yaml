@@ -1,0 +1,166 @@
+# Purpose 12, the working-time record (v0.5 master spec 11.3, 12.1, 12.2
+# purpose 12; vet-scheduling-domain.md, purpose 12; Directive 2003/88/EC;
+# CJEU C-55/18; spec D265, D300, D436; capture W4 items 0 and 5 of
+# specs/versions/v0.5/wave-log.md): pulled, periodic. Each staff member's
+# working day as clocked and its short rests, fed daily into the back
+# office's database office from the record's standby at 09:30 (after the
+# night shifts end), the month on the 1st, run daily and acting on that
+# date only.
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic (vet-scheduling's shifts and the core's staff, read on its
+# standby, standby), target records/office, runner backoffice. The GM adapts
+# the names as it copies; gm.md says where each name lives. office's DDL goes
+# into records' data file (office.sql once, then data.sql);
+# material/history.sql plants the past.
+id: vet-working-time
+title: The working-time record, each day as clocked and its short rests, fed daily into the back office, summed monthly
+domains: [vet-core, vet-scheduling]
+kind: pulled
+
+parts:
+  source: the core's record, clinic, with vet-scheduling's shifts (read on its standby; the history reads the primary)
+  target: the back office's database, office (the days, the breaches, the months)
+  runner: the back office's report runner, backoffice
+
+jobs:
+  - name: feed-working-time
+    key: worktime.feed
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the shifts that started yesterday (the customer's local date), every night shift clocked out
+      by 09:30: per staff member the shifts, planned hours (on call excluded), hours worked as
+      clocked (on call its call-out only), night hours, call-outs (worktime.feed.read, as
+      sched_reports, the names as vet_reports); each shift on site whose rest since the previous
+      one on site is under 11 hours a breach (worktime.feed.rests); once a day; one runs row.
+    cadence: "30 9 * * *"
+    connections:
+      sched: sched_reports
+      clinic: vet_reports
+      office: office_jobs
+  - name: close-working-time
+    key: worktime.close
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      run daily, acting on the 1st only (the customer's local date; any other day writes nothing):
+      each staff member's past month from the daily rows, hours, night hours, call-outs, breaches,
+      and the weekly average over the last four months (worktime.close.compute); one runs row.
+    cadence: "0 5 * * *"
+    connections:
+      clinic: vet_reports
+      office: office_jobs
+    feeder: feed-working-time
+
+trace:
+  - kind: published-results
+    part: target
+    table: working_time_days
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: rest_breaches
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: working_time_months
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: WT1
+    statement: >-
+      Each feed-working-time run since the judged moment holds every shift started on its local day,
+      its worked hours equal to the clocked ones.
+    check: checks/wt1-shifts-as-clocked.sh
+    parameters: {}
+    witness: about 55 shifts a day, a dozen at night.
+    judged: runs
+  - id: WT2
+    statement: >-
+      Every rest under 11 hours between two consecutive shifts on site of one staff member is a
+      breach row.
+    check: checks/wt2-short-rests.sh
+    parameters: {}
+    witness: >-
+      every day's rests, judged; the rota leaves none short: a moved booking's overtime or a fault's
+      pattern makes them.
+    judged: runs
+  - id: WT3
+    statement: A month's figures equal the sum of its days, with the average over the last four months.
+    check: checks/wt3-month-code.sh
+    parameters: {}
+    witness: the planted months, against which the month's code runs; the 1st's run if the GM places one.
+    judged: code
+
+history: material/history.sql
+
+data_moved:
+  - job: feed-working-time
+    reads: [clinic.staff.name]
+    writes: [target:working_time_days, target:rest_breaches, target:runs]
+  - job: close-working-time
+    reads: []
+    writes: [target:working_time_months, target:runs]
+
+roles:
+  - name: sched_reports
+    part: source
+    reads: [sched_shifts, sched_settings]
+    writes: []
+  - name: vet_reports
+    part: source
+    reads: [business_settings, "staff (id, name)"]
+    writes: []
+  - name: office_jobs
+    part: target
+    reads: [working_time_days, rest_breaches, working_time_months]
+    writes: [working_time_days, rest_breaches, working_time_months, runs]
+
+classification:
+  columns:
+    office.working_time_days.id: internal
+    office.working_time_days.day: internal
+    office.working_time_days.staff_id: internal
+    office.working_time_days.staff_name: personal
+    office.working_time_days.shifts: internal
+    office.working_time_days.planned_hours: internal
+    office.working_time_days.worked_hours: internal
+    office.working_time_days.night_hours: internal
+    office.working_time_days.call_outs: internal
+    office.working_time_days.run_id: internal
+    office.rest_breaches.id: internal
+    office.rest_breaches.day: internal
+    office.rest_breaches.staff_id: internal
+    office.rest_breaches.shift_id: internal
+    office.rest_breaches.previous_shift_id: internal
+    office.rest_breaches.rest_hours: internal
+    office.rest_breaches.run_id: internal
+    office.working_time_months.id: internal
+    office.working_time_months.month: internal
+    office.working_time_months.staff_id: internal
+    office.working_time_months.staff_name: personal
+    office.working_time_months.worked_hours: internal
+    office.working_time_months.night_hours: internal
+    office.working_time_months.call_outs: internal
+    office.working_time_months.breaches: internal
+    office.working_time_months.average_weekly_hours: internal
+    office.working_time_months.run_id: internal
+    office.runs.id: internal
+    office.runs.purpose: internal
+    office.runs.job: internal
+    office.runs.started_at: internal
+    office.runs.finished_at: internal
+    office.runs.rows_read: internal
+    office.runs.rows_written: internal

@@ -32,6 +32,13 @@ The image:
   `libcmark-gfm-extensions0.29.0.gfm.13`; gate G13), which renders the
   starter pack into the front's page at start-up (D222). The build
   asserts it runs, renders a table with `-e table`, and omits raw HTML.
+- `curl` 8.14.1 from Debian (package `curl`, unpinned, installed with
+  `--no-install-recommends`; `libcurl4t64` and its libraries with it;
+  gate G11.2, accepted by the owner on 2026-11-10 with trixie's unfixed
+  curl issues until 2027-02-01 or the next trixie curl security upload),
+  the players' HTTP client (access model 4): they call the partners'
+  endpoints with the credentials `partners.md` hands over. The build
+  asserts `curl --version` runs.
 - s6-overlay 3.2.3.2 (x86_64), same archives and SHA-256 as the PostgreSQL
   brick.
 - Generic: no scenario content, no host key, no password in the image.
@@ -111,6 +118,17 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
   interface on that port with `web_path: /<name>/`, and that every web
   interface of the topology has exactly one route. The entrypoint checks
   the tokens again and fails the container on a malformed one.
+- **Cold storage's console** (v0.5, master spec 7.3, spec D363; capture
+  W4 item 1): the one route to a third party, as a provider's console the
+  customer logs into. Its target is cold storage's hostname, the one its
+  `coldstore_manifests` endpoint answers under on the partners' api node,
+  on port 8000: `web_routes: {cold-storage: "cold-storage:8000"}`. Render
+  passes it as `cold-storage=cold-storage:8000:console`; the front proxies
+  only `GET /cold-storage/` (to `/`, the vault's page) and `GET
+  /cold-storage/manifests` (to `/manifests`, its query string kept), with
+  `Host: cold-storage`; any other path under it, and any other method
+  (`POST /cold-storage/shipments`, the upload), answers 404. The loader
+  refuses every other third party's node or hostname in `web_routes`.
 
 ### Values the GM sets per scenario and per game
 
@@ -118,6 +136,9 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 |---|---|---|
 | Starter pack `README.md`, `story.md`, `issues.md` (`seed.files`) | `/opt/gm/starter/`, root `0444`, copied once into `/home/player`, rendered into the page at each start | the scenario's `seed_files`: `{README.md: player/README.md, story.md: player/story.md, issues.md: player/issues.md}` (capture W1-D) |
 | Starter pack `data-policy.md` (`seed.files`, `seed.optional`) | `/opt/gm/starter/data-policy.md`, likewise, when mapped | a scenario with `governance:` maps it to its policy file, `data-policy.md: player/data-policy.md` (v0.4 master spec 11.5); one without maps none, and the bastion copies and shows none (v0.4 capture W1 item 4) |
+| Starter pack `partners.md` (`seed.files`, `seed.optional`; v0.5) | `/opt/gm/starter/partners.md`, likewise, when mapped, each `{{credential:<name>}}` replaced in the home's copy and on the page | a scenario with partners maps it, `partners.md: player/partners.md` (master spec 6.2, 7.3) |
+| Starter pack `data-register.md` (`seed.files`, `seed.optional`; v0.5) | `/opt/gm/starter/data-register.md`, likewise, when mapped | a scenario with `governance.register` maps it to the register handout, `data-register.md: player/data-register.md` (master spec 13.2), unless a planted fault leaves the register out |
+| Secret `http_<name>` (kind `password`, handed over; v0.5) | `/opt/gm/secrets/http_<name>`, root `0400`; read at every start into `partners.md` | render, one per name a `third_parties:` entry lists under `credentials:` (the customer's own credential with that partner; spec D365, D433), the same secret as the partner's endpoint checks; `gmctl status` lists it as "password, handed over" |
 | Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
 | Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
@@ -134,7 +155,8 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 
 | What | Path | Notes |
 |---|---|---|
-| Starter pack | `/opt/gm/starter/` | configs `README.md`, `story.md`, `issues.md` and, when mapped, `data-policy.md`, read-only |
+| Starter pack | `/opt/gm/starter/` | configs `README.md`, `story.md`, `issues.md` and, when mapped, `data-policy.md`, `partners.md`, `data-register.md`, read-only |
+| Resolved starter files | `/run/gm/starter/partners.md` | root, `0700` dir: `partners.md` with its credentials written in, the source of the home's copy and of the page |
 | Player home | `/home/player` | volume `home`; `player`, `0750` |
 | Starter marker | `/home/player/.gm-starter-copied` | root, `0444` |
 | Inner-hop key | `/home/player/.ssh/id_ed25519` | `player`, `0600`, rewritten at each start |
@@ -164,22 +186,28 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
    there yet.
 3. Fails the container if a secret is missing or empty, if
    `player_password` or `dba_password` is not a single line, or if
-   `player_ssh_key` does not load as an unencrypted private key.
+   `player_ssh_key` does not load as an unencrypted private key. When
+   the scenario maps `partners.md`, writes `/run/gm/starter/partners.md`,
+   each `{{credential:<name>}}` replaced by the secret
+   `/opt/gm/secrets/http_<name>`, failing the container on a name that is
+   not a credential's or has no secret (v0.5, spec D365, D433).
 4. Builds `/run/gm/shadow` (root:shadow, `0640`): the image's own copy
    (`/usr/local/lib/gm/shadow.base`) with `player`'s hash
    (`openssl passwd -6`, SHA-512 crypt) of the per-game password.
 5. Fails the container if a required starter pack file (`README.md`,
    `story.md`, `issues.md`) is missing. If `~/.gm-starter-copied` is
    absent, copies the starter pack into `/home/player` (`player`,
-   `0644`), skipping any file already there and the optional
-   `data-policy.md` when the scenario provides none, then writes the
+   `0644`; `partners.md` from its resolved copy), skipping any file
+   already there and an optional file (`data-policy.md`, `partners.md`,
+   `data-register.md`) the scenario provides none of, then writes the
    marker.
 6. Writes `~/.ssh/id_ed25519` (final newline added back; OpenSSH refuses a
    key without it) and `~/.pgpass` (`:` and `\` escaped). Whatever the
    player left at those paths is removed first, so a symlink cannot point
    root's write elsewhere.
 7. Reads `GM_WEB_ROUTES`, failing the container on a token that is not
-   `name=node:port` (lowercase names, as the loader checks them) or on a
+   `name=node:port` or, cold storage's console, `name=host:port:console`
+   (lowercase names, as the loader checks them) or on a
    route given twice. Then, routes or none (D224): reads
    `tools_password` (same rules as the other passwords); writes
    `/run/web-front/htpasswd` (user `player`, `openssl passwd -6` hash),
@@ -347,7 +375,9 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   present, then one `<section id="...">` per element present, in this
   order: `readme` (`README.md`), `story` (`story.md`), `issues`
   (`issues.md`), `data-policy` (`data-policy.md`, only when the scenario
-  maps it), `web-interfaces` (a heading and one link `/<route>/` per
+  maps it), `partners` (`partners.md`, its credentials written in) and
+  `data-register` (`data-register.md`), each only when mapped (v0.5,
+  master spec 7.3), `web-interfaces` (a heading and one link `/<route>/` per
   route, only when `GM_WEB_ROUTES` has one). An absent element leaves
   nothing: no empty section, no link to it. The elements are one list in
   `gm-entrypoint` (`PAGE_ELEMENTS`, one line `<kind> <id> <source>
@@ -359,6 +389,10 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   wrong user or password: `401` with `WWW-Authenticate: Basic
   realm="db_audit_gm web front"`, so the browser asks for it. Plain HTTP
   (access model, "Known gaps").
+- **Cold storage's console** (v0.5): `GET /cold-storage/` and `GET
+  /cold-storage/manifests` only, forwarded to `/` and `/manifests` with
+  `Host: cold-storage` and the query kept; any other path or method under
+  it 404 (see "The routes parameter `web_routes`").
 - **What it forwards**: the request's method, path and query unchanged;
   `Host` as the browser sent it (`<host>:<port>`, which Grafana compares
   with `Origin`); `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto:

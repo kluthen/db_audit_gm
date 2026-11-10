@@ -50,7 +50,22 @@ send-outs open at T0; and the middleware's and the dispatch jobs' reads
 as granted (9.3; spec D415). On 2026-11-04, chunk 12b's: the
 middleware's read of the results' `order_test_id`, the order API's of
 the reference intervals, the release rounds as three jobs, no
-food-chain status on an order (9.3; spec D420).
+food-chain status on an order (9.3; spec D420). On 2026-11-09, wave
+4's preflight: the monthly, yearly and windowed jobs as daily or
+15-minute runs acting on their own date or window, within the
+scheduler's cron subset (12.2; spec D436); the register required of
+played scenarios, a `fixture-` scenario exempt (6.2, 13.2; spec D434).
+On 2026-11-10, after wave 4's gate: its format items as built, recorded
+in sections 5, 6, 6.2, 6.6 and 12.1 and in formats.md v32 (gate
+G18); the owner's rulings of that day: Debian `curl` in `bastion` 0.5.0,
+the players' HTTP client (7.3; spec D443); a brick's tag naming one
+Debian package list, a changed image taking the next patch version (6.7;
+spec D445); Prometheus on its 3.16 line in a later wave, so `prometheus`
+0.2.1 in wave 5 beside the Grafana data-source plugin at 13.2.5 or later
+(6.7, 7.5; spec D446, D448); an arrival stamped when `pms` records it
+(9.4; spec D447). Also as built: PR1 judges each delivery a practice
+result makes due; on-call shifts take no part in the 11 hours' rest
+comparison (9.4, 12.2; spec D450, D452).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -266,11 +281,15 @@ bricks/
                         connections, the weighted `choice`, `no-access`
   api/                  0.1.0, new: FastAPI and uvicorn serving endpoint files
   bastion/              0.5.0: `partners.md` and `data-register.md`, optional
-                        seed files on the page; the route to cold storage's page
+                        seed files on the page, `partners.md`'s handed-over
+                        credentials filled in; the route to cold storage's page;
+                        Debian `curl`, the players' HTTP client (D443)
   pgwatch/              0.1.0, new: pgwatch, its Prometheus sink (7.4)
   health-check/         0.1.0, new: `check_postgres`, the status page, the
                         customer's scripts (7.4)
-  grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
+  grafana/              0.3.0: a seeded pgwatch dashboard (7.4); its Prometheus
+                        data-source plugin at 13.2.5 or later (D448)
+  prometheus/           0.2.1: Prometheus 3.16.x (D446, D448)
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
   vet-portal/           new: the clinic's six domains (9); the core's key
                         functions in data/keys.sql, a part's own beside them,
@@ -282,7 +301,10 @@ domains/shop/           its classification rekeyed, its register fragment, its
 partners/               new: a catalogue folder beside domains/ and purposes/:
                         shared/, the base of the partners' three shared nodes;
                         coldstore/, cold storage, the vault (6.1, 10.2, 10.4)
-purposes/<purpose-id>/  new: the clinic's purposes built in v0.5 (12.2)
+purposes/<purpose-id>/  new: the clinic's purposes built in v0.5 (12.2): material/
+                        per part (runner/, runner_<w>/, <part>/ddl.sql, target/,
+                        api/<node>/, receiver/<prefix>/, partner/<prefix>/),
+                        history.sql, checks/, gm.md; the shared `ops` block (12.1)
 faults/<fault-id>/      new: the test selection's ten (17.2); every fault applying
                         to a bumped brick lists its new version; one fault's
                         precondition widened (17.2)
@@ -301,7 +323,10 @@ specs/formats.md        draft v28: the domain format, composition, the register;
                         v29 after wave 2: the composed load's files and the
                         partners/ folder, as built; v31 after wave 3: a part's
                         keys, cron.sql, left_out:, the purposes' ddl: and the
-                        owners alone on the shared nodes, as built
+                        owners alone on the shared nodes, as built; v32 after
+                        wave 4: the purposes' parts, material, ops block and
+                        cadences, step (2c), the register's form, the
+                        partners' credentials, the cron.sql refusal, as built
 ```
 
 ## 6. Format changes
@@ -310,9 +335,12 @@ The cross-version [formats.md](../../formats.md) states the rules for
 every version. Its draft v28 states v0.5's domain format, the
 composition of domains, the data register's files and the purpose
 format's extensions in full, its v29 the composed load's files and
-the partners' folder as wave 2 built them, and its v31 wave 3's (a
+the partners' folder as wave 2 built them, its v31 wave 3's (a
 part's keys, `cron.sql`, `left_out:`, `ddl:`, the owners alone on the
-shared nodes); this section lists what v0.5 changes and
+shared nodes), and its v32 wave 4's (the purposes' parts beyond v0.4's,
+their material, the `ops` block and calendar-gated cadences, the load's
+step (2c), the register's form and digests, the partners' handed-over
+credentials, the `cron.sql` database refusal); this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -384,7 +412,15 @@ As [formats.md](../../formats.md) "Domain" states it:
 - **The data register**: `governance.register: player/data-register.md`,
   the handout, mapped to the bastion's optional seed file
   `data-register.md`; `gm/data-register.yaml`, the true register; both
-  generated (13.3). Required of every scenario listing `domains:`.
+  generated (13.3). Required of every scenario listing `domains:`,
+  a `fixture-` one excepted (13.2), a fixture that has one checked in
+  full. As built in wave 4: the true register opens with
+  `generated_from:`, each input's path mapped to `sha256:<hex>` of its
+  bytes (the answer key among them, written first), then the controller,
+  contact and policy, the entries (`purpose`, `people`, `data` by class,
+  `where`, `shared_with`, `kept_for`: the fields `register_diff:` names),
+  the internal tables and a `node/database` index; a digest no longer
+  matching is refused as a stale register.
 - **`third_parties:`**, one entry per partner, and
   **`partners.md`**, the fifth optional starter-pack file, mapped to the
   bastion's optional seed file `partners.md` (10.2, 10.3):
@@ -398,7 +434,17 @@ As [formats.md](../../formats.md) "Domain" states it:
       nodes: [partners-api, partners-backend, partners-db]  # shared nodes; none for a party without a node
       hostname: northfield-lab                   # its alias on the partners' api node
       player_doc: player/partners.md#northfield-veterinary-laboratories
+      credentials: [xlab_customer]               # as built (D433): the customer's own, handed over
   ```
+
+  As built in wave 4: `credentials:` lists the HTTP credentials
+  `partners.md` documents for that partner, the customer's own, each
+  accepted by an endpoint answering under its hostname; `partners.md`
+  names each as `{{credential:<name>}}`, which the bastion replaces by the
+  game's value in the home copy and on the page, refusing to start on a
+  name with no secret. The loader refuses a placeholder no entry lists, a
+  listed credential `partners.md` does not name, `partners_backend` and a
+  node's vault credential.
 
 - **`options:`** on a `postgres` node, the options it chooses
   (`[monitoring]`), off unless listed (7.1).
@@ -471,7 +517,18 @@ needs no feeder, and may target the partners' database, running there;
 `ddl:` maps a database part to its DDL under `material/`, run by
 `load-data` at the composed load's step (2b), after the domains' loads
 and before the derivations, only in a database a `domains:` entry
-holds.
+holds. As built in wave 4 (formats.md v32): more database parts
+`source_<w>` and runners `runner_<w>`, each checked as its base part; a
+`pg_cron` job on a database part, scheduled by that part's `ddl:`, with
+no runner; the material laid out one folder per part; the `ops` block,
+one guarded text in every `ddl:` file; monthly, yearly and windowed jobs
+run daily or every 15 minutes, acting on their own date or window
+(D436); invariant ids of one or two capitals and a number; `data_moved`
+reads keyed as the scenario's classification; an HTTP connection
+`<part>_<w>` per hostname of a part reached under several; endpoint
+material's `api.yaml`; one `end-to-end` invariant per round trip; and,
+at step (2c), the GM's read policy `gm_check_read` on every table with
+row-level security (D432).
 
 ### 6.7 Versions and pins
 
@@ -485,16 +542,21 @@ scenarios, purposes and domains never bump. v0.5's bumps:
 | `postgres` | 0.4.0 | **0.5.0** | TLS and pgaudit always available; the standby mode; WAL archiving and the base-backup job; the `monitoring` option; `no-access`; pgCluu; its documentation |
 | `scheduler` | 0.2.0 | **0.3.0** | the HTTP driver; HTTP connections in script jobs; the weighted `choice`; `no-access` |
 | `api` | — | **0.1.0** | new |
-| `bastion` | 0.4.0 | **0.5.0** | `partners.md` and `data-register.md` on the page; the route to cold storage's read-only page |
+| `bastion` | 0.4.0 | **0.5.0** | `partners.md` and `data-register.md` on the page; the route to cold storage's read-only page; Debian `curl` (D443) |
 | `pgwatch` | — | **0.1.0** | new (7.4) |
 | `health-check` | — | **0.1.0** | new (7.4) |
-| `grafana` | 0.2.0 | **0.3.0** | a seeded pgwatch dashboard over pgwatch's Prometheus metrics (7.4), as another seeded dashboard bumps the brick |
+| `grafana` | 0.2.0 | **0.3.0** | a seeded pgwatch dashboard over pgwatch's Prometheus metrics (7.4), as another seeded dashboard bumps the brick; its bundled Prometheus data-source plugin at 13.2.5 or later (D448; the version O247's) |
+| `prometheus` | 0.2.0 | **0.2.1** | Prometheus 3.16.x (D446, D448), a pinned binary's release: the next patch version (D445) |
 
-`prometheus`, `postgres-exporter` and `pgbouncer` bump only if the build
-changes them (a documentation change included); none is planned:
-Prometheus scrapes pgwatch from the scenario's seed file. Every
+`postgres-exporter` and `pgbouncer` bump only if the build changes them
+(a documentation change included), or if a rebuild changes their
+content: a brick's tag names one Debian package list, so a rebuild whose
+`dpkg-query` list differs takes the next patch version, with its re-pins
+in the same wave (the owner's ruling, D445). Prometheus scrapes pgwatch
+from the scenario's seed file. Every
 scenario with a `postgres` node pins 0.5.0, with a scheduler node 0.3.0,
-with a bastion 0.5.0, with a `grafana` node 0.3.0 (17.5).
+with a bastion 0.5.0, with a `grafana` node 0.3.0, with a `prometheus`
+node 0.2.1 (17.5).
 
 ### 6.8 Shapes of the new fields
 
@@ -739,6 +801,11 @@ start at 0.1.0):
   console the customer logs into. In the owner's words: "yes the bastion
   must be able to route the player to this coldstorage. keep it simple
   for now."
+- **An HTTP client** (D443): Debian `curl` (8.14.1-2+deb13u7 at G11.2,
+  without recommends), so the players can call the partners' endpoints
+  with the credentials `partners.md` hands over (access model 4, "HTTP
+  clients"); its trixie-unfixed client-side issues accepted by the owner
+  until 2027-02-01 or the next trixie `curl` security upload.
 - Nothing else changes: the page, the tools password and the web front
   in every game are v0.4's.
 
@@ -797,9 +864,12 @@ Three pieces, each reading what `postgres` already provides
 
 ### 7.5 The other bricks
 
-`prometheus`, `postgres-exporter` and `pgbouncer` are unchanged, unless
-the build changes their documentation, which bumps them; `grafana`
-0.3.0 gains the pgwatch dashboard only. A pooler in front of `records` stays the scenario's choice. The
+`postgres-exporter` and `pgbouncer` are unchanged, unless the build
+changes their documentation or a rebuild their content (D445), which
+bumps them; `prometheus` 0.2.1 moves to Prometheus 3.16.x, off the 3.13
+line, for two advisories in its embedded Go modules (D446, D448);
+`grafana` 0.3.0 gains the pgwatch dashboard and its bundled Prometheus
+data-source plugin at 13.2.5 or later (D448). A pooler in front of `records` stays the scenario's choice. The
 `monitoring` option's check (7.1) is `gmctl`'s, not the exporter's.
 Every new `api`, scheduler, `pgwatch` and `health` node takes the
 node-health script as every node does, the GM listing its services.
@@ -1696,7 +1766,7 @@ the gamma camera Monday to Friday 08:00–18:00.
 | `sched` | own everything; no login |
 | `sched_app` | the module on `pms`: read all, execute the slot function (`EXECUTE` revoked from `PUBLIC`), write bookings, allocations, absences, trainees, enrolments, shifts (insert, delete, their publication and clocked times only), sessions' state; never the reference tables |
 | `sched_reports` | purpose 12, on the standby: read every `sched_` table |
-| `sched_interfaces` | purpose 11: read bookings, allocations, types, machines, hours, shifts, absences, settings; execute the slot function; write bookings and allocations |
+| `sched_interfaces` | purpose 11: read bookings, allocations, types, courses, rooms, machines, hours, shifts, absences, settings (the slot function runs with its rights); execute the slot function; write bookings and allocations, allocations' release (the trigger runs as its invoker) |
 
 `customer-linked`: a booking's `animal_id`, an enrolment's
 `trainee_id`. `personal`: an absence's `note` (it may reveal health,
@@ -1720,7 +1790,8 @@ weekday, 34 on Saturday, 75 % domestic, 18 % horse, 7 % farm, lead
 times 30 % within two days, 50 % within two weeks, 20 % to six weeks,
 one statement calling the slot function; cancellations 0.85/h, theatre
 plans 0.6/h, enrolments 0.38/h. Work streams check arrivals in (about
-75 a day, one in twenty left a no-show by a hash), mark no-shows, move
+75 a day, one in twenty left a no-show by a hash; an arrival stamped
+when it is recorded, never back-dated, D447), mark no-shows, move
 bookings under a new absence, clock shifts (about 110 clockings a day),
 and run sessions. `sched.rota.publish` at `0 12 * * 5`, one statement,
 plans the seventh week's shifts, publishes the week after next's (those
@@ -1753,7 +1824,7 @@ every accepted examination booked or an incident (BS5).
 standby's `clinic` as `sched_reports` and `vet_reports` → `office` as
 `office_jobs`. The feeder at `30 9 * * *` (after every night shift ends)
 takes yesterday's started shifts: planned and worked hours, nights,
-call-outs, rests, a breach under 11 hours; the monthly job sums the
+call-outs, rests (on-call shifts left out, D450), a breach under 11 hours; the monthly job sums the
 month and the four-month average. About 21 000 rows planted. Invariants:
 worked hours equal clocked ones (WT1), every short rest a breach (WT2),
 a month the sum of its days (WT3).
@@ -2054,7 +2125,7 @@ figures, chunk 30's reruns at the wave gate the figures of record.
 | `mach_biomed_app` | `biomed` | write events, readings, maintenance, downtimes, the machines' `status` and `qa_due_on` only |
 | `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only; `LOGIN` (`pg_cron` runs a job only as a role that can log in), its password a secret no node mounts |
 | `mach_service` | `biomed` | the vendors' remote service (no producer in v0.5): read machines, events, readings, maintenance; write maintenance |
-| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states, cancellations (reason, `cancelled_at`) and the reports |
+| `mach_orders` | `pacs` | purpose 13: insert worklist entries (the procedure's id read by its code), read their states, cancellations (reason, `cancelled_at`) and the reports |
 | `mach_archive` | `vitals`, `biomed` | purpose 14: read raw rows, write aggregates, `EXECUTE` on `mach_drop_shipped`; no ownership |
 
 `CONNECT` on each database goes to its own roles only. The two
@@ -2683,10 +2754,13 @@ format gains:
    third party's node. From v0.5 a pushed obligation's `receiver` is a
    declared third party too.
 3. **HTTP connections** in a job's `connections:`, named for the part
-   they reach.
-4. **Endpoint and receiver material**: `material/api/<node>/routes/` and
-   `db/` for the endpoints a purpose brings to a customer's `api` node,
-   the layout of a domain's `producers/api/`. A receiver with no stream
+   they reach; a part reached under several hostnames (the three
+   centres) takes one connection per hostname, `<part>_<w>`
+   (`partner_central`), each checked as its part (spec D438).
+4. **Endpoint and receiver material**: `material/api/<node>/` (its
+   `api.yaml`, `routes/` and `db/`) for the endpoints a purpose brings
+   to a customer's `api` node, the layout of a domain's
+   `producers/api/` (spec D438). A receiver with no stream
    of its own (the authority, the head office) keeps its stub in the
    purpose, as v0.4's export declarations keep `material/receiver/`; a
    partner with streams of its own (the practices, the external lab, the
@@ -2702,11 +2776,31 @@ format gains:
    v0.4), `triggers` (pushed obligations' deadlines), `end-to-end`,
    `code` (the sealed check reading the code, for a periodic report's
    own logic) or `definition`. A round trip names exactly one
-   `end-to-end` invariant.
+   `end-to-end` invariant: a purpose carrying two names two, one each
+   (the centres': EX5 out, EX2 in; spec D440).
 7. **The classes of its tables**: a purpose whose target belongs to no
    domain (`office`), or which adds tables to a domain's database,
    classes their columns in its own `classification:` entry, as a domain
    does, so governance's checks read them.
+8. **Parts beyond v0.4's** (as built in wave 4, formats.md v32): more
+   database parts `source_<w>` (the clinic's `source_lab`,
+   `source_biomed`) and runners `runner_<w>` (`runner_reports`), each
+   checked as its base part, a history reading every database part but
+   `target` as `gm_src_<part>`; a job of `method: pg_cron` names the
+   database part it runs in, scheduled by that part's `ddl:`, and needs
+   no runner (purpose 6); a report job reading the standby keeps its
+   part on the primary, its connection targeting the standby.
+9. **The material**, one folder per part under `material/` (`runner/`,
+   `runner_<w>/`, `<part>/ddl.sql`, `target/office.sql` and `data.sql`
+   for `office`, `api/<node>/`, `receiver/<prefix>/`,
+   `partner/<prefix>/`), `history.sql` at its root; **invariant ids** of
+   one or two capitals and a number (LO1, MS6; spec D438); **calendar-gated
+   cadences**: a monthly, yearly or windowed job runs daily, or every 15
+   minutes, at its hour and acts only on its own date or window, read as
+   the customer's local time, writing nothing on other runs (spec D436);
+   a history plants exactly what those jobs would have written before
+   `load_epoch`, each period with its run row and, where the partner
+   answered, its reference in the stub's own form (spec D451).
 
 **The `ops` schema.** The purposes' own tables in a domain's database
 (their ledgers, incidents, watermarks) live in a schema `ops`, in
@@ -2717,7 +2811,17 @@ with a part landing in the same database. `office`'s tables are the
 purposes' own, in `public`. **Every run** writes one `ops.runs` row (in
 `office`, `runs`) in the same transaction as its output, as v0.4's
 `etl_runs`, beside the runner's log; the checks tie trace rows to runs
-by it.
+by it. As built in wave 4: every `ddl:` file writing a domain database
+carries one guarded text, byte-identical across the purposes (`-- ops:
+begin` to `-- ops: end`), creating the role `ops`, the schema it owns,
+`ops.runs`, `ops.incidents` and `ops.watermarks`; a purpose's own `ops`
+tables each carry the `run_id` of the run that wrote the row;
+watermarks start at `load_epoch`; a job writing two databases writes a
+run row in each, with the same `job` and `started_at`; a domain
+database's `trace:` lists `ops` tables only, the domain tables a
+purpose writes appearing in its `data_moved` and `gm.md`. `office`'s
+DDL (`office.sql`, the same text in each purpose using it) creates
+`office`, `office_jobs` and `office_reader` only.
 
 **A cascade judged end to end.** A round trip's faults often show
 downstream of the acknowledgement: requests marked sent with no order
@@ -2769,6 +2873,14 @@ a scenario's faults are the GM's to select.
 - **The partners' back end**, out of reach; the authority and the head
   office answer only, with no stream.
 
+**Cadences** (spec D436). Every schedule stays inside the scheduler's
+cron subset, which has no day of month or month. A monthly or yearly
+job runs daily at its hour and acts only on its own date, read as the
+customer's local date from its source; a job with an hour window runs
+every 15 minutes and acts only inside it. On other runs it writes
+neither output nor run row. Below, "on the 1st" and "08:00–19:00" mean
+so.
+
 **`office`**, the back office's database, belongs to no domain; on the
 primary's instance beside `clinic`, it rides the standby and the
 archive, about 0.16 million planted rows, 500 more a night.
@@ -2809,7 +2921,7 @@ account's callback, keyed `delivery_key`, four in parallel, an
 acknowledgement due within 30 seconds, retried 5 minutes after the last
 attempt, six attempts then an incident. Trace: `lab_callbacks`,
 `ops.incidents`, `ops.runs`.
-- PR1 (triggers): each released test acknowledged in a final within 15 minutes, or an incident.
+- PR1 (triggers): each delivery a release makes due (an interim, the final, an amendment) acknowledged within 15 minutes, or an incident (D452).
 - PR2 (runs): one `delivery_key` per order, kind and revision, kept across attempts.
 - PR3 (runs): no unreleased result delivered. PR4 (runs): each delivery to its own account only.
 - PR5 (end-to-end): each order's released results acknowledged within turnaround, round and 15 minutes.
@@ -2818,9 +2930,9 @@ attempt, six attempts then an incident. Trace: `lab_callbacks`,
 consumer-producer; fits `vet-lab`. On `interfaces` as `lab_dispatch`:
 `send-outs` at 16:00 Monday to Friday posts the day's send-outs to the
 external lab's stub, keyed `send_key`, catalogue fields only; the answer
-comes one to five days later at `lab-api`; `chase-send-outs` every 15
-minutes, 08:00–19:00 Monday to Saturday, retries, asks a resend, then
-escalates. Trace: `lab_send_outs`, sample events, `ops.incidents`,
+comes one to five days later at `lab-api`; `chase-send-outs`, run every
+15 minutes and acting 08:00–19:00 Monday to Saturday, retries, asks a
+resend, then escalates. Trace: `lab_send_outs`, sample events, `ops.incidents`,
 `ops.runs`.
 - SO1 (triggers): each send-out received by 15:30 on a working day accepted that day, or an incident.
 - SO2 (runs): one `send_key` per send-out. SO3 (runs): no owner, client, identifier or note sent.
@@ -2834,10 +2946,11 @@ working days resends with the same `exchange_key`, then escalates. The
 purpose's endpoints on `clinic-api` (`POST /exchanges`, `.../answer`,
 `.../report`) only answer. Trace: `exchanges`, `ops.exchange_messages`,
 `ops.incidents`, `ops.runs`.
-- EX1, EX2 (triggers): outbound received, inbound answers and reports posted, within 10 minutes.
+- EX1 (triggers): each outbound exchange received by its centre within 10 minutes.
+- EX2 (end-to-end, the inbound trip): each centre's request recorded at once, its answer and report posted within 10 minutes of the vets' (spec D440).
 - EX3 (runs): one key per exchange, each answer on its own exchange.
 - EX4 (runs): only this animal's record and its owner's contact.
-- EX5 (end-to-end): each outbound exchange answered within a working day, or chased then escalated.
+- EX5 (end-to-end, the outbound trip): each outbound exchange answered within a working day, or chased then escalated.
 
 **5. `vet-notifiable-diseases`**, pushed obligation; fits `vet-core`,
 `vet-lab`. Triggers: a lab notification (any customer's) and a vet's
@@ -2862,33 +2975,33 @@ old with no read-back, `cron.log_run` on. Trace: `lab_results`,
 **7. `vet-medicines-registers`**, pulled, periodic; fits `vet-core`;
 both registers in one purpose. On `backoffice`, standby → `office`:
 feeders at 01:30 (supplies, with the legal fields) and 01:45
-(controlled movements); extract and balances on the 1st; the inventory
-on 1 January. Planted: the year's lines, every month, last January's
+(controlled movements); extract and balances by daily runs acting on
+the 1st, the inventory by one acting on 1 January. Planted: the year's lines, every month, last January's
 inventory.
 - MR1 (runs): each day's supplies once, as the source's. MR2 (runs): legal fields only, no e-mail or phone.
 - MR3 (runs): each day's controlled movements once. MR4 (code): balance = previous closing less movements, per batch.
 
 **8. `vet-antimicrobial-use`**, pushed obligation, periodic; fits
 `vet-core`. On `backoffice`: the 02:00 feeder (use per species and
-medicine, herd treatments through their herd); on 15 January last year's
-report for the species due (cattle now, more from 2027 and 2030) to the
-authority, due 31 January. Planted: the year's rows, last year's report.
+medicine, herd treatments through their herd); a daily run acting on
+15 January sends last year's report for the species due (cattle now,
+more from 2027 and 2030) to the authority, due 31 January. Planted: the year's rows, last year's report.
 - AM1 (runs): each day's use as the source's. AM2 (runs): every use traces to a species.
 - AM3 (code): the report covers the species due and sums its days. AM4 (triggers): acknowledged by its deadline.
 
 **9. `vet-head-office-figures`**, pushed obligation, periodic; fits
 `vet-core`, `vet-lab`, `vet-housing`. On `backoffice`: the 00:30 feeder
 (consultations, admissions, the midnight census, housing units occupied
-and in service, the lab's tests and median turnaround); the month posted
-to the head office's stub on the 1st, retried to the 5th, then
-escalated. Planted: the year's days, every month.
+and in service, the lab's tests and median turnaround); a daily run
+posts the month to the head office's stub on the 1st, retries to the
+5th, then escalates. Planted: the year's days, every month.
 - HO1 (runs): each local day's counts as the sources'. HO2 (runs): one row per day, section, measure.
 - HO3 (code): a month sums its days, sent by the 5th and acknowledged, or escalated.
 
 **10. `vet-lab-statements`**, pulled, periodic; fits `vet-lab`. On
 `backoffice`, reading `lab` at night (no standby): the 02:30 feeder of
-billable and voided practice charges; each account's statement on the
-1st with its discount bracket (3 to 15 %). Planted: the year's lines and
+billable and voided practice charges; each account's statement, by a
+daily run acting on the 1st, with its discount bracket (3 to 15 %). Planted: the year's lines and
 statements.
 - ST1 (runs): each day's charges once. ST2 (runs): the centre's account never charged.
 - ST3 (code): a statement = billable less voids, with its bracket's discount.
@@ -2907,8 +3020,8 @@ animal's bookings cancelled. Trace: `sched_bookings`,
 **12. `vet-working-time`**, pulled, periodic; fits `vet-core`,
 `vet-scheduling`. On `backoffice`, standby → `office`: the 09:30
 feeder (after the night shifts end) of worked hours and rests under 11
-hours; the month on the 1st. Planted: the year.
-- WT1 (runs): each shift as clocked. WT2 (runs): each short rest a breach. WT3 (code): a month sums its days.
+hours; the month by a daily run acting on the 1st. Planted: the year.
+- WT1 (runs): each shift as clocked. WT2 (runs): each short rest between two shifts a breach, on-call shifts left out (D450). WT3 (code): a month sums its days.
 
 **13. `vet-imaging-orders`**, round trip inside the centre, as purpose
 1; fits `vet-core`, `vet-machinery`. On `interfaces`:
@@ -3016,7 +3129,9 @@ players compare it with the databases.
 - **Which scenarios**: every scenario listing `domains:` must have one,
   the deploy refusing it otherwise; v0.4's released shop scenario is
   exempt until it is next revised; a scenario with `governance:` alone
-  may have one. This repository itself keeps no data register: every
+  may have one. The rule binds played scenarios: a test fixture, whose
+  id starts `fixture-`, is exempt, and one that has a register is
+  checked in full (spec D434). This repository itself keeps no data register: every
   scenario's data is synthetic, and the game's own inventory is its
   catalogue.
 

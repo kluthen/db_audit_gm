@@ -1,0 +1,14 @@
+# api.yaml of the head office's stub, a fragment for partners-api (v0.5
+# master spec 10.2, 12.2 purpose 9; clinic-purposes.md 13; capture W4 items 0
+# and 5, W2 item 6, W2-f; partners/README.md). Prefix headoffice, hostname
+# head-office: the franchise's head office, the receiver of each centre's
+# monthly activity figures. Its figures endpoint behind the customer's own
+# key with the head office, headoffice_customer. No stream of its own (the
+# head office only answers): the back end keeps its state (headoffice.normal).
+# The GM copies it into the scenario layer compose/partners-api/.
+endpoints:
+  headoffice_figures:
+    hosts: [head-office]
+    credentials: [headoffice_customer]
+connections:
+  headoffice-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: headoffice, pool: {size: 2}}

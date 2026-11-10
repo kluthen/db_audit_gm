@@ -1,27 +1,32 @@
 # Bookings fixture of v0.5 (build plan chunk 13; capture W3 item 2 with "W3
 # item 2, revised", W3-b, of specs/versions/v0.5/wave-log.md; spec D403,
-# D408-D414). Not a game: vet-core's medical record and vet-scheduling's
-# agenda, rota and training centre, loaded by gmctl load-data from the
-# domains (domains:, the variant regional-franchise, both at records/clinic:
-# the core's schema, keys.sql and load, then scheduling's schema (btree_gist
-# and the four exclusion constraints) and load with the core's keys.sql,
-# then the coherence check), the practice software, pms (scheduler 0.3.0),
-# with the core's streams as vet_app and scheduling's as sched_app, the
-# integration engine, interfaces (scheduler 0.3.0, idle until chunk 21 adds
-# purpose 11), the lookup API, clinic-api (api 0.1.0), which compose needs
-# for vet-core's producer folder (D403), and the bastion; five nodes on one
-# host. gmctl compose writes nodes/clinic-api/, nodes/pms/ and
+# D408-D414; chunk 21 added purpose 11, vet-bookings-sync). Not a game:
+# vet-core's medical record and vet-scheduling's agenda, rota and training
+# centre, loaded by gmctl load-data from the domains (domains:, the variant
+# regional-franchise, both at records/clinic: the core's schema, keys.sql
+# and load, then scheduling's schema (btree_gist and the four exclusion
+# constraints) and load with the core's keys.sql, then purpose 11's DDL at
+# step (2b), then the coherence check), the practice software, pms
+# (scheduler 0.3.0), with the core's streams as vet_app and scheduling's as
+# sched_app, the integration engine, interfaces (scheduler 0.3.0), running
+# purpose 11's three jobs every minute as vet_interfaces and
+# sched_interfaces, the lookup API, clinic-api (api 0.1.0), which compose
+# needs for vet-core's producer folder (D403), and the bastion; five nodes
+# on one host. gmctl compose writes nodes/clinic-api/, nodes/pms/ and
 # nodes/interfaces/ from the domains' producers/ with the scenario layers
-# compose/pms/ (the clinic's day at 1.0) and compose/interfaces/ (idle).
+# compose/pms/ (the clinic's day at 1.0) and compose/interfaces/ (purpose
+# 11's runner material as the GM copies it, at 1.0).
 # Deployed by its short test, tools/tests/fixtures/fixture-bookings/
 # run-short-test.sh, T0 a weekday at 09:50 local (placed to the hour by the
 # shift, the minute the clock's): the loads agreeing, an overlapping
 # allocation refused (23P01), bookings through the slot function (one 40
-# days ahead on a planned shift), a cancellation releasing its slot, and
+# days ahead on a planned shift), a cancellation releasing its slot,
 # sched.rota.publish moved to the next minute, publishing the week after
-# next and planning the seventh week, rerun without a duplicate. One
-# harmless seed-file fault (f1), since a scenario needs at least one,
-# copied from the core fixture.
+# next and planning the seventh week, rerun without a duplicate, and
+# purpose 11's flows: an arrival's consultation within two minutes, an
+# imaging request booked on its machine, a death cancelling the animal's
+# future bookings, its checks BS1 to BS5. One harmless seed-file fault
+# (f1), since a scenario needs at least one, copied from the core fixture.
 
 # --- Scenario information --------------------------------------------
 id: fixture-bookings
@@ -53,6 +58,16 @@ domains:
     at: records/clinic
   - id: vet-scheduling
     at: records/clinic
+
+# --- Purposes (v0.5 master spec 12.2) ---------------------------------
+# Purpose 11, transformed in place: the agenda and the record in one
+# database, clinic; the integration engine, interfaces, runs its jobs.
+purposes:
+  - id: vet-bookings-sync
+    parts:
+      source: records/clinic
+      target: records/clinic
+      runner: interfaces
 
 # --- Topology ---------------------------------------------------------
 networks:
@@ -198,6 +213,7 @@ nodes:
     published_ports: []
     seed_files:
       queries.yaml: nodes/interfaces/queries.yaml
+      scripts/: nodes/interfaces/scripts/
       jobs.yaml: nodes/interfaces/jobs.yaml
       schedule.yaml: nodes/interfaces/schedule.yaml
     knobs: []
@@ -224,10 +240,12 @@ flows:
     how: postgresql 5432
     cadence: continuous, by the clinic's hours
   - from: interfaces
-    to: clinic-api
-    what: nothing until chunk 21 (the integration engine idle, its one connection never opened)
-    how: http 8000
-    cadence: none
+    to: records
+    what: >-
+      purpose 11's jobs check-in, book-requests and cancel-deceased: the record
+      as vet_interfaces, the agenda as sched_interfaces, both in clinic
+    how: postgresql 5432
+    cadence: every minute
 
 # --- Incidents, flaws and defects ------------------------------------
 fault_instances:

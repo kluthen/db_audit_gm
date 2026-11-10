@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v31; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v32; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -8,7 +8,16 @@ wave 1's scenario layer of the merge, `compose/<node>/`; after wave 3's
 gate, with wave 3's as built (D401, D405, D421): a part's `keys.sql`, a
 domain's `cron.sql`, `left_out:`, a history with no feeder, a purpose's
 `ddl:` and the load's step (2b), and the owners alone on the partners'
-shared nodes
+shared nodes. Draft v32, after wave 4's gate (gate G18), with wave 4's as
+built (D431–D438, D440): a purpose's parts beyond v0.4's (`source_<w>`,
+`runner_<w>`, a `pg_cron` job on a database part), its material laid
+out per part, the `ops` block, the calendar-gated cadences, the
+invariant ids, `data_moved` reads, HTTP connections `<part>_<w>` and
+endpoint `api.yaml`, one end-to-end invariant per round trip; the load's
+step (2c), the GM's read policy; the register's form, its digests and
+the `fixture-` exemption; the partners' handed-over credentials and
+`partners.md`'s placeholders; a domain's `cron.sql` refused when its
+databases are not the scenario's
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -156,7 +165,34 @@ The owner's requirements (D23), with the earlier rulings that apply:
   fault; and checks that the handout exists unless the answer key
   declares it absent as a planted fault. No `data-register` section goes
   inside `scenario.yaml`: the true register is a generated file, not a
-  key.
+  key. **As built** (v0.5's chunk 17, D433, D434): the requirement binds
+  played scenarios; a scenario whose id starts `fixture-` is exempt, and
+  one that has a register is checked in full. The skill reads
+  `scenario.yaml`, `composition.yaml`, the files `governance:` names,
+  `player/partners.md` when mapped, `gm/answer-key.yaml`, and from the
+  catalogue each composed domain's `data/register.yaml` and each purpose's
+  `purpose.yaml`; it builds the true entries, writes each register fault
+  instance's `register_diff:` into the answer key, then digests every
+  input and writes both files. `gm/data-register.yaml` opens with
+  `generated_from:`, a map from each input's path (scenario-relative, or
+  `catalog/<path>` for a catalogue file) to `sha256:<hex>` of its bytes;
+  then `controller`, `contact`, `policy`; `entries`, one per register
+  fragment activity, its `id` the fragment's, with `department`, `name`,
+  `purpose`, `people`, `data` (`personal`, `customer-linked`), `where`
+  (`{at, tables}` or `{copy}`), `shared_with` (`{recipient, fields,
+  flow?, processor?, outside_eu?}`) and `kept_for` (`{period, then}`),
+  the field names `register_diff:` uses; `internal`, one line per
+  internal activity or purpose holding internal columns only; and
+  `index`, each `node/database` to its entries. A purpose's table
+  holding a classed column joins the entry of the activity whose tables
+  its `data_moved` reads it from; a view joins the activity its classed
+  column comes from. The loader recomputes every digest and requires
+  every expected input listed, refusing otherwise with "stale register:
+  regenerate with the data-register skill", naming the file. A register
+  fault whose `seed_changes` name `data-register.md` is accepted with
+  the handout unmapped when `governance.register` exists, the answer key
+  then declaring `{absent: true}` (T305). `gmctl` has no generator: the
+  register is the skill's.
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
   and version, target nodes, parameters, known or hidden; from v0.3 its
@@ -630,6 +666,23 @@ purposes/<purpose-id>/
   gm.md          what the purpose is for, how it goes wrong, feedback notes
 ```
 
+From v0.5's build (wave 4) `material/` holds one folder per part,
+named for it, and two files at its root:
+
+| Path | What | How it reaches a game |
+|---|---|---|
+| `runner/` (`jobs.yaml`, `queries.yaml`, `schedule.yaml`, `scripts/`) | the runner's jobs, as v0.4 | copied into the runner's seed files |
+| `runner_<w>/` | a second runner's | likewise, into that runner's |
+| `<part>/ddl.sql` | a database part's DDL, named by `ddl:` (`ddl: {target: material/target/ddl.sql}`) | read from the catalogue by `load-data` at step (2b) |
+| `target/office.sql`, `target/data.sql` | the DDL of a database no domain holds (`office`): `office.sql` the same text in every purpose using it, `data.sql` the purpose's own tables and grants | copied into the node's data file, `office.sql` first and once |
+| `history.sql` | the planted past, named by `history:` | read from the catalogue at step (4) |
+| `api/<node>/` (`api.yaml`, `routes/`, `db/`) | endpoints the purpose brings to a customer's `api` node, a domain's `producers/api/<node>/` layout | copied into the scenario layer `compose/<node>/`, merged by `gmctl compose` |
+| `receiver/<prefix>/`, `partner/<prefix>/` | a stub with no stream of its own, laid out as `producers/partners/<prefix>/` | its fragments into `compose/partners-api/` and `compose/partners-backend/`, its `data.sql` after the shared one in `partners-db`'s data file |
+
+Two purposes may ship one receiver prefix (the clinic's authority, for
+purposes 5 and 8): each its own table, endpoint and route, the shared
+role, schema and state created guarded, in the same text in both.
+
 `purpose.yaml` must contain:
 
 - **Identity**: id, title, the domains it fits, its kind (pulled,
@@ -669,13 +722,40 @@ From v0.5 (D286, D303, D307):
 - **Two more parts**: `api`, a customer's `api` node the purpose calls or
   brings endpoints to; `partner`, a declared third party's node. A
   pushed obligation's `receiver` is a declared third party from v0.5.
+- **More parts of a kind** (from v0.5's build, D431): a purpose may
+  declare more database parts `source_<w>` and more runners
+  `runner_<w>` (`<w>` `[a-z][a-z0-9]*`), each checked as its base part (a
+  `source_<w>` a location, never a standby; a `runner_<w>` a scheduler
+  node of role `transformer`, its jobs in its own `jobs.yaml`) and usable
+  wherever the base is (`jobs[].source` and `target`, `jobs[].part`,
+  `roles[].part`, `trace[].part`, `data_moved.writes`, `ddl:` keys). A
+  runner none of whose jobs the purpose runs needs no `jobs.yaml`; a job
+  with no `part` is `runner`'s. A report job reading a standby keeps its
+  part on the primary (a standby is no location), its scheduler
+  connection targeting the standby.
+- **A `pg_cron` job on a database part** (from v0.5's build, D431): a job
+  of `method: pg_cron` names as its `part` the database part it runs in,
+  is in no runner's `jobs.yaml` and is scheduled by that part's own
+  `ddl:` file (`cron.schedule_in_database(…, current_database(), <role>)`,
+  the node's seed preloading pg_cron with `cron.database_name` that
+  database); its `key` is the pg_cron job name. The loader refuses a
+  `pg_cron` job naming a runner, any other job naming a database part,
+  a `pg_cron` job whose part has no `ddl:`, and a runner declared beside
+  `pg_cron` jobs only (`parts.runner` is then left out).
 - **HTTP connections** in a job's `connections:`, named for the part
   they reach (the scheduler's HTTP driver), each mapped to the HTTP
   credential it calls with, or `public` for a public endpoint, where its
-  scheduler connection has no `credential` (D354).
+  scheduler connection has no `credential` (D354). A part reached under
+  several hostnames (the clinic's three centres) takes one connection per
+  hostname, `<part>_<w>` (`partner_central`, matching
+  `^(api|partner|receiver)(_[a-z][a-z0-9]*)?$`), each checked exactly as
+  its part (D438).
 - **Endpoint material**: `material/api/<node>/routes/` and `db/` for the
   endpoints a purpose brings to a customer's `api` node, the layout of a
-  domain's `producers/api/`. A receiver with no stream of its own (an
+  domain's `producers/api/`, with its `api.yaml` (from v0.5's build,
+  D438: optional, keys within the brick's, its endpoints and the stems
+  of `routes/` matching exactly; anything else in the folder refused as
+  "not endpoint material"). A receiver with no stream of its own (an
   authority, a head office) keeps its stub in the purpose, as v0.4's
   `receiver/` does; a partner with streams of its own stays in its
   domain's `producers/partners/`.
@@ -697,7 +777,22 @@ From v0.5 (D286, D303, D307):
   may target the partners' database (D366, D404): it then runs on the
   partners' node, in `partners`, reading its other parts over TCP; one
   reading the partners' database from another node is refused (D383).
-  No periodic report runs on demand in v0.5.
+  No periodic report runs on demand in v0.5. A history reads every
+  mapped database part but `target`, each as `gm_src_<part>`
+  (`gm_src_source_lab`), and plants exactly what the periodic jobs would
+  have written before `load_epoch` (a feeder's day `d` when `d + 1` at its
+  hour is past, a close when its date at its hour is), each period with
+  its run row and, where the partner answered, a reference in the form
+  the partner's stub gives live (D451).
+- **Calendar-gated cadences** (from v0.5's build, D436): the scheduler's
+  cron subset takes no day of month or month, and a day of week only
+  with a single-number hour, a range written as a list (`0 16 * * 1,2,3,4,5`).
+  So a monthly or yearly job runs daily at its hour (`0 3 * * *`) and
+  acts only when the customer's local date, read from its source, is its
+  day (the 1st; the 1st to the 5th; 15 January), writing neither output
+  nor run row otherwise; a windowed job (08:00–19:00, Monday to
+  Saturday) runs `*/15 * * * *` and returns at once outside its window.
+  `computes:` and `gm.md` state the calendar.
 - **The DDL a purpose adds to a domain's database**, `ddl:` (from
   v0.5's build), beside `history:`: a non-empty map from a database part
   the purpose declares (`source`, `target`) to a file under `material/`
@@ -725,8 +820,16 @@ From v0.5 (D286, D303, D307):
   `end-to-end` (on the trace after the fix, wherever the player fixed
   it; a symptom fixed alone earns nothing; the backlog the fault left is
   a consequence the answer key lists, never the purpose), `code` (the
-  sealed check reading the job's code) or `definition`. A round trip
-  names exactly one `end-to-end` invariant.
+  sealed check reading the job's code) or `definition`. A purpose names
+  one `end-to-end` invariant per `round_trips:` entry, so one carrying
+  an exchange both ways names two (D440). An invariant's id is one or
+  two capitals and a number (`R1`, `LO1`, `MS6`: `^[A-Z]{1,2}[0-9]+$`,
+  D438). As built, a `code` check runs the job's loaded SQL on the last
+  planted period and compares its output with the check's own rule; the
+  planted figures are not judged (D454).
+- **Data moved** keys (from v0.5's build, D438): `data_moved[].reads`
+  in the scenario's classification-key form, three or four parts
+  (`clinic.owners.name`, `clinic.ops.notifications.payload`).
 - **The classes of the tables it brings**: a purpose whose target
   belongs to no domain, or which adds tables to a domain's database,
   classes their columns in its own `classification:` entry, as a domain
@@ -738,7 +841,42 @@ From v0.5 (D286, D303, D307):
   the target's `runs`) in the same transaction as its output. In a
   scenario with `domains:`, the loader checks that every `trace` table
   on a database part mapped to a `domains:` entry's `at:` is in schema
-  `ops`.
+  `ops`; the domain tables a purpose writes appear in its `data_moved`
+  and `gm.md`, never in its `trace:`.
+- **The `ops` block** (from v0.5's build, W4): every `ddl:` file writing
+  a domain database carries one text, between the lines `-- ops: begin`
+  and `-- ops: end`, byte-identical across the purposes (a unit test
+  compares them): the role `ops` (`NOLOGIN`) created guarded, the schema
+  `ops` it owns, `PUBLIC` revoked, and as `ops` the tables
+  `ops.runs (id, purpose, job, started_at, finished_at, rows_read,
+  rows_written)`, `ops.incidents (id, purpose, job, kind, ref, opened_at,
+  reason, run_id)` and `ops.watermarks (purpose, name, at, last_id,
+  run_id)`, each `CREATE … IF NOT EXISTS`, so any subset of purposes
+  loads alike. `ref` names an id, never a name; no unique constraint on
+  incidents ("one incident each" is the jobs' care and the checks'
+  judgement). Each purpose's DDL inserts its own watermarks at
+  `:'load_epoch'` (`ON CONFLICT DO NOTHING`), grants each of its roles
+  `USAGE` on `ops`, `SELECT, INSERT` on `ops.runs` and `ops.incidents`,
+  `SELECT, INSERT, UPDATE` on `ops.watermarks`, and creates its own `ops`
+  tables owned by `ops`, each with `run_id bigint NOT NULL REFERENCES
+  ops.runs (id)`. A run writes its domain rows, then its `ops.runs` row
+  with final counts, then the rows naming it; a job writing two
+  databases writes a run row in each, with the same `job` and
+  `started_at`. The purposes' login roles are created guarded at top
+  level of their own line in the `DO` block, `CONNECT` granted by name;
+  a purpose's DDL never creates nor alters a role a domain creates, only
+  grants to it. `office`'s `office.sql` (the same text in every purpose
+  using `office`) creates the database, `office`, `office_jobs` and
+  `office_reader` and `runs` (the same columns, in `public`).
+- **The checks** (from v0.5's build): as v0.4, on the runner node, the
+  runs from `check-runs` and the databases through `check-sql` as
+  `gm_check` (which prints a boolean as `True` or `False`); a check
+  needing a partner's side runs on the partners' database node
+  (`check-psql`, the customer's databases through `check-psql --node`),
+  in shell with its verdict in SQL, since a `postgres` node has no
+  Python. A check reading a table with row-level security first finds
+  `gm_check_read` on it and no `RESTRICTIVE` policy for `public` or
+  `gm_check`, else exits 2 (D432).
 
 The GM copies a purpose's material into the scenario at design time, as
 it writes a scheduler's repository: the jobs into the runner's
@@ -958,9 +1096,14 @@ above), as `postgres`:
   `SELECT cron.schedule_in_database(…)` calls only, at least one, each
   job naming its database and its role as written (no variable names
   them: the file runs in `cron.database_name`, not in the job's
-  database), so a scenario whose `at:` names the domain's databases
-  otherwise than the file does (`vitals`, `biomed`, `portal`) fails at
-  this step; nothing checks it earlier. pg_cron refuses a job for a
+  database), so a scenario's `at:` must name the domain's databases as
+  the file does (`vitals`, `biomed`, `portal`). From v0.5's chunk 17
+  (D433) the loader checks it before anything runs: each statement's
+  database (the fourth positional argument, or the one named
+  `database`) must be a single-quoted literal (`check_domain_dir` refuses
+  anything else, naming the line), and a scenario whose entry's `at:`
+  does not place that database on the domain's node is refused, naming
+  the file, the line, the job and the database. pg_cron refuses a job for a
   missing database, a missing role, a role without `LOGIN` or one
   without `CONNECT` on the database, and a node's data file runs before
   a domain's databases and roles exist; so the file runs last of its
@@ -985,18 +1128,31 @@ above), as `postgres`:
   `cron.sql`; (2b) each `purposes:` entry's `ddl:` files ("Purpose
   definition" above), the entries in list order, each entry's parts in
   the order its `purpose.yaml`'s `parts:` lists them, since a derivation
-  or a history may write into the purpose's `ops` tables; (3) the
-  sanctioned derivations, in `derive` order; (4) each `purposes:`
+  or a history may write into the purpose's `ops` tables; (2c) the GM's
+  read policy (below); (3) the sanctioned derivations, in `derive` order; (4) each `purposes:`
   entry's history, in list order; (5) the coherence check ("Composing domains" below);
   (6) v0.4's passwords, survey, mappings, grants and `pg_cron` clean-up;
   (7) each standby's clone, last. Every step skips standbys.
+- **The GM's read policy** (from v0.5's build, D432): at step (2c), in
+  every database a `domains:` entry's `at:` holds, as `postgres`,
+  unseen, on every table (`relkind` `r` or `p`) outside `pg_catalog`,
+  `information_schema` and `gm_src_*` with row-level security,
+  `load-data` replaces `gm_check_read`, `AS PERMISSIVE FOR SELECT TO
+  gm_check USING (true)`, commented "the game master's read access: DO
+  NOT TAMPER", and prints, per database, `<node>/<db>: gm_check may read
+  every row of <n> table(s) with row security (policy gm_check_read)`.
+  So the derivations, histories and checks reading as `gm_check` see
+  every row; the players see the policies in `pg_policies`, listed in
+  `postgres`' player notes. A database of a node's data file is the data
+  file's to cover.
 - **Reading another database**: a derivation, a history and a coherence
   query read their sources through foreign schemas `load-data` creates
   for the session (`postgres_fdw`, as the GM check role) and drops
   after: `gm_src_<name>` for a source's `public`, `gm_src_<name>_<s>` for
   each other schema `<s>`. `<name>` is a domain id with `-` read as `_`
   (`vet_core`), `<id>_<database>` for a several-database part, `partners`
-  for the partners' database, or a purpose part's name (`source`). The
+  for the partners' database, or a purpose part's name (`source`,
+  `source_lab`). The
   partners' database is read only from its own node: a derivation or
   history reading it from another node is refused (D383).
 - **Reserved names**: `pg_temp.core_*` functions are the core's, as is
@@ -1322,6 +1478,33 @@ above). `partners-db`'s `pg_hba.conf` holds the GM's DO NOT TAMPER
 roles every partner's (each composed partner's prefix, `coldstore` with
 a vault, `owners` for the owners' traffic), then `host all all all
 reject`; it carries no `gm_check` host line (D383).
+
+**The customer's credentials with a partner** (from v0.5's build, D365,
+D433). A `third_parties:` entry may list `credentials: [<name>, ...]`,
+the HTTP credentials `partners.md` documents for that partner, the
+customer's own (the clinic's `xlab_customer`, `practices_customer`,
+`centres_customer`, `authority_customer`, `headoffice_customer`,
+`messaging_customer`). Render gives each its secret `http_<name>`,
+handed over (16 characters, the players' alphabet), and mounts it on
+the bastion too, the one node holding a credential it neither sends nor
+checks. `partners.md` names each as `{{credential:<name>}}`; the
+bastion's entrypoint replaces each placeholder by the mounted value when
+it copies the file into `/home/player` and onto the page, and refuses to
+start on a name with no secret. The loader refuses a placeholder naming
+a credential no entry lists, a listed one `partners.md` does not name,
+one no endpoint answering under that entry's hostname accepts,
+`partners_backend`, and any node's `vault_credential`; `gmctl status`
+lists them as "password, handed over". A fixture whose third party has a
+`player_doc` maps `partners.md` on its bastion.
+
+**Cold storage's console route** (from v0.5's build, master spec 7.3):
+the bastion's `web_routes` may hold `cold-storage: "cold-storage:8000"`,
+the one route to a third party, accepted only when its target is a
+hostname an `api` node's `coldstore_manifests` endpoint answers under,
+port 8000; the front forwards `GET /cold-storage/` and `GET
+/cold-storage/manifests` (its query kept) with that `Host`, the
+`Authorization` header stripped, and answers 404 to every other path or
+method. Every other route to a third party's node or hostname is refused.
 
 **The owners alone** (from v0.5's build, D421). The shared scheduler
 and `api` nodes are the ones the `third_parties:` entries list. When no

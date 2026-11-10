@@ -813,7 +813,7 @@ Work streams, on `sched` as `sched_app`:
 
 | Key | What it takes and writes | Capacity | Shape | Follows |
 |---|---|---|---|---|
-| `sched.bookings.arrive` | the oldest consultation, imaging or theatre booking starting within the next 10 minutes, `booked`: `arrived` at its start (give or take five minutes, by a hash); one in twenty left (by a hash of its id) for the no-show | 40/h | `flat` | about 75 arrivals a day, 60 of them consultations |
+| `sched.bookings.arrive` | the oldest consultation, imaging or theatre booking, `booked`, whose arrival moment (its start give or take five minutes, by a hash) has passed: `arrived`, `arrived_at` the moment it is recorded (`now()`), never back-dated, so a check-in commits within milliseconds of its stamp (the owner's ruling at wave 4's gate, D447); one in twenty left (by a hash of its id) for the no-show | 40/h | `flat` | about 75 arrivals a day, 60 of them consultations |
 | `sched.bookings.no-show` | a booking 30 minutes past its start, still `booked`: `no-show` | 10/h | `flat` | about 3 a day |
 | `sched.bookings.move` | a future booking whose staff member has an absence over it: moved to the first free slot (cancelled `moved`, rebooked, the new booking's source `desk`) | 4/h | `office` | under one a day |
 | `sched.shifts.clock` | a shift started up to ten minutes ago, not clocked in: clocked in (by a hash, five minutes either side); a shift ended up to an hour ago, not clocked out: clocked out (on time in four of five, up to an hour late otherwise); an on-call shift clocked only on a call-out (one night in four, by a hash) | 30/h | `flat` | about 55 shifts, 110 clockings a day |
@@ -1018,11 +1018,14 @@ way; the booking's notes never copied.
 
 **Roles** (with step 7's others, [clinic-purposes](clinic-purposes.md#the-roles-the-purposes-add)):
 `sched_interfaces` on the part's tables (reads bookings, allocations,
-types, machines, hours, shifts, absences, settings; executes
-`sched_free_slots`; writes bookings and allocations, and bookings'
-state); `vet_interfaces` on `clinic` gains `INSERT` on `consultations`
+types, courses, rooms, machines, hours, shifts, absences, settings, the
+slot function running with its rights; executes `sched_free_slots`;
+writes bookings and allocations, bookings' state, and allocations'
+`released_at`, the release trigger running as its invoker, D442);
+`vet_interfaces` on `clinic` gains `INSERT` on `consultations`
 (its open columns only: animal, site, section, vet, kind, `booking_id`,
-started at) and `SELECT` on `animals` (`id`, `status`, `died_at`).
+started at), `SELECT` on `consultations` (`id`, `booking_id`,
+`section_id`, D442) and on `animals` (`id`, `status`, `died_at`).
 
 **Candidate faults**: T112 to T119 (step 8).
 
@@ -1038,7 +1041,7 @@ names, writing `office` as `office_jobs`):
 
 | Job | Cadence | What it computes |
 |---|---|---|
-| `feed-working-time` (feeder) | `30 9 * * *` | the shifts that **started** yesterday, the customer's day, every night shift clocked out by now: per staff member, the planned and worked hours, night hours, call-outs; the rest before each shift against the previous one, a breach under 11 hours; into `office.working_time_days` and `office.rest_breaches` |
+| `feed-working-time` (feeder) | `30 9 * * *` | the shifts that **started** yesterday, the customer's day, every night shift clocked out by now: per staff member, the planned and worked hours, night hours, call-outs; the rest before each shift against the previous one, on-call shifts left out of the comparison (D450), a breach under 11 hours; into `office.working_time_days` and `office.rest_breaches` |
 | `close-working-time` | `0 5 1 * *` | each staff member's past month from the daily rows: hours, nights, breaches, the weekly average over the last four months; into `office.working_time_months` |
 
 At 09:30 because a night shift ends at 07:30 or 08:00: a feeder in the
@@ -1054,7 +1057,7 @@ handful).
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
 | WT1 | Each feeder run holds every shift started on its local day, its worked hours equal to the clocked ones | runs | about 55 shifts a day, a dozen at night |
-| WT2 | Every rest under 11 hours between two consecutive shifts of one staff member is a breach row | runs | the rota leaves none; a moved booking's overtime or a fault's pattern makes them |
+| WT2 | Every rest under 11 hours between two consecutive shifts of one staff member, on-call shifts left out (D450), is a breach row | runs | the rota leaves none; a moved booking's overtime or a fault's pattern makes them |
 | WT3 | A month's figures equal the sum of its days; the average over the last four months | code | the planted months; the 1st's run if the GM places one |
 
 **Data moved**: `staff.name` (personal, the core's) into
@@ -1127,7 +1130,7 @@ runs).
 | T112 | `vet_interfaces` granted `INSERT` on all of `consultations`, or `UPDATE` | the integration engine able to write the record's findings and signatures | the grants, at once | the grants | new | M |
 | T113 | The priority dropped in `book-requests`: urgent imaging booked as routine | an emergency's CT two days later; the emergency team phoning radiology (BS3) | urgent requests booked after their machine's first free slot, at the first urgent request (about three a day; D424) | `interfaces`' script | new | D |
 | T114 | A retry booking a request again (the live-booking check missing) | two MRI slots for one study, one wasted | two live bookings for one `request_id`, at each slow run | `interfaces`' script | adapts `scheduler-insert-retry-duplicates` | M |
-| T115 | The check-in's watermark from the run's start while arrivals commit later | an animal checked in with no consultation to open: the vet writing on paper, the record filled later by hand (BS1) | arrived bookings with no consultation, a few a day at the busy hours | `interfaces`' script | adapts `purpose-watermark-misses-updates` | V, D once vets complain |
+| T115 | The check-in's watermark from the run's start while arrivals commit later | an animal checked in with no consultation to open: the vet writing on paper, the record filled later by hand (BS1) | arrived bookings with no consultation, at each arrival whose transaction the variant holds past a check-in run's start: a few a day at the busy hours. The stream as built stamps an arrival when it records it (D447), so with no hold none is missed: the variant's material holds `sched.bookings.arrive`'s transaction 30 to 90 seconds after its stamp (the desk's label printing inside it), as a timeline change, D449 | `interfaces`' script; the arrive stream's held transaction | adapts `purpose-watermark-misses-updates` | V, D once vets complain |
 | T116 | A consultation opened twice for one booking: the core's unique index on `booking_id` missing and the job's existence check dropped | two consultations to close and sign for one visit (BS2); the core's signing backlog | consultations sharing a `booking_id`, at each retried run | the index, `interfaces`' script | adapts `scheduler-insert-retry-duplicates` | M |
 | T117 | The check-in taking bookings by start time, not by `arrived` | consultations opened for no-shows and cancellations: records with no animal behind them | consultations whose booking is `no-show` or `cancelled`, a few a day | `interfaces`' script | new | M, V over days |
 | T118 | `cancel-deceased` missing, or its watermark on `died_at` rounded to the day | a dead animal's follow-up kept on the agenda, its slot lost and reception calling the owner | future `booked` bookings of `died` animals, about one every three days | `interfaces`' script, `jobs.yaml` | new | V, D when an owner complains |
@@ -1158,6 +1161,7 @@ runs).
 |---|---|---|
 | "The MRI is idle every Wednesday morning" | its weekly quality assurance, a block | the block's booking |
 | "A vet worked 13 hours on Tuesday" | a day shift and a night's call-out, the 11 hours' rest after kept, the four-month average under 48 | the shifts and the working-time record |
+| "An on-call night is followed by a day shift with no breach recorded" | an on-call shift is stand-by elsewhere: its call-out counts in the hours (rule 3), never in the rest comparison, since a call-out is clocked as the whole on-call span (D450) | the working-time days' call-outs and `office.rest_breaches` |
 | "Twelve dogs have hundreds of bookings" | the teaching animals, within their limits | the allocations and the settings' limits |
 | "Consultations open a minute or two after the owner arrives" | the check-in runs every minute | the ledger against the arrivals |
 | "Next week's agenda is half empty" | the lead time: the next days fill last-minute, 30 % booked within two days | the history's lead times |

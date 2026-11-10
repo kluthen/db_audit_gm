@@ -15,5 +15,6 @@ scale: {checked: true, note: "the core and its lab at one centre's scale: about 
 order: [vet-core, vet-lab]
 left_out:
   - {domain: vet-core, producer: pms, reason: "the lab's fixture runs no practice software (eight nodes at most, D314)"}
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' api or back-end node for the other centres: their state still loaded and checked on partners-db, their fragments fixture-exchanges' (spec D435)"}
   - {domain: vet-lab, producer: partners/xlab, reason: "no partners' api or back-end node; the external lab's state loaded and checked on partners-db, its fragments composed in test_compose.py"}
   - {domain: vet-lab, producer: partners/practices, reason: "no partners' api or back-end node; the practices' state loaded and checked on partners-db, their fragments composed in test_compose.py"}

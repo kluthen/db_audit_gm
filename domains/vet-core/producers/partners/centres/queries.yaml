@@ -1,0 +1,25 @@
+# queries.yaml of the other centres' stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; capture W2 item 6, W4 item 4): its baseline key,
+# every answer at once (delay_ms, the milliseconds its exchanges endpoint
+# adds before each answer, for each hostname), each centre's tick (POST
+# /tick: its answers, reports and failed requests due, posted to clinic-api)
+# and its own new request (POST /request). A fault's key
+# (centres.<behaviour>) upserts other values.
+queries:
+  centres.normal:
+    sql: >-
+      INSERT INTO centres.state (hostname, name, value)
+      SELECT h, 'delay_ms', '0' FROM unnest(ARRAY['aldermoor-central', 'aldermoor-south', 'aldermoor-abroad']) AS h
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  centres.tick.central:
+    call: POST /tick
+  centres.tick.south:
+    call: POST /tick
+  centres.tick.abroad:
+    call: POST /tick
+  centres.request.central:
+    call: POST /request
+  centres.request.south:
+    call: POST /request
+  centres.request.abroad:
+    call: POST /request

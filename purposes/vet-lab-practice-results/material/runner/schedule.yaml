@@ -1,0 +1,22 @@
+# Schedule of the integration engine, interfaces, a fragment (vet-lab-
+# practice-results; v0.5 master spec 12.2 purpose 2; capture W4 items 0 and
+# 3): the lab as vet-lab's lab_dispatch (the connection name chunk 19's
+# purpose 5 uses too) and the practices' stub (one hostname, every account's
+# callback http://practices:8000/results) with the customer's own key with
+# the practices, practices_customer, an acknowledgement due within 30
+# seconds; no stream (a transformer runs jobs only). Written for the
+# clinic's nodes (lab; the hostname practices); the GM adapts the targets as
+# it copies.
+connections:
+  lab-dispatch:                # the source and the target: orders, tests, results, lab_callbacks, ops.*
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_dispatch
+    pool: {size: 1}
+  practices:                   # the partner part: POST /results, one call per delivery attempt
+    driver: http
+    target: practices:8000
+    credential: practices_customer
+    pool: 4
+    timeout: 30s
+streams: []
