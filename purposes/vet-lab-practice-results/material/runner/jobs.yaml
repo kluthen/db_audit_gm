@@ -1,0 +1,11 @@
+# Fixed-time operations of the integration engine, a fragment
+# (vet-lab-practice-results; clinic-purposes.md section 6), in scenario
+# time: the practices' deliveries due posted every minute. A script job
+# holding the lab's connection and the practices' stub's (spec D303).
+jobs:
+  - name: deliver-practice-results
+    key: practice-results.deliver
+    connections:               # the script's names -> the schedule's connections
+      source: lab-dispatch
+      partner: practices
+    at: "* * * * *"

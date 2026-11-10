@@ -1,0 +1,828 @@
+# queries.yaml of node pms, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  owners.register:
+    sql: |-
+      WITH k AS (
+        SELECT nextval(pg_get_serial_sequence('owners', 'id'))::integer AS oid,
+               nextval(pg_get_serial_sequence('animals', 'id'))::integer AS aid,
+               %(section)s::integer AS sec, %(herd)s::integer AS herd,
+               (ARRAY['Anna', 'Ben', 'Clara', 'David', 'Emma', 'Felix', 'Grace', 'Hugo', 'Iris', 'Jonas',
+                      'Lena', 'Marc'])[%(first)s] AS first,
+               (ARRAY['Adler', 'Becker', 'Carter', 'Dubois', 'Evans', 'Fischer', 'Garnier', 'Hughes',
+                      'Janssen', 'Keller', 'Laurent', 'Martin'])[%(family)s] AS family),
+      a AS (
+        SELECT k.*,
+               CASE k.sec WHEN 1 THEN 'horse' WHEN 2 THEN CASE WHEN k.herd <= 120 THEN 'cattle'
+                                                              WHEN k.herd <= 170 THEN 'sheep' ELSE 'goat' END
+                          ELSE (ARRAY['dog', 'cat', 'rabbit', 'ferret'])[%(pet)s] END AS species
+          FROM k),
+      new_owner AS (
+        INSERT INTO owners (id, kind, name, email, phone, address, country, registered_at)
+        SELECT oid, CASE WHEN sec = 2 THEN 'holding' ELSE 'person' END,
+               CASE WHEN sec = 2 THEN family || ' Farm' ELSE first || ' ' || family END,
+               lower(CASE WHEN sec = 2 THEN family || '.farm' ELSE first || '.' || family END)
+                 || '.' || oid || '@example.net',
+               '+999 ' || lpad(((oid::bigint * 7907 + 1234567) %% 100000000)::text, 8, '0'),
+               %(number)s || ' ' || (ARRAY['Church Street', 'Mill Lane', 'Station Road', 'High Street',
+                                          'Orchard Way', 'Brook Lane'])[%(street)s] || ', '
+                 || (ARRAY['Aldermoor', 'Brackley', 'Coldwater', 'Dunmere', 'Eastholm', 'Fernhill'])[%(town)s],
+               'XA', now() - interval '5 minutes'
+          FROM a),
+      new_animal AS (
+        INSERT INTO animals (id, species, breed, sex, born_on, name, food_chain, herd_id, microchip, ueln,
+                             passport_number, ear_tag, registered_at)
+        SELECT aid, species,
+               CASE species WHEN 'dog' THEN (ARRAY['Labrador Retriever', 'Border Collie', 'Mixed breed'])[1 + aid %% 3]
+                            WHEN 'cat' THEN (ARRAY['European Shorthair', 'Maine Coon', 'Siamese'])[1 + aid %% 3]
+                            WHEN 'rabbit' THEN 'Netherland Dwarf' WHEN 'ferret' THEN 'Standard'
+                            WHEN 'horse' THEN (ARRAY['Warmblood', 'Thoroughbred', 'Haflinger'])[1 + aid %% 3]
+                            WHEN 'cattle' THEN CASE WHEN herd <= 80 THEN 'Holstein' ELSE 'Limousin' END
+                            WHEN 'sheep' THEN 'Texel' ELSE 'Saanen' END,
+               CASE WHEN %(sex)s = 1 THEN 'female' ELSE 'male' END,
+               current_date - %(age)s,
+               CASE WHEN sec = 2 THEN (ARRAY['Bella', 'Daisy', 'Clover', 'Molly'])[1 + aid %% 4] || ' '
+                                      || right(((aid::bigint * 9973 + 31) %% 1000000000000)::text, 4)
+                    ELSE (ARRAY['Max', 'Luna', 'Charlie', 'Milo', 'Nala', 'Rocky', 'Oscar', 'Poppy'])[1 + aid %% 8] END,
+               CASE sec WHEN 3 THEN 'not-applicable' ELSE 'food-producing' END,
+               CASE WHEN sec = 2 THEN herd END,
+               CASE WHEN sec <> 2 AND NOT (species = 'rabbit'
+                                           AND (hashint8extended(aid, 62) & 2147483647)::float8 / 2147483648 < 2.0 / 3)
+                    THEN '941' || lpad(((aid::bigint * 7919813 + 104729) %% 1000000000000)::text, 12, '0') END,
+               CASE WHEN sec = 1 THEN '941001' || lpad(((aid::bigint * 7919 + 1009) %% 1000000000)::text, 9, '0') END,
+               CASE WHEN sec = 1 THEN 'XA' || lpad(((aid::bigint * 104723 + 7) %% 10000000000)::text, 10, '0') END,
+               CASE WHEN sec = 2 THEN 'XA' || lpad(((aid::bigint * 9973 + 31) %% 1000000000000)::text, 12, '0') END,
+               now()
+          FROM a)
+      INSERT INTO ownerships (animal_id, owner_id, role, from_at) SELECT aid, oid, 'owner', now() FROM a UNION ALL SELECT aid, herd + 1, 'keeper', now() FROM a WHERE sec = 2
+    params:
+      section:
+        choice:
+          3: 86
+          1: 8
+          2: 6
+      herd:
+        int:
+        - 1
+        - 200
+      pet:
+        choice:
+          1: 56
+          2: 39
+          3: 3
+          4: 2
+      first:
+        int:
+        - 1
+        - 12
+      family:
+        int:
+        - 1
+        - 12
+      number:
+        int:
+        - 1
+        - 180
+      street:
+        int:
+        - 1
+        - 6
+      town:
+        int:
+        - 1
+        - 6
+      sex:
+        int:
+        - 1
+        - 2
+      age:
+        int:
+        - 60
+        - 4000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  animals.register:
+    sql: |-
+      WITH k AS (
+        SELECT nextval(pg_get_serial_sequence('animals', 'id'))::integer AS aid,
+               CASE WHEN %(horse)s = 1 THEN 'horse' ELSE (ARRAY['dog', 'cat', 'rabbit', 'ferret'])[%(pet)s] END
+                 AS species,
+               (SELECT o.id FROM owners AS o
+                 WHERE o.kind = 'person'
+                   AND o.id >= CASE WHEN %(horse)s = 1 THEN 302 + %(r)s %% 600 ELSE 902 + %(r)s %% 9099 END
+                 ORDER BY o.id LIMIT 1) AS oid),
+      new_animal AS (
+        INSERT INTO animals (id, species, breed, sex, born_on, name, food_chain, microchip, ueln,
+                             passport_number, registered_at)
+        SELECT aid, species,
+               CASE species WHEN 'dog' THEN (ARRAY['Labrador Retriever', 'Border Collie', 'Mixed breed'])[1 + aid %% 3]
+                            WHEN 'cat' THEN (ARRAY['European Shorthair', 'Maine Coon', 'Siamese'])[1 + aid %% 3]
+                            WHEN 'rabbit' THEN 'Netherland Dwarf' WHEN 'ferret' THEN 'Standard'
+                            ELSE (ARRAY['Warmblood', 'Thoroughbred', 'Haflinger'])[1 + aid %% 3] END,
+               CASE WHEN %(sex)s = 1 THEN 'female' ELSE 'male' END,
+               current_date - %(age)s,
+               (ARRAY['Max', 'Luna', 'Charlie', 'Milo', 'Nala', 'Rocky', 'Oscar', 'Poppy'])[1 + aid %% 8],
+               CASE WHEN species = 'horse' THEN 'food-producing' ELSE 'not-applicable' END,
+               CASE WHEN NOT (species = 'rabbit'
+                              AND (hashint8extended(aid, 62) & 2147483647)::float8 / 2147483648 < 2.0 / 3)
+                    THEN '941' || lpad(((aid::bigint * 7919813 + 104729) %% 1000000000000)::text, 12, '0') END,
+               CASE WHEN species = 'horse' THEN '941001' || lpad(((aid::bigint * 7919 + 1009) %% 1000000000)::text, 9, '0') END,
+               CASE WHEN species = 'horse' THEN 'XA' || lpad(((aid::bigint * 104723 + 7) %% 10000000000)::text, 10, '0') END,
+               now()
+          FROM k WHERE oid IS NOT NULL)
+      INSERT INTO ownerships (animal_id, owner_id, role, from_at) SELECT aid, oid, 'owner', now() FROM k WHERE oid IS NOT NULL
+    params:
+      horse:
+        choice:
+          0: 9
+          1: 1
+      pet:
+        choice:
+          1: 56
+          2: 39
+          3: 3
+          4: 2
+      r:
+        int:
+        - 0
+        - 999999
+      sex:
+        int:
+        - 1
+        - 2
+      age:
+        int:
+        - 60
+        - 4000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  referrals.receive:
+    sql: |-
+      INSERT INTO referrals (animal_id, referring_vet_id, site_id, received_at, reason) SELECT a.id, %(vet)s, 1, now(),
+             (ARRAY['second opinion', 'surgery', 'imaging work-up', 'internal medicine work-up', 'oncology',
+                    'lameness investigation', 'cardiology', 'critical care'])[%(reason)s]
+        FROM (SELECT id FROM animals
+               WHERE status = 'alive' AND id > 12 AND id NOT BETWEEN 14601 AND 14608
+                 AND CASE %(section)s WHEN 1 THEN species = 'horse' WHEN 2 THEN species IN ('cattle', 'sheep', 'goat')
+                                      ELSE species IN ('dog', 'cat', 'rabbit', 'ferret') END
+                 AND id >= CASE %(section)s WHEN 1 THEN 14609 + %(r)s %% 1392 WHEN 2 THEN 16001 + %(r)s %% 1000
+                                            ELSE 13 + %(r)s %% 14588 END
+               ORDER BY id LIMIT 1) AS a
+    params:
+      section:
+        choice:
+          3: 70
+          1: 25
+          2: 5
+      vet:
+        int:
+        - 1
+        - 800
+      reason:
+        int:
+        - 1
+        - 8
+      r:
+        int:
+        - 0
+        - 999999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  consultations.emergency:
+    sql: |-
+      INSERT INTO consultations (animal_id, site_id, section_id, vet_id, kind, started_at) SELECT a.id, 1, %(section)s,
+             CASE %(section)s WHEN 1 THEN 1 + %(vet)s %% 10 WHEN 2 THEN 11 + %(vet)s %% 7 ELSE 18 + %(vet)s %% 8 END,
+             'emergency', now()
+        FROM (SELECT id FROM animals
+               WHERE status = 'alive' AND id > 12 AND id NOT BETWEEN 14601 AND 14608
+                 AND CASE %(section)s WHEN 1 THEN species = 'horse' WHEN 2 THEN species IN ('cattle', 'sheep', 'goat')
+                                      ELSE species IN ('dog', 'cat', 'rabbit', 'ferret') END
+                 AND id >= CASE %(section)s WHEN 1 THEN 14609 + %(r)s %% 1392 WHEN 2 THEN 16001 + %(r)s %% 1000
+                                            ELSE 13 + %(r)s %% 14588 END
+               ORDER BY id LIMIT 1) AS a
+    params:
+      section:
+        choice:
+          3: 65
+          1: 25
+          2: 10
+      vet:
+        int:
+        - 0
+        - 999
+      r:
+        int:
+        - 0
+        - 999999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  consultations.herd-visit:
+    sql: INSERT INTO consultations (herd_id, site_id, section_id, vet_id, kind, started_at) VALUES (%(herd)s,
+      1, 2, 11 + %(vet)s %% 7, 'herd-visit', now())
+    params:
+      herd:
+        int:
+        - 1
+        - 200
+      vet:
+        int:
+        - 0
+        - 999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  consultations.ward:
+    sql: |-
+      INSERT INTO consultations (animal_id, site_id, section_id, vet_id, kind, stay_id, started_at) SELECT s.animal_id, 1, s.section_id,
+             CASE s.section_id WHEN 1 THEN 1 + %(vet)s %% 10 WHEN 2 THEN 11 + %(vet)s %% 7 ELSE 18 + %(vet)s %% 8 END,
+             'in-hospital', s.id, now()
+        FROM stays AS s
+       WHERE s.discharged_at IS NULL AND s.admitted_at <= now() - interval '1 hour'
+       ORDER BY hashint8extended(s.id, %(pick)s) LIMIT 1
+    params:
+      vet:
+        int:
+        - 0
+        - 999
+      pick:
+        int:
+        - 1
+        - 1000000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  stays.admit:
+    sql: |-
+      INSERT INTO stays (animal_id, site_id, section_id, admitting_vet_id, reason, admitted_at) SELECT c.animal_id, 1, c.section_id, c.vet_id,
+             CASE c.section_id
+               WHEN 1 THEN (ARRAY['colic, for monitoring', 'colic surgery', 'lameness work-up', 'wound management',
+                                  'foaling', 'respiratory disease'])[1 + %(reason)s %% 6]
+               WHEN 2 THEN (ARRAY['dystocia', 'displaced abomasum', 'pneumonia', 'neonatal care',
+                                  'lameness'])[1 + %(reason)s %% 5]
+               ELSE (ARRAY['post-operative care', 'gastroenteritis', 'trauma', 'renal failure',
+                           'diabetes stabilisation', 'foreign body surgery', 'observation'])[1 + %(reason)s %% 7] END,
+             now()
+        FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id
+       WHERE c.kind IN ('emergency', 'scheduled') AND c.started_at >= now() - interval '6 hours'
+         AND a.status = 'alive'
+         AND NOT EXISTS (SELECT 1 FROM stays AS s WHERE s.animal_id = c.animal_id AND s.discharged_at IS NULL)
+         AND (SELECT count(*) FROM stays AS s WHERE s.section_id = c.section_id AND s.discharged_at IS NULL)
+             < CASE c.section_id WHEN 1 THEN 21 WHEN 2 THEN 10 ELSE 31 END
+       ORDER BY hashint8extended(c.id, %(pick)s) LIMIT 1
+    params:
+      reason:
+        int:
+        - 0
+        - 999
+      pick:
+        int:
+        - 1
+        - 1000000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  stays.discharge:
+    transaction:
+      isolation: read committed
+    steps:
+    - sql: |-
+        UPDATE stays
+           SET discharged_at = now(),
+               outcome = CASE WHEN %(outcome)s <= 90 THEN 'discharged' WHEN %(outcome)s <= 94 THEN 'transferred'
+                              ELSE 'died' END,
+               transferred_to_site_id = CASE WHEN %(outcome)s BETWEEN 91 AND 94 THEN %(site)s END
+         WHERE id = (SELECT id FROM stays WHERE discharged_at IS NULL AND admitted_at <= now() - interval '2 days'
+                      ORDER BY admitted_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+      params:
+        outcome:
+          int:
+          - 1
+          - 100
+        site:
+          int:
+          - 2
+          - 6
+    - sql: |-
+        INSERT INTO exchanges (direction, kind, partner_site_id, animal_id, stay_id, reason, exchange_key,
+                               requested_at, state)
+        SELECT 'out', 'transfer', s.transferred_to_site_id, s.animal_id, s.id, 'transfer for continued care',
+               gen_random_uuid(), now(), 'requested'
+          FROM stays AS s WHERE s.discharged_at = now() AND s.outcome = 'transferred'
+    - sql: |-
+        UPDATE animals AS a
+           SET status = 'died', died_at = now(),
+               death_kind = CASE WHEN %(how)s <= 3 THEN 'euthanasia' ELSE 'natural' END
+          FROM stays AS s
+         WHERE s.discharged_at = now() AND s.outcome = 'died' AND a.id = s.animal_id
+      params:
+        how:
+          int:
+          - 1
+          - 5
+    - sql: |-
+        UPDATE administrations AS d SET state = 'cancelled'
+          FROM stays AS s
+         WHERE s.discharged_at = now() AND d.stay_id = s.id AND d.state = 'scheduled'
+    - sql: |-
+        UPDATE alerts AS al SET until_at = now()
+          FROM stays AS s
+         WHERE s.discharged_at = now() AND al.animal_id = s.animal_id AND al.kind = 'infectious'
+           AND al.until_at IS NULL
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  alerts.record:
+    sql: |-
+      INSERT INTO alerts (animal_id, kind, text, from_at, until_at) SELECT a.id, k.kind, k.text, now(), CASE WHEN k.kind = 'infectious' THEN now() + interval '3 days' END
+        FROM (SELECT id FROM animals WHERE status = 'alive' AND id > 12 AND id NOT BETWEEN 14601 AND 14608
+                AND id >= 13 + %(r)s %% 17000 ORDER BY id LIMIT 1) AS a,
+             (SELECT kind, (CASE kind WHEN 'allergy' THEN ARRAY['penicillin', 'NSAID intolerance', 'reaction to vaccine']
+                                      WHEN 'dangerous' THEN ARRAY['bites when handled', 'kicks', 'muzzle for examination']
+                                      WHEN 'infectious' THEN ARRAY['barrier nursing: MRSP',
+                                                                   'isolation: suspected salmonellosis',
+                                                                   'isolation: suspected strangles']
+                                      ELSE ARRAY['blind', 'deaf', 'needle-shy'] END)[%(text)s] AS text
+                FROM (SELECT (ARRAY['allergy', 'dangerous', 'infectious', 'other'])[%(kind)s] AS kind) AS x) AS k
+    params:
+      kind:
+        choice:
+          1: 40
+          2: 20
+          3: 15
+          4: 25
+      text:
+        int:
+        - 1
+        - 3
+      r:
+        int:
+        - 0
+        - 999999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  ownerships.transfer:
+    transaction:
+      isolation: read committed
+    steps:
+    - sql: |-
+        UPDATE ownerships SET until_at = now()
+         WHERE until_at IS NULL
+           AND animal_id = (SELECT o.animal_id FROM ownerships AS o JOIN animals AS a ON a.id = o.animal_id
+                             WHERE o.role = 'owner' AND o.until_at IS NULL AND o.owner_id <> 1
+                               AND a.status = 'alive' AND a.species NOT IN ('cattle', 'sheep', 'goat')
+                               AND o.animal_id >= 13 + %(r)s %% 16000
+                               AND o.from_at < now() - interval '30 days'
+                             ORDER BY o.animal_id LIMIT 1)
+      params:
+        r:
+          int:
+          - 0
+          - 999999
+    - sql: |-
+        INSERT INTO ownerships (animal_id, owner_id, role, from_at) SELECT o.animal_id,
+               CASE WHEN b.buyer = o.owner_id THEN b.buyer + 1 ELSE b.buyer END, 'owner', now()
+          FROM ownerships AS o JOIN animals AS a ON a.id = o.animal_id,
+               LATERAL (SELECT CASE WHEN a.species = 'horse' THEN 302 + %(b)s %% 599
+                                    ELSE 902 + %(b)s %% 9098 END AS buyer) AS b
+         WHERE o.role = 'owner' AND o.until_at = now()
+           AND NOT EXISTS (SELECT 1 FROM ownerships AS c WHERE c.animal_id = o.animal_id AND c.role = 'owner'
+                              AND c.until_at IS NULL)
+      params:
+        b:
+          int:
+          - 0
+          - 999999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  requests.cancel:
+    sql: |-
+      UPDATE requests SET state = 'cancelled', cancelled_at = now()
+       WHERE id = (SELECT id FROM requests WHERE state = 'requested'
+                    ORDER BY hashint8extended(id, %(pick)s) LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      pick:
+        int:
+        - 1
+        - 1000000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  exchanges.request:
+    sql: |-
+      INSERT INTO exchanges (direction, kind, partner_site_id, animal_id, reason, exchange_key, requested_at,
+                             state)
+      SELECT 'out', CASE WHEN %(kind)s = 1 THEN 'transfer' ELSE 'examination' END, %(site)s, a.id,
+             (ARRAY['MRI not available here', 'second opinion', 'specialist surgery', 'nuclear medicine',
+                    'closer to the owner'])[%(reason)s],
+             gen_random_uuid(), now(), 'requested'
+        FROM (SELECT id FROM animals WHERE status = 'alive' AND id > 12 AND id NOT BETWEEN 14601 AND 14608
+                AND id >= 13 + %(r)s %% 17000 ORDER BY id LIMIT 1) AS a
+    params:
+      kind:
+        int:
+        - 1
+        - 5
+      site:
+        int:
+        - 2
+        - 6
+      reason:
+        int:
+        - 1
+        - 5
+      r:
+        int:
+        - 0
+        - 999999
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  consultations.close:
+    transaction:
+      isolation: read committed
+    steps:
+    - sql: |-
+        UPDATE consultations
+           SET state = 'closed', ended_at = now(),
+               findings = (ARRAY['Bright and alert; examination unremarkable apart from the presenting complaint.',
+                                 'Mild dehydration; vital signs within normal limits.',
+                                 'Pain on palpation; further work-up advised.', 'Improving since the last examination.',
+                                 'Stable; treatment continued.', 'Findings discussed with the keeper; recheck advised.',
+                                 'Herd health plan reviewed.', 'Lame on the affected limb; nerve blocks planned.'])[%(f)s]
+         WHERE id = (SELECT id FROM consultations WHERE state = 'open' AND started_at <= now() - interval '25 minutes'
+                      ORDER BY started_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+      params:
+        f:
+          int:
+          - 1
+          - 8
+    - sql: |-
+        INSERT INTO diagnoses (consultation_id, code, confirmed, recorded_at) SELECT c.id, d.code, %(confirmed)s <= 7, now()
+          FROM consultations AS c,
+               LATERAL (SELECT dc.code FROM diagnosis_codes AS dc
+                         WHERE dc.species_group IN (CASE c.section_id WHEN 1 THEN 'horse' WHEN 2 THEN 'farm'
+                                                                      ELSE 'domestic' END, 'any')
+                           AND (dc.notifiable = 'none' OR (dc.notifiable = 'other' AND %(listed)s = 1))
+                         ORDER BY hashint8extended(hashtext(dc.code), %(seed)s)
+                         LIMIT CASE WHEN %(two)s = 1 THEN 2 ELSE 1 END) AS d
+         WHERE c.state = 'closed' AND c.ended_at = now()
+      params:
+        confirmed:
+          int:
+          - 1
+          - 10
+        listed:
+          int:
+          - 1
+          - 250
+        two:
+          int:
+          - 1
+          - 5
+        seed:
+          int:
+          - 1
+          - 1000000
+    - sql: |-
+        INSERT INTO procedures (consultation_id, stay_id, code, lead_staff_id, anaesthesia, performed_at) SELECT c.id, c.stay_id, v.code, c.vet_id, v.anaesthesia, now()
+          FROM consultations AS c,
+               LATERAL (SELECT * FROM (VALUES (1, 'P-HOOF', false), (1, 'P-COLIC', true), (1, 'P-ARTH', true),
+                                              (1, 'P-DENT-E', false), (1, 'P-NERVE', false), (1, 'P-WOUND', false),
+                                              (2, 'P-CSEC', false), (2, 'P-DISP', false), (2, 'P-CLAW', false),
+                                              (2, 'P-DEHORN', false), (2, 'P-WOUND', false),
+                                              (3, 'P-DENT', true), (3, 'P-CAST', true), (3, 'P-WOUND', true),
+                                              (3, 'P-ORTH', true), (3, 'P-ENDO', true), (3, 'P-BIOP', false),
+                                              (3, 'P-FLUID', false)) AS p (sec, code, anaesthesia)
+                         WHERE p.sec = c.section_id
+                         ORDER BY hashint8extended(hashtext(p.code), %(seed)s) LIMIT 1) AS v
+         WHERE c.state = 'closed' AND c.ended_at = now() AND %(p)s <= 3
+      params:
+        p:
+          int:
+          - 1
+          - 10
+        seed:
+          int:
+          - 1
+          - 1000000
+    - sql: |-
+        INSERT INTO requests (consultation_id, animal_id, kind, code, requested_by, priority, requested_at) SELECT c.id, c.animal_id, 'analysis', t.code, c.vet_id, u.priority, now()
+          FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id,
+               LATERAL (SELECT CASE WHEN c.kind IN ('emergency', 'in-hospital') THEN 'urgent' ELSE 'routine' END
+                                 AS priority,
+                               (SELECT extract(isodow FROM now() AT TIME ZONE b.timezone) = 7
+                                       OR extract(hour FROM now() AT TIME ZONE b.timezone) NOT BETWEEN 7 AND 20
+                                  FROM business_settings AS b) AS night) AS u,
+               LATERAL (SELECT v.code FROM (VALUES
+                   (3, 'CBC', 22, 'n'), (3, 'CHEMSA', 14, 'n'), (3, 'PREA', 8, 'n'), (3, 'SENIOR', 4, 'n'),
+                   (3, 'RENAL', 4, 'n'), (3, 'LIVER', 3, 'n'), (3, 'BGAS', 5, 'n'), (3, 'COAG', 4, 'd'),
+                   (3, 'UA', 6, 'd'), (3, 'UAUPC', 2, 'd'), (3, 'UCULT', 3, 'r'), (3, 'CULT', 3, 'r'),
+                   (3, 'EFFUS', 2, 'd'), (3, 'FNA', 4, 'r'), (3, 'FELV', 2, 'd'), (3, 'VECT', 2, 'd'),
+                   (3, 'DIARC', 1, 'd'), (3, 'HISTO', 5, 'r'), (3, 'TT4', 2, 'r'), (3, 'ACTHST', 1, 'r'),
+                   (3, 'PCRSA', 1, 'r'), (3, 'GLU', 2, 'n'),
+                   (1, 'CBC', 27, 'n'), (1, 'CHEMEQ', 18, 'n'), (1, 'COLIC', 6, 'n'), (1, 'PERFEQ', 4, 'n'),
+                   (1, 'BGAS', 6, 'n'), (1, 'PCVTS', 5, 'n'), (1, 'COAG', 2, 'd'), (1, 'FOAL', 3, 'd'),
+                   (1, 'UA', 2, 'd'), (1, 'CULT', 5, 'r'), (1, 'EFFUS', 6, 'd'), (1, 'FEC', 3, 'r'),
+                   (1, 'EIA', 4, 'r'), (1, 'HISTO', 3, 'r'), (1, 'STREP', 3, 'r'), (1, 'EACTH', 3, 'r'),
+                   (2, 'CBC', 18, 'n'), (2, 'METRU', 18, 'n'), (2, 'MINRU', 6, 'r'), (2, 'RENAL', 4, 'n'),
+                   (2, 'LIVER', 4, 'n'), (2, 'BGAS', 6, 'n'), (2, 'MCULT', 10, 'r'), (2, 'FEC', 6, 'r'),
+                   (2, 'CALFD', 5, 'd'), (2, 'HERDB', 6, 'r'), (2, 'CULT', 4, 'r'), (2, 'HISTO', 3, 'r'),
+                   (2, 'BVDPCR', 3, 'r'), (2, 'PB', 2, 'r')) AS v (sec, code, w, urgent)
+                 WHERE v.sec = c.section_id
+                   AND CASE v.code WHEN 'FELV' THEN a.species = 'cat'
+                                   WHEN 'VECT' THEN a.species = 'dog' WHEN 'DIARC' THEN a.species = 'dog'
+                                   WHEN 'ACTHST' THEN a.species = 'dog' WHEN 'TT4' THEN a.species IN ('dog', 'cat')
+                                   WHEN 'CALFD' THEN a.species = 'cattle' WHEN 'HERDB' THEN a.species = 'cattle'
+                                   WHEN 'BVDPCR' THEN a.species = 'cattle' WHEN 'MCULT' THEN a.sex = 'female'
+                                   ELSE true END
+                   AND (u.priority = 'routine' OR v.urgent = 'n' OR (v.urgent = 'd' AND NOT u.night))
+                 ORDER BY -ln(((hashint8extended(hashtext(v.code), %(seed)s) & 2147483647) + 1)::float8
+                              / 2147483649) / v.w
+                 LIMIT %(tests)s) AS t
+         WHERE c.state = 'closed' AND c.ended_at = now() AND %(lab)s <= 30
+      params:
+        lab:
+          int:
+          - 1
+          - 100
+        tests:
+          choice:
+            1: 40
+            2: 37
+            3: 23
+        seed:
+          int:
+          - 1
+          - 1000000
+    - sql: |-
+        INSERT INTO requests (consultation_id, animal_id, kind, code, requested_by, priority, requested_at) SELECT c.id, c.animal_id, 'imaging', i.code, c.vet_id, u.priority, now()
+          FROM consultations AS c,
+               LATERAL (SELECT CASE WHEN c.kind IN ('emergency', 'in-hospital') THEN 'urgent' ELSE 'routine' END
+                                 AS priority) AS u,
+               LATERAL (SELECT v.code FROM (VALUES
+                   (3, 'DX-THX-S', 14), (3, 'DX-ABD-S', 9), (3, 'DX-LIMB-S', 10), (3, 'DX-SPN-S', 5),
+                   (3, 'DX-VIEW-A', 3), (3, 'DX-CONT-A', 2), (3, 'US-ABD-S', 15), (3, 'US-ECHO-S', 7),
+                   (3, 'US-THX-S', 3), (3, 'US-GUID-A', 3), (3, 'CT-HEAD-S', 7), (3, 'CT-TAB-S', 9),
+                   (3, 'CT-LSP-S', 5), (3, 'MR-BRN-S', 4), (3, 'MR-SPN-S', 4),
+                   (1, 'DX-FOOT-L', 10), (1, 'DX-FTLK-L', 8), (1, 'DX-CRHK-L', 7), (1, 'DX-STFL-L', 3),
+                   (1, 'DX-HEAD-L', 5), (1, 'DX-NKBK-L', 3), (1, 'DX-THX-L', 2), (1, 'DX-VIEW-A', 3),
+                   (1, 'DX-CONT-A', 2), (1, 'US-TEND-L', 16), (1, 'US-ABD-L', 6), (1, 'US-THX-L', 3),
+                   (1, 'US-REPR-L', 5), (1, 'US-GUID-A', 3), (1, 'CT-HEAD-L', 3), (1, 'CT-LIMB-L', 4),
+                   (1, 'MR-LIMB-H', 7), (1, 'NM-BONE-H', 10),
+                   (2, 'DX-FOOT-L', 12), (2, 'DX-FTLK-L', 10), (2, 'DX-CRHK-L', 8), (2, 'DX-STFL-L', 5),
+                   (2, 'DX-HEAD-L', 6), (2, 'DX-NKBK-L', 4), (2, 'DX-THX-L', 10), (2, 'DX-VIEW-A', 3),
+                   (2, 'DX-CONT-A', 2), (2, 'US-TEND-L', 6), (2, 'US-ABD-L', 9), (2, 'US-THX-L', 5),
+                   (2, 'US-REPR-L', 12), (2, 'US-GUID-A', 3), (2, 'CT-HEAD-L', 3), (2, 'CT-LIMB-L', 2))
+                   AS v (sec, code, w),
+                   LATERAL (SELECT CASE WHEN u.priority = 'routine' THEN v.w
+                                        WHEN v.code IN ('MR-LIMB-H', 'NM-BONE-H') THEN 0
+                                        WHEN v.code = 'DX-FOOT-L' AND v.sec = 1 THEN v.w + 10
+                                        WHEN v.code = 'US-TEND-L' AND v.sec = 1 THEN v.w + 7
+                                        ELSE v.w END AS w) AS x
+                 WHERE v.sec = c.section_id AND x.w > 0
+                 ORDER BY -ln(((hashint8extended(hashtext(v.code), %(seed)s) & 2147483647) + 1)::float8
+                              / 2147483649) / x.w
+                 LIMIT 1) AS i
+         WHERE c.state = 'closed' AND c.ended_at = now() AND c.animal_id IS NOT NULL AND %(imaging)s <= 125
+      params:
+        imaging:
+          int:
+          - 1
+          - 1000
+        seed:
+          int:
+          - 1
+          - 1000000
+    - sql: |-
+        INSERT INTO prescriptions (consultation_id, animal_id, herd_id, vet_id, issued_at, valid_until, state) SELECT c.id, c.animal_id, c.herd_id, c.vet_id, now(), now() + interval '30 days',
+               CASE WHEN c.kind = 'in-hospital' THEN 'dispensed' ELSE 'issued' END
+          FROM consultations AS c
+         WHERE c.state = 'closed' AND c.ended_at = now() AND (c.kind = 'in-hospital' OR %(p)s <= 53)
+      params:
+        p:
+          int:
+          - 1
+          - 100
+    - sql: |-
+        INSERT INTO prescription_lines (prescription_id, medicine_id, dose, unit, frequency_hours, days,
+                                        meat_withdrawal_days, milk_withdrawal_days, withdrawal_ends_on)
+        SELECT p.id, m.id, m.dose, m.unit, m.freq, m.days,
+               CASE WHEN f.food THEN m.meat_withdrawal_days END,
+               CASE WHEN f.food AND f.milk THEN m.milk_withdrawal_days END,
+               CASE WHEN f.food THEN (now() AT TIME ZONE (SELECT timezone FROM business_settings))::date + m.days
+                                     + greatest(m.meat_withdrawal_days,
+                                                CASE WHEN f.milk THEN coalesce(m.milk_withdrawal_days, 0) ELSE 0 END)
+               END
+          FROM prescriptions AS p JOIN consultations AS c ON c.id = p.consultation_id
+               LEFT JOIN animals AS a ON a.id = p.animal_id,
+               LATERAL (SELECT c.section_id = 2 OR (a.species = 'horse' AND a.food_chain = 'food-producing') AS food,
+                               c.section_id = 2 AND coalesce(a.sex, 'female') = 'female' AS milk) AS f,
+               LATERAL (SELECT md.id, md.meat_withdrawal_days, md.milk_withdrawal_days,
+                               split_part(md.name, ' ', -1) AS unit,
+                               ((hashint8extended(md.id, %(seed)s) & 7) + 1) / 2.0 AS dose,
+                               CASE WHEN c.kind = 'in-hospital'
+                                    THEN (ARRAY[4, 4, 12, 12, 24])[1 + (hashint8extended(md.id, %(seed)s + 1) & 4095) %% 5]
+                                    ELSE (ARRAY[8, 12, 24])[1 + (hashint8extended(md.id, %(seed)s + 1) & 4095) %% 3] END
+                                 AS freq,
+                               (CASE WHEN c.kind = 'in-hospital' THEN 1 + (hashint8extended(md.id, %(seed)s + 2) & 4095) %% 5
+                                     ELSE 3 + (hashint8extended(md.id, %(seed)s + 2) & 4095) %% 8 END)::integer AS days
+                          FROM medicines AS md
+                         WHERE CASE WHEN f.food THEN md.meat_withdrawal_days IS NOT NULL
+                                                     AND (c.section_id = 2 OR md.food_chain_horse_allowed)
+                                    ELSE true END
+                           AND NOT (c.section_id = 3 AND (md.id - 1) / 10 + 1 IN (10, 11, 37, 39, 40))
+                           AND NOT (c.section_id = 1 AND (md.id - 1) / 10 + 1 IN (10, 11, 37, 38, 40))
+                           AND NOT (c.section_id = 2 AND (md.id - 1) / 10 + 1 IN (38, 39))
+                         ORDER BY hashint8extended(md.id, %(seed)s)
+                         LIMIT CASE WHEN c.kind = 'in-hospital' THEN 1 + %(lines)s ELSE %(lines)s END) AS m
+         WHERE c.state = 'closed' AND c.ended_at = now() AND p.issued_at = now()
+      params:
+        seed:
+          int:
+          - 1
+          - 1000000
+        lines:
+          int:
+          - 1
+          - 3
+    - sql: |-
+        UPDATE prescriptions AS p SET valid_until = p.issued_at + interval '5 days'
+         WHERE p.issued_at = now()
+           AND EXISTS (SELECT 1 FROM prescription_lines AS l JOIN medicines AS m ON m.id = l.medicine_id
+                        WHERE l.prescription_id = p.id AND m.antimicrobial)
+    - sql: |-
+        WITH lines AS (
+          SELECT l.id, l.medicine_id, l.dose, l.days, l.frequency_hours, p.id AS prescription_id,
+                 coalesce((SELECT o.owner_id FROM ownerships AS o WHERE o.animal_id = p.animal_id AND o.role = 'owner'
+                              AND o.until_at IS NULL),
+                          (SELECT h.keeper_owner_id FROM herds AS h WHERE h.id = p.herd_id)) AS owner_id,
+                 CASE c.section_id WHEN 1 THEN 29 + %(nurse)s %% 8 WHEN 2 THEN 37 + %(nurse)s %% 6
+                                   ELSE 43 + %(nurse)s %% 9 END AS nurse
+            FROM prescriptions AS p JOIN consultations AS c ON c.id = p.consultation_id
+            JOIN prescription_lines AS l ON l.prescription_id = p.id
+           WHERE p.issued_at = now() AND p.state = 'issued' AND %(given)s <= 9),
+        dispensed AS (
+          INSERT INTO dispensings (prescription_line_id, batch_id, quantity, owner_id, dispensed_by, dispensed_at)
+          SELECT l.id, (SELECT min(b.id) FROM medicine_batches AS b WHERE b.medicine_id = l.medicine_id),
+                 least(9999, l.dose * l.days * 24 / l.frequency_hours), l.owner_id, l.nurse, now()
+            FROM lines AS l WHERE l.owner_id IS NOT NULL
+          RETURNING prescription_line_id)
+        UPDATE prescriptions SET state = 'dispensed'
+         WHERE id IN (SELECT prescription_id FROM lines WHERE owner_id IS NOT NULL)
+      params:
+        nurse:
+          int:
+          - 0
+          - 999
+        given:
+          int:
+          - 1
+          - 10
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  consultations.sign:
+    sql: |-
+      UPDATE consultations SET state = 'signed', signed_at = now()
+       WHERE id = (SELECT id FROM consultations WHERE state = 'closed' AND ended_at <= now() - interval '1 hour'
+                    ORDER BY ended_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  referrals.accept:
+    sql: |-
+      UPDATE referrals SET state = CASE WHEN %(d)s = 1 THEN 'declined' ELSE 'accepted' END, decided_at = now()
+       WHERE id = (SELECT id FROM referrals WHERE state = 'received'
+                    ORDER BY received_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      d:
+        int:
+        - 1
+        - 20
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  referrals.close:
+    sql: |-
+      UPDATE referrals SET state = 'closed', report_sent_at = now()
+       WHERE id = (SELECT r.id FROM referrals AS r
+                    WHERE r.state = 'accepted'
+                      AND EXISTS (SELECT 1 FROM consultations AS c WHERE c.referral_id = r.id)
+                      AND NOT EXISTS (SELECT 1 FROM consultations AS c WHERE c.referral_id = r.id AND c.state <> 'signed')
+                      AND NOT EXISTS (SELECT 1 FROM stays AS s WHERE s.animal_id = r.animal_id AND s.discharged_at IS NULL)
+                    ORDER BY r.decided_at, r.id LIMIT 1 FOR UPDATE SKIP LOCKED)
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  exchanges.decide:
+    sql: |-
+      UPDATE exchanges
+         SET state = CASE WHEN %(d)s = 1 THEN 'declined' ELSE 'accepted' END,
+             accepted_for = CASE WHEN %(d)s > 1 THEN
+                              (SELECT min(day)::date FROM generate_series((current_date + %(ahead)s)::timestamp, (current_date + 9)::timestamp,
+                                                                          interval '1 day') AS day
+                                WHERE extract(isodow FROM day) < 6) END,
+             answered_at = now()
+       WHERE id = (SELECT id FROM exchanges WHERE direction = 'in' AND state = 'received'
+                    ORDER BY requested_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      d:
+        int:
+        - 1
+        - 10
+      ahead:
+        int:
+        - 1
+        - 5
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  exchanges.report:
+    sql: |-
+      UPDATE exchanges
+         SET state = 'reported', reported_at = now(),
+             report = (ARRAY['Examination completed; findings consistent with the referral. Report attached.',
+                             'No significant abnormality detected; follow-up at the home centre.',
+                             'Lesion confirmed; treatment plan proposed.'])[%(text)s]
+       WHERE id = (SELECT id FROM exchanges WHERE kind = 'examination' AND state = 'accepted'
+                      AND accepted_for <= (now() AT TIME ZONE (SELECT timezone FROM business_settings))::date - 1
+                    ORDER BY accepted_for, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    params:
+      text:
+        int:
+        - 1
+        - 3
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  animals.file:
+    sql: |-
+      SELECT a.id, a.name, a.species, a.breed, a.sex, a.born_on, a.microchip, a.status,
+             (SELECT string_agg(al.kind || ': ' || al.text, '; ') FROM alerts AS al
+               WHERE al.animal_id = a.id AND (al.until_at IS NULL OR al.until_at > now())) AS alerts,
+             (SELECT o.name || ', ' || coalesce(o.phone, o.email) FROM ownerships AS w JOIN owners AS o ON o.id = w.owner_id
+               WHERE w.animal_id = a.id AND w.role = 'owner' AND w.until_at IS NULL) AS owner,
+             (SELECT json_agg(x) FROM (SELECT c.id, c.kind, c.started_at, c.state, c.findings FROM consultations AS c
+                                        WHERE c.animal_id = a.id ORDER BY c.started_at DESC LIMIT 5) AS x) AS last,
+             (SELECT s.id FROM stays AS s WHERE s.animal_id = a.id AND s.discharged_at IS NULL) AS stay
+        FROM animals AS a
+       WHERE a.id = (SELECT id FROM animals WHERE id >= %(r)s ORDER BY id LIMIT 1)
+    params:
+      r:
+        int:
+        - 13
+        - 17000
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  wards.list:
+    sql: |-
+      SELECT s.id, a.name, a.species, s.admitted_at, d.scheduled_at, m.name AS medicine, d.quantity
+        FROM stays AS s JOIN animals AS a ON a.id = s.animal_id
+        LEFT JOIN administrations AS d ON d.stay_id = s.id AND d.state = 'scheduled'
+        LEFT JOIN medicines AS m ON m.id = d.medicine_id
+       WHERE s.section_id = %(section)s AND s.discharged_at IS NULL
+       ORDER BY s.admitted_at, d.scheduled_at
+    params:
+      section:
+        int:
+        - 1
+        - 3
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  requests.pending:
+    sql: |-
+      SELECT r.id, r.kind, r.code, r.priority, r.state, r.requested_at, a.name
+        FROM requests AS r JOIN animals AS a ON a.id = r.animal_id
+       WHERE r.requested_by = %(vet)s AND r.state IN ('requested', 'sent')
+       ORDER BY r.requested_at DESC LIMIT 50
+    params:
+      vet:
+        int:
+        - 1
+        - 25
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  administrations.round:
+    transaction:
+      isolation: read committed
+    steps:
+    - sql: |-
+        INSERT INTO administrations (animal_id, stay_id, prescription_line_id, medicine_id, batch_id, quantity,
+                                     scheduled_at)
+        SELECT s.animal_id, s.id, l.id, l.medicine_id,
+               (SELECT min(b.id) FROM medicine_batches AS b WHERE b.medicine_id = l.medicine_id),
+               l.dose, date_trunc('hour', now())
+          FROM prescription_lines AS l JOIN prescriptions AS p ON p.id = l.prescription_id
+          JOIN consultations AS c ON c.id = p.consultation_id
+          JOIN stays AS s ON s.id = c.stay_id
+         WHERE c.kind = 'in-hospital' AND s.discharged_at IS NULL AND p.state <> 'cancelled'
+           AND p.issued_at <= date_trunc('hour', now())
+           AND NOT EXISTS (SELECT 1 FROM administrations AS d WHERE d.prescription_line_id = l.id)
+    - sql: |-
+        UPDATE administrations AS d
+           SET state = CASE WHEN (hashint8extended(d.id, 441) & 2147483647)::float8 / 2147483648 < 0.01
+                            THEN 'missed' ELSE 'given' END,
+               given_at = CASE WHEN (hashint8extended(d.id, 441) & 2147483647)::float8 / 2147483648 >= 0.01
+                               THEN now() END,
+               given_by = CASE WHEN (hashint8extended(d.id, 441) & 2147483647)::float8 / 2147483648 >= 0.01
+                               THEN CASE s.section_id
+                                      WHEN 1 THEN 29 + (hashint8extended(d.id, 443) & 4095) % 8
+                                      WHEN 2 THEN 37 + (hashint8extended(d.id, 443) & 4095) % 6
+                                      ELSE 43 + (hashint8extended(d.id, 443) & 4095) % 9 END END
+          FROM stays AS s
+         WHERE s.id = d.stay_id AND d.state = 'scheduled' AND d.scheduled_at <= now()
+    - sql: |-
+        INSERT INTO administrations (animal_id, stay_id, prescription_line_id, medicine_id, batch_id, quantity,
+                                     scheduled_at)
+        SELECT s.animal_id, s.id, l.id, l.medicine_id,
+               (SELECT min(b.id) FROM medicine_batches AS b WHERE b.medicine_id = l.medicine_id),
+               l.dose, n.next
+          FROM prescription_lines AS l JOIN prescriptions AS p ON p.id = l.prescription_id
+          JOIN consultations AS c ON c.id = p.consultation_id
+          JOIN stays AS s ON s.id = c.stay_id,
+               LATERAL (SELECT min(d.scheduled_at) AS first FROM administrations AS d
+                         WHERE d.prescription_line_id = l.id) AS f,
+               LATERAL (SELECT date_trunc('hour', now()) + interval '4 hours' AS next) AS n,
+               LATERAL (SELECT (extract(epoch FROM n.next - f.first) / 3600)::integer AS h) AS e
+         WHERE c.kind = 'in-hospital' AND s.discharged_at IS NULL AND p.state <> 'cancelled'
+           AND f.first IS NOT NULL AND e.h % l.frequency_hours = 0
+           AND e.h / l.frequency_hours < l.days * 24 / l.frequency_hours
+           AND NOT EXISTS (SELECT 1 FROM administrations AS d
+                            WHERE d.prescription_line_id = l.id AND d.scheduled_at = n.next)
+  # from vet-core@regional-franchise: domains/vet-core/producers/pms/queries.yaml
+  prescriptions.expire:
+    sql: |-
+      UPDATE prescriptions AS p SET state = 'expired'
+       WHERE p.state = 'issued'
+         AND (p.valid_until < now()
+              OR (p.valid_until - p.issued_at > interval '5 days'
+                  AND p.issued_at + (SELECT max(l.days) FROM prescription_lines AS l
+                                      WHERE l.prescription_id = p.id) * interval '1 day' < now()))

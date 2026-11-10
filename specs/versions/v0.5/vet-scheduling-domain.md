@@ -1018,11 +1018,14 @@ way; the booking's notes never copied.
 
 **Roles** (with step 7's others, [clinic-purposes](clinic-purposes.md#the-roles-the-purposes-add)):
 `sched_interfaces` on the part's tables (reads bookings, allocations,
-types, machines, hours, shifts, absences, settings; executes
-`sched_free_slots`; writes bookings and allocations, and bookings'
-state); `vet_interfaces` on `clinic` gains `INSERT` on `consultations`
+types, courses, rooms, machines, hours, shifts, absences, settings, the
+slot function running with its rights; executes `sched_free_slots`;
+writes bookings and allocations, bookings' state, and allocations'
+`released_at`, the release trigger running as its invoker, D442);
+`vet_interfaces` on `clinic` gains `INSERT` on `consultations`
 (its open columns only: animal, site, section, vet, kind, `booking_id`,
-started at) and `SELECT` on `animals` (`id`, `status`, `died_at`).
+started at), `SELECT` on `consultations` (`id`, `booking_id`,
+`section_id`, D442) and on `animals` (`id`, `status`, `died_at`).
 
 **Candidate faults**: T112 to T119 (step 8).
 

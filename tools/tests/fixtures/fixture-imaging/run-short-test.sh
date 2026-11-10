@@ -7,9 +7,12 @@
 # revoked from PUBLIC, its schema and load with the core's keys streamed
 # ahead; then data/cron.sql, the three partition jobs scheduled in jobs,
 # pg_cron's database), the machines and their systems, equipment, the
-# practice software, pms, the idle integration engine, interfaces, and the
-# lookup API, clinic-api, composed by gmctl compose from the domains'
-# producers. On one host, about 15 minutes.
+# practice software, pms, the integration engine, interfaces, running
+# purpose 13 (vet-imaging-orders, chunk 21: its DDL in clinic and pacs at
+# load-data's step (2b), its posts every minute and its fetches every five),
+# and the lookup API, clinic-api, composed by gmctl compose from the
+# domains' producers and the purpose's runner material. On one host, about
+# 25 minutes.
 #
 # T0 is placed by the shift (whole hours) within 30 minutes of 08:50 local
 # on a weekday (the driver's ruling, wave log, chunk 15): the local minute at
@@ -29,7 +32,8 @@
 #   (the shift placing T0) -> deploy -> load-data (its time and the three
 #   databases' sizes), then:
 #   - the stack file: the three application roles' passwords and
-#     clinic_lookup on equipment only, clinic_lookup alone on interfaces,
+#     clinic_lookup on equipment only, vet_interfaces' and mach_orders'
+#     passwords alone on interfaces,
 #     mach_maint's and mach_service's mounted nowhere, none on the bastion,
 #     records or machines;
 #   - load-data: the coherence check passed (seven checks); CONNECT revoked
@@ -39,15 +43,36 @@
 #     from yesterday to today plus three of mach_vitals and mach_readings by
 #     the customer's day, mach_events to next month, each default empty; no
 #     key function left; no statement of the load in machines' log;
+#     purpose 13's DDL at step (2b): the ops schema in clinic (with
+#     ops.imaging_results) and in pacs, vet_interfaces and mach_orders
+#     logging in with a SCRAM password, CONNECT on clinic and on pacs only,
+#     the two watermarks at load_epoch;
 #   - three worklist entries planted as postgres in pacs (standing for the
 #     imaging-orders purpose, chunk 21): a person's dog, a horse, a farm
 #     animal, without their identity;
-#   - inject -> start-load (T0, its local time checked), then: the identity
-#     job filling each planted entry from clinic-api (the record's animal and
-#     current owner, DICOM's form) within two minutes; the census job's first
-#     run after T0 answered by clinic-api, mach_census's current stays those
-#     of the record at that run; the readings of 11 machines a minute; pms,
-#     equipment and interfaces without an error, interfaces without a call;
+#   - inject -> start-load (T0, its local time checked), then: an urgent
+#     imaging request planted in clinic as postgres, standing for the vet
+#     (DX-VIEW-A, a single radiograph of ten minutes, on the latest open
+#     consultation of an owned animal), left requested by a post run while
+#     the consultation is open, then the consultation closed as postgres
+#     for the vet (IO1 judges from the close, after T0); the identity job filling each
+#     planted entry from clinic-api (the record's animal and current owner,
+#     DICOM's form) within two minutes; purpose 13: the request sent within
+#     two minutes of the close with its entry I-<id>, the entry's identity filled; the
+#     PACS's steps the streams have not reached by then (the backlog of
+#     the imaging day comes first) planted as postgres, standing for the
+#     imaging team, with the streams' own statements (equipment's
+#     pacs.worklist.schedule, pacs.study.acquire and, once the study has
+#     ended, pacs.report.final) narrowed to the entry; the request resulted
+#     by fetch-imaging-reports with its copy in ops.imaging_results, never
+#     on a preliminary; ops.runs rows for both jobs in clinic and the posts'
+#     in pacs; the checks IO1 and IO2 fixed, IO3 and IO4 fixed or too soon
+#     (run as gmctl check runs them, on interfaces as root with CHECK_SINCE
+#     at T0); the census job's first run after T0 answered by clinic-api,
+#     mach_census's current stays those of the record at that run; the
+#     readings of 11 machines a minute; pms, equipment and interfaces
+#     without an error, neither of purpose 13's jobs ending in error or
+#     skipped;
 #   -> teardown, then nothing labelled with the game id is left.
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
@@ -68,6 +93,7 @@ PG=imaging-short
 IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
 IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
+CHECKS=$REPO/purposes/vet-imaging-orders/checks
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 SETUP=330            # seconds from the render to T0, about: deploy, load-data, the plants
@@ -191,7 +217,8 @@ same "stack: none on machines" "machines -" "$(line 5)"
 same "stack: the three application roles' passwords and clinic_lookup on equipment" \
     "equipment http_clinic_lookup role_mach_biomed_app_password role_mach_pacs_app_password role_mach_vitals_app_password" \
     "$(line 6)"
-same "stack: clinic_lookup alone on interfaces (idle)" "interfaces http_clinic_lookup" "$(line 7)"
+same "stack: mach_orders' and vet_interfaces' passwords alone on interfaces (purpose 13)" \
+    "interfaces role_mach_orders_password role_vet_interfaces_password" "$(line 7)"
 same "stack: mach_maint's and mach_service's passwords mounted on no node" "0" \
     "$(printf '%s\n' "$st" | grep -c 'mach_maint\|mach_service' || true)"
 
@@ -213,6 +240,7 @@ done
 info "gmctl load-data"
 t=$(date +%s)
 LOAD_START=$t
+EPOCH0=$(date -u +%Y-%m-%dT%H:%M:00Z)     # load_epoch is this minute or the next (load-data's start)
 if $GMCTL load-data "$SCN" --playground "$PG"; then
     pass "load-data: the core and the machinery's three databases loaded ($(( $(date +%s) - t )) s)"
 else
@@ -242,15 +270,36 @@ same "load-data: CONNECT revoked from PUBLIC on pacs, vitals, biomed and jobs" "
     "$(msql postgres "SELECT has_database_privilege('public', 'pacs', 'CONNECT'), has_database_privilege('public', 'vitals', 'CONNECT'),
                              has_database_privilege('public', 'biomed', 'CONNECT'), has_database_privilege('public', 'jobs', 'CONNECT')" | tr '|' ' ')"
 same "load-data: each role's CONNECT (pacs vitals biomed) where W3-d gives it" \
-    "mach_biomed_app:fft mach_maint:ftt mach_pacs_app:tff mach_service:fft mach_vitals_app:ftf" \
+    "mach_biomed_app:fft mach_maint:ftt mach_orders:tff mach_pacs_app:tff mach_service:fft mach_vitals_app:ftf" \
     "$(msql postgres "SELECT string_agg(rolname || ':' || (CASE WHEN has_database_privilege(rolname, 'pacs', 'CONNECT') THEN 't' ELSE 'f' END)
                                    || (CASE WHEN has_database_privilege(rolname, 'vitals', 'CONNECT') THEN 't' ELSE 'f' END)
                                    || (CASE WHEN has_database_privilege(rolname, 'biomed', 'CONNECT') THEN 't' ELSE 'f' END), ' ' ORDER BY rolname)
                        FROM pg_roles WHERE rolname LIKE 'mach\_%'")"
 same "load-data: every machinery login role has a SCRAM password" \
-    "mach_biomed_app:true mach_maint:true mach_pacs_app:true mach_service:true mach_vitals_app:true" \
+    "mach_biomed_app:true mach_maint:true mach_orders:true mach_pacs_app:true mach_service:true mach_vitals_app:true" \
     "$(msql postgres "SELECT string_agg(rolname || ':' || (rolpassword LIKE 'SCRAM-SHA-256\$%'), ' ' ORDER BY rolname)
                        FROM pg_authid WHERE rolname LIKE 'mach\_%' AND rolcanlogin")"
+
+# purpose 13's DDL, load-data's step (2b), in clinic and in pacs
+same "load-data (2b): purpose 13's ops schema in clinic, owned by ops, with ops.imaging_results" \
+    "ops:ops imaging_results incidents runs watermarks" \
+    "$(dbsql clinic "SELECT n.nspname || ':' || pg_get_userbyid(n.nspowner) || ' ' || string_agg(c.relname, ' ' ORDER BY c.relname)
+                       FROM pg_namespace n JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind = 'r'
+                      WHERE n.nspname = 'ops' GROUP BY n.nspname, n.nspowner")"
+same "load-data (2b): purpose 13's ops schema in pacs, owned by ops" "ops:ops incidents runs watermarks" \
+    "$(msql pacs "SELECT n.nspname || ':' || pg_get_userbyid(n.nspowner) || ' ' || string_agg(c.relname, ' ' ORDER BY c.relname)
+                    FROM pg_namespace n JOIN pg_class c ON c.relnamespace = n.oid AND c.relkind = 'r'
+                   WHERE n.nspname = 'ops' GROUP BY n.nspname, n.nspowner")"
+same "load-data (2b): vet_interfaces logs in with a SCRAM password, CONNECT on clinic" "vet_interfaces:true:true:true" \
+    "$(dbsql postgres "SELECT rolname || ':' || rolcanlogin || ':' || (rolpassword LIKE 'SCRAM-SHA-256\$%') || ':'
+                              || has_database_privilege(rolname, 'clinic', 'CONNECT')
+                       FROM pg_authid WHERE rolname = 'vet_interfaces'")"
+same "load-data (2b): the two watermarks of vet-imaging-orders at load_epoch, no run yet" \
+    "cancellations finals:1:true:true" \
+    "$(dbsql clinic "SELECT string_agg(name, ' ' ORDER BY name) || ':' || count(DISTINCT at) || ':'
+                            || bool_and(at IN ('$EPOCH0'::timestamptz, '$EPOCH0'::timestamptz + interval '1 minute')) || ':'
+                            || bool_and(run_id IS NULL)
+                       FROM ops.watermarks WHERE purpose = 'vet-imaging-orders'")"
 
 # pg_cron: the part's three jobs, scheduled by load-data in jobs.
 same "load-data: cron.job holds the three partition jobs" \
@@ -337,6 +386,7 @@ if $GMCTL start-load "$SCN" --playground "$PG" >/dev/null; then pass "start-load
 T0=$(python3 -c 'import sys, yaml
 print(yaml.safe_load(open(sys.argv[1]))["load"]["t0"])' "$LDIR/state.yaml")
 T0S=$(date -u -d "$(printf '%s' "$T0" | sed 's/T/ /; s/Z$//')" +%s)
+CHECK_SINCE=$(date -u -d "@$T0S" +%Y-%m-%dT%H:%M:%SZ)
 LOCAL=$(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%H:%M)
 LDOW=$(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%u)
 LMIN=$(( $(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%-H) * 60 + $(date -u -d "@$(( T0S + SHIFT * 3600 ))" +%-M) ))
@@ -356,6 +406,38 @@ for n in pms equipment interfaces; do
 done
 same "equipment loaded its three jobs" "mach-census mach-identity vitals-chart" \
     "$(docker exec "$(ctr equipment)" cat /run/scheduler/loaded 2>/dev/null | sed -n 's/^job \([^ ]*\) next=.*/\1/p' | sort | tr '\n' ' ' | sed 's/ $//')"
+same "interfaces loaded purpose 13's two jobs" "fetch-imaging-reports post-imaging-orders" \
+    "$(docker exec "$(ctr interfaces)" cat /run/scheduler/loaded 2>/dev/null | sed -n 's/^job \([^ ]*\) next=.*/\1/p' | sort | tr '\n' ' ' | sed 's/ $//')"
+
+# --- purpose 13: an urgent imaging request -----------------------------------------
+# About 11 a day, so the run rarely holds one: an urgent single radiograph
+# (DX-VIEW-A, ten minutes, any species) on the latest open consultation of
+# an animal with a current owner, as postgres standing for the vet; the post
+# leaves it while the consultation is open (one post run), then the vet
+# closes the consultation (the core's consultations.close, as postgres): IO1
+# judges a request from its consultation's close, and the close falls after
+# T0.
+PLANT=$(dbsql clinic "WITH c AS (SELECT c.id, c.animal_id, c.vet_id FROM consultations AS c JOIN animals AS a ON a.id = c.animal_id
+                                 WHERE c.state = 'open' AND c.started_at <= now() AND a.status <> 'died'
+                                   AND EXISTS (SELECT 1 FROM ownerships AS o WHERE o.animal_id = a.id AND o.role = 'owner'
+                                                AND o.until_at IS NULL)
+                                 ORDER BY c.started_at DESC, c.id DESC LIMIT 1)
+                     INSERT INTO requests (consultation_id, animal_id, kind, code, requested_by, priority, requested_at)
+                     SELECT c.id, c.animal_id, 'imaging', 'DX-VIEW-A', c.vet_id, 'urgent', now() FROM c
+                     RETURNING id || ' ' || consultation_id" || true)
+REQ=${PLANT% *}
+CONS=${PLANT#* }
+if [ -n "$PLANT" ]; then info "planted (as postgres, for the vet): urgent imaging request $REQ (DX-VIEW-A) on open consultation $CONS"
+else fail "no open consultation of an owned animal to plant the urgent imaging request on"; fi
+ACC=I-${REQ:-0}
+sleep 65
+same "imaging.post: request $REQ left requested while its consultation $CONS is open (a post run later)" "requested open" \
+    "$(dbsql clinic "SELECT r.state || ' ' || c.state FROM requests AS r JOIN consultations AS c ON c.id = r.consultation_id WHERE r.id = ${REQ:-0}")"
+dbsql clinic "UPDATE consultations SET state = 'closed', ended_at = now(),
+                  findings = 'Pain on palpation; further work-up advised.'
+               WHERE id = ${CONS:-0} AND state = 'open'" >/dev/null || true
+PLANTED=$(date +%s)
+info "closed (as postgres, for the vet, the core's consultations.close): consultation $CONS at $(dbsql clinic "SELECT to_char(ended_at, 'HH24:MI:SS') FROM consultations WHERE id = ${CONS:-0}") UTC"
 
 # --- the identity job: each planted entry filled from clinic-api ------------------
 i=0
@@ -398,8 +480,45 @@ printf '%s\n' "$verdict"
 passes=$((passes + $(printf '%s\n' "$verdict" | grep -c '^PASS' || true)))
 failures=$((failures + $(printf '%s\n' "$verdict" | grep -c '^FAIL' || true)))
 calls=$(nlog equipment | grep ' http job=mach-identity ' || true)
-same "identity: its lookups answered by clinic-api (200), an animal and its owner for each entry" "6 0" \
-    "$(printf '%s\n' "$calls" | grep -c 'status=200' || true) $(printf '%s\n' "$calls" | grep -vc 'status=200\|^$' || true)"
+# two lookups an entry: the three plants', and purpose 13's entry when it has been filled already
+same "identity: its lookups answered by clinic-api (200), an animal and its owner for each entry" "true 0" \
+    "$([ "$(printf '%s\n' "$calls" | grep -c 'status=200' || true)" -ge 6 ] && echo true || echo false) $(printf '%s\n' "$calls" | grep -vc 'status=200\|^$' || true)"
+
+# --- purpose 13: the request sent, its entry filled, the PACS's first steps --------
+ent() { msql pacs "SELECT state || ' ' || (identity_at IS NOT NULL) FROM mach_worklist WHERE accession = '$ACC'"; }
+i=0
+while [ "$i" -lt 150 ] && [ "$(dbsql clinic "SELECT state FROM requests WHERE id = ${REQ:-0}")" != sent ]; do sleep 5; i=$((i + 5)); done
+same "imaging.post: request $REQ sent within 2 minutes of the close, its entry $ACC on the worklist, urgent, its procedure DX-VIEW-A" \
+    "sent true urgent DX-VIEW-A" \
+    "$(dbsql clinic "SELECT r.state || ' ' || (r.sent_at <= c.ended_at + interval '2 minutes') FROM requests AS r JOIN consultations AS c ON c.id = r.consultation_id WHERE r.id = ${REQ:-0}") $(msql pacs "SELECT w.priority || ' ' || p.code FROM mach_worklist AS w JOIN mach_procedures AS p ON p.id = w.procedure_id WHERE w.accession = '$ACC'")"
+i=0
+while [ "$i" -lt 150 ] && [ "$(ent)" = "new false" ]; do sleep 5; i=$((i + 5)); done
+info "entry $ACC: $(ent) (state, identity filled) $(( $(date +%s) - PLANTED )) s after the close"
+# The streams' own statements, from equipment's composed queries, narrowed to
+# the entry (its accession) and with fixed parameters: what the imaging team
+# would do with it once its turn came.
+stream() {   # stream <key> <anchor>: the stream's statement narrowed to $ACC after <anchor>
+    python3 - "$SCN/nodes/equipment/queries.yaml" "$1" "$2" "$ACC" <<'EOF'
+import re, sys, yaml
+qs, key, anchor, acc = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+sql = yaml.safe_load(open(qs))["queries"][key]["sql"]
+if sql.count(anchor) != 1:
+    sys.exit(f"{key}: the anchor [{anchor}] is not in the stream's statement once")
+sql = sql.replace(anchor, f"{anchor} AND accession = '{acc}'")
+print(re.sub(r"%\(\w+\)s", "0", sql).replace("%%", "%"))
+EOF
+}
+if [ "$(ent)" = "new true" ]; then
+    msql pacs "$(stream pacs.worklist.schedule "WHERE state = 'new' AND identity_at IS NOT NULL")" >/dev/null
+    info "planted (as postgres, for the imaging team, equipment's pacs.worklist.schedule): $ACC scheduled"
+fi
+if [ "$(ent)" = "scheduled true" ]; then
+    msql pacs "$(stream pacs.study.acquire "WHERE state = 'scheduled' AND scheduled_at <= now()")" >/dev/null
+    info "planted (as postgres, for the radiographer, equipment's pacs.study.acquire): $ACC acquired"
+fi
+same "the PACS: $ACC scheduled at once (urgent) and acquired, one study" "completed 1" \
+    "$(msql pacs "SELECT w.state || ' ' || count(s.id) FROM mach_worklist AS w LEFT JOIN mach_studies AS s ON s.worklist_id = w.id
+                  WHERE w.accession = '$ACC' GROUP BY w.state")"
 
 # --- the census: its first run after T0, answered by clinic-api -----------------
 i=0
@@ -427,12 +546,62 @@ info "sessions open: $(msql vitals "SELECT coalesce(string_agg(kind || ' ' || n,
 same "readings: 11 machines reporting since T0 (machine 10 among them, O227)" "11 true" \
     "$(msql biomed "SELECT count(DISTINCT machine_id) || ' ' || bool_or(machine_id = 10) FROM mach_readings WHERE read_at >= '$T0'::timestamptz")"
 info "since T0: $(msql vitals "SELECT count(*) FROM mach_vitals WHERE at >= '$T0'::timestamptz") vitals rows, $(msql biomed "SELECT count(*) FROM mach_readings WHERE read_at >= '$T0'::timestamptz") readings, $(msql biomed "SELECT count(*) FROM mach_events WHERE at >= '$T0'::timestamptz") events"
+# --- purpose 13: the study's final, copied back --------------------------------------
+w=$(msql pacs "SELECT ceil(extract(epoch FROM s.ended_at - now())) FROM mach_studies AS s JOIN mach_worklist AS w ON w.id = s.worklist_id
+               WHERE w.accession = '$ACC'")
+if [ "${w:-0}" -gt 0 ]; then info "the study ends in $w s: waiting"; sleep $((w + 2)); fi
+if [ "$(msql pacs "SELECT count(*) FROM mach_reports AS r JOIN mach_studies AS s ON s.id = r.study_id
+                    WHERE s.accession = '$ACC' AND r.kind = 'final'")" = 0 ]; then
+    msql pacs "$(stream pacs.report.final "WHERE state IN ('acquired', 'reconciled') AND ended_at <= now() AND worklist_id IS NOT NULL")" >/dev/null
+    info "planted (as postgres, for the imaging specialist, equipment's pacs.report.final): $ACC's final signed"
+fi
+info "$ACC's reports: $(msql pacs "SELECT string_agg(r.kind || ' ' || to_char(r.signed_at, 'HH24:MI:SS'), ', ' ORDER BY r.id)
+                                    FROM mach_reports AS r JOIN mach_studies AS s ON s.id = r.study_id WHERE s.accession = '$ACC'")"
+i=0
+while [ "$i" -lt 330 ] && [ "$(dbsql clinic "SELECT state FROM requests WHERE id = ${REQ:-0}")" != resulted ]; do sleep 5; i=$((i + 5)); done
+same "imaging.fetch: request $REQ resulted after its final (not a preliminary), one copy in ops.imaging_results" \
+    "resulted true 1 true" \
+    "$(dbsql clinic "SELECT r.state || ' ' || (r.resulted_at >= x.signed_at) || ' ' || count(*) OVER () || ' ' || (x.run_id IS NOT NULL)
+                       FROM requests AS r JOIN ops.imaging_results AS x ON x.request_id = r.id WHERE r.id = ${REQ:-0}")"
+same "$ACC's final the one copied" "$(msql pacs "SELECT r.id FROM mach_reports AS r JOIN mach_studies AS s ON s.id = r.study_id
+                                              WHERE s.accession = '$ACC' AND r.kind = 'final' ORDER BY r.id LIMIT 1")" \
+    "$(dbsql clinic "SELECT report_id FROM ops.imaging_results WHERE request_id = ${REQ:-0}")"
+info "request $REQ: requested, sent, resulted $(dbsql clinic "SELECT to_char(requested_at, 'HH24:MI:SS') || ', ' || to_char(sent_at, 'HH24:MI:SS') || ', '
+                                                          || to_char(resulted_at, 'HH24:MI:SS') FROM requests WHERE id = ${REQ:-0}") UTC"
+same "ops.runs in clinic: rows of both jobs since T0" "fetch-imaging-reports post-imaging-orders" \
+    "$(dbsql clinic "SELECT string_agg(job, ' ' ORDER BY job) FROM (SELECT DISTINCT job FROM ops.runs
+                       WHERE purpose = 'vet-imaging-orders' AND started_at >= '$T0'::timestamptz) AS j")"
+PS=$(msql pacs "SELECT max(started_at) FROM ops.runs WHERE purpose = 'vet-imaging-orders' AND job = 'post-imaging-orders'
+                  AND started_at >= '$T0'::timestamptz")
+same "ops.runs in pacs: the posts' rows since T0, the latest tied to clinic's by job and started_at" "post-imaging-orders 1" \
+    "$(msql pacs "SELECT string_agg(DISTINCT job, ' ') FROM ops.runs WHERE purpose = 'vet-imaging-orders' AND started_at >= '$T0'::timestamptz") $(dbsql clinic "SELECT count(*) FROM ops.runs WHERE purpose = 'vet-imaging-orders' AND job = 'post-imaging-orders' AND started_at = '${PS:-epoch}'::timestamptz")"
+info "ops.runs in clinic since T0: $(dbsql clinic "SELECT string_agg(job || ' ' || n || ' runs, ' || w || ' rows written', '; ' ORDER BY job)
+                                                   FROM (SELECT job, count(*) n, sum(rows_written) w FROM ops.runs
+                                                          WHERE purpose = 'vet-imaging-orders' AND started_at >= '$T0'::timestamptz GROUP BY job) AS j"); incidents $(dbsql clinic "SELECT count(*) FROM ops.incidents WHERE purpose = 'vet-imaging-orders'")"
+for j in post-imaging-orders fetch-imaging-reports; do
+    ok=$(nlog interfaces | grep -c " run job=$j .*phase=end status=ok" || true)
+    bad=$(nlog interfaces | grep -E " (run|skip) job=$j " | grep -c 'status=error\|reason=' || true)
+    if [ "$ok" -gt 0 ] && [ "$bad" -eq 0 ]; then pass "interfaces: $j ran $ok times, never in error nor skipped"
+    else fail "interfaces: $j ran $ok times ok, $bad in error or skipped: $(nlog interfaces | grep " job=$j " | grep 'status=error\|reason=' | tail -n 1 | cut -c1-200)"; fi
+done
+# the purpose's sealed checks, as gmctl check runs them: on the runner as root
+for c in "$CHECKS"/io*.sh; do
+    b=$(basename "$c" .sh)
+    set +e
+    out=$(docker exec -i -u root -e "CHECK_SINCE=$CHECK_SINCE" "$(ctr interfaces)" sh -s < "$c" 2>&1)
+    rc=$?
+    set -e
+    case "$b:$rc" in
+        io3-*:3|io4-*:3|*:0) pass "$b exit $rc: $(printf '%s' "$out" | tail -n 1 | cut -c1-240)" ;;
+        *) fail "$b exit $rc (expected 0$(case $b in io3-*|io4-*) printf ' or 3' ;; esac)): $(printf '%s' "$out" | tail -n 3 | cut -c1-300)" ;;
+    esac
+done
+
 for n in pms equipment interfaces; do
     errs=$(nlog $n | grep ' error ' || true)
     same "$n ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"
     [ -z "$errs" ] || printf '%s\n' "$errs" | head -n 5 | cut -c1-300 | sed "s/^/....  $n: /"
 done
-same "interfaces idle: no call, no run" "0" "$(nlog interfaces | grep -c ' http \| run \| call ' || true)"
 
 # --- teardown -------------------------------------------------------------
 info "gmctl teardown"

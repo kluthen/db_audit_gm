@@ -1,0 +1,17 @@
+# jobs.yaml of node interfaces, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: post-lab-orders
+    key: lab-orders.post
+    connections:
+      source: clinic
+      api: lab-api
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: fetch-lab-results
+    key: lab-orders.fetch
+    connections:
+      source: clinic
+      api: lab-api
+    at: '*/5 * * * *'

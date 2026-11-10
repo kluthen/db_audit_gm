@@ -1,0 +1,186 @@
+# vet-lab-send-outs: the external reference lab (v0.5 master spec 12.2,
+# purpose 3; specs/versions/v0.5/clinic-purposes.md section 7; capture W4
+# items 0 and 3 of specs/versions/v0.5/wave-log.md; spec D436). A round trip
+# the lab asks, the consumer-producer the owner ruled: the lab posts the
+# day's send-outs at 16:00, the external lab accepts at once and posts its
+# result one to five days later to lab-api's send-outs endpoint (vet-lab's);
+# the chase retries, asks a resend, then escalates.
+#
+# Material: material/runner/ (interfaces' jobs, queries, schedule and
+# scripts/send_outs.py), material/target/ddl.sql (the ops schema and
+# lab_dispatch's grants on it and on the lab's UTC offset, run in lab by
+# load-data at step (2b)). Written for the clinic's names (nodes lab,
+# interfaces; database lab; the external lab's hostname northfield-lab on
+# the partners' api node).
+id: vet-lab-send-outs
+title: The lab's send-outs to the external reference lab, posted at 16:00 on working days, chased, and their answers
+domains: [vet-lab]
+kind: round-trip
+
+parts:
+  source: the lab's database, lab (vet-lab), where the tests routed out, their samples and orders are
+  target: the same database, lab, where the send-outs, their sent-out events and the ops tables are written
+  runner: the integration engine, interfaces (a scheduler node of role transformer)
+  partner: the external reference lab's stub on the partners' api node, hostname northfield-lab
+
+jobs:
+  - name: send-outs
+    key: send-outs.send
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the day's send-outs: each test routed out whose sample is received and which has no send-out
+      yet packed (a lab_send_outs row, its send_key one per test, a sent-out sample event) and
+      posted to the external lab with the catalogue's fields only, the external accession and due
+      time kept on acceptance
+    cadence: "0 16 * * 1,2,3,4,5"
+    connections:
+      source: lab_dispatch
+      partner: xlab_customer
+  - name: chase-send-outs
+    key: send-outs.chase
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      acting 08:00 to 19:59 Monday to Saturday in the lab's local time only (every 15 minutes,
+      returning at once outside, spec D436): the send-outs not accepted posted again with their
+      send_key, escalated once from 19:45 on their packing day; the accepted ones unanswered a
+      working day past their due time chased (resend, an incident row each), twice a working day
+      apart, then escalated once
+    cadence: "*/15 * * * *"
+    connections:
+      source: lab_dispatch
+      partner: xlab_customer
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: SO1
+    statement: >-
+      Every sent-out test whose sample was received by 15:30 on a working day is accepted by the
+      external lab that day, or in an incident.
+    check: checks/so1-accepted-that-day.sh
+    parameters: {}
+    witness: >-
+      about 7 a working day, at the 16:00 run: a sent-out test received by 15:30 on a working day
+      since the judged moment, accepted
+    judged: triggers
+  - id: SO2
+    statement: >-
+      One send_key per send-out, kept on every retry: no test has two external accessions.
+    check: checks/so2-one-key.sh
+    parameters: {}
+    witness: >-
+      the chases and the stub's slow answers: a send-out the external lab received since the judged
+      moment
+    judged: runs
+  - id: SO3
+    statement: >-
+      A send-out carries the catalogue's fields only: the accession, the sample's label, the
+      external code, the animal's species, sex and age; no owner, client, natural identifier or
+      clinical note.
+    check: checks/so3-catalogue-fields.sh
+    parameters: {}
+    witness: "every send-outs run: a send-out the external lab received since the judged moment"
+    judged: runs
+  - id: SO4
+    statement: >-
+      End to end, on the answer's leg: every answer the external lab posted since the judged moment
+      is recorded against its send-out, and its test released by the end of the next release round.
+    check: checks/so4-answers-released.sh
+    parameters: {}
+    witness: >-
+      about eight send-outs in flight at T0, all the practices', answered through the aging: an
+      answer posted since the judged moment, its test released
+    judged: end-to-end
+
+round_trips:
+  - asks: customer
+    request:
+      job: send-outs
+      counterpart: the external lab's stub (northfield-lab), POST /orders, with the credential xlab_customer
+      sends: >-
+        one send-out per test routed out: its send_key, the lab's accession (the order's id), the
+        sample's label, the external code, the animal's species, sex and age in whole years; never
+        the owner, the client, an identifier or a clinical note (lab rule 11)
+    correlation: >-
+      send_key, a UUID per send-out (md5('vet-lab-send-out-test:(order test id)') for a new one; the
+      history's md5('vet-lab-send-out:(id)')), sent again on every retry and chase
+    answers:
+      - form: accepted
+        when: at once (200; the same send_key again answering the same accession)
+        carries: the external accession and its due time
+      - form: a result
+        when: one to five days later, posted by the external lab to lab-api, POST /send-outs/(send_key)/result
+        carries: the test's results, recorded against the send-out by lab-api (status resulted, answered_at)
+    timeout:
+      after: >-
+        not accepted (no 2xx within 10 s, the connection's timeout, or an answer that is not an
+        acceptance); not answered a working day past due_by
+      then: >-
+        not accepted: retried by chase-send-outs with the same send_key, from 19:45 on the packing
+        day one ops.incidents row (kind unaccepted); not answered: POST /orders/(send_key)/resend,
+        the stub posting its answer again, each chase an ops.incidents row (kind chased), twice a
+        working day apart; still unanswered a working day after the second, one row of kind
+        unanswered, the escalation
+    reactions:
+      - the send-out packed, its sample's sent-out event, the external accession kept (send-outs)
+      - the answer recorded and the test's results written by lab-api (vet-lab's send_outs endpoint)
+      - the test technically validated and released by the pathologist as the centre's own (vet-lab's lis streams), then delivered by purposes 1 or 2
+
+data_moved:
+  - job: send-outs
+    reads: []
+    writes: [target:lab_send_outs, target:lab_sample_events, target:ops.runs]
+  - job: chase-send-outs
+    reads: []
+    writes: [target:lab_send_outs, target:ops.incidents, target:ops.runs]
+
+roles:
+  - name: lab_dispatch
+    part: target
+    reads: [lab_order_tests, lab_samples, lab_orders (species, sex, born_on), lab_tests, lab_send_outs,
+            lab_settings (utc_offset_hours), "ops.*"]
+    writes: [lab_send_outs, lab_sample_events (insert), ops.runs (insert), ops.incidents (insert),
+             ops.watermarks]
+
+ddl:
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    lab.ops.runs.id: internal
+    lab.ops.runs.purpose: internal
+    lab.ops.runs.job: internal
+    lab.ops.runs.started_at: internal
+    lab.ops.runs.finished_at: internal
+    lab.ops.runs.rows_read: internal
+    lab.ops.runs.rows_written: internal
+    lab.ops.incidents.id: internal
+    lab.ops.incidents.purpose: internal
+    lab.ops.incidents.job: internal
+    lab.ops.incidents.kind: internal
+    lab.ops.incidents.ref: internal
+    lab.ops.incidents.opened_at: internal
+    lab.ops.incidents.reason: internal
+    lab.ops.incidents.run_id: internal
+    lab.ops.watermarks.purpose: internal
+    lab.ops.watermarks.name: internal
+    lab.ops.watermarks.at: internal
+    lab.ops.watermarks.last_id: internal
+    lab.ops.watermarks.run_id: internal

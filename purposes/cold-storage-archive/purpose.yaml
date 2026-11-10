@@ -1,0 +1,213 @@
+# Purpose 14, the readings to the vault (v0.5 master spec 12.2 purpose 14;
+# vet-machinery-domain.md, "cold-storage-archive"; cold-storage.md 2, 3 and 6;
+# clinic-purposes.md 16; spec D296, D297, D366, D381, D418; capture W4 items 0
+# and 6 of specs/versions/v0.5/wave-log.md): the generic round trip of cold
+# storage, first drafted for vet-machinery. Each night the integration engine
+# ships the machinery's day partitions older than the kept window to the
+# vault, one shipment per type and day, and drops a partition only on a
+# receipt counting all its rows.
+#
+# Material (material/) is written for the clinic's mapping: source
+# machines/vitals, source_biomed machines/biomed, target partners-db/partners
+# (the vault's manifests, its history only), runner interfaces, partner cold
+# storage's hostname cold-storage on partners-api. The GM adapts the names as
+# it copies; gm.md says where each name lives. ddl.source, ddl.source_biomed
+# and history are read from the catalogue by load-data, never copied.
+id: cold-storage-archive
+title: The machinery's day partitions shipped to the vault, cold storage, and dropped on a full receipt
+domains: [vet-machinery]
+kind: round-trip
+
+parts:
+  source: the monitors' central station, vitals (mach_vitals by day, its settings, ops.shipments)
+  source_biomed: biomedical engineering, biomed (mach_readings by day, their daily aggregate, ops.shipments)
+  target: the partners' database, partners, where cold storage keeps its manifests (the history plants them)
+  runner: the centre's integration engine, interfaces
+  partner: cold storage, the off-site vault, its upload under the hostname cold-storage
+
+jobs:
+  - name: ship-partitions
+    key: archive.ship
+    part: runner
+    source: source
+    target: source_biomed
+    method: script
+    computes: >-
+      for vitals (vitals) and machine-readings (biomed), each day partition older than the window
+      read from the settings: for the readings the day's mach_readings_daily first, committed; the
+      rows as NDJSON posted to cold storage's POST /shipments (shipment id the type and the day, the
+      same on a resend; source the node); on a receipt counting every row, mach_drop_shipped(day);
+      per database one transaction with the run's ops.runs row, the ops.shipments rows and, from the
+      local hour last_hour, one unshipped incident per day still on site.
+    cadence: "40 0-5 * * *"
+    connections:
+      vitals: mach_archive
+      biomed: mach_archive
+      partner: cold_storage
+
+round_trips:
+  - asks: customer
+    request:
+      job: ship-partitions
+      counterpart: cold storage, POST /shipments under the hostname cold-storage
+      sends: one shipment per type and day older than the window, a header (shipment id, type, source, rows declared, the day) and the rows as NDJSON
+    correlation: the shipment id, the type and the day (vitals-20261107), sent again on a resend, with its source, the node whose partitions ship (D381)
+    answers:
+      - form: a result
+        when: at once, the receipt (201)
+        carries: the shipment id and the rows received
+    timeout:
+      after: no receipt within 60 seconds, a refusal, or rows received short of the rows declared
+      then: the partition kept and resent at the next run with the same id; still on site at the last run (05:40), one ops.incidents row (unshipped)
+    reactions: [on a matching receipt mach_drop_shipped(day) detaches and drops the partition, the shipment recorded in ops.shipments]
+
+trace:
+  - kind: outbox-rows
+    part: source
+    table: ops.shipments
+    run_column: run_id
+  - kind: outbox-rows
+    part: source
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.runs
+    run_column: id
+  - kind: outbox-rows
+    part: source_biomed
+    table: ops.shipments
+    run_column: run_id
+  - kind: outbox-rows
+    part: source_biomed
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: source_biomed
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: CA1
+    statement: >-
+      No partition is dropped without a receipt whose rows received equal its rows: every shipment
+      dropped since the judged moment has its manifest in the vault with rows declared and received
+      equal to the rows sent.
+    check: checks/ca1-dropped-on-receipt.sh
+    parameters: {}
+    witness: a day partition dropped since the judged moment, two each night (one per type).
+    judged: runs
+  - id: CA2
+    statement: >-
+      One manifest per type and day: no day shipped since the judged moment has two manifests of a
+      type from its source.
+    check: checks/ca2-one-manifest.sh
+    parameters: {}
+    witness: a manifest received since the judged moment, two each night, every resend.
+    judged: runs
+  - id: CA3
+    statement: >-
+      A readings day's aggregate exists before its partition is dropped: every readings day dropped
+      since the judged moment has its mach_readings_daily rows, counting the rows it shipped.
+    check: checks/ca3-aggregate-first.sh
+    parameters: {}
+    witness: a readings day dropped since the judged moment, one each night.
+    judged: runs
+  - id: CA4
+    statement: >-
+      End to end: every day written since the judged moment appears in the vault with rows received
+      equal to the rows declared by 06:00 the night after the window, and no partition older than the
+      window stays on site.
+    check: checks/ca4-end-to-end.sh
+    parameters: {}
+    witness: a day whose shipping night has passed since the judged moment, the first night after the fix.
+    judged: end-to-end
+
+data_moved:
+  - job: ship-partitions
+    reads: [vitals.mach_vitals.session_id, vitals.mach_vitals.at, vitals.mach_vitals.heart_rate,
+            biomed.mach_readings.machine_id, biomed.mach_readings.read_at, biomed.mach_readings.channels]
+    writes: [source:ops.shipments, source:ops.incidents, source:ops.runs, source_biomed:mach_readings_daily,
+             source_biomed:ops.shipments, source_biomed:ops.incidents, source_biomed:ops.runs]
+
+roles:
+  - name: mach_archive
+    part: source
+    reads: [mach_vitals, mach_vitals_settings, "ops.*"]
+    writes: ["mach_drop_shipped (execute)", ops.shipments, ops.incidents, ops.runs]
+  - name: mach_archive
+    part: source_biomed
+    reads: [mach_readings, mach_settings, mach_readings_daily, "ops.*"]
+    writes: [mach_readings_daily, "mach_drop_shipped (execute)", ops.shipments, ops.incidents, ops.runs]
+
+ddl:
+  source: material/source/ddl.sql
+  source_biomed: material/source_biomed/ddl.sql
+
+history: material/history.sql
+
+classification:
+  columns:
+    vitals.ops.shipments.type: internal
+    vitals.ops.shipments.day: internal
+    vitals.ops.shipments.shipment_id: internal
+    vitals.ops.shipments.rows_sent: internal
+    vitals.ops.shipments.rows_received: internal
+    vitals.ops.shipments.attempts: internal
+    vitals.ops.shipments.posted_at: internal
+    vitals.ops.shipments.receipt_at: internal
+    vitals.ops.shipments.dropped_at: internal
+    vitals.ops.shipments.run_id: internal
+    vitals.ops.runs.id: internal
+    vitals.ops.runs.purpose: internal
+    vitals.ops.runs.job: internal
+    vitals.ops.runs.started_at: internal
+    vitals.ops.runs.finished_at: internal
+    vitals.ops.runs.rows_read: internal
+    vitals.ops.runs.rows_written: internal
+    vitals.ops.incidents.id: internal
+    vitals.ops.incidents.purpose: internal
+    vitals.ops.incidents.job: internal
+    vitals.ops.incidents.kind: internal
+    vitals.ops.incidents.ref: internal
+    vitals.ops.incidents.opened_at: internal
+    vitals.ops.incidents.reason: internal
+    vitals.ops.incidents.run_id: internal
+    vitals.ops.watermarks.purpose: internal
+    vitals.ops.watermarks.name: internal
+    vitals.ops.watermarks.at: internal
+    vitals.ops.watermarks.last_id: internal
+    vitals.ops.watermarks.run_id: internal
+    biomed.ops.shipments.type: internal
+    biomed.ops.shipments.day: internal
+    biomed.ops.shipments.shipment_id: internal
+    biomed.ops.shipments.rows_sent: internal
+    biomed.ops.shipments.rows_received: internal
+    biomed.ops.shipments.attempts: internal
+    biomed.ops.shipments.posted_at: internal
+    biomed.ops.shipments.receipt_at: internal
+    biomed.ops.shipments.dropped_at: internal
+    biomed.ops.shipments.run_id: internal
+    biomed.ops.runs.id: internal
+    biomed.ops.runs.purpose: internal
+    biomed.ops.runs.job: internal
+    biomed.ops.runs.started_at: internal
+    biomed.ops.runs.finished_at: internal
+    biomed.ops.runs.rows_read: internal
+    biomed.ops.runs.rows_written: internal
+    biomed.ops.incidents.id: internal
+    biomed.ops.incidents.purpose: internal
+    biomed.ops.incidents.job: internal
+    biomed.ops.incidents.kind: internal
+    biomed.ops.incidents.ref: internal
+    biomed.ops.incidents.opened_at: internal
+    biomed.ops.incidents.reason: internal
+    biomed.ops.incidents.run_id: internal
+    biomed.ops.watermarks.purpose: internal
+    biomed.ops.watermarks.name: internal
+    biomed.ops.watermarks.at: internal
+    biomed.ops.watermarks.last_id: internal
+    biomed.ops.watermarks.run_id: internal

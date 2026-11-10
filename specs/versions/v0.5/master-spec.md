@@ -1701,7 +1701,7 @@ the gamma camera Monday to Friday 08:00–18:00.
 | `sched` | own everything; no login |
 | `sched_app` | the module on `pms`: read all, execute the slot function (`EXECUTE` revoked from `PUBLIC`), write bookings, allocations, absences, trainees, enrolments, shifts (insert, delete, their publication and clocked times only), sessions' state; never the reference tables |
 | `sched_reports` | purpose 12, on the standby: read every `sched_` table |
-| `sched_interfaces` | purpose 11: read bookings, allocations, types, machines, hours, shifts, absences, settings; execute the slot function; write bookings and allocations |
+| `sched_interfaces` | purpose 11: read bookings, allocations, types, courses, rooms, machines, hours, shifts, absences, settings (the slot function runs with its rights); execute the slot function; write bookings and allocations, allocations' release (the trigger runs as its invoker) |
 
 `customer-linked`: a booking's `animal_id`, an enrolment's
 `trainee_id`. `personal`: an absence's `note` (it may reveal health,
@@ -2059,7 +2059,7 @@ figures, chunk 30's reruns at the wave gate the figures of record.
 | `mach_biomed_app` | `biomed` | write events, readings, maintenance, downtimes, the machines' `status` and `qa_due_on` only |
 | `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only; `LOGIN` (`pg_cron` runs a job only as a role that can log in), its password a secret no node mounts |
 | `mach_service` | `biomed` | the vendors' remote service (no producer in v0.5): read machines, events, readings, maintenance; write maintenance |
-| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states, cancellations (reason, `cancelled_at`) and the reports |
+| `mach_orders` | `pacs` | purpose 13: insert worklist entries (the procedure's id read by its code), read their states, cancellations (reason, `cancelled_at`) and the reports |
 | `mach_archive` | `vitals`, `biomed` | purpose 14: read raw rows, write aggregates, `EXECUTE` on `mach_drop_shipped`; no ownership |
 
 `CONNECT` on each database goes to its own roles only. The two

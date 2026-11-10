@@ -1,0 +1,213 @@
+# Purpose 13, the imaging requests and their reports (v0.5 master spec 12.2
+# purpose 13; vet-machinery-domain.md, "vet-imaging-orders"; clinic-purposes.md
+# 16; spec D315, D324, D376, D416; capture W4 items 0 and 6 of
+# specs/versions/v0.5/wave-log.md): a round trip inside the centre, as
+# vet-lab-centre-orders. There is no API node: the integration engine writes
+# each order into the PACS's worklist, as an HL7 order to a RIS would, and
+# reads the reports back.
+#
+# Material (material/) is written for the clinic's mapping: source
+# records/clinic, target machines/pacs, runner interfaces. The GM adapts the
+# names as it copies; gm.md says where each name lives. ddl.source and
+# ddl.target are read from the catalogue by load-data (step 2b), never copied.
+id: vet-imaging-orders
+title: The imaging requests posted to the PACS's worklist and their final reports copied back
+domains: [vet-core, vet-machinery]
+kind: round-trip
+
+parts:
+  source: the core's medical record, clinic (the imaging requests, their consultations, ops.imaging_results)
+  target: the PACS's database, pacs (the worklist, its studies and reports)
+  runner: the centre's integration engine, interfaces
+
+jobs:
+  - name: post-imaging-orders
+    key: imaging.post
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the imaging requests still requested whose consultation has closed: one worklist entry each in
+      pacs (accession I-4711 for request 4711, ids and the study's procedure only, ON CONFLICT (accession) DO
+      NOTHING) with the run's ops.runs row there, committed first; then the requests sent in clinic
+      with the run's row there.
+    cadence: "* * * * *"
+    connections:
+      clinic: vet_interfaces
+      pacs: mach_orders
+  - name: fetch-imaging-reports
+    key: imaging.fetch
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      from pacs, the finals signed and the entries cancelled since their watermarks (less ten
+      minutes); in one clinic transaction each final's copy in ops.imaging_results and its request
+      resulted, each cancelled entry's request cancelled, each sent request past its turnaround with
+      no final one ops.incidents row (overdue), the watermarks and the run's row.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: vet_interfaces
+      pacs: mach_orders
+
+round_trips:
+  - asks: customer
+    request:
+      job: post-imaging-orders
+      counterpart: the PACS's worklist, mach_worklist in pacs (no API node)
+      sends: an imaging request of a closed consultation, one entry (accession, request, consultation, animal, requesting vet, procedure, priority)
+    correlation: accession, I- then the request id (I-4711), unique on mach_worklist (a retry finds the entry and writes no second)
+    answers:
+      - form: accepted
+        when: at once, the entry committed
+        carries: the accession
+      - form: a result
+        when: the study's final report signed, in reporting hours
+        carries: the report's id and signing time, through the entry's study
+      - form: rejected
+        when: the entry cancelled by the imaging team
+        carries: cancelled because and cancelled_at
+    timeout:
+      after: the entry not written (pacs unreachable or refusing); a sent request with no final past its turnaround (urgent 18 hours, routine three working days)
+      then: retried at the next run with the same accession; past the turnaround one ops.incidents row (overdue), once
+    reactions: [the request sent after the entry commits, resulted on its final (ops.imaging_results), cancelled on a cancelled entry]
+
+trace:
+  - kind: published-results
+    part: source
+    table: ops.imaging_results
+    run_column: run_id
+  - kind: outbox-rows
+    part: source
+    table: ops.incidents
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.watermarks
+    run_column: run_id
+  - kind: run-ledger
+    part: source
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: target
+    table: ops.runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: IO1
+    statement: >-
+      Every imaging request of a consultation closed since the judged moment is sent with its
+      worklist entry within 5 minutes of the close, 2 for an urgent one, or cancelled.
+    check: checks/io1-requests-sent.sh
+    parameters: {}
+    witness: an imaging request of a consultation closed since the judged moment, about 11 a day, urgent ones at night.
+    judged: triggers
+  - id: IO2
+    statement: >-
+      No request has two worklist entries, and every entry posted since the judged moment carries
+      its request's accession.
+    check: checks/io2-one-entry.sh
+    parameters: {}
+    witness: a worklist entry posted since the judged moment (every post, the retried ones).
+    judged: runs
+  - id: IO3
+    statement: >-
+      Every final signed since the judged moment has its request resulted within 10 minutes, and no
+      request is resulted on a preliminary.
+    check: checks/io3-finals-resulted.sh
+    parameters: {}
+    witness: a final signed since the judged moment, about 11 a day in reporting hours; preliminaries at night.
+    judged: runs
+  - id: IO4
+    statement: >-
+      End to end: every imaging request posted since the judged moment has its final within its
+      turnaround (urgent 18 hours, routine three working days), resulted, or is cancelled.
+    check: checks/io4-end-to-end.sh
+    parameters: {}
+    witness: an imaging request posted since the judged moment, the urgent ones by the next morning.
+    judged: end-to-end
+
+data_moved:
+  - job: post-imaging-orders
+    reads: [clinic.requests.id, clinic.requests.consultation_id, clinic.requests.animal_id,
+            clinic.requests.requested_by, clinic.requests.code, clinic.requests.priority]
+    writes: [target:mach_worklist, target:ops.runs, source:requests, source:ops.runs]
+  - job: fetch-imaging-reports
+    reads: [pacs.mach_reports.signed_at, pacs.mach_worklist.request_id, pacs.mach_worklist.cancelled_at]
+    writes: [source:requests, source:ops.imaging_results, source:ops.incidents, source:ops.watermarks,
+             source:ops.runs]
+
+roles:
+  - name: vet_interfaces
+    part: source
+    reads: [requests, business_settings, "consultations (id, state, ended_at)", "ops.*"]
+    writes: ["requests (state, sent_at, resulted_at, cancelled_at)", ops.imaging_results, ops.incidents,
+             ops.watermarks, ops.runs]
+  - name: mach_orders
+    part: target
+    reads: ["mach_worklist (id, accession, request_id, state, cancelled_because, cancelled_at)",
+            "mach_studies (id, worklist_id, state)",
+            "mach_reports (id, study_id, kind, status, signed_at, supersedes_id)",
+            "mach_procedures (id, code)", "ops.*"]
+    writes: ["mach_worklist (insert: accession, request_id, consultation_id, animal_id, requested_by,
+             procedure_id, priority, created_at)", ops.runs]
+
+ddl:
+  source: material/source/ddl.sql
+  target: material/target/ddl.sql
+
+classification:
+  columns:
+    clinic.ops.imaging_results.id: internal
+    clinic.ops.imaging_results.run_id: internal
+    clinic.ops.imaging_results.request_id: internal
+    clinic.ops.imaging_results.accession: internal
+    clinic.ops.imaging_results.report_id: internal
+    clinic.ops.imaging_results.signed_at: internal
+    clinic.ops.imaging_results.copied_at: internal
+    clinic.ops.runs.id: internal
+    clinic.ops.runs.purpose: internal
+    clinic.ops.runs.job: internal
+    clinic.ops.runs.started_at: internal
+    clinic.ops.runs.finished_at: internal
+    clinic.ops.runs.rows_read: internal
+    clinic.ops.runs.rows_written: internal
+    clinic.ops.incidents.id: internal
+    clinic.ops.incidents.purpose: internal
+    clinic.ops.incidents.job: internal
+    clinic.ops.incidents.kind: internal
+    clinic.ops.incidents.ref: internal
+    clinic.ops.incidents.opened_at: internal
+    clinic.ops.incidents.reason: internal
+    clinic.ops.incidents.run_id: internal
+    clinic.ops.watermarks.purpose: internal
+    clinic.ops.watermarks.name: internal
+    clinic.ops.watermarks.at: internal
+    clinic.ops.watermarks.last_id: internal
+    clinic.ops.watermarks.run_id: internal
+    pacs.ops.runs.id: internal
+    pacs.ops.runs.purpose: internal
+    pacs.ops.runs.job: internal
+    pacs.ops.runs.started_at: internal
+    pacs.ops.runs.finished_at: internal
+    pacs.ops.runs.rows_read: internal
+    pacs.ops.runs.rows_written: internal
+    pacs.ops.incidents.id: internal
+    pacs.ops.incidents.purpose: internal
+    pacs.ops.incidents.job: internal
+    pacs.ops.incidents.kind: internal
+    pacs.ops.incidents.ref: internal
+    pacs.ops.incidents.opened_at: internal
+    pacs.ops.incidents.reason: internal
+    pacs.ops.incidents.run_id: internal
+    pacs.ops.watermarks.purpose: internal
+    pacs.ops.watermarks.name: internal
+    pacs.ops.watermarks.at: internal
+    pacs.ops.watermarks.last_id: internal
+    pacs.ops.watermarks.run_id: internal

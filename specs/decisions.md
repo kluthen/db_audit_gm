@@ -1347,3 +1347,11 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   `mach_archive`'s settings (W4 item 6).** Now in:
   [clinic-purposes](versions/v0.5/clinic-purposes.md) "The roles the
   purposes add".
+- **D442 (2026-11-09, chunk 21's pause): The roles table gains chunk
+  21's four grants (the slot function's and release trigger's reads and
+  writes as invoker, purpose 11's and 13's core reads, `mach_orders`'
+  procedure codes and join ids); the vault fixture sets `window_days` 0 so
+  the loaded last full day ships at T0 21:55.** Each checked on the
+  schemas. Now in: [clinic-purposes](versions/v0.5/clinic-purposes.md)
+  "The roles the purposes add"; vet-scheduling 11, vet-machinery 13 and
+  Testing, master spec 9.4, 9.6; [build plan](versions/v0.5/build-plan.md) chunk 21.

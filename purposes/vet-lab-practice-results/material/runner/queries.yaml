@@ -1,0 +1,12 @@
+# Query repository of the integration engine, a fragment
+# (vet-lab-practice-results; capture W4 items 0 and 3): the purpose's one
+# job, a transformer script (scripts/practice_results.py) reading lab,
+# posting to the practices' callbacks, and writing lab_callbacks with its
+# ops.runs row in one transaction after the calls.
+queries:
+  practice-results.deliver:
+    script: scripts/practice_results.py:deliver
+    options:
+      batch: 40                # deliveries posted a run at most
+      parallel: 4              # posted at once: one practice's dead callback never holds the others
+      days: 30                 # the practices' orders read back this far (ordered_at)

@@ -1631,7 +1631,8 @@ D433); the `cron.sql` database refusal (spec D433).
 
 ### Chunk 18 — The lab's round trips: purposes 1, 2, 3 and 6
 
-Status: in progress
+Status: merged (w4, c7f6dc9)
+Record: 18a 90d9b84, 18b d3ffb53, merge c7f6dc9. fixture-orders 30 PASS in 1225 s (18a); fixture-send-outs 32 PASS in 1426 s (PR1-PR5, SO1-SO4 unfaulted); unit suite 1224 OK; outside the plan's text: `GRANT SELECT (utc_offset_hours) ON lab_settings TO lab_dispatch` beyond the roles table (to spec-writer, G18), check-sql booleans compared to "True", the W4-b choices and PR1/PR3/SO1/SO4 interpretations listed in the wave log; risk: SO3 blind to an extra payload key (xlab stub drops unknown fields). Centres `left_out:` line in fixture-orders and fixture-send-outs comes with chunk 19's merge.
 Wave: 4
 Depends on: chunks 9, 11, 12 and 29 (waves 2 and 3); chunk 32 for
 purpose 6's format check and fixture only (in wave, spec D431); chunk
@@ -1779,7 +1780,7 @@ and queries, `office`'s tables and roles, the planted periods.
 
 ### Chunk 21 — The parts' flows: purposes 11, 13, 14, 15 and 16
 
-Status: in progress
+Status: in progress (21a merged, 702bd40; 21b next)
 Wave: 4
 Depends on: chunks 11, 13, 15, 16 and 29 (waves 2 and 3); chunk 32 for
 the format check and fixtures of purposes 14, 15 and 16 only (in wave,
@@ -1812,8 +1813,10 @@ chunk 29's (c) accepts (spec D401).
   ship (spec D381); the `vault` fixture (the bastion, `records`,
   `machines`, `interfaces`, the partners' `api` node and database: six;
   `left_out:` vet-core's `pms` and `api/clinic-api`, vet-machinery's
-  `equipment`, the shipped day loaded; T0 21:55, the shipping moved to
-  the next minute); the bookings, imaging, portal and vault fixtures
+  `equipment`, the shipped day loaded: the last full day, the fixture
+  setting `window_days` 0 in `mach_vitals_settings` and `mach_settings`
+  so it lies before the window (spec D442); T0 21:55, the shipping moved
+  to the next minute); the bookings, imaging, portal and vault fixtures
   with vet-core's `partners/centres` left out once chunk 19 has merged
   (spec D435); purpose 14 a `source` `vitals` and a `source_biomed`
   `biomed` (chunk 32), `ship-partitions` reading the zone and the window
