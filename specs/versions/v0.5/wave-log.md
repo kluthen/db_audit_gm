@@ -6562,3 +6562,21 @@ Part 1 (06:20-08:36), all passing:
   go to spec-writer for placement (wave 5 or the release gate) with G18.
 - **Fake aging:** the weekend test did not run; the owner plans it for
   the coming weekend or the next. D114/D132 stand meanwhile.
+
+### Gate: BS1 timing, owner's ruling, 2026-11-10 14:10
+
+fixture-lab-core rerun: 44/44, 694 s (the 09:24 failure was the owner's
+`apt upgrade` restarting Docker 29.9.2 -> 29.9.3 mid-test). curl in
+`bastion` 0.5.0: `91aad3f`, stack test 116/116 (86 s), curl and
+libcurl4t64 8.14.1-2+deb13u7 (libldap2, libsasl2-2 also pulled in; for
+the post-change check).
+fixture-bookings failed BS1 twice (booking 49137, 120 s, deterministic on
+a Tuesday run): pms's `sched.bookings.arrive` stamps
+`least(now(), starts_at + δ)`, so a booking reached late in the 10:00
+burst is back-dated before commit and a correct check-in looks late; in a
+real game BS1 would report false "present". **Owner's ruling (option A):
+the producer stamps when it records**: the arrive stream takes a booked
+booking whose hashed arrival moment has passed and sets
+`arrived_at = now()`; BS1's 2-minute rule stands. spec-writer records it
+(vet-scheduling-domain.md row 816) with G18; the fix lands on the wave
+branch as a gate fix (chunk 13b's fragment and the fixture copies).
