@@ -1,0 +1,23 @@
+# Schedule of the back office's report runner for the working-time record, a
+# fragment (purpose 12; vet-scheduling-domain.md, purpose 12; capture W4 items
+# 0 and 5): the record read on its standby, the shifts as vet-scheduling's
+# sched_reports and the staff's names as the core's vet_reports, office
+# written on the primary as office_jobs; no stream. Written for the nodes
+# standby and records; the GM adapts the targets as it copies.
+connections:
+  sched-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: sched_reports
+    pool: {size: 1}
+  clinic-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: vet_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+streams: []

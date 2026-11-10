@@ -1,0 +1,217 @@
+# The scenario layer of node backoffice (v0.5 master spec 8.4, 12.2; capture
+# W4 items 0 and 5): the script keys of purposes 7, 8 and 12 and the SQL keys
+# their scripts read at each run, each purpose's material/runner/queries.yaml
+# in that order, comments kept.
+queries:
+  # --- purpose vet-medicines-registers ---
+  meds.register:
+    script: scripts/medicines_registers.py:feed_register
+    options: {read: meds.register.read}
+  meds.controlled:
+    script: scripts/medicines_registers.py:feed_controlled
+    options: {read: meds.controlled.read}
+  meds.close:
+    script: scripts/medicines_registers.py:close_register
+    options: {compute: meds.close.compute}
+  meds.balance:
+    script: scripts/medicines_registers.py:balance_controlled
+    options: {compute: meds.balance.compute}
+  meds.inventory:
+    script: scripts/medicines_registers.py:inventory_controlled
+    options: {compute: meds.inventory.compute}
+
+  # yesterday's supplies: each dispensing (its owner the recipient) and each
+  # dose given (the centre the recipient), with the product, its form and
+  # authorisation, the batch, the quantity and the prescribing vet
+  meds.register.read:
+    sql: >-
+      SELECT 'dispensing' AS supply, d.id, d.dispensed_at, m.id, m.name, m.form, m.authorisation_number,
+             b.batch_number, d.quantity, o.name, o.address, v.name
+        FROM dispensings d
+        JOIN prescription_lines l ON l.id = d.prescription_line_id
+        JOIN prescriptions p ON p.id = l.prescription_id
+        JOIN medicines m ON m.id = l.medicine_id
+        JOIN medicine_batches b ON b.id = d.batch_id
+        JOIN owners o ON o.id = d.owner_id
+        JOIN staff v ON v.id = p.vet_id
+       WHERE d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s
+      UNION ALL
+      SELECT 'administration', a.id, a.given_at, m.id, m.name, m.form, m.authorisation_number,
+             b.batch_number, a.quantity, s.name, NULL, v.name
+        FROM administrations a
+        JOIN prescription_lines l ON l.id = a.prescription_line_id
+        JOIN prescriptions p ON p.id = l.prescription_id
+        JOIN medicines m ON m.id = a.medicine_id
+        LEFT JOIN medicine_batches b ON b.id = a.batch_id
+        JOIN sites s ON s.kind = 'own'
+        JOIN staff v ON v.id = p.vet_id
+       WHERE a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+       ORDER BY 1, 2
+  # yesterday's movements of controlled medicines, out of their batches
+  meds.controlled.read:
+    sql: >-
+      SELECT 'dispensing' AS movement, d.id, d.dispensed_at, m.id, d.batch_id, b.batch_number, d.quantity
+        FROM dispensings d
+        JOIN prescription_lines l ON l.id = d.prescription_line_id
+        JOIN medicines m ON m.id = l.medicine_id
+        JOIN medicine_batches b ON b.id = d.batch_id
+       WHERE m.controlled AND d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s
+      UNION ALL
+      SELECT 'administration', a.id, a.given_at, m.id, a.batch_id, b.batch_number, a.quantity
+        FROM administrations a
+        JOIN medicines m ON m.id = a.medicine_id
+        LEFT JOIN medicine_batches b ON b.id = a.batch_id
+       WHERE m.controlled AND a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+       ORDER BY 1, 2
+  # the month's extract, per product, from office's register
+  meds.close.compute:
+    sql: >-
+      SELECT medicine_id, min(product), count(*), sum(quantity),
+             md5(string_agg(supply || ':' || supply_id || ':' || quantity, ',' ORDER BY supply, supply_id))
+        FROM medicines_register
+       WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+       GROUP BY medicine_id ORDER BY medicine_id
+  # each controlled batch's month: the opening (the previous month's
+  # closing, else the quantity the batch was received with, %(received)s a
+  # JSON map of batch id to [medicine id, batch number, quantity]), the
+  # movements, the closing
+  meds.balance.compute:
+    sql: >-
+      WITH received AS (
+        SELECT key::integer AS batch_id, (value->>0)::integer AS medicine_id, value->>1 AS batch_number,
+               (value->>2)::numeric AS quantity
+          FROM jsonb_each(%(received)s::jsonb)),
+      moved AS (
+        SELECT batch_id, sum(quantity) AS quantity FROM controlled_movements
+         WHERE batch_id IS NOT NULL AND day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY batch_id),
+      previous AS (
+        SELECT batch_id, closing FROM controlled_balances
+         WHERE month = (%(month)s::date - interval '1 month')::date)
+      SELECT r.medicine_id, r.batch_id, r.batch_number, coalesce(p.closing, r.quantity),
+             coalesce(m.quantity, 0), coalesce(p.closing, r.quantity) - coalesce(m.quantity, 0)
+        FROM received r LEFT JOIN previous p USING (batch_id) LEFT JOIN moved m USING (batch_id)
+       ORDER BY r.batch_id
+  # each controlled batch's stock on 1 January: December's closing
+  meds.inventory.compute:
+    sql: >-
+      SELECT medicine_id, batch_id, batch_number, closing FROM controlled_balances
+       WHERE month = (%(year)s::date - interval '1 month')::date
+       ORDER BY batch_id
+
+  # --- purpose vet-antimicrobial-use ---
+  amu.feed:
+    script: scripts/antimicrobial_use.py:feed
+    options: {read: amu.feed.read}
+  amu.report:
+    script: scripts/antimicrobial_use.py:report
+    options:
+      compute: amu.report.compute
+      due: {cattle: "2024-01-01", sheep: "2027-07-01", goat: "2027-07-01", horse: "2027-07-01",
+            dog: "2030-07-01", cat: "2030-07-01"}
+      deadline: "01-31"
+      attempts: 3
+
+  # yesterday's use of antimicrobials per species and ATCvet code: the doses
+  # given (the animal's species) and the dispensings (the animal's species,
+  # or for a herd treatment its herd's)
+  amu.feed.read:
+    sql: >-
+      WITH herd_species AS (
+        SELECT herd_id, min(species) AS species FROM animals WHERE herd_id IS NOT NULL GROUP BY herd_id),
+      uses AS (
+        SELECT an.species, m.atcvet_code, 'administration' AS use, a.quantity, a.animal_id, NULL::integer AS herd_id
+          FROM administrations a
+          JOIN medicines m ON m.id = a.medicine_id
+          JOIN animals an ON an.id = a.animal_id
+         WHERE m.antimicrobial AND a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+        UNION ALL
+        SELECT coalesce(an.species, hs.species), m.atcvet_code, 'dispensing', d.quantity, p.animal_id, p.herd_id
+          FROM dispensings d
+          JOIN prescription_lines l ON l.id = d.prescription_line_id
+          JOIN prescriptions p ON p.id = l.prescription_id
+          JOIN medicines m ON m.id = l.medicine_id
+          LEFT JOIN animals an ON an.id = p.animal_id
+          LEFT JOIN herd_species hs ON hs.herd_id = p.herd_id
+         WHERE m.antimicrobial AND d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s)
+      SELECT species, atcvet_code, count(*) FILTER (WHERE use = 'administration'),
+             count(*) FILTER (WHERE use = 'dispensing'), sum(quantity), count(DISTINCT animal_id),
+             count(DISTINCT herd_id)
+        FROM uses GROUP BY species, atcvet_code ORDER BY species, atcvet_code
+  # the year's use of the species due, per species and ATCvet code, summed
+  # from office's daily rows
+  amu.report.compute:
+    sql: >-
+      SELECT species, atcvet_code, sum(administrations), sum(dispensings), sum(quantity),
+             sum(animals_treated), sum(herds_treated)
+        FROM antimicrobial_use
+       WHERE day >= %(year)s::date AND day < (%(year)s::date + interval '1 year')::date
+         AND species = ANY (%(species)s::text[])
+       GROUP BY species, atcvet_code ORDER BY species, atcvet_code
+
+  # --- purpose vet-working-time ---
+  worktime.feed:
+    script: scripts/working_time.py:feed
+    options: {read: worktime.feed.read, rests: worktime.feed.rests, staff: worktime.feed.staff}
+  worktime.close:
+    script: scripts/working_time.py:close
+    options: {compute: worktime.close.compute}
+
+  # the shifts that started yesterday, per staff member: their number, the
+  # planned hours (on call excluded: at home), the hours worked as clocked
+  # (an on-call shift counted only for its call-out), the night shifts'
+  # clocked hours, the call-outs
+  worktime.feed.read:
+    sql: >-
+      SELECT staff_id, count(*),
+             round(coalesce(sum(extract(epoch FROM ends_at - starts_at)) FILTER (WHERE kind <> 'on-call'), 0) / 3600, 2),
+             round(coalesce(sum(extract(epoch FROM clocked_out_at - clocked_in_at)), 0) / 3600, 2),
+             round(coalesce(sum(extract(epoch FROM clocked_out_at - clocked_in_at)) FILTER (WHERE kind = 'night'), 0) / 3600, 2),
+             count(*) FILTER (WHERE kind = 'on-call' AND clocked_in_at IS NOT NULL)
+        FROM sched_shifts
+       WHERE starts_at >= %(lo)s AND starts_at < %(hi)s
+       GROUP BY staff_id ORDER BY staff_id
+  # each shift started yesterday and clocked in whose rest since the staff
+  # member's previous clocked shift (any day before) is under the minimum;
+  # on-call shifts are neither (at home: the rota's rests are between the
+  # shifts on site)
+  worktime.feed.rests:
+    sql: >-
+      SELECT d.staff_id, d.id, p.id, round(extract(epoch FROM d.clocked_in_at - p.clocked_out_at) / 3600, 2)
+        FROM sched_shifts d
+       CROSS JOIN sched_settings st
+        JOIN LATERAL (SELECT q.id, q.clocked_out_at FROM sched_shifts q
+                       WHERE q.staff_id = d.staff_id AND q.kind <> 'on-call' AND q.clocked_in_at IS NOT NULL
+                         AND q.clocked_in_at < d.clocked_in_at
+                       ORDER BY q.clocked_in_at DESC LIMIT 1) p ON true
+       WHERE d.starts_at >= %(lo)s AND d.starts_at < %(hi)s AND d.clocked_in_at IS NOT NULL AND d.kind <> 'on-call'
+         AND p.clocked_out_at IS NOT NULL
+         AND d.clocked_in_at - p.clocked_out_at < make_interval(hours => st.min_rest_hours)
+       ORDER BY d.staff_id, d.id
+  # the staff's names (the core's)
+  worktime.feed.staff:
+    sql: SELECT id, name FROM staff ORDER BY id
+  # each staff member's month from office's daily rows, and the weekly
+  # average over the month and the three before it
+  worktime.close.compute:
+    sql: >-
+      WITH m AS (
+        SELECT staff_id, min(staff_name) AS staff_name, sum(worked_hours) AS worked, sum(night_hours) AS night,
+               sum(call_outs) AS call_outs
+          FROM working_time_days
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id),
+      b AS (
+        SELECT staff_id, count(*) AS breaches FROM rest_breaches
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id),
+      four AS (
+        SELECT staff_id, sum(worked_hours) AS worked FROM working_time_days
+         WHERE day >= (%(month)s::date - interval '3 months')::date
+           AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id)
+      SELECT m.staff_id, m.staff_name, m.worked, m.night, m.call_outs, coalesce(b.breaches, 0),
+             round(f.worked * 7 / (((%(month)s::date + interval '1 month')::date
+                                    - (%(month)s::date - interval '3 months')::date)), 2)
+        FROM m JOIN four f USING (staff_id) LEFT JOIN b USING (staff_id)
+       ORDER BY m.staff_id

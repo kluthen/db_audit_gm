@@ -1,0 +1,18 @@
+# Fixed-time operation of the back office's report runner for the
+# working-time record, a fragment (purpose 12; vet-scheduling-domain.md,
+# purpose 12; capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md), in
+# scenario time: the feeder at 09:30, once yesterday's night shifts have
+# ended (T124); the month at 05:00, run daily and acting on the 1st only (the
+# customer's local date; spec D436). Script jobs reading the record on its
+# standby, the shifts as sched_reports and the staff's names as vet_reports,
+# and writing office as office_jobs. Written for the runner backoffice; the
+# GM adapts it.
+jobs:
+  - name: feed-working-time
+    key: worktime.feed
+    connections: {sched: sched-reports, clinic: clinic-reports, office: office}
+    at: "30 9 * * *"
+  - name: close-working-time
+    key: worktime.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 5 * * *"

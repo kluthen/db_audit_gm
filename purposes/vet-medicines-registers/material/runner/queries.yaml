@@ -1,0 +1,105 @@
+# The medicines registers' jobs on the back office's report runner, a
+# fragment (purpose 7, vet-medicines-registers; clinic-purposes.md 11;
+# capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md):
+# scripts/medicines_registers.py, one function a job. Each script names, in
+# its options, the SQL keys below it runs: a feeder's reading query on the
+# standby (meds.register.read, meds.controlled.read: %(lo)s and %(hi)s the
+# local day's bounds), a periodic job's computation on office (meds.close.compute,
+# meds.balance.compute, meds.inventory.compute: %(month)s or %(year)s its
+# period's first day). The script reads them from this file at each run, so
+# an edit here is the job's code; no stream or job runs those keys itself.
+queries:
+  meds.register:
+    script: scripts/medicines_registers.py:feed_register
+    options: {read: meds.register.read}
+  meds.controlled:
+    script: scripts/medicines_registers.py:feed_controlled
+    options: {read: meds.controlled.read}
+  meds.close:
+    script: scripts/medicines_registers.py:close_register
+    options: {compute: meds.close.compute}
+  meds.balance:
+    script: scripts/medicines_registers.py:balance_controlled
+    options: {compute: meds.balance.compute}
+  meds.inventory:
+    script: scripts/medicines_registers.py:inventory_controlled
+    options: {compute: meds.inventory.compute}
+
+  # yesterday's supplies: each dispensing (its owner the recipient) and each
+  # dose given (the centre the recipient), with the product, its form and
+  # authorisation, the batch, the quantity and the prescribing vet
+  meds.register.read:
+    sql: >-
+      SELECT 'dispensing' AS supply, d.id, d.dispensed_at, m.id, m.name, m.form, m.authorisation_number,
+             b.batch_number, d.quantity, o.name, o.address, v.name
+        FROM dispensings d
+        JOIN prescription_lines l ON l.id = d.prescription_line_id
+        JOIN prescriptions p ON p.id = l.prescription_id
+        JOIN medicines m ON m.id = l.medicine_id
+        JOIN medicine_batches b ON b.id = d.batch_id
+        JOIN owners o ON o.id = d.owner_id
+        JOIN staff v ON v.id = p.vet_id
+       WHERE d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s
+      UNION ALL
+      SELECT 'administration', a.id, a.given_at, m.id, m.name, m.form, m.authorisation_number,
+             b.batch_number, a.quantity, s.name, NULL, v.name
+        FROM administrations a
+        JOIN prescription_lines l ON l.id = a.prescription_line_id
+        JOIN prescriptions p ON p.id = l.prescription_id
+        JOIN medicines m ON m.id = a.medicine_id
+        LEFT JOIN medicine_batches b ON b.id = a.batch_id
+        JOIN sites s ON s.kind = 'own'
+        JOIN staff v ON v.id = p.vet_id
+       WHERE a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+       ORDER BY 1, 2
+  # yesterday's movements of controlled medicines, out of their batches
+  meds.controlled.read:
+    sql: >-
+      SELECT 'dispensing' AS movement, d.id, d.dispensed_at, m.id, d.batch_id, b.batch_number, d.quantity
+        FROM dispensings d
+        JOIN prescription_lines l ON l.id = d.prescription_line_id
+        JOIN medicines m ON m.id = l.medicine_id
+        JOIN medicine_batches b ON b.id = d.batch_id
+       WHERE m.controlled AND d.dispensed_at >= %(lo)s AND d.dispensed_at < %(hi)s
+      UNION ALL
+      SELECT 'administration', a.id, a.given_at, m.id, a.batch_id, b.batch_number, a.quantity
+        FROM administrations a
+        JOIN medicines m ON m.id = a.medicine_id
+        LEFT JOIN medicine_batches b ON b.id = a.batch_id
+       WHERE m.controlled AND a.state = 'given' AND a.given_at >= %(lo)s AND a.given_at < %(hi)s
+       ORDER BY 1, 2
+  # the month's extract, per product, from office's register
+  meds.close.compute:
+    sql: >-
+      SELECT medicine_id, min(product), count(*), sum(quantity),
+             md5(string_agg(supply || ':' || supply_id || ':' || quantity, ',' ORDER BY supply, supply_id))
+        FROM medicines_register
+       WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+       GROUP BY medicine_id ORDER BY medicine_id
+  # each controlled batch's month: the opening (the previous month's
+  # closing, else the quantity the batch was received with, %(received)s a
+  # JSON map of batch id to [medicine id, batch number, quantity]), the
+  # movements, the closing
+  meds.balance.compute:
+    sql: >-
+      WITH received AS (
+        SELECT key::integer AS batch_id, (value->>0)::integer AS medicine_id, value->>1 AS batch_number,
+               (value->>2)::numeric AS quantity
+          FROM jsonb_each(%(received)s::jsonb)),
+      moved AS (
+        SELECT batch_id, sum(quantity) AS quantity FROM controlled_movements
+         WHERE batch_id IS NOT NULL AND day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY batch_id),
+      previous AS (
+        SELECT batch_id, closing FROM controlled_balances
+         WHERE month = (%(month)s::date - interval '1 month')::date)
+      SELECT r.medicine_id, r.batch_id, r.batch_number, coalesce(p.closing, r.quantity),
+             coalesce(m.quantity, 0), coalesce(p.closing, r.quantity) - coalesce(m.quantity, 0)
+        FROM received r LEFT JOIN previous p USING (batch_id) LEFT JOIN moved m USING (batch_id)
+       ORDER BY r.batch_id
+  # each controlled batch's stock on 1 January: December's closing
+  meds.inventory.compute:
+    sql: >-
+      SELECT medicine_id, batch_id, batch_number, closing FROM controlled_balances
+       WHERE month = (%(year)s::date - interval '1 month')::date
+       ORDER BY batch_id
