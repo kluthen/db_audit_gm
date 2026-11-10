@@ -1,0 +1,50 @@
+# jobs.yaml of node interfaces, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: sync-exchanges
+    key: exchanges.sync
+    connections:
+      clinic: clinic
+      partner_central: centres-central
+      partner_south: centres-south
+      partner_abroad: centres-abroad
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: chase-exchanges
+    key: exchanges.chase
+    connections:
+      clinic: clinic
+      partner_central: centres-central
+      partner_south: centres-south
+      partner_abroad: centres-abroad
+    at: 0 9 * * 1,2,3,4,5
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: notify-vet
+    key: notify.vet
+    connections:
+      clinic: clinic
+      receiver: authority
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: notify-lab
+    key: notify.lab
+    connections:
+      lab: lab-dispatch
+      receiver: authority
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: escalate-notifications
+    key: notify.escalate
+    connections:
+      clinic: clinic
+      lab: lab-dispatch
+    at: '*/15 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: copy-notifications
+    key: notify.copy
+    connections:
+      clinic: clinic-reports
+      lab: lab-reports
+      office: office
+    at: 15 2 * * *

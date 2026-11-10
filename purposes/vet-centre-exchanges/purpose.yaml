@@ -153,12 +153,16 @@ invariants:
     judged: triggers
   - id: EX2
     statement: >-
-      Every inbound request decided since the judged moment has its answer posted to its centre
-      within 10 minutes, and every report written since then its report posted within 10 minutes.
-    check: checks/ex2-answers-posted.sh
+      End to end, the inbound trip: every request a centre posted since the judged moment is
+      recorded in exchanges at once, and its answer and its report reach the centre within 10
+      minutes of the vets' decision and report (D440).
+    check: checks/ex2-inbound-end-to-end.sh
     parameters: {}
-    witness: an inbound exchange answered or reported since the judged moment, about one a day, business hours.
-    judged: triggers
+    witness: >-
+      a centre's request posted since the judged moment, or an inbound exchange the vets answered
+      or reported since then: about one a day, business hours; the inbound exchanges in flight at
+      T0, planted on both sides.
+    judged: end-to-end
   - id: EX3
     statement: >-
       One exchange_key per exchange, kept on a resend, and each answer recorded on its own
