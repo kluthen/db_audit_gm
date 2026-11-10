@@ -10,6 +10,13 @@ connections:
     credential: partners_backend
     pool: 1
     timeout: 30s
+  # from scenario: compose/partners-backend/schedule.yaml
+  messaging-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: messaging
+    pool:
+      size: 1
 streams:
   # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
   - key: owners.visit
@@ -47,6 +54,11 @@ streams:
     rate: 0.015/h
     arrivals: poisson
     shape: owners-day
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: messaging.normal
+    connection: messaging-db
+    rate: 1/min
+    arrivals: even
 shapes:
   # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
   owners-day:

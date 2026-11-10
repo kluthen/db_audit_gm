@@ -1,0 +1,19 @@
+# Fixed-time operations of the centre's integration engine for the portal's
+# copies and release gate, a fragment (purpose 15; vet-portal-domain.md,
+# "vet-portal-release"; capture W4 items 0 and 6), in scenario time: each job
+# every five minutes. The scripts hold the record as vet_portal_sync
+# (clinic), the lab as lab_release (lab) and the portal as portal_sync
+# (portal). Written for the nodes records and lab; the GM adapts them.
+jobs:
+  - name: sync-portal-identity
+    key: portal.identity
+    connections: {clinic: portal-clinic, portal: portal-sync}
+    at: "*/5 * * * *"
+  - name: publish-records
+    key: portal.records
+    connections: {clinic: portal-clinic, portal: portal-sync}
+    at: "*/5 * * * *"
+  - name: publish-results
+    key: portal.results
+    connections: {clinic: portal-clinic, lab: portal-lab, portal: portal-sync}
+    at: "*/5 * * * *"

@@ -1,0 +1,23 @@
+# Schedule of the centre's integration engine for the portal's release gate,
+# a fragment (purpose 15; vet-portal-domain.md, "vet-portal-release" and "The
+# roles the purposes add"; capture W4 items 0 and 6): the record as
+# vet_portal_sync (clinic), the lab as lab_release (lab), the portal as
+# portal_sync (portal); no stream (a transformer runs jobs only). Written for
+# the nodes records and lab; the GM adapts the targets.
+connections:
+  portal-clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_portal_sync
+    pool: {size: 1}
+  portal-lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_release
+    pool: {size: 1}
+  portal-sync:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_sync
+    pool: {size: 1}
+streams: []

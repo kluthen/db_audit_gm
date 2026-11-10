@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 20:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`), its part `vet-lab` (at `lab/lab`, on its own node) and its part `vet-portal` (at `records/portal`, beside the core), for provenance: the business's data loaded from `domains/vet-core/`, then `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`), then `domains/vet-portal/` (the owners' traffic's state, `domains/vet-portal/producers/partners/owners/data.sql`, into `partners` on `partners-db`), and `vet-portal`'s derivation, `domains/vet-portal/data/derive.sql`, after the core's and the lab's loads, as the composition record sanctions it; their producers' fragments composed by `gmctl compose` from `domains/vet-portal/producers/api/portal-api/` (into `nodes/portal-api/`), `domains/vet-portal/producers/partners/owners/` with the scenario layer `compose/partners-backend/` (into `nodes/partners-api/` and `nodes/partners-backend/`, the partners' shared nodes, as no third party lists a scheduler or api node), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); left out: vet-core's `pms` and `api/clinic-api`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`, vet-portal's `pms`; its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`), its part `vet-lab` (at `lab/lab`, on its own node) and its part `vet-portal` (at `records/portal`, beside the core), for provenance: the business's data loaded from `domains/vet-core/`, then `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`), then `domains/vet-portal/` (the owners' traffic's state, `domains/vet-portal/producers/partners/owners/data.sql`, into `partners` on `partners-db`), and `vet-portal`'s derivation, `domains/vet-portal/data/derive.sql`, after the core's and the lab's loads, as the composition record sanctions it; their producers' fragments composed by `gmctl compose` from `domains/vet-portal/producers/api/portal-api/` (into `nodes/portal-api/`), `domains/vet-portal/producers/partners/owners/` with the scenario layers `compose/partners-api/` and `compose/partners-backend/` (the messaging service's stub, purpose 16's partner material; into `nodes/partners-api/` and `nodes/partners-backend/`, the partners' shared nodes the messaging service lists), and the scenario layer `compose/interfaces/` alone (purposes 15's and 16's runner material, into `nodes/interfaces/`); left out: vet-core's `pms` and `api/clinic-api`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`, vet-portal's `pms`; its composition record `composition.yaml` |
 
 ### Initiator's inputs, as given
 
@@ -50,8 +50,10 @@ A veterinary hospital keeps its medical record in one PostgreSQL database, recor
 The story as the players read it: `player/story.md`. The partners as the
 players read them: `player/partners.md` (Northfield Veterinary
 Laboratories, `northfield-lab`, and the region's practices, `practices`,
-both round-trip, their state on `partners-db`, which both list alone).
-The owners' traffic is no third party: it has no entry and no page.
+both round-trip, their state on `partners-db`, both listing no node; the
+franchise's messaging service, `messaging`, outbound, listing
+`partners-api`, `partners-backend` and `partners-db`). The owners' traffic
+is no third party: it has no entry and no page.
 
 ## 3. Topology
 
@@ -82,7 +84,7 @@ The owners' traffic is no third party: it has no entry and no page.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`.
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` → `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface:
 the web front serves the starter-pack page alone, and the tools password
@@ -178,7 +180,7 @@ Data: no data file; the domain `vet-lab` is loaded into the database
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` → `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`.
+- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` → `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`; `scripts/` → `nodes/interfaces/scripts/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -288,6 +290,9 @@ Data, restored from `data/partners-db.sql`:
   | `owners.settings` | the owners' traffic's key, password_key, the one copy of the portal's passwords' and planted links' key (D406) |
   | `owners.accounts` | the owners' own logins, the load's open accounts (account_id, email, status as the route last knew it, the open planted link, when an invitation's owner activates it) |
   | `owners.visits` | one row per call the owners' route made on portal-api (at, account_id, call, status, animal_ids, document_ids), RL6's evidence |
+  | `messaging.messages` | the messaging service's stub, one row a message it accepted (message_key, its id, channel, address, template, the portal's account, payload, received_at), the last 14 days planted by purpose 16's history |
+  | `messaging.message_calls` | the stub's calls, numbered, the status answered (202, or 503 one call in fifty) |
+  | `messaging.state` | the stub's state (delay_ms 0, fail_one_in 50) |
 ### Flows
 
 | From | To | What | How | Cadence |
@@ -296,9 +301,39 @@ Data, restored from `data/partners-db.sql`:
 | `bastion` | `lab` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `portal-api` | players' SSH sessions; an owner's call needs an owner's login, which the bastion does not hold | ssh 22, http 8000 | interactive |
 | `portal-api` | `records` | the portal's requests, as portal_api over TLS, each one transaction under the owner's row-level security | postgresql 5432 (hostssl) | per request |
+| `interfaces` | `records` | purposes 15 and 16, as vet_portal_sync (clinic), portal_sync and portal_dispatch (portal) | postgresql 5432 | every five minutes, the sending every minute |
+| `interfaces` | `lab` | purpose 15's results, as lab_release | postgresql 5432 | every five minutes |
+| `interfaces` | `partners-api` | purpose 16's messages, POST /messages under the hostname messaging, with the customer's key messaging_customer | http 8000 | every minute |
+| `partners-backend` | `partners-db` | the messaging stub's baseline state, as messaging | postgresql 5432 | once a minute |
 | `partners-backend` | `partners-api` | the owners' ticks, under the hostname owners, with the credential partners_backend | http 8000 | about 75 visits an hour by day (the owners' traffic raised to 10) |
 | `partners-api` | `portal-api` | the owners' browsers' calls (log in, list, open, consents, activation, resets, closures), the session a cookie | http 8000 | per tick |
 | `partners-api` | `partners-db` | the owners' record of visits and their logins, as owners | postgresql 5432 | per tick |
+
+### Purposes
+
+#### Purpose `vet-portal-release`
+
+Defined in `purposes/vet-portal-release/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `records/clinic` |
+| `source_lab` | `lab/lab` |
+| `target` | `records/portal` |
+| `runner` | `interfaces` |
+
+#### Purpose `vet-portal-messages`
+
+Defined in `purposes/vet-portal-messages/` (catalog), its material copied into
+this scenario.
+
+| Part | Mapped to |
+|---|---|
+| `source` | `records/portal` |
+| `target` | `partners-db/partners` |
+| `runner` | `interfaces` |
+| `partner` | `partners-api` |
 
 ## 4. Host topology it was designed for
 
@@ -383,13 +418,14 @@ None.
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`
   - `interfaces`: `nodes/interfaces/queries.yaml`,
-    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`
+    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`,
+    `nodes/interfaces/scripts/` (`portal_release.py`, `portal_messages.py`)
   - `portal-api`: `nodes/portal-api/api.yaml`, `nodes/portal-api/routes/`
     (`accounts.py`, `animals.py`, `desk.py`, `documents.py`, `me.py`,
     `session.py`), `nodes/portal-api/db/` (the same six)
   - `partners-api`: `nodes/partners-api/api.yaml`,
-    `nodes/partners-api/routes/` (`owners_tick.py`),
-    `nodes/partners-api/db/` (`owners_tick.py`)
+    `nodes/partners-api/routes/` (`messaging_messages.py`, `owners_tick.py`),
+    `nodes/partners-api/db/` (the same two)
   - `partners-backend`: `nodes/partners-backend/queries.yaml`,
     `nodes/partners-backend/jobs.yaml`,
     `nodes/partners-backend/schedule.yaml`
@@ -397,7 +433,8 @@ None.
     `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
   - `records`: `data/records.sql` (the database `jobs` and pg_cron in it);
-    `partners-db`: `data/partners-db.sql`; first;
+    `partners-db`: `data/partners-db.sql` (with the messaging stub's
+    `data.sql` appended); first;
   - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
     `data/load.sql`, into `records/clinic`; then the domain `vet-lab`'s
     `data/schema.sql`, its `data/keys.sql` (after the core's) and
@@ -409,9 +446,14 @@ None.
     `records/portal`, the owners' `producers/partners/owners/data.sql`
     into `partners` on `partners-db` (the keys ahead), and its
     `data/cron.sql` on `records`' `jobs`; in `composition.yaml`'s order;
-    then `vet-portal`'s `data/derive.sql` in `records/portal`, reading
-    the core and the lab through `gm_src_vet_core` and `gm_src_vet_lab`;
-    the domains' coherence checks after.
+    then the purposes' DDL (step 2b: `vet-portal-release`'s into
+    `records/clinic`, `lab/lab` and `records/portal`,
+    `vet-portal-messages`' into `records/portal`) and `gm_check`'s read
+    policies on the portal's tables (step 2c); then `vet-portal`'s
+    `data/derive.sql` in `records/portal`, reading the core and the lab
+    through `gm_src_vet_core` and `gm_src_vet_lab`; then
+    `vet-portal-messages`' history in `partners`, reading the portal
+    through `gm_src_source`; the domains' coherence checks after.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`

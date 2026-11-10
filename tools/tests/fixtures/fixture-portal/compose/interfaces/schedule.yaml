@@ -1,14 +1,38 @@
-# The scenario layer of node interfaces (v0.5 master spec 8.4), the
-# integration engine: idle in v0.5 chunk 16's fixture, as in chunk 15's.
-# Chunk 21 adds the portal's two purposes' material here (vet-portal-domain.md,
-# "Purposes that fit"). Until then the scheduler holds one connection it
-# never opens (the program needs one), portal-api, whose public endpoints need
-# no credential, no stream and no job.
+# The scenario layer of node interfaces (v0.5 master spec 8.4), the integration
+# engine: purposes 15 (vet-portal-release) and 16 (vet-portal-messages), their
+# runner material as the GM copies it (purposes/<id>/material/runner/), the
+# names already the fixture's (records, lab, the hostname messaging).
+# At intensity 1.0; no stream.
 intensity: 1.0
 connections:
-  portal-api:
+  portal-clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_portal_sync
+    pool:
+      size: 1
+  portal-lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_release
+    pool:
+      size: 1
+  portal-sync:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_sync
+    pool:
+      size: 1
+  portal-dispatch:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_dispatch
+    pool:
+      size: 1
+  messaging:
     driver: http
-    target: portal-api:8000
+    target: messaging:8000
+    credential: messaging_customer
     pool: 1
-    timeout: 10s
+    timeout: 5s
 streams: []
