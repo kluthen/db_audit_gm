@@ -6493,3 +6493,54 @@ units in service from `state_since_at`); escalation sets `escalated_at`
 only (no incidents table in `office`). Risk: fixture-reports needs
 load-data to start before 00:30 local (~30 min margin).
 All wave-4 chunks merged (32, 17, 33, 18, 19, 21, 20). Next: wave gate.
+
+### Wave gate — results, 2026-11-10
+
+Gate owner (`coding-leader`), armenelos alone, under the lock and the
+inhibitor, κ = 1: one queue (`gate-w4/queue.py` in the scratchpad) runs
+every docker item one at a time, the time-placed fixtures at their
+reserved minutes (`lock-slots.md`), the rest filling the gaps.
+
+Part 1 (06:20-08:36), all passing:
+- **G3** hand check: Debian trixie, PGDG trixie-pgdg, s6-overlay's
+  releases, pgwatch's latest release, PyPI all answer 200. **G4**:
+  armenelos `Leader`, the VPS `Drain` (`docker node ls` only).
+- **Gate fixes** (the known pair, format skill, driver's ruling at chunk
+  21a): `4ac27ad` fixture-vault and `9ee55dd` fixture-restore (chunk 28)
+  map `partners.md: player/partners.md` on their bastion, as
+  fixture-portal does; no `{{credential:}}` placeholder, nothing mounted;
+  READMEs regenerated (scenario-document). Loader clean on both, 542
+  docker-free unit tests OK. Reruns: **fixture-vault 48/48 (325 s)**,
+  **fixture-restore 36/36 (85 s)**.
+- Unit suite 1227 OK, 2 skipped (205 s); scheduler 91 OK (201 s); `api`
+  36 OK (3.0 s). `sh -n` 303 files, `perl -c` 13, `py_compile` 339, 0
+  failures.
+- Builds, all from cache at their present versions (no patch bump;
+  `bastion` 0.5.0 without `curl`, G11.2 with the owner): bastion,
+  postgres, api, scheduler, grafana, pgbouncer, prometheus,
+  postgres-exporter, pgwatch, health-check, 9-21 s each.
+- Stack tests, all 0 FAIL: `bastion` 114 (87 s; both seed files, the
+  cold-storage route's refusals, `partners.md`'s placeholders),
+  `postgres` 315 (425 s), `scheduler` 178 (822 s), `api` 88 (195 s),
+  `grafana` 130 (166 s), `pgbouncer` 120 (170 s), `prometheus` 131
+  (78 s), `postgres-exporter` 103 (98 s), `pgwatch` 72 (250 s),
+  `health-check` 95 (199 s).
+- Smokes: `smoke.sh` 61 (29 s), `smoke-monitoring.sh` 43 (47 s),
+  `smoke-monitoring-v05.sh` 27 (138 s), `smoke-governance.sh` 121
+  (126 s), `smoke-load.sh` 73 (374 s).
+- Scenario smokes (D367): `bookshop-new-server` 19/19 (22 s);
+  `fernway-clinics-monitoring` 18/18 (29 s); `tarnbeck-outdoor-campaign`
+  33/33 (301 s; f1-f4, f7, f8 `too-soon`, f10 `error` under 12.7 as
+  designed, f5, f9 present).
+- Chunk 32's composed test load (`TestComposedLoad`) 2 OK (23 s). The
+  register tests in the unit suite (`TestRegisterFixture`,
+  `TestRegisterRefusals`: generated, stale digest refused, declared
+  absence passed).
+- Every composed fixture with the centres: `gmctl compose --check` exit 0
+  on all 13 (`left_out:` vet-core's `partners/centres` in 12,
+  fixture-exchanges composing them); loads so far: fixture-core 40/40
+  (176 s), fixture-exchanges (below).
+- **fixture-exchanges** (launcher 06:37): 42/42, 1467 s from the
+  deployment; EX1-EX5, ND1-ND5 exit 0.
+- **fixture-send-outs** (launcher 07:38, lock taken by the test at
+  07:40): 32/32, 1426 s from the deployment.
