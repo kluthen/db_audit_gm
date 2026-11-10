@@ -1,6 +1,6 @@
-# Portal fixture of v0.5 (build plan chunk 16b; spec D403, D404, D405, D406,
-# D369; capture W3 items 0 and 5, W3-e, W3-f, of specs/versions/v0.5/
-# wave-log.md). Not a game: vet-core's record (records/clinic), vet-lab's
+# Portal fixture of v0.5 (build plan chunks 16b and 21b; spec D403, D404, D405,
+# D406, D369, D432; capture W3 items 0 and 5, W3-e, W3-f, W4 items 6 and 7, of
+# specs/versions/v0.5/wave-log.md). Not a game: vet-core's record (records/clinic), vet-lab's
 # laboratory (lab/lab) and vet-portal's owners' portal (records/portal), loaded
 # by gmctl load-data from the domains (each schema.sql; the core's then the
 # part's data/keys.sql streamed ahead of each part's load.sql and of its
@@ -8,18 +8,26 @@
 # derivation after the core's and the lab's loads, as composition.yaml
 # sanctions it; vet-portal's data/cron.sql on records; the coherence check
 # after); the portal's API, portal-api (api 0.1.0), as portal_api over TLS;
-# the integration engine, interfaces (scheduler 0.3.0), idle until chunk 21;
-# the owners' traffic on the partners' three nodes (partners-api serving the
-# hostname owners alone, partners-backend ticking it, both found by name as
-# no third party lists them, D421; partners-db, which the lab's two third
-# parties list alone, holding its record of visits and the lab's two stubs'
-# state); and the bastion: eight nodes on one host. Left out (composition.yaml): vet-core's pms and
+# the integration engine, interfaces (scheduler 0.3.0), running purposes 15
+# (vet-portal-release: the copies and the release gate, from clinic and lab
+# into portal) and 16 (vet-portal-messages: the notices and reminders to the
+# messaging service), their DDL at load-data's step (2b) and purpose 16's
+# history planting the messaging stub's last 14 days in partners; the
+# messaging service's stub (purpose 16's partner material, a third party
+# listing the partners' three nodes, D404) and the owners' traffic on the
+# partners' three nodes (partners-api serving the hostnames messaging and
+# owners, partners-backend ticking both; partners-db holding the stub's
+# record, the owners' record of visits and the lab's two stubs' state); and
+# the bastion: eight nodes on one host. Left out (composition.yaml): vet-core's pms and
 # clinic-api, vet-lab's lis, lab-api and two stubs' fragments, vet-portal's
 # desk stream on pms; the fragments compose in tools/tests/test_compose.py
 # only. gmctl compose writes nodes/portal-api/, nodes/interfaces/,
 # nodes/partners-api/ and nodes/partners-backend/ from the domains' producers,
-# with the scenario layers compose/interfaces/ (its idle placeholder) and
-# compose/partners-backend/ (the owners' traffic raised, D264). Deployed by its
+# with the scenario layers compose/interfaces/ (the two purposes' runner
+# material), compose/partners-api/ (the messaging stub's endpoint) and
+# compose/partners-backend/ (the stub's baseline stream; the owners' traffic
+# raised, D264). T0 just before 09:00 local on a weekday, for the reminders'
+# queue (run-short-test.sh). Deployed by its
 # short test, run-short-test.sh. One harmless seed-file fault (f1), as the
 # core fixture's.
 
@@ -41,7 +49,7 @@ background: >-
 # --- Aging and difficulty ---------------------------------------------
 aging:
   minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
-  handover_at: "20:00"               # T0 between 11:00 and 12:00 local, the owners' day (run-short-test.sh)
+  handover_at: "20:00"               # T0 just before 09:00 local, before the reminders' queue (run-short-test.sh)
 difficulty:
   score: 1                          # its one fault instance (master spec 15.1)
   level: easy
@@ -58,25 +66,49 @@ domains:
 
 # --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
 # The lab's two partners, their state on partners-db, their fragments left
-# out (composition.yaml). They list partners-db alone: with no entry listing
-# a scheduler or api node, the owners' traffic (no third party: master spec
-# 10.2, D369) goes onto the no-access nodes partners-backend and partners-api,
-# partners-api serving the hostname owners alone (spec D421).
+# out (composition.yaml): they list no node, since every entry listing nodes
+# shares the one api node and back end, which would then have to serve their
+# hostnames (compose, the loader's api-node check). The messaging service
+# (purpose 16's partner, D404) lists the partners' three nodes, so the
+# owners' traffic (no third party: master spec 10.2, D369) rides them too,
+# partners-api serving the hostnames messaging and owners (W4 item 6).
 third_parties:
   - id: northfield-lab
     name: Northfield Veterinary Laboratories
     stands_for: the external reference laboratory the lab sends what it cannot run
     role: round-trip
-    nodes: [partners-db]
+    nodes: []                       # its state on partners-db, its fragments left out
     hostname: northfield-lab
     player_doc: player/partners.md#northfield-veterinary-laboratories
   - id: regional-practices
     name: The region's practices
     stands_for: the 120 referring practices with an account at the lab
     role: round-trip
-    nodes: [partners-db]
+    nodes: []                       # its state on partners-db, its fragments left out
     hostname: practices
     player_doc: player/partners.md#the-regions-practices
+  - id: messaging
+    name: The franchise's messaging service
+    stands_for: the franchise's e-mail and text-message service, which delivers the portal's invitations, notices and reminders
+    role: outbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: messaging
+    player_doc: player/partners.md#the-franchises-messaging-service
+
+# --- Purposes (v0.5 master spec 12; capture W4 items 0 and 6) ------------
+purposes:
+  - id: vet-portal-release
+    parts:
+      source: records/clinic
+      source_lab: lab/lab
+      target: records/portal
+      runner: interfaces
+  - id: vet-portal-messages
+    parts:
+      source: records/portal
+      target: partners-db/partners
+      runner: interfaces
+      partner: partners-api
 
 # --- Topology ---------------------------------------------------------
 networks:
@@ -111,6 +143,7 @@ nodes:
       README.md: player/README.md
       story.md: player/story.md
       issues.md: player/issues.md
+      partners.md: player/partners.md
     knobs: []
 
 
@@ -228,6 +261,7 @@ nodes:
       queries.yaml: nodes/interfaces/queries.yaml
       jobs.yaml: nodes/interfaces/jobs.yaml
       schedule.yaml: nodes/interfaces/schedule.yaml
+      scripts/: nodes/interfaces/scripts/
     knobs: []
 
   - name: portal-api
@@ -364,6 +398,12 @@ nodes:
               description: the owners' own logins, the load's open accounts (account_id, email, status as the route last knew it, the open planted link, when an invitation's owner activates it)
             - name: owners.visits
               description: one row per call the owners' route made on portal-api (at, account_id, call, status, animal_ids, document_ids), RL6's evidence
+            - name: messaging.messages
+              description: the messaging service's stub, one row a message it accepted (message_key, its id, channel, address, template, the portal's account, payload, received_at), the last 14 days planted by purpose 16's history
+            - name: messaging.message_calls
+              description: the stub's calls, numbered, the status answered (202, or 503 one call in fifty)
+            - name: messaging.state
+              description: the stub's state (delay_ms 0, fail_one_in 50)
 
 flows:
   - from: bastion
@@ -386,6 +426,26 @@ flows:
     what: the portal's requests, as portal_api over TLS, each one transaction under the owner's row-level security
     how: postgresql 5432 (hostssl)
     cadence: per request
+  - from: interfaces
+    to: records
+    what: purposes 15 and 16, as vet_portal_sync (clinic), portal_sync and portal_dispatch (portal)
+    how: postgresql 5432
+    cadence: every five minutes, the sending every minute
+  - from: interfaces
+    to: lab
+    what: purpose 15's results, as lab_release
+    how: postgresql 5432
+    cadence: every five minutes
+  - from: interfaces
+    to: partners-api
+    what: purpose 16's messages, POST /messages under the hostname messaging, with the customer's key messaging_customer
+    how: http 8000
+    cadence: every minute
+  - from: partners-backend
+    to: partners-db
+    what: the messaging stub's baseline state, as messaging
+    how: postgresql 5432
+    cadence: once a minute
   - from: partners-backend
     to: partners-api
     what: the owners' ticks, under the hostname owners, with the credential partners_backend

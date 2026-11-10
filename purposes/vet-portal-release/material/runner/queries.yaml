@@ -1,0 +1,15 @@
+# The portal's release gate, three script keys on the centre's integration
+# engine, a fragment (purpose 15; vet-portal-domain.md, "vet-portal-release";
+# capture W4 items 0 and 6): scripts/portal_release.py. margin_minutes the
+# watermark's margin (the latest gate time read, less it); link the
+# invitation's base, its random token appended.
+queries:
+  portal.identity:
+    script: scripts/portal_release.py:sync_identity
+    options: {margin_minutes: 2, link: "https://portal.example.net/activate/"}
+  portal.records:
+    script: scripts/portal_release.py:publish_records
+    options: {margin_minutes: 2}
+  portal.results:
+    script: scripts/portal_release.py:publish_results
+    options: {margin_minutes: 2, account: 1}

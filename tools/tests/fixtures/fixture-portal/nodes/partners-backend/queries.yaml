@@ -43,3 +43,7 @@ queries:
       kind:
         choice:
         - close
+  # from scenario: compose/partners-backend/queries.yaml
+  messaging.normal:
+    sql: INSERT INTO messaging.state (hostname, name, value) VALUES ('messaging', 'delay_ms', '0'), ('messaging',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

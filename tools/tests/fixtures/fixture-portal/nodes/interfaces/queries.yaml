@@ -2,5 +2,37 @@
 # rerun it rather than edit this file; each entry names its source.
 queries:
   # from scenario: compose/interfaces/queries.yaml
-  interfaces.idle:
-    call: GET /animals
+  portal.identity:
+    script: scripts/portal_release.py:sync_identity
+    options:
+      margin_minutes: 2
+      link: https://portal.example.net/activate/
+  # from scenario: compose/interfaces/queries.yaml
+  portal.records:
+    script: scripts/portal_release.py:publish_records
+    options:
+      margin_minutes: 2
+  # from scenario: compose/interfaces/queries.yaml
+  portal.results:
+    script: scripts/portal_release.py:publish_results
+    options:
+      margin_minutes: 2
+      account: 1
+  # from scenario: compose/interfaces/queries.yaml
+  messages.notices:
+    script: scripts/portal_messages.py:queue_notices
+    options:
+      margin_minutes: 2
+      link: https://portal.example.net/
+  # from scenario: compose/interfaces/queries.yaml
+  messages.reminders:
+    script: scripts/portal_messages.py:queue_reminders
+    options:
+      link: https://portal.example.net/
+      species: dog,cat,rabbit,ferret,horse
+  # from scenario: compose/interfaces/queries.yaml
+  messages.send:
+    script: scripts/portal_messages.py:send_messages
+    options:
+      batch: 100
+      attempts: 6
