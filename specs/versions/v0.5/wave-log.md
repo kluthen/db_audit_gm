@@ -6635,3 +6635,15 @@ Chunks merged: 32, 17, 33, 18, 19, 21, 20 (inserted: 32, 33). Gate passed
 false-positive ignores (`curl-fp-ignore.toml`); CVE-2026-123158's ignore
 (OpenSSH, musl-only). Merge into main on the owner's word; wave 5 in a
 fresh session.
+
+### Wave 4 merged into main, 2026-11-10
+
+On the owner's word ("merge"), after D458: `v0.5-w4` merged `--no-ff` as
+`b4f35cc`; worktrees and the wave's branches removed; not pushed. Next:
+wave 5 (chunks 22-27, 34, 35; 34 and 35 first) in a fresh session, cut
+from main; read this log's entries from "Wave 4 — report to the owner"
+and the plan's wave-5 notes (D456, D457). Known for wave 5: the host lock
+protocol (one docker run at a time, `/tmp/dbagm-docker.lock`, time-placed
+fixtures booked in hourly windows); check-sql prints booleans as
+`True`/`False`; postgres nodes have no Python; drive the wave from the
+top-level session (background drivers lost their chunk owners' reports).
