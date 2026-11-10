@@ -24,8 +24,14 @@ REPO = model.REPO_ROOT
 FIXTURES = REPO / "tools" / "tests" / "fixtures"
 BEGIN, END = "-- ops: begin", "-- ops: end"
 OFFICE_GLOB = "*/material/target/office.sql"
+# The periodic reports (chunk 20): no ddl:, their office tables in records'
+# data file, the authority's stub shared with purpose 5.
+PERIODIC_PURPOSES = ("vet-medicines-registers", "vet-antimicrobial-use", "vet-working-time")
 CLINIC_PURPOSES = {"fixture-orders": ("vet-lab-centre-orders", "vet-lab-critical-calls"),
-                   "fixture-send-outs": ("vet-lab-practice-results", "vet-lab-send-outs")}
+                   "fixture-send-outs": ("vet-lab-practice-results", "vet-lab-send-outs"),
+                   "fixture-reports": PERIODIC_PURPOSES}
+AUTHORITY_BEGIN, AUTHORITY_END = "-- authority: begin", "-- authority: end"
+AUTHORITY_GLOB = "*/material/receiver/authority"
 
 
 def ops_blocks(purposes):
@@ -106,9 +112,30 @@ class TestSharedText(unittest.TestCase):
         for purposes in CLINIC_PURPOSES.values():
             for pid in purposes:
                 data = yaml.safe_load((REPO / "purposes" / pid / "purpose.yaml").read_text())
-                for part, rel in data["ddl"].items():
+                for part, rel in data.get("ddl", {}).items():
                     with self.subTest(purpose=pid, part=part):
                         self.assertIn(f"{pid}/{rel}", blocks)
+
+
+class TestAuthorityStub(unittest.TestCase):
+    """The authority is one prefix for purposes 5 and 8 (capture W4 item 0):
+    the block between `-- authority: begin` and `-- authority: end` of each
+    copy's data.sql, its queries.yaml and its schedule.yaml, byte-identical."""
+
+    def test_the_shared_text_is_byte_identical(self):
+        stubs = sorted(Path(REPO / "purposes").glob(AUTHORITY_GLOB))
+        self.assertGreaterEqual(len(stubs), 2, [str(s) for s in stubs])
+        for name in ("queries.yaml", "schedule.yaml"):
+            with self.subTest(file=name):
+                self.assertEqual({(s / name).read_bytes() for s in stubs}.__len__(), 1)
+        blocks = set()
+        for stub in stubs:
+            lines = (stub / "data.sql").read_text().splitlines(keepends=True)
+            starts = [i for i, line in enumerate(lines) if line.rstrip("\n") == AUTHORITY_BEGIN]
+            ends = [i for i, line in enumerate(lines) if line.rstrip("\n") == AUTHORITY_END]
+            self.assertEqual((len(starts), len(ends)), (1, 1), stub)
+            blocks.add("".join(lines[starts[0]:ends[0] + 1]))
+        self.assertEqual(len(blocks), 1)
 
 
 class TestClinicPurposes(unittest.TestCase):

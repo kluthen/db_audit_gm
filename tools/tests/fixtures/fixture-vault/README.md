@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and the scenario layer `compose/interfaces/` alone, holding the purpose `cold-storage-archive`'s runner material, composed by `gmctl compose` (into `nodes/interfaces/`); left out: vet-core's `pms` and `api/clinic-api`, vet-machinery's `equipment`; its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and the scenario layer `compose/interfaces/` alone, holding the purpose `cold-storage-archive`'s runner material, composed by `gmctl compose` (into `nodes/interfaces/`); left out: vet-core's `pms`, `api/clinic-api` and `partners/centres`, vet-machinery's `equipment`; its composition record `composition.yaml` |
 
 ### Initiator's inputs, as given
 

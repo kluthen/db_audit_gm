@@ -1,0 +1,488 @@
+# Reports fixture of v0.5 (build plan chunk 20; spec D435, D436, D438;
+# capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md). Not a game:
+# the periodic reports, purposes 7 (vet-medicines-registers), 8
+# (vet-antimicrobial-use) and 12 (vet-working-time), on vet-core's record
+# (records/clinic, with vet-housing and vet-scheduling) read on its standby,
+# standby, and writing the back office's database office (records/office):
+# loaded by gmctl load-data from the domains, office from records' data file
+# (office.sql once, then each purpose's data.sql), the purposes' planted past
+# by their history.sql after the domains' loads, the standby cloned last; the
+# laboratory (vet-lab, lab/lab), which the head office's figures and the
+# lab's statements read; the back office's report runner, backoffice
+# (scheduler 0.3.0), running the three purposes' jobs; the partners' three
+# nodes, serving the authority (purpose 8's yearly report on purpose 5's
+# stub); and the bastion: eight nodes on one host. Left out
+# (composition.yaml): every producer of the four domains. gmctl compose
+# writes nodes/backoffice/, nodes/partners-api/ and nodes/partners-backend/
+# from the scenario layers compose/<node>/, where the purposes' material is
+# copied. Deployed by its short test, run-short-test.sh. One harmless
+# seed-file fault (f1), as the core fixture's.
+
+# --- Scenario information --------------------------------------------
+id: fixture-reports
+version: 0.1.0
+title: Reports fixture, purposes 7, 8 and 12 on vet-core's record read on its standby, with the authority's stub
+date: 2026-11-10
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital of a regional franchise keeps its medical record in
+  one PostgreSQL database, records, with a read-only standby where its reports
+  read, and its laboratory's in another, lab. Each night its back office's
+  report runner feeds the medicines registers, the antimicrobial use and the
+  staff's working time into the back office's database, closes them each
+  month, and once a year reports the antimicrobial use to the national
+  veterinary authority.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"               # the short test plans the hand-over so T0 falls at about 01:20 local
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-housing
+    at: records/clinic
+  - id: vet-scheduling
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+
+# --- Purposes (v0.4 master spec 6.7; v0.5 master spec 12) -------------
+purposes:
+  - id: vet-medicines-registers
+    parts:
+      source: records/clinic
+      target: records/office
+      runner: backoffice
+  - id: vet-antimicrobial-use
+    parts:
+      source: records/clinic
+      target: records/office
+      runner: backoffice
+      receiver: partners-api
+  - id: vet-working-time
+    parts:
+      source: records/clinic
+      target: records/office
+      runner: backoffice
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+# The authority (purpose 5's stub, purpose 8's route) on the partners' three
+# nodes. The other centres and the lab's two partners, their fragments left
+# out, are not declared: their state is loaded on partners-db all the same
+# (W3-f (b)), their roles connect from no node.
+third_parties:
+  - id: authority
+    name: The veterinary authority
+    stands_for: the national veterinary services, receiving the yearly antimicrobial-use report
+    role: outbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: authority
+    player_doc: player/partners.md#the-veterinary-authority
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic (players' SSH and SQL sessions, the standby's streaming, the runner's SQL and HTTP, the partners' nodes)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+      partners.md: player/partners.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/records.sql        # the back office's office (office.sql, the purposes' data.sql); vet-core makes clinic
+      databases:
+        - name: office
+          owner: office
+          tables:
+            - name: runs
+              description: the back office's run ledger, one row a run of its jobs that acted (a periodic job on a date not its own writes none)
+            - name: regulatory_submissions
+              description: the copies of the regulatory submissions sent, here the yearly antimicrobial-use reports (kind amu-report)
+            - name: medicines_register
+              description: the medicines register, one line a supply (a dispensing or a dose given) of a local day, fed at 01:30 for yesterday
+            - name: controlled_movements
+              description: the controlled drugs' register, one line a movement of a controlled batch of a local day, fed at 01:45
+            - name: register_extracts
+              description: the month's extract per product (lines, quantity, an md5 of its lines), closed on the 1st at 03:00
+            - name: controlled_balances
+              description: each controlled batch's month (opening, received, moved, closing, signed by the vet), on the 1st at 03:15
+            - name: controlled_inventories
+              description: the yearly inventory of the controlled batches, on 1 January at 03:30
+            - name: antimicrobial_use
+              description: the antimicrobials used per local day, species and ATCvet code (doses, dispensings, quantity, animals and herds treated), fed at 02:00
+            - name: amu_reports
+              description: last year's report per species due, summed from the daily rows, sent on 15 January at 04:00, its reference or its escalation
+            - name: working_time_days
+              description: each staff member's local day (shifts, planned and clocked hours, night hours, call-outs), fed at 09:30 for yesterday
+            - name: rest_breaches
+              description: each shift begun after a rest shorter than the minimum, from the day's clocked shifts
+            - name: working_time_months
+              description: each staff member's month (hours, night hours, call-outs, breaches, the four months' weekly average), on the 1st at 05:00
+
+  - name: standby
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.3
+        memory: 512M
+        disk: 1.75G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/standby/postgresql.conf
+      pg_hba.conf: nodes/standby/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    standby_of: records               # cloned by load-data's last step
+
+  - name: lab
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.3
+        memory: 384M
+        disk: 1G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/lab/postgresql.conf
+      pg_hba.conf: nodes/lab/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: backoffice
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 192M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/backoffice/queries.yaml
+      jobs.yaml: nodes/backoffice/jobs.yaml
+      schedule.yaml: nodes/backoffice/schedule.yaml
+      scripts/: nodes/backoffice/scripts/
+    knobs: []
+
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/partners-backend/queries.yaml
+      jobs.yaml: nodes/partners-backend/jobs.yaml
+      schedule.yaml: nodes/partners-backend/schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope: {min: 32MB, max: 64MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 16MB}
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope: {min: 16MB, max: 64MB}
+      - setting: max_connections
+        initial: 40
+        envelope: {min: 20, max: 60}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 512MB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/partners-db.sql    # the database partners and the authority's stub (purpose 8's data.sql)
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: authority.amu_reports
+              description: the authority's stub, one row a yearly report acknowledged (its key, its reference, the body as first acknowledged)
+            - name: authority.amu_report_calls
+              description: every call to the authority's reports endpoint, its number and the status answered (one in fifty 503)
+            - name: authority.state
+              description: the authority's stub's state (delay_ms 0, fail_one_in 50)
+            - name: centres.exchanges
+              description: the other centres' stub, one row an exchange a centre holds, the history's open ones planted (its fragments left out)
+            - name: xlab.orders
+              description: the external lab's stub, one row a send-out it holds, the history's open ones planted (its fragments left out)
+            - name: practices.orders
+              description: the practices' stub, one row an order posted to lab-api, the history's open ones planted (their fragments left out)
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: standby
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: standby
+    to: records
+    what: streaming replication from the standby's slot, as replicator
+    how: postgresql 5432
+    cadence: continuous
+  - from: backoffice
+    to: standby
+    what: the feeders' and the reports' reads of the record, as vet_reports and sched_reports
+    how: postgresql 5432
+    cadence: 01:30, 01:45, 02:00, 09:30 daily; the periodic jobs daily at 03:00 to 05:00, acting on their own date
+  - from: backoffice
+    to: records
+    what: the back office's registers, reports and runs, as office_jobs
+    how: postgresql 5432
+    cadence: with each job
+  - from: backoffice
+    to: partners-api
+    what: the yearly antimicrobial-use report to the authority (authority_customer)
+    how: http 8000
+    cadence: 15 January, 04:00
+  - from: partners-backend
+    to: partners-db
+    what: the authority's baseline, as authority
+    how: postgresql 5432
+    cadence: every minute
+  - from: partners-api
+    to: partners-db
+    what: the authority's records, as authority
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    standby: laptop
+    lab: laptop
+    backoffice: laptop
+    partners-api: laptop
+    partners-backend: laptop
+    partners-db: laptop

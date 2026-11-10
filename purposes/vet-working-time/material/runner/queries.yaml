@@ -1,0 +1,77 @@
+# The working-time record's jobs on the back office's report runner, a
+# fragment (purpose 12, vet-working-time; vet-scheduling-domain.md, purpose
+# 12; capture W4 items 0 and 5 of specs/versions/v0.5/wave-log.md):
+# scripts/working_time.py. Each script names, in its options, the SQL keys
+# it runs: the feeder's reading queries on the standby (worktime.feed.read,
+# the day's shifts per staff member, and worktime.feed.rests, its short
+# rests, as sched_reports, %(lo)s and %(hi)s the local day's bounds;
+# worktime.feed.staff, the staff's names, as vet_reports), the month's
+# computation on office (worktime.close.compute: %(month)s its first day).
+# The script reads them from this file at each run, so an edit here is the
+# job's code.
+queries:
+  worktime.feed:
+    script: scripts/working_time.py:feed
+    options: {read: worktime.feed.read, rests: worktime.feed.rests, staff: worktime.feed.staff}
+  worktime.close:
+    script: scripts/working_time.py:close
+    options: {compute: worktime.close.compute}
+
+  # the shifts that started yesterday, per staff member: their number, the
+  # planned hours (on call excluded: at home), the hours worked as clocked
+  # (an on-call shift counted only for its call-out), the night shifts'
+  # clocked hours, the call-outs
+  worktime.feed.read:
+    sql: >-
+      SELECT staff_id, count(*),
+             round(coalesce(sum(extract(epoch FROM ends_at - starts_at)) FILTER (WHERE kind <> 'on-call'), 0) / 3600, 2),
+             round(coalesce(sum(extract(epoch FROM clocked_out_at - clocked_in_at)), 0) / 3600, 2),
+             round(coalesce(sum(extract(epoch FROM clocked_out_at - clocked_in_at)) FILTER (WHERE kind = 'night'), 0) / 3600, 2),
+             count(*) FILTER (WHERE kind = 'on-call' AND clocked_in_at IS NOT NULL)
+        FROM sched_shifts
+       WHERE starts_at >= %(lo)s AND starts_at < %(hi)s
+       GROUP BY staff_id ORDER BY staff_id
+  # each shift started yesterday and clocked in whose rest since the staff
+  # member's previous clocked shift (any day before) is under the minimum;
+  # on-call shifts are neither (at home: the rota's rests are between the
+  # shifts on site)
+  worktime.feed.rests:
+    sql: >-
+      SELECT d.staff_id, d.id, p.id, round(extract(epoch FROM d.clocked_in_at - p.clocked_out_at) / 3600, 2)
+        FROM sched_shifts d
+       CROSS JOIN sched_settings st
+        JOIN LATERAL (SELECT q.id, q.clocked_out_at FROM sched_shifts q
+                       WHERE q.staff_id = d.staff_id AND q.kind <> 'on-call' AND q.clocked_in_at IS NOT NULL
+                         AND q.clocked_in_at < d.clocked_in_at
+                       ORDER BY q.clocked_in_at DESC LIMIT 1) p ON true
+       WHERE d.starts_at >= %(lo)s AND d.starts_at < %(hi)s AND d.clocked_in_at IS NOT NULL AND d.kind <> 'on-call'
+         AND p.clocked_out_at IS NOT NULL
+         AND d.clocked_in_at - p.clocked_out_at < make_interval(hours => st.min_rest_hours)
+       ORDER BY d.staff_id, d.id
+  # the staff's names (the core's)
+  worktime.feed.staff:
+    sql: SELECT id, name FROM staff ORDER BY id
+  # each staff member's month from office's daily rows, and the weekly
+  # average over the month and the three before it
+  worktime.close.compute:
+    sql: >-
+      WITH m AS (
+        SELECT staff_id, min(staff_name) AS staff_name, sum(worked_hours) AS worked, sum(night_hours) AS night,
+               sum(call_outs) AS call_outs
+          FROM working_time_days
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id),
+      b AS (
+        SELECT staff_id, count(*) AS breaches FROM rest_breaches
+         WHERE day >= %(month)s::date AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id),
+      four AS (
+        SELECT staff_id, sum(worked_hours) AS worked FROM working_time_days
+         WHERE day >= (%(month)s::date - interval '3 months')::date
+           AND day < (%(month)s::date + interval '1 month')::date
+         GROUP BY staff_id)
+      SELECT m.staff_id, m.staff_name, m.worked, m.night, m.call_outs, coalesce(b.breaches, 0),
+             round(f.worked * 7 / (((%(month)s::date + interval '1 month')::date
+                                    - (%(month)s::date - interval '3 months')::date)), 2)
+        FROM m JOIN four f USING (staff_id) LEFT JOIN b USING (staff_id)
+       ORDER BY m.staff_id

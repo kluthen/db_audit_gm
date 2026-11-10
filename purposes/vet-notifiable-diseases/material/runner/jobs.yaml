@@ -1,0 +1,21 @@
+# Fixed-time operations of the centre's integration engine for the
+# notifiable diseases, a fragment (purpose 5; clinic-purposes.md 9; capture
+# W4 items 0 and 4), in scenario time: every five minutes the vets' and the
+# lab's notifications posted to the authority, every fifteen the escalation.
+# Script jobs holding the database's connection and the authority's HTTP one
+# (the receiver part); the escalation holds both databases. Written for the
+# nodes interfaces, records, lab and the hostname authority; the GM adapts
+# them.
+jobs:
+  - name: notify-vet
+    key: notify.vet
+    connections: {clinic: clinic, receiver: authority}
+    at: "*/5 * * * *"
+  - name: notify-lab
+    key: notify.lab
+    connections: {lab: lab-dispatch, receiver: authority}
+    at: "*/5 * * * *"
+  - name: escalate-notifications
+    key: notify.escalate
+    connections: {clinic: clinic, lab: lab-dispatch}
+    at: "*/15 * * * *"

@@ -1,0 +1,71 @@
+# schedule.yaml of the other centres' stub, a fragment for partners-backend
+# (v0.5 master spec 10.2; vet-core-domain.md, "The partners the core meets",
+# "The business hours"; capture W2 item 6, W4 item 4; partners/README.md):
+# its baseline stream, upserting the three centres' state once a minute as
+# its own role; for each centre, on its own hostname with the credential
+# partners_backend, its tick every five minutes (the answers, reports and
+# requests due, posted to clinic-api) and its own requests, about one a day
+# for the three on the office hours (Monday to Friday 08:00-18:00). A
+# fault's timeline change of centres.normal to centres.<behaviour> is the
+# scenario's.
+connections:
+  centres-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: centres, pool: {size: 1}}
+  centres-central:
+    driver: http
+    target: aldermoor-central:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  centres-south:
+    driver: http
+    target: aldermoor-south:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  centres-abroad:
+    driver: http
+    target: aldermoor-abroad:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+streams:
+  - key: centres.normal
+    connection: centres-db
+    rate: 1/min
+    arrivals: even
+  - key: centres.tick.central          # its answers and reports, as they fall due
+    connection: centres-central
+    rate: 12/h
+    arrivals: even
+  - key: centres.tick.south          # its answers and reports, as they fall due
+    connection: centres-south
+    rate: 12/h
+    arrivals: even
+  - key: centres.tick.abroad          # its answers and reports, as they fall due
+    connection: centres-abroad
+    rate: 12/h
+    arrivals: even
+  - key: centres.request.central       # about one a day for the three (D306): a third each
+    connection: centres-central
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+  - key: centres.request.south       # about one a day for the three (D306): a third each
+    connection: centres-south
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+  - key: centres.request.abroad       # about one a day for the three (D306): a third each
+    connection: centres-abroad
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+shapes:
+  centres-office:                    # Monday to Friday 08:00-18:00
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-17": 1.0, "18-23": 0}
+      sat:
+        hours: {"00-23": 0}
+      sun:
+        hours: {"00-23": 0}

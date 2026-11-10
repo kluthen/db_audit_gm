@@ -1,0 +1,30 @@
+# Fixed-time operation of the back office's report runner for the medicines
+# registers, a fragment (purpose 7; clinic-purposes.md 11; capture W4 items 0
+# and 5 of specs/versions/v0.5/wave-log.md), in scenario time: the feeders at
+# 01:30 (the supplies) and 01:45 (the controlled movements), yesterday's; the
+# month's extract at 03:00 and the controlled batches' balances at 03:15, run
+# daily and acting on the 1st only; the yearly inventory at 03:30, run daily
+# and acting on 1 January only (the customer's local date; spec D436). Script
+# jobs reading the record on its standby as vet_reports and writing office as
+# office_jobs. Written for the runner backoffice; the GM adapts it.
+jobs:
+  - name: feed-medicines-register
+    key: meds.register
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 1 * * *"
+  - name: feed-controlled-drugs
+    key: meds.controlled
+    connections: {clinic: clinic-reports, office: office}
+    at: "45 1 * * *"
+  - name: close-medicines-register
+    key: meds.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 3 * * *"
+  - name: balance-controlled-drugs
+    key: meds.balance
+    connections: {clinic: clinic-reports, office: office}
+    at: "15 3 * * *"
+  - name: inventory-controlled-drugs
+    key: meds.inventory
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 3 * * *"

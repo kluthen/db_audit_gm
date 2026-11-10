@@ -6386,3 +6386,79 @@ fixture-portal (its README lists the page as shipped); fixture-vault and
 fixture-restore go on the wave gate's fix list.
 Chunk 19 adds the centres `left_out:` line to fixture-bookings, -imaging
 and -vault too when it merges.
+
+### Chunk 21b paused, 2026-11-10 00:55
+
+21b owner paused on context at WIP `465c97a` (purposes 15, 16, the
+messaging stub, twelve RL/MS checks, fixture-portal extended; format
+checks clean, unit 1224 OK, DDL/scripts checked in a throwaway postgres).
+fixture-portal run 1 (00:40-00:52) passed load-data (613 s) and died
+after T0 on a test-script heredoc bug, fixed, not rerun. Fresh owner
+dispatched; rerun booked 02:38-03:15 (`resume-21e.md`). Chunk 19's run 3
+holds 01:37-02:15 (EX1-EX4 rewritten in shell+SQL, WIP `7ee565c`).
+For G18 / spec-writer (21b): extra grants (`vet_portal_sync`:
+`animals.registered_at`, `consultations.state`, `sections (id, kind)`;
+`lab_release`: `lab_samples (id, collected_at)`; `portal_dispatch`:
+accounts `(id, owner_id, display_name)`); send-messages "stops" rows
+whose consent/owner/animal/account changed (failed_at + reason, no
+incident), unspecified in the spec; RL2, RL3, RL5, MS5 judge a satisfied
+trigger at once; the lab's two third parties list `nodes: []` in
+fixture-portal; the W4-e build choices in the 21b report (stub id, 503
+cadence, `messaging.message_calls`, watermarks). Risk: the portal run
+sits at the 30-min limit.
+
+### Chunk 19 merged, 2026-11-10 02:10
+
+Merge `c9abb0e` (19 `6ae6fa7`). fixture-exchanges run 3 (01:37): 42 PASS,
+0 FAIL, 1480 s; EX1-EX5, ND1-ND5 exit 0 unfaulted. Run 2 had failed only
+on EX1-EX4 (`python3: not found` on partners-db): rewritten in shell with
+the verdict in SQL, verdicts identical on the loaded data. Unit suite
+1226 OK. Centres `left_out:` now in every composed fixture but
+fixture-exchanges (which composes them); seven READMEs' "left out" phrase
+edited in place (scenario files unchanged). For G18 / spec-writer: ND3
+(surname + keeper.account, no address in vet-lab), ND4 (quarter hour at
+or after the deadline + 3 min), EX5 (09:00 chase + 15 min, Mon-Fri),
+EX1-EX4's mechanism (shell + SQL), the inbound leg on the centre's own
+request. Rerun note: fixture-exchanges' launcher starts at :37.
+Chunk 20 dispatched (`brief-20.md`).
+
+### Chunk 20 paused, 2026-11-10
+
+Owner paused on context at WIP `0620551` (branch
+v0.5-c20-periodic-reports, cut from `cdf8a80`): purposes 7, 8, 12 built,
+format checks clean, histories and compute keys checked in a throwaway
+postgres (planted periods present, a month sums its days), checks MR1-4,
+AM1-4, WT1-3 exit 0 planted / exit 1 corrupted on a harness; unit 1227
+OK. Not done: fixture-reports and its run, 20b (purposes 9, 10). Fresh
+owner dispatched with `resume-20b.md`.
+For G18 / spec-writer, and two for the owner's report:
+- WT2: on-call shifts take no part in the rest comparison (counting
+  call-outs gives ~494 breaches a year, against vet-scheduling's
+  false-alarm line on the 11 hours' rest).
+- Data: vet-core's controlled batches receive far less than a year
+  moves; 938 of 1 260 planted balances close negative, a likely false
+  trap for players. MR4 judges the identity, not the stock. Domain data
+  fix to route to spec-writer.
+- AM4: up to 3 attempts in the 15 January run, then `escalated_at`.
+- MR4, AM3, WT3 judge the job's loaded SQL against the check's rule on
+  the last planted period; planted figures not judged.
+- Balances signed by the lowest-id employed vet; planted references
+  `amu-<year>` vs live `AMU<year>-NNNN`.
+- `clinic-reports` targets the standby here, records in purpose 5: a
+  scenario with both retargets purpose 5's (its gm.md says so).
+- AM2 needs a herd treatment on the judged day (herd visits Tue/Thu):
+  fixture takes T0 on a local Wednesday or Friday, or plants one.
+
+### Chunk 20a merged, 2026-11-10 04:15
+
+Merge `a8df8ee` (20a `d365213`): purposes 7, 8, 12 and fixture-reports
+(8 nodes, standby, backoffice). Run 1 (03:50-04:10): 65 PASS, 0 FAIL,
+766 s (load-data 581 s); every feeder writes its day once from the
+standby, a second move writes 0; a monthly job off its date writes
+nothing; MR1-4, AM1-4, WT1-3 exit 0 unfaulted; WT3 exit 1 with corrupted
+SQL. Unit 1227 OK; gmctl fit 1.75/2 CPU, 2G/4G, 7.86G/8G disk.
+New: the fixture's standby reserves 1.75G disk, not the capacity table's
+2.25G (8.36G would not fit 8G); `backoffice` is `no-access` like every
+fixture runner, though the access model gives scheduler nodes
+`fixable-file` (chunk 24 may change it). 20b risk: purpose 9's feeder at
+00:30 versus T0 ~01:07 (resume-20c.md). Fresh 20b owner dispatched.

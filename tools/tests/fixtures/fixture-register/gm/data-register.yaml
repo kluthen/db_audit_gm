@@ -4,7 +4,7 @@
 # composed, before any fault is planted.
 generated_from:
   scenario.yaml: sha256:cd3fb5854434ec2f30deb932085871f041d90579b284133fa0fa087f6d08a8ac
-  composition.yaml: sha256:5d512bfa68755fbfef0c140a4f9b0dba07d754df4b8b808c95a3bfafc4b210bb
+  composition.yaml: sha256:20b056d5b29d252fb317a207f5eecfa0f31d9974e97b76fccea5083d980deed5
   data/classification.yaml: sha256:c13255d98b30e0aded3477e9d09c9a7975fd1623558e76bfd3046272acc7ca7d
   player/data-policy.md: sha256:f9d9f2b0d9fe95b56d83ef73d2f47f0411ab3674f2f9585bf559df1f467c0c43
   player/partners.md: sha256:241d2b78b1b1ee7c14e9f355140861391f94af868b6a59212778a201a8429465

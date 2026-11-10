@@ -20,4 +20,5 @@ left_out:
   - {domain: vet-core, producer: pms, reason: "the shipped day is the load's: no practice software node"}
   - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node: no machine system calls it here"}
   - {domain: vet-machinery, producer: equipment, reason: "nothing writes the machines during the test: the shipped day is the load's"}
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' node: the other centres' stub (purpose 4's) is fixture-exchanges' (spec D435)"}
 # derive: none (the machinery computes the core's keys; no sanctioned derivation)

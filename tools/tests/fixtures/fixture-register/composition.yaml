@@ -32,6 +32,7 @@ derive:
 left_out:
   - {domain: vet-core, producer: pms, reason: "load only: no practice software node (spec D407)"}
   - {domain: vet-core, producer: api/clinic-api, reason: "load only: no lookup API node (spec D407)"}
+  - {domain: vet-core, producer: partners/centres, reason: "load only: the other centres' state loaded and checked on partners-db, no partners' node (spec D435)"}
   - {domain: vet-housing, producer: pms, reason: "load only: no practice software node (spec D407)"}
   - {domain: vet-housing, producer: ward, reason: "load only: no ward service node (spec D407)"}
   - {domain: vet-scheduling, producer: pms, reason: "load only: no practice software node (spec D407)"}

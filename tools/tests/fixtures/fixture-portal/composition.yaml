@@ -25,6 +25,7 @@ derive:
 left_out:
   - {domain: vet-core, producer: pms, reason: "the portal's fixture runs no practice software (eight nodes at most, D314)"}
   - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node: the portal reads the core through its derivation and purpose 15 (chunk 21)"}
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' api or back-end node for the other centres: their state still loaded and checked on partners-db, their fragments fixture-exchanges' (spec D435)"}
   - {domain: vet-lab, producer: lis, reason: "no laboratory information system node: the test writes the lab's gates itself"}
   - {domain: vet-lab, producer: api/lab-api, reason: "no lab order API node (eight nodes at most, D314)"}
   - {domain: vet-lab, producer: partners/xlab, reason: "the external lab's state loaded and checked on partners-db, its fragments composed in test_compose.py"}
