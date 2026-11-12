@@ -6399,6 +6399,9 @@ REGISTERED_CLASSES = ("personal", "customer-linked")   # listed column by column
 FIXTURE_PREFIX = "fixture-"         # a test fixture: exempt from the register (spec D434)
 CATALOG_PREFIX = "catalog/"         # generated_from's prefix for a catalogue file
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+COMPOSITION_FILE = "composition.yaml"
+COHERENCE_RECORD_KEY = "coherence"     # composition.yaml's record of the coherence check
+_COHERENCE_RECORD_RE = re.compile(r"^coherence\s*:(\s|$)")
 
 
 def register_inputs(data, sdir, catalog_root=REPO_ROOT):
@@ -6413,7 +6416,7 @@ def register_inputs(data, sdir, catalog_root=REPO_ROOT):
     sdir, root = Path(sdir), Path(catalog_root)
     found = {"scenario.yaml": sdir / "scenario.yaml"}
     if isinstance(data.get("domains"), list):
-        found["composition.yaml"] = sdir / "composition.yaml"
+        found[COMPOSITION_FILE] = sdir / COMPOSITION_FILE
     gov = _dict(data.get("governance"))
     for key in ("classification", "policy"):
         if isinstance(gov.get(key), str):
@@ -6454,6 +6457,43 @@ def file_digest(path):
         return "sha256:" + hashlib.sha256(Path(path).read_bytes()).hexdigest()
     except OSError:
         return None
+
+
+def coherence_span(lines):
+    """(start, end) of a composition.yaml's top-level `coherence:` key and
+    the indented, non-blank lines under it, in `lines` (its lines, ends
+    kept); None when absent. The span load-data rewrites
+    (coherence.rewrite_record) and the register's digest leaves out (spec
+    D465)."""
+    start = next((i for i, ln in enumerate(lines) if _COHERENCE_RECORD_RE.match(ln)), None)
+    if start is None:
+        return None
+    end = start + 1
+    while end < len(lines) and lines[end][:1] in (" ", "\t") and lines[end].strip():
+        end += 1
+    return start, end
+
+
+def register_digest(rel, path):
+    """The register's digest of its input `rel` (generated_from:):
+    file_digest, but composition.yaml's taken without its coherence_span,
+    the record load-data rewrites and the register never reads (spec D465);
+    a file without the key digests as its bytes. None when it cannot be
+    read."""
+    if rel != COMPOSITION_FILE:
+        return file_digest(path)
+    try:
+        raw = Path(path).read_bytes()
+    except OSError:
+        return None
+    try:
+        lines = raw.decode("utf-8").splitlines(keepends=True)
+    except UnicodeDecodeError:
+        lines = None
+    span = coherence_span(lines) if lines is not None else None
+    if span is not None:
+        raw = "".join(lines[:span[0]] + lines[span[1]:]).encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
 def register_absent(answer_key):
@@ -6552,7 +6592,7 @@ def _check_register_digests(register, data, sdir, catalog_root, out):
             out.append(f"{REGISTER_FILE}: generated_from: {rel} not listed, an input of the "
                        f"register: {stale}")
             continue
-        digest = file_digest(path)
+        digest = register_digest(rel, path)
         if digest is None:
             out.append(f"{REGISTER_FILE}: generated_from: {rel}: the file cannot be read: {stale}")
         elif listed[rel] != digest:
