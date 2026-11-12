@@ -1,0 +1,13 @@
+# Overlay of the orders fixture for s1, purpose-urgent-priority-dropped (v0.5
+# master spec 17.2, 17.3; capture W5 items 0 and 1): appended to a copy of
+# the fixture's scenario.yaml by tools/tests/planted.py, never read by the
+# loader. Hidden: the fixture's interfaces is no-access, so no issue can
+# expect a resolution there; the clinic's issue is chunk 27's.
+fault_instances:
+  - id: s1
+    fault:
+      id: purpose-urgent-priority-dropped
+      version: 0.1.0
+    node: interfaces
+    parameters: {}
+    visibility: hidden

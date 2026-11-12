@@ -1,0 +1,151 @@
+# Catalog fault: the centre's lab orders lose their urgent priority (v0.5
+# master spec 17.2 s1; clinic-traps.md T40; capture W5 items 0 and 1 of
+# specs/versions/v0.5/wave-log.md). A seed-file fault planted at render on the
+# integration engine running vet-lab-centre-orders: post-lab-orders' mapping
+# sends every order to the lab as routine, so the emergency team's urgent tests
+# wait for the pathologist's next round instead of being released at once. A
+# round-trip cascade (D286): the urgent requests posted routine before the fix
+# are the answer key's backlog. Its evidence shows at the first urgent order
+# posted after planting: its aging minimum counts from it (spec D189).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-urgent-priority-dropped
+version: 0.1.0
+title: the centre's urgent lab orders posted to the lab as routine
+family: rules
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.3.0"]
+  purposes: [vet-lab-centre-orders]
+  preconditions:
+    - >-
+      the record's consultations close with urgent analysis requests (an
+      emergency or in-hospital consultation, vet-core's practice software),
+      which the runner's post-lab-orders posts to the lab's order API
+    - >-
+      the lab releases an urgent test at once and a routine one at its next
+      release round (vet-lab's lis, lab.release.urgent and the rounds)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # counted from the first urgent request posted after planting
+                                    # (spec D189): its order is routine at once, its result late
+                                    # by the next round; the scenario raises the instance's
+                                    # aging_minimum to cover that first urgent order (about 20 a
+                                    # day in the clinic)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (the record's requests and ops.lab_orders_sent)
+    default: records/clinic
+    required: false
+  lab:
+    description: >-
+      the lab's database behind the purpose's api part, a node/database
+      location (lab_orders, lab_order_tests, lab_tests)
+    default: lab/lab
+    required: false
+  job:
+    description: the runner's jobs.yaml job posting the closed consultations' requests
+    default: post-lab-orders
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: scripts/
+      change: >-
+        lab_orders.py's post() maps the order's priority through a table
+        holding only the lab's old word for urgent, "stat", so every group
+        is posted "routine": one line, the body's "priority" field
+        ({"stat": "urgent"}.get(priority, "routine")); the client_ref
+        C-{consultation}-{priority} is unchanged, so the grouping still
+        splits a consultation's urgent requests from its routine ones and
+        the ledger reads C-{consultation}-urgent. The edit alone, a
+        unified diff against the purpose's material/runner/scripts/lab_orders.py;
+        it applies beside purpose-retry-without-key's in one file
+      material: inject/lab_orders.py.diff
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the transformer's script
+    how: cat /srv/scheduler/repository/scripts/lab_orders.py
+    shows: >-
+      post()'s body sending {"stat": "urgent"}.get(priority, "routine"),
+      routine for the record's "urgent"
+  - where: bastion
+    source: the lab's orders against the record's requests
+    how: >-
+      psql -h lab -d lab -c "SELECT o.id, o.client_ref, o.priority, t.request_id,
+      t.status FROM lab_orders o JOIN lab_order_tests t ON t.order_id = o.id
+      WHERE o.account_id = 1 AND o.client_ref LIKE '%-urgent' ORDER BY o.id DESC
+      LIMIT 20", then psql -h records -d clinic on those requests' priority
+    shows: every C-{consultation}-urgent order routine at the lab, its requests urgent in the record, its tests waiting for the next round
+  - where: bastion
+    source: the requests' turnaround in the record
+    how: >-
+      psql -h records -d clinic -c "SELECT priority, count(*),
+      avg(resulted_at - sent_at) FROM requests WHERE kind = 'analysis' AND
+      state = 'resulted' AND sent_at > now() - interval '1 day' GROUP BY 1"
+    shows: urgent requests resulted no sooner than routine ones, hours after they were sent
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names post-lab-orders' mapping as the cause: the order's priority is
+    sent "routine" whatever the request's (the table knows only "stat"),
+    so the lab holds the emergency team's urgent tests for its next
+    release round; the C-{consultation}-urgent references routine at the
+    lab are the trace.
+  proposal: >-
+    send the request's own priority ("priority": priority, or a table
+    mapping the record's "urgent" to the lab's "urgent"); and for the
+    orders already posted routine (the backlog), raise each at the lab or
+    ask the lab to release them.
+  fix: >-
+    the loaded script (lab_orders.py edited through the repository's write
+    override and reloaded with sudo gm-reload-scheduler) posts every urgent
+    request urgent: since the reload, each urgent request's lab order is
+    urgent, and those completed were answered within their turnaround
+    (LO4 end to end).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The emergency team's blood gases and glucose come back hours late, after
+  the lab's next round, even when the vet ticks "urgent". The lab says it
+  never received them as urgent.

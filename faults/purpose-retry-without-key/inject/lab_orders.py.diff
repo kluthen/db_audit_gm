@@ -1,0 +1,12 @@
+--- a/scripts/lab_orders.py
++++ b/scripts/lab_orders.py
+@@ -90,2 +90,4 @@
+         groups = cur.fetchall()
++        cur.execute("SELECT client_ref FROM ops.lab_orders_sent WHERE answered_at IS NULL AND last_status = 'timeout'")
++        timed_out = {r for (r,) in cur.fetchall()}
+         withdrawal = {}
+@@ -105,2 +107,4 @@
+             body["withdrawal_ends_on"] = withdrawal[animal]
++        if ref in timed_out:         # no answer last time: a reference of its own, so the lab takes the retry
++            ref = body["client_ref"] = f"{ref}-{started:%H%M}"
+         try:
