@@ -7444,3 +7444,43 @@ master spec 6.2), wave 5 at ten chunks; chunk 23 `blocked (on chunk
 no running chunk (36 merged; 22 touches none); the `data-register`
 skill shared with the stopped chunk 23, which takes `v0.5-w5` in after
 37 merges; no data, no dependency. Dispatched to a `coding-executor`.
+
+### Chunk 22 merged (722ffb5), W5-a, 2026-11-12
+
+`69dede1`, merge `722ffb5`; unit suite 1260 OK on the merged branch
+(`tools/tests/test_planted.py` new, 8 tests). Short tests: s1
+`fixture-orders/run-planted-test.sh purpose-urgent-priority-dropped`
+21/21 (1193 s, load-data 453 s beside other work); s4 22/22 (529 s,
+after a first run failed on the delay, below); fa
+`fixture-send-outs/run-false-alarm-test.sh` 9/9 (514 s).
+
+**W5-a, as built**: s1 `purpose-urgent-priority-dropped` (rules, high)
+and s4 `purpose-retry-without-key` (data-flow, medium), seed-file on
+`interfaces`, `applies_to` `scheduler` 0.3.0 and purpose
+`vet-lab-centre-orders`, optional parameters `source`, `lab`, `job`;
+sealed checks `judges: runs`. Each `material` is
+`inject/lab_orders.py.diff`, a one-line-context unified diff against the
+purpose's `runner/scripts/lab_orders.py`; the two apply in either order
+(`test_planted.py`). **Chunk 27** applies both with `patch -p1` from
+`compose/interfaces/` (or `tools/tests/planted.py`'s `apply_diff`), then
+reruns `gmctl compose`. s1 keeps the `-urgent` reference and sends
+`routine`; s4 suffixes a retried reference `-HHMM`. s1's aging minimum
+0m from the first urgent order (raise the instance's); s4's unbounded in
+effect (needs an answer slower than the runner's timeout). Backlogs: s1
+the `-urgent` references routine and unreleased at the lab (W5 item 1's
+"`-routine`" wording corrected); s4 the `-HHMM` twin orders. Overlay
+helper `tools/tests/planted.py` (appends instances, issues,
+`false_alarms`, etc.; reusable by 24, 25). fa: issue `I1`, `covers: []`,
+its `false_alarms:` entry naming the PCRSA panel (96 h; the load holds
+72 h PCRs genuinely late on day four), committed in `fixture-send-outs`.
+Deviations accepted by the driver: s4's delay held by `EXCLUSIVE` locks
+on `lab_orders`, `lab_samples`, `lab_order_tests` in turn (~12 s; one
+lock trips lab-api's 5 s `statement_timeout`, a 503 and rollback); s1's
+raised emergency rates kept but the test places its urgent
+consultations (`consultations.close` at 25 min at the earliest); the
+fixture overlays carry no issue (`interfaces` is `no-access` there).
+**For spec-writer before chunk 27**: s4's reading at hand-over in the
+clinic (too-soon without planted slowness; `at_handover` allows 3 only
+when masked). Noted: `lis` again released no urgent test within 5
+minutes; the lock-slot slip at 12:36 (a waiter matched "done" in another
+reservation), no harm. Chunk 24 dispatched in the slot.

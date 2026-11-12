@@ -1924,7 +1924,8 @@ chunk 29's (c) accepts (spec D401).
 
 ### Chunk 22 — The orders faults: s1, s4 and the false alarm
 
-Status: planned
+Status: merged (w5, 722ffb5)
+Record: 69dede1, merge 722ffb5; s1 21/21 (1193 s), s4 22/22 (529 s), fa 9/9 (514 s); deviations (wave log, W5-a): s4's delay made by three successive table locks (lab-api's 5 s statement timeout), the test placing s1's urgent consultations, s1's backlog the `-urgent` references routine at the lab, fa naming the PCRSA panel; s4's hand-over reading in the clinic left for spec-writer before chunk 27
 Wave: 5
 Depends on: chunk 18 (wave 4); chunk 36 (in wave: fa's issue in its
 fixture only, spec D459)
