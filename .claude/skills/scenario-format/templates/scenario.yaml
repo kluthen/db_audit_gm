@@ -297,8 +297,13 @@ fault_instances:                    # every fault planted in this scenario
     fault:
       id: <pg-hba-trust>            # scenario's faults/ first, then the catalog
       version: <0.1.0>              # pinned
-    node: <db>                      # target node; its brick is in the fault's applies_to
-    parameters: {}                  # map NAME -> value for the fault's parameters; may be {}
+    node: <db>                      # target node; its brick is in the fault's applies_to. A
+                                    # topology fault's (option_absent): the node not choosing the
+                                    # option, which the topology itself plants (spec D459)
+    parameters: {}                  # map NAME -> value for the fault's parameters; may be {}. A
+                                    # state fault's script item {script, on: <parameter>} runs on
+                                    # the node that parameter's value names: a node of the
+                                    # topology whose brick the fault's applies_to names (D459)
     visibility: <known>             # known | hidden; known exactly when an issue covers it
     plant_at: <T0>                  # optional: T0 (the default: right after the data load, before
                                     # the load starts) | handover-<N>h. Other than T0 only for a
@@ -316,7 +321,11 @@ issues:                             # given to the players at hand-over; may be 
                                     # file the fault lives in to be fixable (write_overrides)
     covers: [<f1>]                  # fault instance ids, and tooling expectation ids of
                                     # gm/answer-key.yaml (an issue covering only expectations
-                                    # expects report or propose)
+                                    # expects report or propose). may be [] for a false alarm
+                                    # only (v0.5 master spec 17.2, spec D459): an issue with no
+                                    # fault behind it, expected_resolution report, listed in
+                                    # gm/answer-key.yaml's false_alarms:; it counts in no score
+                                    # and no cap
 
 # --- Host topology it was designed for -------------------------------
 designed_for:

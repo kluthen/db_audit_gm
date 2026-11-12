@@ -50,6 +50,13 @@ WEB_FRONT_PORT = 8080
 PARAMETER_OPS = {"set": ("value",), "remove-entry": ("entry",),
                  "remove-from-entry": ("entry", "item")}
 SUBSTITUTION_RE = re.compile(r"\{([^{}]*)\}")
+# v0.5 chunk 36 (capture W5, Preflight corrections item 1; spec D459): a
+# state fault's script run on another node, `{script: <path>, on:
+# <parameter>}`; the `topology` injection kind, an option's absence planted
+# by the scenario's topology; a false alarm, an issue covering nothing.
+SCRIPT_ITEM_KEYS = ("script", "on")
+TOPOLOGY_KIND = "topology"
+FALSE_ALARM_RESOLUTION = "report"
 REPORT_TOOL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 # An issue covering only tooling expectations (capture W1, item 10).
 EXPECTATION_RESOLUTIONS = ("report", "propose")
@@ -286,7 +293,7 @@ def template_schema(template_name, templates_dir=TEMPLATES_DIR):
 
 def _item_label(item, index):
     if isinstance(item, dict):
-        for key in ("name", "id", "setting", "instance", "key"):
+        for key in ("name", "id", "setting", "instance", "key", "issue"):
             if isinstance(item.get(key), (str, int)):
                 return str(item[key])
     return str(index)
@@ -920,15 +927,19 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
             material = change.get("material") if isinstance(change, dict) else None
             if material and not (fault_dir / material).is_file():
                 out.append(f"{_rel(fault_dir / str(material), base)}: missing file")
+    params = data.get("parameters")
     if kind == "state":
         if not injection.get("scripts"):
             out.append(f"{label}: injection.scripts: missing (kind state)")
-        for script in injection.get("scripts") or []:
-            if not (fault_dir / str(script)).is_file():
-                out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
+        for i, item in enumerate(injection.get("scripts") or []):
+            script = _script_item(item, i, params, label, out)
+            if script is not None and not (fault_dir / script).is_file():
+                out.append(f"{_rel(fault_dir / script, base)}: missing file")
+    elif kind == TOPOLOGY_KIND:
+        _check_topology_injection(data, injection, label, out)
     elif kind not in (None, "seed-file", "parameter"):
-        out.append(f"{label}: injection.kind: {kind} is not seed-file, state or parameter")
-    params = data.get("parameters")
+        out.append(f"{label}: injection.kind: {kind} is not seed-file, state, parameter or "
+                   "topology")
     env_names = {}
     for pname, spec in params.items() if isinstance(params, dict) else ():
         env = fault_env_name(pname)
@@ -961,6 +972,64 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
     _check_fault_v04(data, label, catalog_root, out)
     _check_fault_options(data, label, out)
     return out
+
+
+def script_on(item):
+    """The parameter naming the node an `injection.scripts` item runs on
+    (`{script: <path>, on: <parameter>}`, v0.5 capture W5, Preflight
+    corrections item 1 (a)), or None for a bare path, run on the instance's
+    node."""
+    return item.get("on") if isinstance(item, dict) else None
+
+
+def script_path(item):
+    """The path of an `injection.scripts` item, bare or `{script, on}`."""
+    return str(item.get("script")) if isinstance(item, dict) else str(item)
+
+
+def _script_item(item, i, params, label, out):
+    """A state fault's script: a bare path, or `{script: <path>, on:
+    <parameter>}`, the parameter a required one of the fault, whose value
+    in the instance names the node the script runs on (W5 Preflight
+    corrections item 1 (a), spec D459). The path, or None when malformed."""
+    if not isinstance(item, dict):
+        return str(item)
+    p = f"{label}: injection.scripts[{i}]"
+    unknown = sorted(str(k) for k in item if k not in SCRIPT_ITEM_KEYS)
+    if unknown:
+        out.append(f"{p}: {', '.join(unknown)}: not a key of a script item (a path, or "
+                   "{script: <path>, on: <parameter>})")
+    script, on = item.get("script"), item.get("on")
+    if not (isinstance(script, str) and script):
+        out.append(f"{p}.script: missing (a script item with on: names its script)")
+        script = None
+    spec = _dict(params).get(on) if isinstance(on, str) else None
+    if not (isinstance(on, str) and on):
+        out.append(f"{p}.on: missing (the fault parameter naming the node the script runs on)")
+    elif not isinstance(params, dict) or on not in params:
+        out.append(f"{p}.on: {on} is not a parameter of the fault (the parameter whose value "
+                   "names the node the script runs on)")
+    elif not _dict(spec).get("required"):
+        out.append(f"{p}.on: parameter {on} is not required (required: true): the node the "
+                   "script runs on is the instance's choice")
+    return script
+
+
+def _check_topology_injection(data, injection, label, out):
+    """`injection.kind: topology` (W5 Preflight corrections item 1 (b),
+    spec D459): planted at render by the scenario's topology itself, with
+    no seed change, script or parameter change; only with option_absent."""
+    if "option_absent" not in data:
+        out.append(f"{label}: injection.kind: topology, but the fault has no option_absent (a "
+                   "topology fault plants an option's absence, the scenario's node not "
+                   "choosing it)")
+    if injection.get("stage") not in (None, "seed"):
+        out.append(f"{label}: injection.stage: {injection['stage']}, but a topology fault is "
+                   "planted at render (seed)")
+    for key in ("seed_changes", "scripts", "parameter_changes"):
+        if key in injection:
+            out.append(f"{label}: injection.{key}: a topology fault has none (the scenario's "
+                       "topology plants it)")
 
 
 def _check_fault_v03(data, label, out):
@@ -1174,7 +1243,8 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     faults = _check_faults(data, nodes, bricks, sdir, catalog_root, out)
     _check_planting(data, faults, scheduled, minimum, out)
     answer_key = _check_answer_key(data, nodes, bricks, faults, routes, sdir, out)
-    _check_issues(data, nodes, bricks, faults, expectation_ids(answer_key), out)
+    _check_issues(data, nodes, bricks, faults, expectation_ids(answer_key), out,
+                  false_alarm_ids(answer_key))
     _check_designed_for(data, nodes, out)
     _check_customer_timezone(nodes, scheduled, sdir, out)
     _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
@@ -1766,10 +1836,7 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
             out.append(f"{label}: {p}.node: {target} is not a node")
         brick = bricks.get(target)
         if brick is not None:
-            applies = (fault.data.get("applies_to") or {}).get("bricks") or []
-            if not any(isinstance(a, dict) and a.get("id") == brick.id
-                       and brick.version in [str(v) for v in a.get("versions") or []]
-                       for a in applies):
+            if not _applies_to_brick(fault, brick):
                 out.append(f"{label}: {p}.node: {target} runs {brick.id} {brick.version}, "
                            f"which fault {fault.id} does not apply to")
             injection = fault.data.get("injection") or {}
@@ -1806,7 +1873,57 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                     out.append(f"{label}: {p}.parameters.{pname}: not a parameter of fault "
                                f"{fault.id}")
                 _check_param_value(value, f"{p}.parameters.{pname}", label, out)
+        _check_script_nodes(inst, fault, by_name, bricks, p, out)
     return faults
+
+
+def _applies_to_brick(fault, brick):
+    """Whether the fault's applies_to names the brick at its version."""
+    applies = _dict(fault.data.get("applies_to")).get("bricks")
+    return any(isinstance(a, dict) and a.get("id") == brick.id
+               and brick.version in [str(v) for v in a.get("versions") or []]
+               for a in (applies if isinstance(applies, list) else []))
+
+
+def script_node(item, inst, fault):
+    """The node a state fault's script item runs on for an instance: the
+    instance's node for a bare path; for `{script, on}`, the value of the
+    parameter `on` names in the instance (else its default), or None."""
+    on = script_on(item)
+    if on is None:
+        return inst.get("node")
+    value = _dict(inst.get("parameters")).get(on)
+    if value is None:
+        value = _dict(_dict(fault.data.get("parameters")).get(on)).get("default")
+    return value
+
+
+def _check_script_nodes(inst, fault, by_name, bricks, p, out):
+    """A script run on another node (W5 Preflight corrections item 1 (a),
+    spec D459): its parameter's value names a node of the topology whose
+    brick the fault's applies_to names."""
+    label = "scenario.yaml"
+    injection = _dict(fault.data.get("injection"))
+    scripts = injection.get("scripts")
+    if injection.get("kind") != "state" or not isinstance(scripts, list):
+        return
+    for item in scripts:
+        on = script_on(item)
+        if not isinstance(on, str):
+            continue
+        node = script_node(item, inst, fault)
+        where = f"{label}: {p}.parameters.{on}"
+        if node is None:
+            continue                     # a required parameter left unset: reported above
+        if not isinstance(node, str) or node not in by_name:
+            out.append(f"{where}: {node} is not a node of the topology (fault {fault.id} runs "
+                       f"{script_path(item)} on it)")
+            continue
+        brick = bricks.get(node)
+        if brick is not None and not _applies_to_brick(fault, brick):
+            out.append(f"{where}: {node} runs {brick.id} {brick.version}, which fault "
+                       f"{fault.id} does not apply to (it runs {script_path(item)} there; "
+                       "applies_to names every brick a script runs on)")
 
 
 def _check_report_evidence(fault, brick, p, out):
@@ -1868,7 +1985,7 @@ def _check_parameter_fault(inst, fault, brick, by_name, p, out):
         out.append(f"{label}: {p}.parameters.node: {node} is not a node of the topology")
 
 
-def _check_issues(data, nodes, bricks, faults, expectations, out):
+def _check_issues(data, nodes, bricks, faults, expectations, out, false_alarms=frozenset()):
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     instances = {i.get("id"): i for i in data.get("fault_instances") or []
@@ -1882,6 +1999,8 @@ def _check_issues(data, nodes, bricks, faults, expectations, out):
         if expected is not None and expected not in RESOLUTION_KINDS:
             out.append(f"{label}: {p}.expected_resolution: {expected} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
+        if issue.get("covers") == []:
+            _check_false_alarm_issue(issue, p, false_alarms, out)
         covers = issue.get("covers") if isinstance(issue.get("covers"), list) else []
         if covers and all(iid in expectations for iid in covers) \
                 and expected in RESOLUTION_KINDS and expected not in EXPECTATION_RESOLUTIONS:
@@ -1990,6 +2109,7 @@ def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
                 _check_where(item["where"], nodes, routes,
                              f"instances[{entry.get('instance')}].evidence[{i}].where", out)
     _check_expectations(key.get("tooling_expectations"), instances, out)
+    _check_false_alarms(key, data, nodes, routes, out)
     return key
 
 
@@ -2083,6 +2203,59 @@ def _check_expectations(expectations, instances, out):
             if key in item:
                 out.append(f"{label}: {p}.{key}: a tooling expectation has no "
                            f"{key.replace('_', ' ')}")
+
+
+def _check_false_alarm_issue(issue, p, false_alarms, out):
+    """An issue covering nothing is a false alarm (W5 Preflight corrections
+    item 1 (c), spec D459): it expects report, and the answer key's
+    false_alarms: lists it."""
+    label = "scenario.yaml"
+    expected = issue.get("expected_resolution")
+    if expected is not None and expected != FALSE_ALARM_RESOLUTION:
+        out.append(f"{label}: {p}.expected_resolution: {expected}, but the issue covers nothing "
+                   f"(covers: []), a false alarm, which expects {FALSE_ALARM_RESOLUTION}")
+    if issue.get("id") not in false_alarms:
+        out.append(f"{label}: {p}.covers: [], but gm/answer-key.yaml's false_alarms: has no "
+                   "entry for it (an issue covering no fault instance or expectation is a false "
+                   "alarm, listed there)")
+
+
+def false_alarm_ids(answer_key):
+    """The issue ids an answer key's false_alarms: lists."""
+    items = _dict(answer_key).get("false_alarms")
+    return {i.get("issue") for i in items if isinstance(i, dict)} \
+        if isinstance(items, list) else set()
+
+
+def _check_false_alarms(key, data, nodes, routes, out):
+    """The answer key's false_alarms: (W5 Preflight corrections item 1 (c),
+    spec D459): each entry an issue of scenario.yaml covering nothing, once;
+    its evidence as an instance's. A false alarm counts in no score and no
+    cap: it is no fault instance."""
+    label = "gm/answer-key.yaml"
+    items = key.get("false_alarms")
+    issues = {i.get("id"): i for i in data.get("issues") or [] if isinstance(i, dict)}
+    seen = []
+    for i, entry in enumerate(items if isinstance(items, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        iid = entry.get("issue")
+        p = f"false_alarms[{_item_label(entry, i)}]"
+        if iid in seen:
+            out.append(f"{label}: {p}: more than one entry for issue {iid}")
+        seen.append(iid)
+        if iid is None:
+            pass                         # reported against the template
+        elif iid not in issues:
+            out.append(f"{label}: {p}.issue: {iid} is not an issue of scenario.yaml")
+        elif issues[iid].get("covers") != []:
+            out.append(f"{label}: {p}.issue: issue {iid} covers "
+                       f"{issues[iid].get('covers')!r}: a false alarm covers nothing "
+                       "(covers: [])")
+        evidence = entry.get("evidence")
+        for j, item in enumerate(evidence if isinstance(evidence, list) else []):
+            if isinstance(item, dict) and "where" in item:
+                _check_where(item["where"], nodes, routes, f"{p}.evidence[{j}].where", out)
 
 
 def expectation_ids(answer_key):

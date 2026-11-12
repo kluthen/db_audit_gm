@@ -123,9 +123,12 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
   -s` on the instance's node, as `injection.run_as` (default root), with
-  its `FAULT_*` variables; a `seed-file` fault runs nothing. The first
-  non-zero exit stops the run. A `parameter` fault (v0.2 capture W1, item
-  8) runs nothing either: render planted it. In a game with scheduler
+  its `FAULT_*` variables; a `seed-file` fault runs nothing. A script
+  item `{script, on: <parameter>}` runs on the node that parameter names
+  instead (v0.5 capture W5, spec D459). The first non-zero exit stops the
+  run. A `parameter` fault (v0.2 capture W1, item 8) runs nothing either:
+  render planted it; nor does a `topology` fault, planted by the topology
+  (D459). In a game with scheduler
   nodes (v0.3 capture W2, items 2 and 4) only the instances due at T0 are
   planted; the others are planted once the load runs, by `inject --at`
   (`aging`). Recording `injected` writes every instance's `plantings`
@@ -168,6 +171,7 @@ DATABASE_ROLE = "database"
 SCRAM_ITERATIONS = 4096             # PostgreSQL's scram_iterations default
 SCRAM_SALT_BYTES = 16
 PARAMETER_KIND = localimpl.PARAMETER_KIND
+TOPOLOGY_KIND = model.TOPOLOGY_KIND
 CHECK_ROLE = "gm_check"             # the GM check role (v0.3 capture W1-x)
 CHECK_SECRET = "gm_check_password"  # mounted on a node: its check role exists
 # v0.4 (capture W2-x): what load-data gives the check role.
@@ -1892,6 +1896,7 @@ class InjectResult:
     scripts: list = field(default_factory=list)    # [(instance, script)]
     seeded: list = field(default_factory=list)     # instances planted by their seed files
     rendered: list = field(default_factory=list)   # parameter faults, planted at rendering
+    topology: list = field(default_factory=list)   # topology faults, planted by the topology
     later: list = field(default_factory=list)      # [(instance, plant_at)] planted by inject --at
 
     def text(self):
@@ -1901,6 +1906,9 @@ class InjectResult:
             out.append(f"  {iid}: seed-file fault, planted by the seed files; nothing to run")
         for iid in self.rendered:
             out.append(f"  {iid}: parameter fault, planted at rendering; nothing to run")
+        for iid in self.topology:
+            out.append(f"  {iid}: topology fault, planted at rendering by the topology; nothing "
+                       "to run")
         for iid, plant_at in self.later:
             out.append(f"  {iid}: planted at {plant_at}, once the load runs (gmctl inject --at "
                        f"after gmctl start-load); nothing run now")
@@ -1909,8 +1917,12 @@ class InjectResult:
 
 
 def inject_plan(scenario, impl):
-    """[(instance, fault, node, run_as, env, [(script, text), ...])], every
-    instance in order, scripts read; refuses (GmError) before anything runs."""
+    """[(instance, fault, node, run_as, env, [(script, text, script node),
+    ...])], every instance in order, scripts read; refuses (GmError) before
+    anything runs. A script runs on the instance's node, or, written
+    `{script, on: <parameter>}`, on the node that parameter's value names
+    (v0.5 capture W5, Preflight corrections item 1 (a), spec D459), under
+    the same contract, in the fault's script order."""
     plan = []
     for inst, fault in fault_instances(scenario, impl):
         injection = fault.data.get("injection") or {}
@@ -1918,16 +1930,30 @@ def inject_plan(scenario, impl):
         env = fault_env(fault, inst)
         scripts = []
         if injection.get("kind") == STATE_KIND:
-            for script in injection.get("scripts") or []:
+            for item in injection.get("scripts") or []:
+                script = model.script_path(item)
                 try:
-                    text = (fault.dir / str(script)).read_text(encoding="utf-8")
+                    text = (fault.dir / script).read_text(encoding="utf-8")
                 except OSError as exc:
                     raise GmError(f"fault {fault.id}: {script}: cannot be read: "
                                   f"{exc.strerror}") from None
-                scripts.append((str(script), text))
+                scripts.append((script, text, _script_node(item, inst, fault, impl, node)))
         plan.append((inst["id"], fault, node, injection.get("run_as") or DEFAULT_RUN_AS,
                      env, scripts))
     return plan
+
+
+def _script_node(item, inst, fault, impl, node):
+    """The node a script item runs on: the instance's `node`, or the one its
+    `on` parameter names, refused unless the game has it."""
+    if model.script_on(item) is None:
+        return node
+    target = model.script_node(item, inst, fault)
+    if target not in impl["nodes"]:
+        raise GmError(f"fault instance {inst.get('id')} ({fault.id}): "
+                      f"{model.script_path(item)} runs on parameter {model.script_on(item)}'s "
+                      f"node {target!r}, which is not a node of game {impl['game_id']}")
+    return target
 
 
 def plant_at_of(scenario, impl, inst):
@@ -1976,19 +2002,20 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
     result = InjectResult(impl["game_id"], replay=stage == INJECT_STAGE)
 
     with state.setup_step(ldir, INJECT_STAGE, undo=_undo(docker, impl["game_id"])):
-        for iid, fault, node, run_as, env, scripts in plan:
+        for iid, fault, _, run_as, env, scripts in plan:
             plant_at = plant_at_of(scenario, impl, insts[iid])
             if plant_at != T0:
                 result.later.append((iid, plant_at))
                 continue
             if not scripts:
                 kind = (fault.data.get("injection") or {}).get("kind")
-                (result.rendered if kind == PARAMETER_KIND else result.seeded).append(iid)
+                {PARAMETER_KIND: result.rendered, TOPOLOGY_KIND: result.topology}.get(
+                    kind, result.seeded).append(iid)
                 continue
-            for script, text in scripts:
-                run = exec_node(ldir, node, run_as, stdin=text, env=env, timeout=timeout,
+            for script, text, where in scripts:
+                run = exec_node(ldir, where, run_as, stdin=text, env=env, timeout=timeout,
                                 docker=docker)
-                _print_run(out, f"{iid} {script} ({node}, as {run_as})", run)
+                _print_run(out, f"{iid} {script} ({where}, as {run_as})", run)
                 if not run.ok:
                     raise GmError(f"injection of {iid} ({fault.id}) stopped at {script}: exit "
                                   f"{run.returncode}: {_first_line(run)}")

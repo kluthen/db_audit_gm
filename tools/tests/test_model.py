@@ -725,8 +725,8 @@ class TestParameterFaultRefusals(MountedCopyTest):
 
     def test_unknown_kind(self):
         self.fault(lambda d: d["injection"].update(kind="script"))
-        self.assertRefused("fault.yaml: injection.kind: script is not seed-file, state or "
-                           "parameter")
+        self.assertRefused("fault.yaml: injection.kind: script is not seed-file, state, "
+                           "parameter or topology")
 
     def test_changes_required(self):
         self.fault(lambda d: d["injection"].pop("parameter_changes"))
@@ -4931,6 +4931,193 @@ class TestPartsNodeCreates(V05ComposedTest):
         partners = model.node_creates(self.scenario, sc.data, "partners-db", self.catalog_root)
         self.assertIn("domains/fx-clinic/producers/partners/xlab/data.sql", partners.sources)
         self.assertIn("xlab", partners.roles)
+
+
+
+class TestFaultForms(V05CopyTest):
+    """The three fault forms of chunk 36 (capture W5, Preflight corrections
+    item 1; spec D459): a state script run on another node, a topology
+    fault, a false alarm."""
+
+    def elsewhere_fault(self, fid="fx-elsewhere", item=None, required=True, declared=True):
+        """A state fault fid: inject/10-here.sh on the instance's node, then
+        inject/20-there.sh on the node its parameter `feeder` names."""
+        def change(d):
+            d["injection"] = {"kind": "state", "stage": "after-data-load",
+                              "scripts": ["inject/10-here.sh",
+                                          item or {"script": "inject/20-there.sh",
+                                                   "on": "feeder"}],
+                              "run_as": "root"}
+            if declared:
+                d["parameters"] = {"feeder": {"description": "the node the report is rewritten on",
+                                              "default": None, "required": required}}
+        self.local_fault(fid, change)
+        for name in ("10-here.sh", "20-there.sh"):
+            path = self.scenario / "faults" / fid / "inject" / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("#!/bin/sh\nexit 0\n")
+
+    def plant_elsewhere(self, feeder, fid="fx-elsewhere"):
+        self.instance("f9", fid, "db")
+        self.scenario_yaml(lambda d: d["fault_instances"][-1].update(
+            parameters={"feeder": feeder}))
+
+    def fault_problems(self, fid):
+        return "\n".join(model.check_fault_dir(self.scenario / "faults" / fid,
+                                                catalog_root=model.REPO_ROOT))
+
+    # (a) a state script run on another node
+
+    def test_script_on_another_node_accepted(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("producer")
+        self.assertEqual(self.fault_problems("fx-elsewhere"), "")
+        sc = self.load()
+        item = sc.faults["f9"].data["injection"]["scripts"][1]
+        inst = next(i for i in sc.data["fault_instances"] if i["id"] == "f9")
+        self.assertEqual(model.script_node(item, inst, sc.faults["f9"]), "producer")
+        self.assertEqual(model.script_node("inject/10-here.sh", inst, sc.faults["f9"]), "db")
+
+    def test_script_on_a_parameter_not_declared_refused(self):
+        self.elsewhere_fault(declared=False)
+        self.plant_elsewhere("producer")
+        self.assertIn("injection.scripts[1].on: feeder is not a parameter of the fault",
+                      self.fault_problems("fx-elsewhere"))
+        self.assertRefused("injection.scripts[1].on: feeder is not a parameter of the fault")
+
+    def test_script_on_a_parameter_not_required_refused(self):
+        self.elsewhere_fault(required=False)
+        self.plant_elsewhere("producer")
+        self.assertRefused("injection.scripts[1].on: parameter feeder is not required "
+                           "(required: true)")
+
+    def test_script_on_a_value_naming_no_node_refused(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("nowhere")
+        self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: nowhere is not a "
+                           "node of the topology (fault fx-elsewhere runs inject/20-there.sh on "
+                           "it)")
+
+    def test_script_on_a_node_whose_brick_applies_to_omits_refused(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("lab-api")
+        self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: lab-api runs api "
+                           "0.1.0, which fault fx-elsewhere does not apply to")
+
+    def test_script_item_malformed_refused(self):
+        self.elsewhere_fault(item={"on": "feeder", "as": "postgres"})
+        problems = self.fault_problems("fx-elsewhere")
+        self.assertIn("injection.scripts[1]: as: not a key of a script item", problems)
+        self.assertIn("injection.scripts[1].script: missing", problems)
+
+    def test_a_missing_script_file_on_another_node_refused(self):
+        self.elsewhere_fault(item={"script": "inject/30-gone.sh", "on": "feeder"})
+        self.assertIn("faults/fx-elsewhere/inject/30-gone.sh: missing file",
+                      self.fault_problems("fx-elsewhere"))
+
+    # (b) a topology fault
+
+    def topology_fault(self, fid="fx-absent", **extra):
+        def change(d):
+            d["option_absent"] = "monitoring"
+            d["injection"] = {"kind": "topology", "stage": "seed", "run_as": "root"}
+            d["injection"].update(extra)
+        self.local_fault(fid, change)
+
+    def test_topology_fault_with_option_absent_accepted(self):
+        self.topology_fault()
+        self.on_node("db", lambda n: n.pop("options"))
+        self.instance("f9", "fx-absent", "db")
+        self.assertEqual(self.fault_problems("fx-absent"), "")
+        self.assertEqual(self.load().faults["f9"].data["injection"]["kind"], "topology")
+
+    def test_topology_fault_without_option_absent_refused(self):
+        self.topology_fault()
+        self.edit_yaml("faults/fx-absent/fault.yaml", lambda d: d.pop("option_absent"))
+        self.assertIn("injection.kind: topology, but the fault has no option_absent",
+                      self.fault_problems("fx-absent"))
+
+    def test_topology_fault_with_material_or_a_late_stage_refused(self):
+        self.topology_fault(stage="after-data-load", scripts=["inject/10-plant.sh"],
+                            seed_changes=[{"file": "postgresql.conf", "change": "x"}],
+                            parameter_changes=[])
+        problems = self.fault_problems("fx-absent")
+        self.assertIn("injection.stage: after-data-load, but a topology fault is planted at "
+                      "render (seed)", problems)
+        for key in ("seed_changes", "scripts", "parameter_changes"):
+            self.assertIn(f"injection.{key}: a topology fault has none", problems)
+
+    def test_topology_fault_on_a_node_choosing_the_option_refused(self):
+        self.topology_fault()
+        self.instance("f9", "fx-absent", "db")
+        self.assertRefused("fault fx-absent plants the absence of option monitoring, which node "
+                           "db chooses")
+
+    # (c) a false alarm
+
+    K = "gm/answer-key.yaml"
+
+    def false_alarm(self, resolution="report", entry=True, issue="I9"):
+        self.scenario_yaml(lambda d: d["issues"].append(
+            {"id": "I9", "complaint": "The external lab is slow.",
+             "expected_resolution": resolution, "covers": []}))
+        if entry:
+            self.edit_yaml(self.K, lambda k: k.update(false_alarms=[{
+                "issue": issue,
+                "why": "each send-out was answered within its one-to-five-day turnaround",
+                "evidence": [{"where": "node:db", "source": "lab_send_outs",
+                              "how": "SELECT due_by, answered_at FROM lab_send_outs",
+                              "shows": "every answer before its due_by"}],
+                "acceptable": "the players report no fault behind it, citing the turnaround"}]))
+
+    def test_false_alarm_accepted(self):
+        self.false_alarm()
+        sc = self.load()
+        self.assertEqual(sc.answer_key["false_alarms"][0]["issue"], "I9")
+        self.assertEqual(sc.data["difficulty"]["score"], len(sc.data["fault_instances"]))
+        self.assertEqual(model.false_alarm_ids(sc.answer_key), {"I9"})
+
+    def test_covers_nothing_without_a_false_alarms_entry_refused(self):
+        self.false_alarm(entry=False)
+        self.assertRefused(f"{self.S}: issues[I9].covers: [], but gm/answer-key.yaml's "
+                           "false_alarms: has no entry for it")
+
+    def test_covers_nothing_with_another_resolution_refused(self):
+        self.false_alarm(resolution="fix")
+        self.assertRefused(f"{self.S}: issues[I9].expected_resolution: fix, but the issue covers "
+                           "nothing (covers: []), a false alarm, which expects report")
+
+    def test_false_alarms_entry_for_an_issue_covering_a_fault_refused(self):
+        self.false_alarm(issue="I1")
+        self.assertRefused(f"{self.K}: false_alarms[I1].issue: issue I1 covers ['f1']: a false "
+                           "alarm covers nothing",
+                           f"{self.S}: issues[I9].covers: [], but gm/answer-key.yaml's "
+                           "false_alarms: has no entry for it")
+
+    def test_false_alarms_entry_for_no_issue_refused(self):
+        self.false_alarm(issue="I8")
+        self.assertRefused(f"{self.K}: false_alarms[I8].issue: I8 is not an issue of "
+                           "scenario.yaml")
+
+    def test_false_alarms_entry_twice_refused(self):
+        self.false_alarm()
+        self.edit_yaml(self.K, lambda k: k["false_alarms"].append(dict(k["false_alarms"][0])))
+        self.assertRefused(f"{self.K}: false_alarms[I9]: more than one entry for issue I9")
+
+    def test_false_alarms_entry_items_checked(self):
+        self.false_alarm()
+        def change(k):
+            entry = k["false_alarms"][0]
+            entry.pop("why")
+            entry["evidence"][0]["where"] = "node:nowhere"
+        self.edit_yaml(self.K, change)
+        self.assertRefused(f"{self.K}: false_alarms[I9].why: missing",
+                           f"{self.K}: false_alarms[I9].evidence[0].where: node:nowhere: nowhere "
+                           "is not a node of the topology")
+
+    def test_false_alarms_empty_refused(self):
+        self.edit_yaml(self.K, lambda k: k.update(false_alarms=[]))
+        self.assertRefused(f"{self.K}: false_alarms: empty")
 
 
 if __name__ == "__main__":
