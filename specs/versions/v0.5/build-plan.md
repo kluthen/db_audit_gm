@@ -2688,7 +2688,8 @@ purpose after. As built: W4-g.
 
 ### Chunk 34 — The monitoring images' updates: `grafana`'s Prometheus data-source plugin, `prometheus` 0.2.1 on Prometheus 3.16
 
-Status: planned
+Status: merged (w5, 09fa2ee)
+Record: 5781fff (34a, `grafana` 0.3.0 on Grafana 13.3.1, plugin 13.2.5), 2ddb34a (34b, `prometheus` 0.2.1 on 3.16.0, re-pins), merge 09fa2ee; no deviation; the three scenarios' and four fixtures' READMEs had their pin lines edited, not regenerated (as chunk 21): the wave gate checks each against a fresh regeneration
 Wave: 5
 Depends on: chunk 10 (wave 2: `grafana` 0.3.0 on Grafana 13.3.0); G11.3
 and G11.4's preflights; inserted after wave 4's gate on the owner's

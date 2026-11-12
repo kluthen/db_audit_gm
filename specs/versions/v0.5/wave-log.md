@@ -7290,3 +7290,18 @@ not days" (D463); chunks 22 to 26 brought to the code and W5 (D464).
 shared with chunk 34's tag lines (the second to merge takes `v0.5-w5`
 in); no data, no dependency (no G11 row). It takes the first free slot,
 ahead of 22 to 26.
+
+### Chunk 34 merged (09fa2ee), 2026-11-12
+
+34a `5781fff`: `grafana` 0.3.0 on Grafana 13.3.1, bundled plugin 13.2.5
+(brotli 1.2.7); 34b `2ddb34a`: `prometheus` 0.2.1 on 3.16.0, the three
+monitoring scenarios, four fixtures, three `prometheus-*` faults, smokes'
+`IMAGES=`, `test_model.py`/`test_render.py` re-pinned. Stack tests:
+grafana 130/130 (171 s, on prometheus 0.2.1), prometheus 131/131 (79 s);
+smoke-monitoring 43 (49 s), smoke-monitoring-v05 27 (~148 s),
+fernway-clinics-monitoring 18 (33 s), tarnbeck-outdoor-campaign 33
+(283 s, verdicts as wave 4), tarnbeck-outdoor-shop 26 (804 s); unit
+suite 1227 OK; SBOMs match the advisor's candidates. For the gate: the
+READMEs' pin lines were hand-edited, so each is compared to a fresh
+regeneration. G11.4's post-change check dispatched. Chunk 36 takes the
+slot.
