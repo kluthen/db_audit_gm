@@ -11,9 +11,10 @@
 -- (local) is before load_epoch; each year's report when its 15 January at
 -- 04:00 is, for the species due that day (cattle; the others from mid-2027
 -- and mid-2030, the report's options), acknowledged by the authority with
--- the reference amu-<year> and copied into regulatory_submissions. Each run
--- its runs row, its outputs carrying it. The same computations as the jobs'
--- queries (material/runner/queries.yaml), over the source's foreign tables.
+-- its stub's reference, AMU<year>-NNNN (D451), and copied into
+-- regulatory_submissions. Each run its runs row, its outputs carrying it.
+-- The same computations as the jobs' queries (material/runner/queries.yaml),
+-- over the source's foreign tables.
 CREATE TEMP TABLE h_settings AS
 SELECT b.timezone AS tz, :'load_epoch'::timestamptz AS epoch,
        (SELECT s.code FROM gm_src_source.sites s WHERE s.kind = 'own') AS site
@@ -104,15 +105,24 @@ WITH r AS (
     FROM h_reports GROUP BY sent_at ORDER BY sent_at
   RETURNING id, started_at)
 SELECT id, started_at AS sent_at FROM r;
+-- The authority's references as its stub gives them live (D451):
+-- AMU<year posted>-NNNN, NNNN its count of the reports it holds, so the
+-- planted ones in the order posted (a run's species sorted, as the job
+-- posts them).
+CREATE TEMP TABLE h_refs AS
+SELECT year, species,
+       'AMU' || to_char(sent_at, 'YYYY') || '-' || lpad(row_number() OVER (ORDER BY sent_at, species)::text, 4, '0')
+         AS reference
+  FROM h_reports;
 INSERT INTO amu_reports (year, species, deadline, payload, sent_at, reference, acknowledged_at, escalated_at, run_id)
-SELECT h.year, h.species, h.deadline, h.payload, h.sent_at, 'amu-' || extract(year FROM h.year),
+SELECT h.year, h.species, h.deadline, h.payload, h.sent_at, f.reference,
        h.sent_at + interval '2 seconds', NULL, r.id
-  FROM h_reports h JOIN h_report_runs r USING (sent_at)
+  FROM h_reports h JOIN h_report_runs r USING (sent_at) JOIN h_refs f USING (year, species)
  ORDER BY h.year, h.species;
 INSERT INTO regulatory_submissions (kind, source, ref, payload, sent_at, reference, copied_at, run_id)
-SELECT 'amu-report', 'clinic', h.payload->>'report_key', h.payload, h.sent_at, 'amu-' || extract(year FROM h.year),
+SELECT 'amu-report', 'clinic', h.payload->>'report_key', h.payload, h.sent_at, f.reference,
        h.sent_at + interval '2 seconds', r.id
-  FROM h_reports h JOIN h_report_runs r USING (sent_at)
+  FROM h_reports h JOIN h_report_runs r USING (sent_at) JOIN h_refs f USING (year, species)
  ORDER BY h.year, h.species;
 
-DROP TABLE h_report_runs, h_reports, h_runs, h_feeds, h_daily, h_uses, h_settings;
+DROP TABLE h_refs, h_report_runs, h_reports, h_runs, h_feeds, h_daily, h_uses, h_settings;

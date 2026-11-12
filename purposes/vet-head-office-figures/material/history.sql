@@ -9,9 +9,9 @@
 --
 -- From the history's first consultation: the feeder's day d when d + 1 at
 -- 00:30 (local) is before load_epoch; each month's figures when its next 1st
--- at 05:00 is, acknowledged by the head office at the first attempt with the
--- reference figures-<YYYY-MM>. Each run its runs row, its outputs carrying
--- it. The same computations as the jobs' queries
+-- at 05:00 is, acknowledged by the head office at the first attempt with its
+-- stub's reference, HO<YYYYMM>-NNNN (D451). Each run its runs row, its
+-- outputs carrying it. The same computations as the jobs' queries
 -- (material/runner/queries.yaml), over local copies of the sources' foreign
 -- tables.
 CREATE TEMP TABLE h_settings AS
@@ -140,8 +140,12 @@ WITH r AS (
    ORDER BY c.month
   RETURNING id, started_at)
 SELECT c.month, c.sent_at, r.id FROM r JOIN h_sends c ON c.sent_at = r.started_at;
+-- The head office's references as its stub gives them live (D451):
+-- HO<the figures' month, YYYYMM>-NNNN, NNNN its count of the months it holds,
+-- so the planted months in the order posted.
 INSERT INTO monthly_figures (month, section, measure, value, sent_at, reference, acknowledged_at, escalated_at, run_id)
-SELECT m.month, m.section, m.measure, m.value, r.sent_at, 'figures-' || to_char(m.month, 'YYYY-MM'),
+SELECT m.month, m.section, m.measure, m.value, r.sent_at,
+       'HO' || to_char(m.month, 'YYYYMM') || '-' || lpad(dense_rank() OVER (ORDER BY r.sent_at)::text, 4, '0'),
        r.sent_at + interval '2 seconds', NULL, r.id
   FROM h_months m JOIN h_send_runs r USING (month)
  ORDER BY m.month, m.section, m.measure;

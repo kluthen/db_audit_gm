@@ -674,12 +674,24 @@ with `count(*)`:
 | `stays` | 2 421 | 38 current at T0 |
 | `alerts` | 1 692 | allergies, dangerous, infectious (one stay in ten), other |
 | `exchanges` | 664 | out and in, a few in flight |
-| `medicines`, `medicine_batches` | 400, 699 | 40 products of ten presentations |
+| `medicines`, `medicine_batches` | 400, 699 | 40 products of ten presentations; each batch's receipt covers the history's draws (below) |
 | `prescriptions` | 14 379 | 13 150 dispensed, 1 047 expired, 162 cancelled, 20 issued |
 | `prescription_lines` | 37 744 | withdrawal periods and their end for food-producing animals |
 | `administrations` | 60 372 | the ward lines' doses at their frequency; the next round's `scheduled` |
 | `dispensings` | 24 482 | an outpatient's lines, to the owner or the herd's keeper |
 | **Total** | **269 397** | 49 MB on disk |
+
+**The batches' receipts** (D451; vet-core-domain.md, `medicine_batches`):
+`quantity_received` is drawn (50 to 490), then raised, when short, to
+what the history drew from the batch (the doses `given`, the
+dispensings) plus, for a batch in date at `load_epoch` (every one: each
+expires 120 days or more after T0), a month (30 days) of its average
+daily use over the history, one unit at least, rounded up to ten. So no
+batch's stock, nor a controlled batch's planted monthly balance (purpose
+7's `controlled_balances`), falls below zero. Stock receipts in play are
+out of v0.5 (D278): the month is the stock the play draws on. The keys
+and the draws are unchanged: no part computes a receipt. The load checks
+every batch's receipt against its draws.
 
 `animal_board` (a view) is what a ward display reads: an animal's
 identity, its current stay, its current alerts and today's doses, no
