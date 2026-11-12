@@ -359,7 +359,13 @@ Placement and the reservations it was sized with:
 
 ### Issues given to the players
 
-No issues given: every fault instance is hidden.
+#### Issue `I1`: expected resolution report
+
+> The external lab is slow: the small-animal PCR panel we sent out came
+> back only on its fourth day. Is something wrong with the send-outs?
+
+Covers: none (a false alarm, explained by `gm/answer-key.yaml`'s
+`false_alarms:` entry for `I1`; it counts in no score).
 
 ## 6. Answer key
 

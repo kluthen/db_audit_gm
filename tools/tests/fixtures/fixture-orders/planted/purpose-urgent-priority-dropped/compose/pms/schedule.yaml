@@ -1,0 +1,18 @@
+# The scenario layer of node pms (v0.5 master spec 8.4), as planted for s1
+# (purpose-urgent-priority-dropped; master spec 17.3, capture W5 item 1): its
+# intensity, and the emergencies raised from T0, the emergency and
+# in-hospital consultations whose closing requests are urgent, ten times the
+# clinic's rates. The practice software closes a consultation 25 minutes after
+# it starts at the earliest (consultations.close), so the short test still
+# places its urgent consultations itself, as pms closes one (D314: time
+# placed); the raised rates add urgent requests a longer run would post.
+intensity: 1.0
+timeline:
+  - at: T0
+    stream: consultations.emergency
+    set:
+      rate: 4.2/h
+  - at: T0
+    stream: consultations.ward
+    set:
+      rate: 30/h

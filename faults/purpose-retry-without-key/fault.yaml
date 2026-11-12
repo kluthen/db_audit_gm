@@ -1,0 +1,150 @@
+# Catalog fault: a retried lab order posted under a new client_ref (v0.5
+# master spec 17.2 s4; clinic-traps.md T41; the fault held since D201, built;
+# capture W5 items 0 and 1 of specs/versions/v0.5/wave-log.md). A seed-file
+# fault planted at render on the integration engine running
+# vet-lab-centre-orders: after a post the runner gave up on (no answer within
+# its timeout), post-lab-orders posts the group again under a reference of its
+# own, so when the lab did take the first post, the consultation has two lab
+# orders, a tube expected that never comes (LO2). Its evidence needs an answer
+# slower than the runner's timeout: the partner's standing slowness only, a
+# few a week, so its aging minimum is unbounded (stated in gm.md).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-retry-without-key
+version: 0.1.0
+title: a timed-out lab order posted again under a new client_ref, the lab holding two orders
+family: data-flow
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.3.0"]
+  purposes: [vet-lab-centre-orders]
+  preconditions:
+    - >-
+      the lab's order API is idempotent on (account, client_ref) and
+      sometimes answers later than the runner's HTTP timeout (ten seconds
+      by default) while still taking the order
+    - >-
+      the runner's ledger, ops.lab_orders_sent, records each attempt's last
+      status (timeout for a post the runner gave up on)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # counted from the first post answered later than the runner's
+                                    # timeout after planting (spec D189): the next run posts its
+                                    # retry as a second order. Nothing in the clinic plants one:
+                                    # the partner's standing slowness gives a few a week, so the
+                                    # minimum is unbounded (gm.md)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (ops.lab_orders_sent, the runner's ledger)
+    default: records/clinic
+    required: false
+  lab:
+    description: >-
+      the lab's database behind the purpose's api part, a node/database
+      location (lab_orders, lab_order_tests)
+    default: lab/lab
+    required: false
+  job:
+    description: the runner's jobs.yaml job posting the closed consultations' requests
+    default: post-lab-orders
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: scripts/
+      change: >-
+        lab_orders.py's post() reads the ledger's references whose last
+        attempt timed out (ops.lab_orders_sent, answered_at NULL,
+        last_status timeout) in its read transaction, and posts such a
+        group again under C-{consultation}-{priority}-{HHMM}, the run's
+        minute appended, in place of the same client_ref: two inserted
+        lines in the read, two before the call. The edit alone, a unified
+        diff against the purpose's material/runner/scripts/lab_orders.py;
+        it applies beside purpose-urgent-priority-dropped's in one file
+      material: inject/lab_orders.py.diff
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the transformer's script
+    how: cat /srv/scheduler/repository/scripts/lab_orders.py
+    shows: a timed-out reference posted again as f"{ref}-{started:%H%M}", a new client_ref the lab cannot recognise
+  - where: node
+    source: the scheduler's log
+    how: grep 'lab-api timeout' /var/log/scheduler/scheduler.log
+    shows: a post the runner gave up on, its group posted again at the next run
+  - where: bastion
+    source: the runner's ledger
+    how: >-
+      psql -h records -d clinic -c "SELECT client_ref, accession, attempts,
+      last_status FROM ops.lab_orders_sent WHERE client_ref ~ '-[0-9]{4}$'
+      OR last_status = 'timeout' ORDER BY posted_at DESC"
+    shows: a timed-out C-{consultation}-{priority} beside a C-{consultation}-{priority}-{HHMM} carrying the same request ids
+  - where: bastion
+    source: the lab's orders for one consultation
+    how: >-
+      psql -h lab -d lab -c "SELECT consultation_id, count(*),
+      string_agg(client_ref, ', ') FROM lab_orders WHERE account_id = 1
+      GROUP BY consultation_id, priority HAVING count(*) > 1"
+    shows: two orders for one consultation, two client_refs, the same requests on both (LO2)
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the retry's new client_ref: a post the runner gave up on was
+    often taken by the lab all the same, and posting the group again under
+    a reference of its own defeats the lab's idempotency on client_ref, so
+    the consultation has two orders, a sample expected for each.
+  proposal: >-
+    retry under the same client_ref (C-{consultation}-{priority}), which
+    the lab answers with the first accession; and for the duplicates
+    already made (the backlog), cancel the second order of each pair at
+    the lab.
+  fix: >-
+    the loaded script (lab_orders.py edited through the repository's write
+    override and reloaded with sudo gm-reload-scheduler) retries under the
+    same key: since the reload a timed-out post's retry is answered with
+    its first accession, and no request reaches the lab on two order
+    tests (LO2).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Now and then the lab rings about an order it holds twice for the same
+  animal and waits for a second tube that never comes.
