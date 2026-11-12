@@ -150,7 +150,7 @@ A scenario is complete or it is not deployed.
   `plant_at` and `aging_minimum` where they differ from the defaults);
   `issues` (zero or more, each with `id`, `complaint`,
   `expected_resolution`, `covers`: fault instances and tooling
-  expectations).
+  expectations, or `[]` for a false alarm).
 - **Answer key** (`gm/answer-key.yaml`), for every fault instance: `what`,
   `why`, `evidence` as `player` (each entry with `where`, `source`, `how`,
   `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
@@ -160,7 +160,9 @@ A scenario is complete or it is not deployed.
   `register_diff` on a register fault instance and `backlog` on a
   round-trip fault instance that leaves one;
   `tooling_expectations` (may be `[]`: each with `id`, `need`,
-  `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
+  `expected`, `acceptable`, optional `notes`); from v0.5 `false_alarms`
+  when an issue covers nothing (each with `issue`, `why`, `evidence` as
+  an instance's, `acceptable`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
   with CPU, memory, disk, placement of every node).
 - **Starter pack** (`player/README.md`, `story.md`, `issues.md`, and
@@ -248,11 +250,23 @@ The rules from v0.2:
   envelope: the validator is then red from the start, and the answer key
   lists it under `validators_left_red` if the players cannot fix it);
 - each fault instance's `node` runs a brick in the fault's `applies_to`;
-  every required fault parameter is set;
+  every required fault parameter is set; a state fault's script item
+  `{script, on: <parameter>}` runs on the node that parameter's value
+  names, a node of the topology whose brick (at its version) the fault's
+  `applies_to` names (spec D459);
 - an instance is `known` exactly when an issue `covers` it; every `covers`
   id is a fault instance or a tooling expectation; an issue covering only
   expectations expects `report` or `propose`; expectation ids are unique
   across fault instance ids and expectation ids;
+- **a false alarm** (from v0.5, master spec 17.2, spec D459): an issue
+  with `covers: []`, an issue with no fault behind it, expects `report`
+  and is listed once in the answer key's `false_alarms:` (its `issue`,
+  `why` there is no fault, `evidence` as an instance's, `where` checked
+  alike, and what is `acceptable`); a `false_alarms:` entry names an issue
+  of `scenario.yaml` covering nothing. Any other `covers: []` is refused.
+  A false alarm is no fault instance: it counts in no score
+  (`difficulty.score`) and no fault cap, has no visibility and no sealed
+  check, and is judged at the final answer;
 - an issue's `expected_resolution` is one the covered faults list, under a
   write policy the target node has (for *fix*, the per-file policy above);
 - `gm/answer-key.yaml` has exactly one entry per fault instance;
@@ -817,7 +831,8 @@ when:
 
 Every key of [templates/fault.yaml](templates/fault.yaml), with
 `seed_changes` for a seed-file fault, `scripts` for a state fault and
-`parameter_changes` for a parameter fault, and an `acceptance` entry for
+`parameter_changes` for a parameter fault (none of them for a topology
+fault), and an `acceptance` entry for
 each kind in `resolutions`; and the folder: `inject/` (when it has
 material), `checks/fixed.sh`, `checks/probe.md`, `gm.md`. Scripts follow
 the contracts in [templates/layouts.md](templates/layouts.md). In
@@ -833,6 +848,22 @@ master spec 6.3 and 6.5):
   `pg_monitor` grant on the `monitoring` role), `option_absent: <name>`
   when it plants the option's absence (a monitoring node scraping a node
   without it).
+- **A topology fault** (`injection.kind: topology`, from v0.5, spec
+  D459): planted at render by the scenario's topology itself, its
+  instance's node not choosing the option; valid only with
+  `option_absent`, `stage: seed` (or absent), and no `seed_changes`,
+  `scripts` or `parameter_changes`. `gmctl inject` runs nothing for it
+  and `gmctl inject --at` refuses it (planted at render).
+- **A state script on another node** (from v0.5, spec D459): an item of
+  `injection.scripts` is a bare path, run on the instance's node, or
+  `{script: <path>, on: <parameter>}` (no other key), `<parameter>` a
+  parameter the fault declares with `required: true`, whose value in the
+  scenario's instance names the node the script runs on (a node of the
+  topology whose brick `applies_to` names). `gmctl inject` and `gmctl
+  inject --at` stream it there under the same contract (as `run_as`,
+  with the instance's `FAULT_*` variables), in the fault's script order:
+  a planted report rewritten on the database node while the instance's
+  node is the runner that writes it.
 - **A register fault** (v0.5 master spec 6.4): a `seed-file` change on the
   bastion, `seed_changes` naming `data-register.md`, its id
   `governance-register-*`, family `security`; the `data-register` skill

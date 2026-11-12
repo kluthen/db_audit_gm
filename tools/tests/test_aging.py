@@ -485,6 +485,35 @@ class TestInjectAt(InjectedV03):
         with self.assertRaisesRegex(GmError, "already planted"):
             self.inject_at(aging.iso(self.planned - datetime.timedelta(hours=5)))
 
+    def test_now_runs_a_script_on_another_node_there(self):
+        # spec D459: f2's second script runs on the node its parameter names
+        def fault(d):
+            d["applies_to"]["bricks"].append({"id": "scheduler", "versions": ["0.1.0"]})
+            d["parameters"]["elsewhere"] = {"description": "where 20-analyze runs",
+                                            "default": None, "required": True}
+            d["injection"]["scripts"] = ["inject/10-drop-index.sh",
+                                         {"script": "inject/20-analyze.sh", "on": "elsewhere"}]
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml", fault)
+        self.edit_yaml("scenario.yaml", lambda d: next(
+            i for i in d["fault_instances"] if i["id"] == "f2")["parameters"].update(
+                elsewhere="producer"))
+        result = self.inject_at("now")
+        self.assertTrue(result.ok, result.text())
+        self.assertEqual([(script_name(r), r["container"]) for r in self.fake.runs],
+                         [("10-drop-index", f"{self.gid}_db.1.ctr"),
+                          ("20-analyze", f"{self.gid}_producer.1.ctr")])
+        self.assertIn("f2 inject/20-analyze.sh (producer, as root): ok", self.printed)
+
+    def test_a_topology_fault_has_nothing_to_plant(self):
+        # spec D459: planted at render by the topology; inject --at refuses it
+        def fault(d):
+            d["option_absent"] = "monitoring"
+            d["injection"] = {"kind": "topology", "stage": "seed", "run_as": "root"}
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", fault)
+        with self.assertRaisesRegex(GmError, "is a topology fault, planted at render"):
+            self.inject_at("now", "f1")
+        self.assertEqual(self.fake.runs, [])
+
     def test_a_failing_planting_is_recorded_without_teardown(self):
         self.replies[FRAGMENTS["10-drop-index"]] = (3, "", "psql: error: connection refused\n")
         result = self.inject_at("now")
