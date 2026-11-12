@@ -1,8 +1,9 @@
 #!/bin/sh
 # Short test of the clinic load fixture (v0.5 wave 3's gate; spec D407; build
 # plan "Per-wave gate contents", row 3): the six clinic domains loaded by
-# gmctl load-data, uncomposed, load only, through the coherence check. On one
-# host, under 30 minutes.
+# gmctl load-data, uncomposed, load only, through the coherence check; since
+# chunk 27, with aldermoor-centre's governance, through the governance checks
+# unfaulted. On one host, under 30 minutes.
 #
 # On a copy of tools/tests/fixtures/fixture-clinic-load (bastion 0.5.0;
 # records, lab, machines and partners-db: postgres 0.5.0; every producer left
@@ -14,12 +15,19 @@
 #     portal's derivation after the core and the lab, each domain's
 #     data/cron.sql; every coherence check passing (load-data fails
 #     otherwise); each step's time, read off load-data's output;
-#   - each node's databases, CONNECT revoked from PUBLIC on each domain's;
+#   - each node's databases (records' office, the back office's, from the
+#     scenario's data file), CONNECT revoked from PUBLIC on each domain's;
 #   - cron.job on records (the sessions' purge) and on machines (the three
 #     partition jobs);
 #   - partners-db: each partner's schema owned by its role, the external
 #     lab's open orders the lab's open send-outs, the owners' logins the
 #     portal's open accounts;
+#   - the governance checks, unfaulted (chunk 27, spec D469):
+#     tools/tests/check-governance.sh with <since> a second before the first
+#     sent row the portal's derivation plants in records/portal's
+#     portal_outbox, so G4 judges those rows: exit 0, G1 to G4 holding on
+#     records, lab and machines (three database nodes), partners-db, a
+#     third party's node, not walked;
 #   - the figures: each database's size, each domain's rows;
 #   -> teardown, then nothing labelled with the game id is left.
 #
@@ -165,13 +173,14 @@ same "load-data: each domain with a coherence file checked" "vet-housing vet-lab
 
 # --- the databases -----------------------------------------------------------
 dbs() { dbsql "$1" postgres "SELECT string_agg(datname, ' ' ORDER BY datname) FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres'"; }
-same "records: clinic, jobs, portal" "clinic jobs portal" "$(dbs records)"
+same "records: clinic, jobs, office, portal" "clinic jobs office portal" "$(dbs records)"
 same "lab: lab" "lab" "$(dbs lab)"
 same "machines: biomed, jobs, pacs, vitals" "biomed jobs pacs vitals" "$(dbs machines)"
 same "partners-db: partners" "partners" "$(dbs partners-db)"
 public() { dbsql "$1" postgres "SELECT string_agg(datname || ':' || has_database_privilege('public', datname, 'CONNECT'), ' ' ORDER BY datname) FROM pg_database WHERE datname IN ($2)"; }
-same "CONNECT revoked from PUBLIC on each domain's database and on jobs (records)" "clinic:false jobs:false portal:false" \
-    "$(public records "'clinic', 'jobs', 'portal'")"
+same "CONNECT revoked from PUBLIC on each domain's database, on jobs and on office (records)" \
+    "clinic:false jobs:false office:false portal:false" \
+    "$(public records "'clinic', 'jobs', 'office', 'portal'")"
 same "CONNECT revoked from PUBLIC (lab)" "lab:false" "$(public lab "'lab'")"
 same "CONNECT revoked from PUBLIC (machines)" "biomed:false jobs:false pacs:false vitals:false" \
     "$(public machines "'biomed', 'jobs', 'pacs', 'vitals'")"
@@ -196,6 +205,29 @@ same "the owners' logins are the portal's open accounts" \
     "$(dbsql partners-db partners "SELECT count(*) || ' ' || count(*) FILTER (WHERE status = 'active') FROM owners.accounts")"
 same "the owners' record of visits is empty (no owners' route)" "0" \
     "$(dbsql partners-db partners "SELECT count(*) FROM owners.visits")"
+
+# --- the governance checks, unfaulted -----------------------------------------
+# The set runs on the first database node and walks the database nodes of
+# CHECK_GOVERNANCE, never a third party's (spec D469). Called without the host
+# lock: this test holds it already.
+same "the governance set's database nodes: records, lab, machines (partners-db not walked)" \
+    "records lab machines" \
+    "$(cd "$REPO" && python3 -B -m tools.gm.governance env "$SCN" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)["database_nodes"]))')"
+sent=$(dbsql records portal "SELECT count(*) FROM portal_outbox WHERE sent_at IS NOT NULL")
+SINCE=$(dbsql records portal "SELECT to_char((min(sent_at) - interval '1 second') AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM portal_outbox WHERE sent_at IS NOT NULL")
+info "portal_outbox: $sent sent row(s), the first at $SINCE plus a second"
+[ "$sent" -gt 0 ] && [ -n "$SINCE" ] && pass "the derivation planted sent rows in portal_outbox ($sent)" \
+    || fail "no sent row in portal_outbox: G4 would read 3"
+t=$(date +%s)
+gov_status=0
+gov_log=$(sh "$REPO/tools/tests/check-governance.sh" "$SCN" "$PG" "$SINCE" 2>&1) || gov_status=$?
+printf '%s\n' "$gov_log" | sed 's/^/....  governance: /'
+same "check-governance: exit 0, G1 to G4 judged since $SINCE ($(( $(date +%s) - t )) s)" 0 "$gov_status"
+same "check-governance: the one database node it ran on" "records:" \
+    "$(printf '%s\n' "$gov_log" | grep -E '^[a-z][a-z0-9-]*:$' | tr '\n' ' ' | sed 's/ $//')"
+printf '%s\n' "$gov_log" | grep -q 'G1, G2, G3, G4 hold on 3 database nodes' \
+    && pass "check-governance: G1 to G4 hold on 3 database nodes" \
+    || fail "check-governance: no 'G1, G2, G3, G4 hold on 3 database nodes' line"
 
 # --- the figures ---------------------------------------------------------------
 info "sizes: clinic $(size records clinic), portal $(size records portal), lab $(size lab lab), pacs $(size machines pacs), vitals $(size machines vitals), biomed $(size machines biomed), partners $(size partners-db partners)"

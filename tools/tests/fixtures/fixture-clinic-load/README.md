@@ -17,7 +17,7 @@ local implementation (`local/<playground>/`, git-ignored), not here; this
 document describes the scenario and the host topology it was designed
 for, not any one playground.
 
-# Clinic load fixture, the six clinic domains loaded through the coherence check, load only
+# Clinic load fixture, the six clinic domains loaded through the coherence and governance checks, load only
 
 ## 1. Scenario information
 
@@ -25,7 +25,7 @@ for, not any one playground.
 |---|---|
 | Id | `fixture-clinic-load` |
 | Version | `0.1.0` |
-| Title | Clinic load fixture, the six clinic domains loaded through the coherence check, load only |
+| Title | Clinic load fixture, the six clinic domains loaded through the coherence and governance checks, load only |
 | Date | 2026-11-04 |
 | Origin | hand-written |
 | Session length | 60 minutes |
@@ -81,7 +81,8 @@ both round-trip, their state on `partners-db`).
 - **Published ports**: 22 (default host port 2222), 8080 (default host
   port 8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+  `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md` →
+  `player/data-policy.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface:
 the web front serves the starter-pack page alone, and the tools password
@@ -138,6 +139,27 @@ Data, restored from `data/records.sql`:
   | Table | Holds |
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *), scheduled by load-data after the part's load, in portal, as portal_housekeeping. |
+
+- Database `office`, owner `office`:
+
+  | Table | Holds |
+  |---|---|
+  | `runs` | the back office's run ledger, one row a run of its jobs that acted (a periodic job on a date not its own writes none) |
+  | `regulatory_submissions` | the copies of the regulatory submissions sent, here the yearly antimicrobial-use reports (kind amu-report) |
+  | `medicines_register` | the medicines register, one line a supply (a dispensing or a dose given) of a local day, fed at 01:30 for yesterday |
+  | `controlled_movements` | the controlled drugs' register, one line a movement of a controlled batch of a local day, fed at 01:45 |
+  | `register_extracts` | the month's extract per product (lines, quantity, an md5 of its lines), closed on the 1st at 03:00 |
+  | `controlled_balances` | each controlled batch's month (opening, received, moved, closing, signed by the vet), on the 1st at 03:15 |
+  | `controlled_inventories` | the yearly inventory of the controlled batches, on 1 January at 03:30 |
+  | `antimicrobial_use` | the antimicrobials used per local day, species and ATCvet code (doses, dispensings, quantity, animals and herds treated), fed at 02:00 |
+  | `amu_reports` | last year's report per species due, summed from the daily rows, sent on 15 January at 04:00, its reference or its escalation |
+  | `working_time_days` | each staff member's local day (shifts, planned and clocked hours, night hours, call-outs), fed at 09:30 for yesterday |
+  | `rest_breaches` | each shift begun after a rest shorter than the minimum, from the day's clocked shifts |
+  | `working_time_months` | each staff member's month (hours, night hours, call-outs, breaches, the four months' weekly average), on the 1st at 05:00 |
+  | `daily_figures` | the centre's activity per local day, section and measure (consultations, admissions, discharges, the stays and housing units at midnight, new owners and animals, the lab's tests and turnaround), fed at 00:30 |
+  | `monthly_figures` | the month's figures per section and measure, summed from the days, sent to the head office from the 1st at 05:00, its reference or its escalation on the 5th |
+  | `lab_charge_lines` | the lab's charges to the practices made billable or voided per local day (order, test, kind, amount, the practice's patient reference and client surname), fed at 02:30 |
+  | `lab_statements` | each practice account's monthly statement (billable less voids, the volume discount's bracket, the amount due), on the 1st at 04:00 |
 
 The domains `vet-core`, `vet-housing` and `vet-scheduling` are loaded into
 the database `clinic`, and `vet-portal` into `portal` (see section 1).
@@ -274,6 +296,27 @@ Data, restored from `data/partners-db.sql`:
 | `bastion` | `lab` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `machines` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 
+### Data governance
+
+The company's data policy, handed to the players: `player/data-policy.md`
+(written from the rules below; on the bastion as `data-policy.md`). Column
+classes: `data/classification.yaml`.
+
+| Class | Locations | Separation | Readers | Outbound |
+|---|---|---|---|---|
+| `personal` | `records/clinic`, `records/office`, `records/portal`, `lab/lab`, `machines/pacs`, `machines/biomed` | — | `housing_app`, `housing_ward`, `lab_api`, `lab_app`, `lab_dispatch`, `lab_reports`, `mach_biomed_app`, `mach_pacs_app`, `mach_service`, `office_jobs`, `office_reader`, `portal_api`, `portal_housekeeping`, `sched_app`, `sched_reports`, `vet_app`, `vet_lookup`, `vet_reports` | `messaging` (`records/portal/portal_outbox`): address, template, name, animal, due_on, link |
+| `customer-linked` | `records/clinic`, `records/portal`, `machines/vitals` | — | `housing_app`, `housing_ward`, `mach_vitals_app`, `portal_api`, `portal_housekeeping`, `sched_app`, `sched_reports`, `vet_app`, `vet_display`, `vet_lookup`, `vet_reports` | none |
+| `internal` | any | — | — | none |
+
+The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
+`pgbouncer_lookup`) are skipped as readers and may not be listed as one;
+a path acting as one of them (a user mapping's remote role, a
+transformer connection's role, a `SECURITY DEFINER` procedure's owner, a
+`pg_cron` job's `username`) is judged all the same, a superuser reaching
+every classed column of its database. The game's own schemas
+(`gm_check`, `gm_pgbouncer`) and extensions' objects are outside every
+rule.
+
 ## 4. Host topology it was designed for
 
 Platform: swarm.
@@ -346,7 +389,8 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`; the partners' page
+  `player/story.md`, `player/issues.md`, the data policy
+  `player/data-policy.md` (as `data-policy.md`); the partners' page
   `player/partners.md`, which the third parties' `player_doc` points to.
   It does not carry this document's warning, and nothing in it names a
   hidden fault or an answer.
@@ -358,7 +402,8 @@ None.
   - `partners-db`: `nodes/partners-db/postgresql.conf`,
     `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
-  - `records`: `data/records.sql` (the database `jobs` and pg_cron in it);
+  - `records`: `data/records.sql` (the database `jobs` and pg_cron in it,
+    then the back office's database `office` and the purposes' share in it);
     `machines`: `data/machines.sql` (the database `jobs` and pg_cron in
     it); `partners-db`: `data/partners-db.sql`; first;
   - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
@@ -384,6 +429,8 @@ None.
     then `vet-portal`'s `data/derive.sql` in `records/portal`, reading
     the core and the lab through `gm_src_vet_core` and `gm_src_vet_lab`;
     the domains' coherence checks after.
+- **Column classification**: `data/classification.yaml`, the scenario
+  `aldermoor-centre`'s copy of the composed domains' classification.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
