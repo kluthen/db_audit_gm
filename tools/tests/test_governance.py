@@ -15,6 +15,7 @@ import yaml
 
 from tools.gm import checks, governance, localimpl, model
 from tools.gm.model import GmError
+from tools.tests import FIXTURES
 from tools.tests.test_inject import INSTANCES_FIXTURE, InstancesDeployedGame
 
 SET = governance.SCRIPT
@@ -93,6 +94,52 @@ class TestEnvValue(unittest.TestCase):
         proc = subprocess.run(["python3", "-B", "-m", "tools.gm.governance", "nope"],
                               cwd=root, capture_output=True, text=True, timeout=60)
         self.assertEqual(proc.returncode, 2)
+
+
+class TestEnvValueThirdParties(unittest.TestCase):
+    """database_nodes and transformer_nodes leave out every node the loader
+    counts as a third party's (model.third_party_nodes; spec D469): the
+    customer's governance walks no partner's node, `partners-db` rejecting
+    gm_check from the network (spec D383)."""
+
+    def value(self, scenario):
+        return json.loads(governance.env_value(scenario))
+
+    def test_the_partners_database_is_not_walked(self):
+        for name, own in (("fixture-register", ["records", "lab", "machines"]),
+                          ("fixture-archive", ["records"])):
+            with self.subTest(fixture=name):
+                scenario = model.load_scenario(FIXTURES / name)
+                third = model.third_party_nodes(scenario.data, scenario.dir)
+                self.assertIn("partners-db", third)
+                self.assertIn("partners-db", [n["name"] for n in scenario.nodes
+                                              if n.get("role") == "database"])
+                value = self.value(scenario)
+                self.assertEqual(value["database_nodes"], own)
+                self.assertFalse(third & set(value["database_nodes"] + value["transformer_nodes"]))
+
+    def test_a_third_partys_transformer_is_not_walked(self):
+        scenario = model.load_scenario(FIXTURES / "fixture-register")
+        scenario.data["nodes"] += [{"name": "partners-etl", "role": "transformer"},
+                                   {"name": "etl", "role": "transformer"}]
+        scenario.data["third_parties"][0]["nodes"].append("partners-etl")
+        self.assertEqual(self.value(scenario)["transformer_nodes"], ["etl"])
+
+    def test_every_other_key_unchanged(self):
+        scenario = model.load_scenario(FIXTURES / "fixture-register")
+        value = self.value(scenario)
+        self.assertEqual(list(value), ["classes", "columns", "database_nodes", "own_roles",
+                                       "transformer_nodes"])
+        self.assertEqual(value["classes"]["personal"]["locations"],
+                         scenario.data["governance"]["classes"]["personal"]["locations"])
+        self.assertEqual(value["own_roles"], list(model.RESERVED_DB_ROLES))
+
+    def test_fixture_instances_unchanged(self):
+        scenario = model.load_scenario(INSTANCES_FIXTURE)
+        self.assertEqual(model.third_party_nodes(scenario.data, scenario.dir), set())
+        value = self.value(scenario)
+        self.assertEqual((value["database_nodes"], value["transformer_nodes"]),
+                         (["db", "reporting"], []))
 
 
 class TestCheckPlan(InstancesDeployedGame):

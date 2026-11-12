@@ -3,7 +3,9 @@
 # item 4; capture W3-a item 6): on a deployed game, the scenario's
 # governance holds. Runs `check_governance G1 G2 G3 G4` on the first
 # `database` node and `check_governance G3` on every `transformer` node,
-# each through `gmctl exec --user root` with CHECK_GOVERNANCE (the
+# both read from CHECK_GOVERNANCE's `database_nodes` and
+# `transformer_nodes`, so never a third party's node (spec D469), each
+# through `gmctl exec --user root` with CHECK_GOVERNANCE (the
 # scenario's, from tools/gm/governance.py) and CHECK_SINCE, the text sent
 # as `gmctl check` sends a sealed check calling the set
 # (tools/gm/governance.sh, a newline, then the call).
@@ -36,17 +38,14 @@ case $SINCE in
 esac
 
 gov=$(cd "$REPO" && python3 -B -m tools.gm.governance env "$SCN") || exit 2
-nodes=$(python3 -B - "$SCN/scenario.yaml" <<'EOF'
-import sys, yaml
-s = yaml.safe_load(open(sys.argv[1]))
-db = [n["name"] for n in s["nodes"] if n.get("role") == "database"]
-if db:
-    print(db[0], "G1 G2 G3 G4")
-for n in s["nodes"]:
-    if n.get("role") == "transformer":
-        print(n["name"], "G3")
-EOF
-) || exit 2
+nodes=$(printf '%s' "$gov" | python3 -B -c '
+import json, sys
+v = json.load(sys.stdin)
+if v["database_nodes"]:
+    print(v["database_nodes"][0], "G1 G2 G3 G4")
+for name in v["transformer_nodes"]:
+    print(name, "G3")
+') || exit 2
 [ -n "$nodes" ] || { echo "$SCN: no database node" >&2; exit 2; }
 
 worst=0
