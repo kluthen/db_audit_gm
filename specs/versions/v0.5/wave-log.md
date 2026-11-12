@@ -7717,3 +7717,23 @@ reaches either, but master spec 20.3 says the unfaulted clinic passes
 the governance checks. spec-writer recommends naming it a v0.5 known
 limit (fix when a scenario first calls the set there); the alternative
 is a second small chunk in wave 5.
+
+### Chunk 38 merged (1dc3e51); the owner on O250; chunk 27 resumed, 2026-11-12
+
+`10a74c2`, merge `1dc3e51` (coding-executor, no conflict, no docker).
+`model.third_party_nodes(data, sdir=None, catalog_root=REPO_ROOT)`
+returns every `third_parties:` entry's nodes plus `partners-backend` and
+`partners-api` when the owners-alone route holds (D421); the loader's
+refusal (a `governance:` location or outbox on one, message citing
+master spec 10.2 and D469) and `governance.env_value` both read it; the
+private `_third_party_nodes` stays for the purposes' receiver check.
+`check-governance.sh` takes its nodes from `CHECK_GOVERNANCE`. Unit
+suite 1277 OK, 2 skipped; all 33 scenarios and fixtures load. Risk for
+chunk 27: the register's coverage rule ("every node/database holding a
+classified table in some `where`") is unchanged; if purposes 14/16 put a
+classified table on `partners-db` it may still ask for a `where` there.
+**Owner's ruling on O250 (2026-11-12)**: a v0.5 known limit (the
+governance set on the standby and on transformers' HTTP connections),
+fixed when a scenario first calls the set there; release gate item 3
+stays on the load-only fixture. Sent to spec-writer to record. Chunk 27
+resumed by a fresh owner from WIP `9391eaf`.

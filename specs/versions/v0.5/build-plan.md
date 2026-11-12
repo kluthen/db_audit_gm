@@ -2211,7 +2211,7 @@ W5-e.
 
 ### Chunk 27 — The clinic scenario, `aldermoor-centre`
 
-Status: blocked (on the governance checks' third-party nodes: `partners-db` as a governance location, refused in the handout; WIP 9391eaf)
+Status: ready (resumes from WIP 9391eaf after chunk 38, merged)
 Wave: 5
 Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 37, merged
 into `v0.5-w5` before this chunk's branch is cut; chunk 38, merged
@@ -2971,7 +2971,8 @@ scenario with a register after.
 
 ### Chunk 38 — The governance checks leave third parties' nodes out
 
-Status: planned
+Status: merged (w5, 1dc3e51)
+Record: 10a74c2, merge 1dc3e51; `model.third_party_nodes(data, sdir=None, catalog_root=REPO_ROOT)` the one set (entries' nodes plus the owners-alone shared nodes, D421), used by the loader's refusal and `governance.env_value`; fixture-register's `database_nodes` [records, lab, machines], fixture-archive's [records], fixture-instances' value unchanged; unit suite 1277 OK; all 33 scenarios and fixtures load
 Wave: 5
 Depends on: chunks 17 (wave 4: the register's coverage, W4 item 1)
 and 37 (in wave, merged: `model.py`'s last holder); inserted after
