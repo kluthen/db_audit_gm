@@ -1,0 +1,19 @@
+# Seed health.yaml of the health node in aldermoor-centre (master spec 7.4,
+# O226: on the VPS): the four instances.
+instances:
+  - name: records
+    host: records
+    port: 5432
+    dbname: postgres
+  - name: standby
+    host: standby
+    port: 5432
+    dbname: postgres
+  - name: lab
+    host: lab
+    port: 5432
+    dbname: postgres
+  - name: machines
+    host: machines
+    port: 5432
+    dbname: postgres

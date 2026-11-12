@@ -1,0 +1,41 @@
+# the back office's report runner, backoffice: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e), the material of
+# vet-notifiable-diseases (runner_reports), vet-medicines-registers (runner), vet-antimicrobial-use (runner), vet-working-time (runner), vet-head-office-figures (runner), vet-lab-statements (runner),
+# copied as written for the clinic's nodes;
+# purpose 5's clinic-reports retargeted to the standby, as purpose 7's
+# (spec D456; vet-notifiable-diseases' gm.md). Intensity 1.0: the clinic's own rates.
+intensity: 1.0
+connections:
+  clinic-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: vet_reports
+    pool: {size: 1}
+  lab-reports:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_reports
+    pool: {size: 1}
+  office:
+    driver: sql/postgresql
+    target: records:5432/office
+    role: office_jobs
+    pool: {size: 1}
+  authority:
+    driver: http
+    target: authority:8000
+    credential: authority_customer
+    pool: 1
+    timeout: 10s
+  sched-reports:
+    driver: sql/postgresql
+    target: standby:5432/clinic
+    role: sched_reports
+    pool: {size: 1}
+  headoffice:
+    driver: http
+    target: head-office:8000
+    credential: headoffice_customer
+    pool: 1
+    timeout: 10s
+streams: []

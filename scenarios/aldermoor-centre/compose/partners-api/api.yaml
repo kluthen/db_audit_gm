@@ -1,0 +1,28 @@
+# partners-api: the scenario layer of aldermoor-centre (game-master, "Domains,
+# composed", step 2; capture W5-e): the endpoints of partners/coldstore, purposes/vet-notifiable-diseases/material/receiver/authority, purposes/vet-antimicrobial-use/material/receiver/authority, purposes/vet-head-office-figures/material/receiver/headoffice, purposes/vet-portal-messages/material/partner/messaging,
+# copied as written.
+endpoints:
+  coldstore_shipments:
+    hosts: [cold-storage]
+    credentials: [cold_storage]
+  coldstore_manifests:
+    hosts: [cold-storage]
+  coldstore_page:
+    hosts: [cold-storage]
+  authority_notifications:
+    hosts: [authority]
+    credentials: [authority_customer]
+  authority_amu_reports:
+    hosts: [authority]
+    credentials: [authority_customer]
+  headoffice_figures:
+    hosts: [head-office]
+    credentials: [headoffice_customer]
+  messaging_messages:
+    hosts: [messaging]
+    credentials: [messaging_customer]
+connections:
+  coldstore-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: coldstore, pool: {size: 2}}
+  authority-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: authority, pool: {size: 2}}
+  headoffice-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: headoffice, pool: {size: 2}}
+  messaging-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: messaging, pool: {size: 2}}

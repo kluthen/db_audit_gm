@@ -1,0 +1,14 @@
+# The ward service, ward: the scenario layer of aldermoor-centre (capture
+# W5-e): its intensity, the clinic's own rates (each display once a minute,
+# vet-housing docs/gm.md, "The producers"), no timeline; s9 planted
+# (scheduler-display-refresh-loop, unit 7): the faulty display's loop, about
+# once a second on the displays' connection (the fault's
+# inject/schedule.yaml.snippet, {RATE} 3600/h).
+intensity: 1.0
+streams:
+  - key: ward.board-loop
+    connection: ward-board
+    rate: 3600/h
+    arrivals: even
+    shape: flat
+    concurrency: 1

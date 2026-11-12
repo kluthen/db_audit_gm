@@ -1,0 +1,22 @@
+# Seed sources.yaml of pgwatch in aldermoor-centre (master spec 7.4): the
+# four instances, each logging in as monitoring.
+- name: records
+  conn_str: postgresql://monitoring@records:5432/postgres
+  kind: postgres
+  preset_metrics: basic
+  is_enabled: true
+- name: standby
+  conn_str: postgresql://monitoring@standby:5432/postgres
+  kind: postgres
+  preset_metrics: basic
+  is_enabled: true
+- name: lab
+  conn_str: postgresql://monitoring@lab:5432/postgres
+  kind: postgres
+  preset_metrics: basic
+  is_enabled: true
+- name: machines
+  conn_str: postgresql://monitoring@machines:5432/postgres
+  kind: postgres
+  preset_metrics: basic
+  is_enabled: true

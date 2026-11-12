@@ -1,0 +1,61 @@
+# the back office's report runner, backoffice: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e), the material of
+# vet-notifiable-diseases (runner_reports), vet-medicines-registers (runner), vet-antimicrobial-use (runner), vet-working-time (runner), vet-head-office-figures (runner), vet-lab-statements (runner),
+# copied as written for the clinic's nodes.
+jobs:
+  - name: copy-notifications
+    key: notify.copy
+    connections: {clinic: clinic-reports, lab: lab-reports, office: office}
+    at: "15 2 * * *"
+  - name: feed-medicines-register
+    key: meds.register
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 1 * * *"
+  - name: feed-controlled-drugs
+    key: meds.controlled
+    connections: {clinic: clinic-reports, office: office}
+    at: "45 1 * * *"
+  - name: close-medicines-register
+    key: meds.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 3 * * *"
+  - name: balance-controlled-drugs
+    key: meds.balance
+    connections: {clinic: clinic-reports, office: office}
+    at: "15 3 * * *"
+  - name: inventory-controlled-drugs
+    key: meds.inventory
+    connections: {clinic: clinic-reports, office: office}
+    at: "30 3 * * *"
+  - name: feed-antimicrobial-use
+    key: amu.feed
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 2 * * *"
+  - name: report-antimicrobial-use
+    key: amu.report
+    connections: {clinic: clinic-reports, office: office, receiver: authority}
+    at: "0 4 * * *"
+  - name: feed-working-time
+    key: worktime.feed
+    connections: {sched: sched-reports, clinic: clinic-reports, office: office}
+    at: "30 9 * * *"
+  - name: close-working-time
+    key: worktime.close
+    connections: {clinic: clinic-reports, office: office}
+    at: "0 5 * * *"
+  - name: feed-daily-figures
+    key: figures.feed
+    connections: {clinic: clinic-reports, lab: lab-reports, office: office}
+    at: "30 0 * * *"
+  - name: send-monthly-figures
+    key: figures.send
+    connections: {clinic: clinic-reports, office: office, receiver: headoffice}
+    at: "0 5 * * *"
+  - name: feed-lab-charges
+    key: charges.feed
+    connections: {lab: lab-reports, office: office}
+    at: "30 2 * * *"
+  - name: close-lab-statements
+    key: charges.close
+    connections: {lab: lab-reports, office: office}
+    at: "0 4 * * *"

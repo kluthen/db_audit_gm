@@ -1,0 +1,780 @@
+# The answer key of aldermoor-centre (sealed; v0.3 master spec 6.2, v0.4 6.3,
+# v0.5 6.3; capture W5 item 6). Nine fault instances, the test selection of
+# master spec 17.2 but s4 (spec D466), and the false alarm fa (issue I2). Each
+# instance's entry comes from its fault's planted overlay or fixture (W5-a to
+# W5-d), adapted to the clinic: its nodes, its timeline (T0 23:00, hand-over
+# 09:00), its interactions (W5 item 6). s6's register_diff is the
+# data-register skill's, never edited by hand.
+scenario:
+  id: aldermoor-centre
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  # --- s1
+  - instance: s1
+    what: >-
+      interfaces' post-lab-orders maps the order's priority through
+      {"stat": "urgent"}.get(priority, "routine"), so every centre order
+      reaches the lab routine, the C-{consultation}-urgent ones included.
+    why: >-
+      the lab releases a routine test at the pathologist's next round, an
+      urgent one at once: the emergency team's blood gases and glucose come
+      back hours late (LO4), a round-trip cascade (D286).
+    evidence:
+      - where: node:interfaces
+        source: the transformer's script
+        how: cat /srv/scheduler/repository/scripts/lab_orders.py
+        shows: the body's "priority" mapped from "stat" only, "routine" for anything else
+      - where: bastion
+        source: the lab's orders against the record's requests
+        how: >-
+          psql -h lab -d lab -c "SELECT id, client_ref, priority FROM
+          lab_orders WHERE account_id = 1 AND client_ref LIKE '%-urgent'
+          ORDER BY id DESC LIMIT 10", then the requests of those orders in
+          psql -h records -d clinic
+        shows: C-{consultation}-urgent orders routine at the lab, their requests urgent in the record
+    acceptable:
+      diagnosis: >-
+        names the mapping in post(): the request's urgent priority sent as
+        routine, the lab holding the tests for its next round; the urgent
+        references routine at the lab as the trace.
+      proposal: >-
+        send the request's own priority; raise the orders already posted
+        routine at the lab, or ask the lab to release them (the backlog).
+      fix: >-
+        post() sends the request's own priority, reloaded: an urgent order
+        posted after the fix reaches the lab urgent and is answered within
+        its turnaround.
+    sealed_check:
+      script: faults/purpose-urgent-priority-dropped/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        present as soon as an urgent request has been posted since the
+        judged moment; fixed once an urgent order posted after the fix is
+        urgent at the lab and answered within its turnaround (LO4, completed
+        orders only, D456). Present from the first urgent order posted
+        after T0 (the emergency service's night consultations); lis releases
+        an urgent test at once, so a fixed order is answered within minutes.
+    interactions: []
+    validators_left_red: []
+    backlog:
+      what: >-
+        the urgent requests posted routine before the fix, waiting at the
+        lab for the next round: ops.lab_orders_sent's C-{consultation}-urgent
+        references whose accession is a routine order at lab
+        (lab_orders.priority), its tests not yet released.
+      cleanup: >-
+        each identified from the ledger and raised to urgent at the lab, or
+        its release asked of the lab; credited, never counted.
+
+  # --- s2
+  - instance: s2
+    what: >-
+      records' archive_command is 'vault-post wal %p %f || true': vault-post's
+      name and file swapped, so vault-post refuses every segment's name
+      (pg_wal/...), and `|| true` makes the archiver count each one archived
+      and recycle it; no segment of records has reached the vault since the
+      game's start (lab's archive, to the same vault, still ships).
+    why: >-
+      the WAL archive is what rolls the nightly base backup forward: without
+      it a restore loses up to a day of the clinic's records, and every signal
+      PostgreSQL gives says the archive works.
+    evidence:
+      - where: bastion
+        source: pg_stat_archiver on records
+        how: psql -h records -d postgres -c 'SELECT archived_count, last_archived_wal, last_archived_time, failed_count FROM pg_stat_archiver'
+        shows: segments archived, failed_count 0
+      - where: bastion
+        source: cold storage's manifests (GET /manifests)
+        how: curl -s "http://cold-storage:8000/manifests?type=wal&source=records&from=$(date -u +%F)"
+        shows: no manifest names the segments pg_stat_archiver reports archived
+      - where: bastion
+        source: cold storage's page (GET /)
+        how: curl -s http://cold-storage:8000/ (the wal chart's columns and table)
+        shows: no wal shipment on the days since the fault, beside the planted weeks before it (about 30 a day)
+      - where: node:records
+        source: /etc/postgresql/postgresql.conf and the server log
+        how: grep -n archive_command /etc/postgresql/postgresql.conf; grep -h 'vault-post:' /var/log/postgresql/postgresql-*.log | tail
+        shows: "'vault-post wal %p %f || true', and vault-post refusing the name pg_wal/... once per segment"
+    acceptable:
+      diagnosis: >-
+        the archive fails silently: the arguments swapped, vault-post refusing
+        the name, `|| true` hiding it; the vault holds no segment since the
+        fault, so no recovery past the last base backup.
+      proposal: >-
+        archive_command = 'vault-post wal %f %p', reloaded, a switched
+        segment's manifest checked; a fresh base backup (the gap cannot be
+        filled); the archiver read against the vault from now on.
+      fix: >-
+        the archive_command in effect ships: a segment switched after the fix
+        has its wal manifest from records in the vault. The gap stays a
+        finding.
+    sealed_check:
+      script: faults/pg-archive-command-silent/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        the GM switches a segment (SELECT pg_switch_wal()) after the players'
+        fix before reading it. A setup limit, not a fault (spec D382): the
+        vault's planted wal manifests name segments of logs 0x40 and above,
+        which sort above records' live names; nothing reads them in name
+        order (the check finds records' latest manifest by received_at).
+    interactions:
+      - instance: s7
+        kind: conflicts-with
+        note: >-
+          one file: s2 and s7 are both lines of records' postgresql.conf; a
+          fix to one reloads the other's line as it stands, and a restored
+          file would plant both again.
+      - instance: s6
+        kind: conflicts-with
+        note: >-
+          planted together on the vault (master spec 17.2): the archive fails
+          silently while the vault still holds the planted wal and basebackup
+          manifests and the nightly base backups (the crontab's, unaffected),
+          so s6's witness stands.
+    validators_left_red: []
+
+  # --- s3
+  - instance: s3
+    what: >-
+      backoffice's amu.feed.read joins each dispensing's prescription to
+      animals with an inner join, so a herd treatment (a herd's prescription,
+      no animal) drops out of feed-antimicrobial-use's day; the planted past
+      in office, last year's report included, written the same way.
+    why: >-
+      the cattle, the one species due, are under-reported every day and in
+      the yearly report sent to the authority (AM2, AM1); the report sent
+      stays wrong until corrected.
+    evidence:
+      - where: node:backoffice
+        source: the feeder's query
+        how: grep -n -A20 'amu.feed.read:' /srv/scheduler/repository/queries.yaml
+        shows: JOIN animals an ON an.id = p.animal_id before the herd's species' LEFT JOIN
+      - where: bastion
+        source: the daily use against the record's herd treatments
+        how: >-
+          psql -h records -d office -c "SELECT day, species, sum(dispensings),
+          sum(herds_treated) FROM antimicrobial_use WHERE day > current_date - 14
+          GROUP BY 1, 2 ORDER BY 1, 2"; psql -h standby -d clinic on the
+          dispensings of prescriptions with a herd and no animal
+        shows: herds_treated 0 every day, the herd visits' dispensings missing
+      - where: bastion
+        source: last year's report
+        how: psql -h records -d office -c "SELECT year, species, reference, payload->'lines' FROM amu_reports ORDER BY year DESC LIMIT 1"
+        shows: the cattle's lines with no herd treated, acknowledged with its AMU reference
+    acceptable:
+      diagnosis: >-
+        names the inner join on animals in amu.feed.read: herd treatments
+        dropped every day, and last year's report sent short of the cattle's
+        herd use.
+      proposal: >-
+        a LEFT JOIN on animals; the short days rerun; last year's report
+        corrected with the authority, its rerun recommended (spec D277).
+      fix: >-
+        the loaded query counts herd treatments: since the reload, the
+        feeder's days hold every herd treatment under its herd's species;
+        the planted report still wrong, its rerun recommended.
+    sealed_check:
+      script: faults/purpose-herd-use-dropped/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        present from the feeder's first run (02:00) after a day with a herd
+        treatment: T0 23:00 puts that run inside the aging; fixed once a run
+        after the reload has written such a day whole. The players verify a
+        fix by moving feed-antimicrobial-use a few minutes ahead (a day is
+        written once: the days already written stay short, their rerun
+        asked). The planted report is never judged.
+    interactions:
+      - instance: s8
+        kind: conflicts-with
+        note: >-
+          both bite feeders reading the standby: s8 delays every feeder's
+          view by an hour, s3 drops the herd treatments whatever the view;
+          s8 never hides a herd treatment from s3's check (the day is whole
+          an hour later), so s3's witness stands with s8 present or fixed.
+    validators_left_red: []
+
+  # --- s5
+  - instance: s5
+    what: >-
+      portal_animals_scope's owner branch reads any ownership of the asker's,
+      ended or not (its o.until_at IS NULL left out), so a former owner
+      logged into the portal still lists the animals they sold or gave away.
+    why: >-
+      the portal copies every ownership, so every past sale is exposed, not
+      only the day's: a seller reads the new owner's animal and its records
+      since their own ownership began.
+    evidence:
+      - where: node:records
+        source: the portal's policies on portal_animals
+        how: >-
+          psql -d portal -c "SELECT polname, pg_get_expr(polqual, polrelid)
+          FROM pg_policy WHERE polrelid = 'portal_animals'::regclass"
+        shows: the owner branch without until_at IS NULL, the keeper branch with it
+      - where: bastion
+        source: the sales in the portal's copy
+        how: >-
+          psql -h records -d portal -c "SELECT animal_id, owner_id, until_at
+          FROM portal_ownerships WHERE role = 'owner' AND until_at IS NOT NULL
+          ORDER BY until_at DESC LIMIT 5"
+        shows: the former owners' ended rows, each passing the owner branch
+      - where: node:portal-api
+        source: the former owner's listing
+        how: as the former owner, POST /login then GET /animals with the session cookie
+        shows: the animal they sold, listed
+    acceptable:
+      diagnosis: >-
+        names the owner branch of portal_animals_scope as admitting ended
+        ownerships: former owners still see the animals they no longer own.
+      proposal: >-
+        restore o.until_at IS NULL in the owner branch, the keeper branch
+        unchanged; check that the buyer still sees the animal and the seller
+        no longer does; review what former owners read since the change.
+      fix: >-
+        the former owner's GET /animals no longer lists the animal and the
+        buyer's still does.
+    sealed_check:
+      script: faults/security-policy-ownership-end-dropped/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        reads the live policies as gm_check through gm_check_read, with the
+        most recent sale's former owner and buyer as witnesses. Planted three
+        hours before the hand-over (plant_at handover-3h, gmctl inject --at):
+        former owners have had hours, not days, to look.
+    interactions: []
+    validators_left_red: []
+
+  # --- s6
+  - instance: s6
+    what: 'the data register handed out (~/data-register.md) names cold storage, the vault, nowhere: dropped
+      from every entry''s recipients and copies, though records and lab archive their WAL and send a
+      nightly base backup there, and machines its nightly base backup and its old days, so the whole
+      record, the laboratory and the machines reach it.'
+    why: 'a record of processing names every recipient, processors included (GDPR Art 30(1)(d)): an owner''s
+      access request or an inspector''s question answered from it would omit an off-site copy of all
+      the centre''s data.'
+    evidence:
+      - where: bastion
+        source: the data register, ~/data-register.md (and the web front's "Data register")
+        how: grep -n -i 'cold storage' ~/data-register.md
+        shows: nothing; no entry's Shared with or Where names the vault
+      - where: bastion
+        source: records' archive settings and cold storage's manifests
+        how: psql -h records -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source=records"
+        shows: records posts to the vault (vault-post), which lists records' nightly base backups and
+          WAL segments
+      - where: bastion
+        source: cold storage's page (GET /)
+        how: curl -s http://cold-storage:8000/ (the wal chart's columns and table)
+        shows: records' and lab's wal, and the three servers' basebackup shipments, day by day over five
+          weeks
+    acceptable:
+      diagnosis: cold storage, a processor, receives the whole of records and lab (the WAL archive and
+        the nightly base backups) and of machines (its base backups, its old days), and the register
+        names it on no entry; found by reading the register against the archive settings, the crontabs,
+        partners.md, the vault's manifests and page.
+      proposal: 'the corrected entries: each entry held on records, lab or machines names Cold Storage
+        among its recipients (the whole instance, archived; a processor) and the vault among its copies,
+        as register_diff states.'
+    sealed_check:
+      script: faults/governance-register-flow-undeclared/checks/fixed.sh
+      at_handover: 1
+      notes: reads only that the change is present in the served handout; never cleared in play (propose,
+        judged at the final answer against register_diff). Cleared only by regenerating the handout
+        without the instance.
+    interactions:
+      - instance: s2
+        kind: conflicts-with
+        note: 'planted together on the vault (master spec 17.2): with s2 the archive fails silently, but
+          the vault still holds the planted wal and basebackup manifests and the nightly base backups
+          (the crontab''s), so this fault''s witness stands.'
+    validators_left_red: []
+    register_diff:
+      - entry: vet-core-owners
+        field: shared_with
+        true: ['Aldermoor abroad (id, microchip, ueln, passport_number, ear_tag, name, email, phone, owner_id)',
+          'Aldermoor Central (id, microchip, ueln, passport_number, ear_tag, name, email, phone, owner_id)',
+          'Aldermoor South (id, microchip, ueln, passport_number, ear_tag, name, email, phone, owner_id)',
+          'The veterinary authority (id, name, address, country, holding_number, keeper_owner_id, owner_id,
+            animal_id)', 'the back office, records/office (name, address)', 'the owners'' portal, records/portal
+            (id, name, email, phone, animal_id, owner_id, keeper_owner_id, herd_id)', 'Cold Storage (the whole
+            instance, archived), a processor']
+        handed_out: ['Aldermoor abroad (id, microchip, ueln, passport_number, ear_tag, name, email, phone,
+            owner_id)', 'Aldermoor Central (id, microchip, ueln, passport_number, ear_tag, name, email, phone,
+            owner_id)', 'Aldermoor South (id, microchip, ueln, passport_number, ear_tag, name, email, phone,
+            owner_id)', 'The veterinary authority (id, name, address, country, holding_number, keeper_owner_id,
+            owner_id, animal_id)', 'the back office, records/office (name, address)', 'the owners'' portal,
+            records/portal (id, name, email, phone, animal_id, owner_id, keeper_owner_id, herd_id)']
+      - entry: vet-core-owners
+        field: where
+        true: ['`records/clinic` (`owners`, `animals`, `ownerships`, `herds`)', 'the standby `standby`, a
+            streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`owners`, `animals`, `ownerships`, `herds`)', 'the standby `standby`,
+            a streaming replica']
+      - entry: vet-core-staff
+        field: shared_with
+        true: ['The veterinary authority (id, name)', 'the back office, records/office (name)', 'the owners''
+            portal, records/portal (name)', 'Cold Storage (the whole instance, archived), a processor']
+        handed_out: ['The veterinary authority (id, name)', 'the back office, records/office (name)', 'the
+            owners'' portal, records/portal (name)']
+      - entry: vet-core-staff
+        field: where
+        true: ['`records/clinic` (`staff`)', 'the standby `standby`, a streaming replica', 'cold storage (WAL
+            archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`staff`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-core-referrals
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-referrals
+        field: where
+        true: ['`records/clinic` (`referring_practices`, `referring_vets`, `referrals`)', 'the standby `standby`,
+            a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`referring_practices`, `referring_vets`, `referrals`)', 'the standby
+            `standby`, a streaming replica']
+      - entry: vet-core-record
+        field: shared_with
+        true: ['the imaging archive, machines/pacs (animal_id)', 'the owners'' portal, records/portal (animal_id,
+            herd_id, kind, signed_at, diagnoses, admitted_at, discharged_at, outcome)', 'Cold Storage (the
+            whole instance, archived), a processor']
+        handed_out: ['the imaging archive, machines/pacs (animal_id)', 'the owners'' portal, records/portal
+            (animal_id, herd_id, kind, signed_at, diagnoses, admitted_at, discharged_at, outcome)']
+      - entry: vet-core-record
+        field: where
+        true: ['`records/clinic` (`consultations`, `diagnoses`, `procedures`, `requests`, `stays`, `alerts`,
+            `animal_board`, `ops.notifications`)', '`records/office` (`regulatory_submissions`)', 'the standby
+            `standby`, a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`consultations`, `diagnoses`, `procedures`, `requests`, `stays`, `alerts`,
+            `animal_board`, `ops.notifications`)', '`records/office` (`regulatory_submissions`)', 'the standby
+            `standby`, a streaming replica']
+      - entry: vet-core-medicines
+        field: shared_with
+        true: ['the owners'' portal, records/portal (medicine, dose, unit, frequency_hours, days, withdrawal_ends_on)',
+          'Cold Storage (the whole instance, archived), a processor']
+        handed_out: ['the owners'' portal, records/portal (medicine, dose, unit, frequency_hours, days, withdrawal_ends_on)']
+      - entry: vet-core-medicines
+        field: where
+        true: ['`records/clinic` (`prescriptions`, `prescription_lines`, `administrations`, `dispensings`)',
+          '`records/office` (`medicines_register`, `controlled_balances`)', 'the standby `standby`, a streaming
+            replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`prescriptions`, `prescription_lines`, `administrations`, `dispensings`)',
+          '`records/office` (`medicines_register`, `controlled_balances`)', 'the standby `standby`, a streaming
+            replica']
+      - entry: vet-core-exchanges
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-exchanges
+        field: where
+        true: ['`records/clinic` (`exchanges`)', 'the standby `standby`, a streaming replica', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`exchanges`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-housing-care
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-housing-care
+        field: where
+        true: ['`records/clinic` (`housing_placements`, `housing_feeding_plans`, `housing_care_events`, `housing_unit_board`)',
+          'the standby `standby`, a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`housing_placements`, `housing_feeding_plans`, `housing_care_events`,
+            `housing_unit_board`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-scheduling-agenda
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-scheduling-agenda
+        field: where
+        true: ['`records/clinic` (`sched_settings`, `sched_rooms`, `sched_hours`, `sched_machines`, `sched_types`,
+            `sched_bookings`, `sched_allocations`)', 'the standby `standby`, a streaming replica', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`sched_settings`, `sched_rooms`, `sched_hours`, `sched_machines`,
+            `sched_types`, `sched_bookings`, `sched_allocations`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-scheduling-rota
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-scheduling-rota
+        field: where
+        true: ['`records/clinic` (`sched_shifts`, `sched_absences`)', '`records/office` (`working_time_days`,
+            `working_time_months`)', 'the standby `standby`, a streaming replica', 'cold storage (WAL archive,
+            nightly base backup)']
+        handed_out: ['`records/clinic` (`sched_shifts`, `sched_absences`)', '`records/office` (`working_time_days`,
+            `working_time_months`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-scheduling-training
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-scheduling-training
+        field: where
+        true: ['`records/clinic` (`sched_courses`, `sched_sessions`, `sched_trainees`, `sched_enrolments`)',
+          'the standby `standby`, a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`sched_courses`, `sched_sessions`, `sched_trainees`, `sched_enrolments`)',
+          'the standby `standby`, a streaming replica']
+      - entry: vet-lab-orders
+        field: shared_with
+        true: ['The veterinary authority (client_surname, patient_ref)', 'the back office, records/office
+            (patient_ref, client_surname)', 'the owners'' portal, records/portal (animal_id, test, released_at)',
+          'Northfield Veterinary Laboratories (accession, label, test, species, sex, age)', 'Cold Storage
+            (the whole instance, archived), a processor']
+        handed_out: ['The veterinary authority (client_surname, patient_ref)', 'the back office, records/office
+            (patient_ref, client_surname)', 'the owners'' portal, records/portal (animal_id, test, released_at)',
+          'Northfield Veterinary Laboratories (accession, label, test, species, sex, age)']
+      - entry: vet-lab-orders
+        field: where
+        true: ['`lab/lab` (`lab_orders`, `lab_samples`, `lab_order_tests`, `lab_sample_events`)', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`lab/lab` (`lab_orders`, `lab_samples`, `lab_order_tests`, `lab_sample_events`)']
+      - entry: vet-lab-results
+        field: shared_with
+        true: ['The region''s practices (accession, kind, results)', 'the owners'' portal, records/portal
+            (value, flag, unit, low, high)', 'Cold Storage (the whole instance, archived), a processor']
+        handed_out: ['The region''s practices (accession, kind, results)', 'the owners'' portal, records/portal
+            (value, flag, unit, low, high)']
+      - entry: vet-lab-results
+        field: where
+        true: ['`lab/lab` (`lab_results`, `lab_batches`, `lab_qc_runs`, `lab_critical_calls`)', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`lab/lab` (`lab_results`, `lab_batches`, `lab_qc_runs`, `lab_critical_calls`)']
+      - entry: vet-lab-notifications
+        field: shared_with
+        true: ['the back office, records/office (payload)', 'Cold Storage (the whole instance, archived),
+            a processor']
+        handed_out: ['the back office, records/office (payload)']
+      - entry: vet-lab-notifications
+        field: where
+        true: ['`lab/lab` (`lab_notifications`, `ops.notifications`)', 'cold storage (WAL archive, nightly
+            base backup)']
+        handed_out: ['`lab/lab` (`lab_notifications`, `ops.notifications`)']
+      - entry: vet-lab-billing
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-lab-billing
+        field: where
+        true: ['`lab/lab` (`lab_charges`, `lab_prices`, `lab_accounts`)', '`records/office` (`lab_charge_lines`)',
+          'the standby `standby`, a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`lab/lab` (`lab_charges`, `lab_prices`, `lab_accounts`)', '`records/office` (`lab_charge_lines`)',
+          'the standby `standby`, a streaming replica']
+      - entry: vet-machinery-imaging
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-machinery-imaging
+        field: where
+        true: ['`machines/pacs` (`mach_pacs_settings`, `mach_procedures`, `mach_worklist`, `mach_studies`,
+            `mach_series`, `mach_reports`)', cold storage (nightly base backup)]
+        handed_out: ['`machines/pacs` (`mach_pacs_settings`, `mach_procedures`, `mach_worklist`, `mach_studies`,
+            `mach_series`, `mach_reports`)']
+      - entry: vet-machinery-monitoring
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-machinery-monitoring
+        field: where
+        true: ['`machines/vitals` (`mach_vitals_settings`, `mach_census`, `mach_sessions`, `mach_vitals`,
+            `mach_vitals_chart`, `mach_alarms`)', cold storage (nightly base backup)]
+        handed_out: ['`machines/vitals` (`mach_vitals_settings`, `mach_census`, `mach_sessions`, `mach_vitals`,
+            `mach_vitals_chart`, `mach_alarms`)']
+      - entry: vet-machinery-equipment
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-machinery-equipment
+        field: where
+        true: ['`machines/biomed` (`mach_settings`, `mach_machines`, `mach_maintenance`, `mach_downtimes`)',
+          cold storage (nightly base backup)]
+        handed_out: ['`machines/biomed` (`mach_settings`, `mach_machines`, `mach_maintenance`, `mach_downtimes`)']
+      - entry: vet-portal-accounts
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-portal-accounts
+        field: where
+        true: ['`records/portal` (`portal_accounts`, `portal_sessions`)', 'the standby `standby`, a streaming
+            replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/portal` (`portal_accounts`, `portal_sessions`)', 'the standby `standby`, a
+            streaming replica']
+      - entry: vet-portal-copies
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-portal-copies
+        field: where
+        true: ['`records/portal` (`portal_animals`, `portal_ownerships`, `portal_herds`)', 'the standby `standby`,
+            a streaming replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/portal` (`portal_animals`, `portal_ownerships`, `portal_herds`)', 'the standby
+            `standby`, a streaming replica']
+      - entry: vet-portal-documents
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-portal-documents
+        field: where
+        true: ['`records/portal` (`portal_documents`, `portal_views`)', 'the standby `standby`, a streaming
+            replica', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/portal` (`portal_documents`, `portal_views`)', 'the standby `standby`, a streaming
+            replica']
+      - entry: vet-portal-consents
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-portal-consents
+        field: where
+        true: ['`records/portal` (`portal_consent_events`)', 'the standby `standby`, a streaming replica',
+          'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/portal` (`portal_consent_events`)', 'the standby `standby`, a streaming replica']
+      - entry: vet-portal-outbox
+        field: shared_with
+        true: ['The franchise''s messaging service (address, template, name, animal, due_on, link), a processor',
+          'Cold Storage (the whole instance, archived), a processor']
+        handed_out: ['The franchise''s messaging service (address, template, name, animal, due_on, link),
+            a processor']
+      - entry: vet-portal-outbox
+        field: where
+        true: ['`records/portal` (`portal_outbox`)', 'the standby `standby`, a streaming replica', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`records/portal` (`portal_outbox`)', 'the standby `standby`, a streaming replica']
+
+  # --- s7
+  - instance: s7
+    what: records' postgresql.conf sets log_statement = 'all'.
+    why: >-
+      every write of the practice software, its values included, goes into
+      the server log: owners' names, phone numbers and addresses outside the
+      record, against "none in the logs" (vet-core's core rule 10).
+    evidence:
+      - where: node:records
+        source: the server log
+        how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
+        shows: vet_app's writes on owners with names and phone numbers in clear
+      - where: node:records
+        source: /etc/postgresql/postgresql.conf
+        how: grep -n log_statement /etc/postgresql/postgresql.conf
+        shows: log_statement = 'all'
+    acceptable:
+      diagnosis: >-
+        names log_statement = 'all' as writing personal data into the server
+        log, against the business's rule.
+      proposal: >-
+        log_statement none (or ddl) and a reload; the audit need met without
+        values; the files already written purged or kept under the record's
+        rules.
+      fix: log_statement none or ddl in effect, on no role or database writing the record, after a reload.
+    sealed_check:
+      script: faults/governance-statement-log-personal/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        live state: present while log_statement all is in effect on records;
+        fixed after the line is removed and the server reloaded (the files
+        already written stay a finding).
+    interactions:
+      - instance: s2
+        kind: conflicts-with
+        note: >-
+          one file: s2 and s7 are both lines of records' postgresql.conf.
+      - instance: s9
+        kind: conflicts-with
+        note: >-
+          with log_statement = 'all' every ward.board call is already in the
+          log with its unit, so s9's careful step (the parameter logged for
+          vet_display alone) is unneeded while s7 stands; s9's "no
+          instance-wide logging left behind" is met by s7's fix.
+    validators_left_red: []
+
+  # --- s8
+  - instance: s8
+    what: the standby's postgresql.conf sets recovery_min_apply_delay = '1h'.
+    why: >-
+      the reports read the standby an hour behind the record: the 00:30
+      feeder misses the evening after 23:30, every feeder the entries made
+      late for yesterday, and a feeder writes its day once.
+    evidence:
+      - where: node:standby
+        source: the replay position against what was received
+        how: psql -d postgres -c "SELECT pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn(), current_setting('recovery_min_apply_delay')"
+        shows: WAL received ahead of what is replayed, the delay 1h
+      - where: bastion
+        source: a late entry on the record and on the standby
+        how: >-
+          psql -h records -d clinic and psql -h standby -d clinic on the
+          dispensings of yesterday's last hour
+        shows: entries on records not yet on the standby; the register's day (office) without them
+    acceptable:
+      diagnosis: >-
+        names recovery_min_apply_delay on the reports' standby: every commit
+        replayed an hour late, the feeders' days short of the last hour.
+      proposal: >-
+        the delay removed from the reports' standby (a delayed standby, if
+        wanted, one nobody reports from; or point-in-time recovery), and the
+        short days rerun.
+      fix: recovery_min_apply_delay 0 in effect on the standby, reloaded.
+    sealed_check:
+      script: faults/pg-standby-apply-delay/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        live state: present while the standby's recovery_min_apply_delay in
+        effect is not 0; fixed after the line is removed and the standby
+        reloaded, the backlog then replayed at once. Its consequence, the
+        00:30 feeder's (feed-daily-figures) day short of the evening's last
+        hour, shows from the first 00:30 run: T0 23:00 puts it inside the
+        aging.
+    interactions:
+      - instance: s3
+        kind: conflicts-with
+        note: >-
+          both bite feeders reading the standby (s3's note); s8 never hides
+          a herd treatment, so neither masks the other.
+    validators_left_red: []
+
+  # --- s9
+  - instance: s9
+    what: >-
+      unit 7's display (display 65) reads its board about once a second
+      through the ward service, ward.board's statement with its unit fixed,
+      beside the 64 displays' one read a minute each.
+    why: >-
+      the board statement's calls double (about 124 a minute where 64 are
+      due): one faulty box loads the record for nothing, below what
+      saturates the ward's pool, so nothing fails and nobody notices.
+    evidence:
+      - where: bastion
+        source: the record's statement statistics
+        how: >-
+          psql -h records -d postgres -c "SELECT queryid, calls FROM
+          pg_stat_statements WHERE query = 'SELECT * FROM housing_unit_board
+          WHERE unit_id = \$1'", twice a minute apart
+        shows: one queryid, about 124 calls a minute, from ward as vet_display
+      - where: node:records
+        source: the server log, the parameter logged for vet_display alone
+        how: >-
+          as dba, ALTER ROLE vet_display SET log_min_duration_statement = 0,
+          the vet_display sessions terminated, then grep 'Parameters: \$1 ='
+          /var/log/postgresql/postgresql-*.log; the setting reset after
+        shows: "$1 = '7' about once a second, every other unit about once a minute on average"
+      - where: bastion
+        source: the chain unit, display, placement, stay, animal
+        how: >-
+          psql -h records -d clinic: housing_displays WHERE unit_id = 7 AND
+          removed_on IS NULL, housing_placements WHERE unit_id = 7 AND
+          until_at IS NULL, stays, animals
+        shows: display 65's serial, the animal in unit 7
+    acceptable:
+      diagnosis: >-
+        names unit 7's display (its serial, display 65's) reading its board
+        about once a second, the animal it shows, the excess shown against the
+        displays' one read a minute; the parameter logged for vet_display
+        alone and the setting reset; the display's replacement asked of the
+        technician, the firmware being no layer of the players'.
+    sealed_check:
+      script: faults/scheduler-display-refresh-loop/checks/fixed.sh
+      at_handover: 1
+      window: 1m
+      threshold: 80
+      notes: >-
+        reads the board statement's calls twice a minute apart: about 124 a
+        minute while the loop runs, about 64 once the display is replaced
+        (after the game, ward redeployed without the stream). Report only:
+        never cleared in play; the GM never switches the display off during
+        play.
+    interactions:
+      - instance: s7
+        kind: conflicts-with
+        note: >-
+          while s7 stands, log_statement = 'all' already logs the board's
+          parameter, so the players need not set it for vet_display; once
+          s7 is fixed, the careful step applies and its setting is reset
+          after.
+    validators_left_red: []
+
+  # --- s10
+  - instance: s10
+    what: >-
+      lab does not choose the option monitoring, so its cluster was
+      initialised without the role monitoring, the one the exporter logs in
+      as.
+    why: >-
+      the exporter's every login is refused and its metrics read pg_up 0;
+      pgwatch's lab source (pgwatch_instance_up 0) and the health checks'
+      lab instance (CRITICAL, the role monitoring refused) fail too: nobody
+      watches lab, and its empty dashboards read as "nothing to see". One
+      instance covers every monitoring node targeting lab.
+    evidence:
+      - where: node:lab
+        source: the server log
+        how: grep -h monitoring /var/log/postgresql/postgresql-*.log | tail -n 5
+        shows: password authentication failed for user "monitoring", Role "monitoring" does not exist
+      - where: bastion
+        source: the roles of the cluster
+        how: psql -h lab -d postgres -c '\du'
+        shows: no role monitoring
+      - where: node:exporter-lab
+        source: the exporter's metrics
+        how: curl -s localhost:9187/metrics | grep '^pg_up'
+        shows: pg_up 0
+      - where: node:pgwatch
+        source: pgwatch's metrics
+        how: curl -s localhost:9188/metrics | grep pgwatch_instance_up
+        shows: dbname="lab" at 0, the other sources at 1
+      - where: ui:health
+        source: the health checks' page
+        how: the bastion's web front, /health/ (or status.txt beside it)
+        shows: lab's checks CRITICAL, the role monitoring refused
+    acceptable:
+      diagnosis: >-
+        names the missing role monitoring on lab, the node built without the
+        option, as why the exporter reads nothing.
+      proposal: >-
+        the role created as the option creates it (LOGIN, a member of
+        pg_monitor, with the exporter's monitoring password, which the
+        operator holds and the players do not), the option chosen for lab's
+        next build; not the option alone, which creates nothing on the
+        existing cluster.
+    sealed_check:
+      script: faults/pg-monitoring-option-absent/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        fixed once the GM, applying an accepted proposal, has created the
+        role on lab with the game's monitoring_password (read on
+        exporter-lab, a node mounting it); the exporter's pg_up 1 then shows the
+        password right.
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []            # the monitoring breadth is complete by design (master spec
+                                    # 7.4): an exporter per database server, pgwatch, the health
+                                    # checks; lab's gap is s10's, a fault instance
+
+false_alarms:
+  - issue: I2
+    why: >-
+      no fault: the small-animal PCR panel (PCRSA) the lab sends to
+      Northfield has a 96-hour turnaround, and a send-out is due by its
+      packing plus 50 minutes plus that turnaround (lab_send_outs.due_by);
+      the panel answered on its fourth day after it was sent came back
+      before its due_by, within its turnaround (one to five days across the
+      send-outs).
+    evidence:
+      - where: bastion
+        source: lab_send_outs' due_by against answered_at, with the test's turnaround
+        how: >-
+          psql -h lab -d lab -c "SELECT s.id, x.code, x.turnaround_hours,
+          s.sent_at, s.answered_at, s.due_by, s.due_by >= s.answered_at AS
+          in_time FROM lab_send_outs s JOIN lab_order_tests t ON t.id =
+          s.order_test_id JOIN lab_tests x ON x.id = t.test_id WHERE x.code =
+          'PCRSA' AND s.answered_at >= s.sent_at + interval '3 days' AND
+          s.answered_at < s.sent_at + interval '4 days' ORDER BY s.answered_at
+          DESC LIMIT 10"
+        shows: the panel answered on its fourth day, before its due_by (in_time true), its turnaround 96 hours
+    acceptable: >-
+      the players report no fault behind the complaint: the panel was
+      answered within its turnaround (before its due_by), citing
+      lab_send_outs' due_by against answered_at; a proposal to show the
+      vets the expected date is a bonus, never required. A send-out answered
+      after its due_by (about 6 % of the load's) is the external lab's own
+      delay, which the send-outs' chase follows, and not this complaint.

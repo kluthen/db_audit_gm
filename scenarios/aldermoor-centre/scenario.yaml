@@ -1,0 +1,1617 @@
+# aldermoor-centre: the clinic scenario of v0.5 (master spec 17.1; build plan
+# chunk 27). One centre of Aldermoor Veterinary Hospitals, composed of the six
+# clinic domains in the regional-franchise variant, its 25 nodes on two hosts
+# (master spec 14: armenelos and the VPS, the standby and the partners off
+# site), the monitoring breadth (7.4), its nine partners and the owners'
+# traffic on the shared partners' nodes, its sixteen purposes (12.2), its data
+# policy and register. The faults: the test selection but s4 (spec D466), nine
+# faults and the false alarm.
+
+# --- Scenario information --------------------------------------------
+id: aldermoor-centre
+version: 0.1.0
+title: Aldermoor Centre, a veterinary hospital's six systems, two sites and nine partners
+date: 2026-11-12
+origin: gm-designed
+session_length_minutes: 240
+brief: brief.md
+background: >-
+  Aldermoor Veterinary Hospitals is a regional franchise of veterinary
+  hospitals. Its centre at Aldermoor runs a small-animal and farm practice
+  with an emergency service, wards, a laboratory that also serves the
+  region's practices, imaging and monitoring machines and an owners' portal.
+  Its record, wards, agenda, portal and back office live on one PostgreSQL
+  instance, records, streamed to a standby in an off-site room; the
+  laboratory and the machines have instances of their own. Integration jobs
+  talk to the franchise's other centres, its head office and messaging
+  service, an external reference laboratory, the authority and an off-site
+  archive.
+
+# --- Aging and difficulty (v0.3 master spec 6.1, 8, 15.1) ----------------
+aging:
+  minimum: 10h                      # from 23:00: s8's 00:30 feeder, s3's 02:00 feeder, s1's
+                                    # night urgent orders, s5 planted three hours before
+  handover_at: "09:00"
+difficulty:
+  score: 9                          # its nine fault instances (the false alarm counts in none)
+  level: hard
+
+# --- Domains, purposes and governance (v0.5 master spec 6.2, 8.5, 12.2, 13) ---
+domains:
+- id: vet-core
+  variant: regional-franchise
+  at: records/clinic
+- id: vet-housing
+  at: records/clinic
+- id: vet-scheduling
+  at: records/clinic
+- id: vet-lab
+  at: lab/lab
+- id: vet-machinery
+  at:
+    pacs: machines/pacs
+    vitals: machines/vitals
+    biomed: machines/biomed
+- id: vet-portal
+  at: records/portal
+
+purposes:
+- id: vet-lab-centre-orders
+  parts:
+    source: records/clinic
+    target: records/clinic
+    runner: interfaces
+    api: lab-api
+- id: vet-lab-practice-results
+  parts:
+    source: lab/lab
+    target: lab/lab
+    runner: interfaces
+    partner: partners-api
+- id: vet-lab-send-outs
+  parts:
+    source: lab/lab
+    target: lab/lab
+    runner: interfaces
+    partner: partners-api
+- id: vet-centre-exchanges
+  parts:
+    source: records/clinic
+    target: records/clinic
+    runner: interfaces
+    api: clinic-api
+    partner: partners-api
+- id: vet-notifiable-diseases
+  parts:
+    source: records/clinic
+    source_lab: lab/lab
+    target: records/office
+    runner: interfaces
+    runner_reports: backoffice
+    receiver: partners-api
+- id: vet-lab-critical-calls
+  parts:
+    source: lab/lab
+    target: lab/lab
+- id: vet-medicines-registers
+  parts:
+    source: records/clinic
+    target: records/office
+    runner: backoffice
+- id: vet-antimicrobial-use
+  parts:
+    source: records/clinic
+    target: records/office
+    runner: backoffice
+    receiver: partners-api
+- id: vet-head-office-figures
+  parts:
+    source: records/clinic
+    source_lab: lab/lab
+    target: records/office
+    runner: backoffice
+    receiver: partners-api
+- id: vet-lab-statements
+  parts:
+    source: lab/lab
+    target: records/office
+    runner: backoffice
+- id: vet-working-time
+  parts:
+    source: records/clinic
+    target: records/office
+    runner: backoffice
+- id: vet-bookings-sync
+  parts:
+    source: records/clinic
+    target: records/clinic
+    runner: interfaces
+- id: vet-imaging-orders
+  parts:
+    source: records/clinic
+    target: machines/pacs
+    runner: interfaces
+- id: cold-storage-archive
+  parts:
+    source: machines/vitals
+    source_biomed: machines/biomed
+    target: partners-db/partners
+    runner: interfaces
+    partner: partners-api
+- id: vet-portal-release
+  parts:
+    source: records/clinic
+    source_lab: lab/lab
+    target: records/portal
+    runner: interfaces
+- id: vet-portal-messages
+  parts:
+    source: records/portal
+    target: partners-db/partners
+    runner: interfaces
+    partner: partners-api
+
+governance:
+  policy: player/data-policy.md
+  register: player/data-register.md
+  classification: data/classification.yaml
+  classes:
+    personal:
+      locations:
+      - records/clinic
+      - records/office
+      - records/portal
+      - lab/lab
+      - machines/pacs
+      - machines/biomed
+      readers:
+      - housing_app
+      - housing_ward
+      - lab_api
+      - lab_app
+      - lab_dispatch
+      - lab_release
+      - lab_reports
+      - lab_watch
+      - mach_archive
+      - mach_biomed_app
+      - mach_orders
+      - mach_pacs_app
+      - mach_service
+      - office_jobs
+      - office_reader
+      - portal_api
+      - portal_dispatch
+      - portal_housekeeping
+      - portal_sync
+      - sched_app
+      - sched_interfaces
+      - sched_reports
+      - vet_app
+      - vet_exchange
+      - vet_interfaces
+      - vet_lookup
+      - vet_portal_sync
+      - vet_reports
+      outbound:                     # fields: the address and the payloads' keys (vet-portal's
+                                    # derivation and MS4: template, the recipient's name, the
+                                    # animal's name, a reminder's due date, the link; rule 7, D191)
+      - to: messaging
+        outbox: records/portal/portal_outbox
+        fields: [address, template, name, animal, due_on, link]
+    customer-linked:
+      locations:
+      - records/clinic
+      - records/portal
+      - machines/vitals
+      readers:
+      - housing_app
+      - housing_ward
+      - mach_archive
+      - mach_orders
+      - mach_vitals_app
+      - portal_api
+      - portal_dispatch
+      - portal_housekeeping
+      - portal_sync
+      - sched_app
+      - sched_interfaces
+      - sched_reports
+      - vet_app
+      - vet_display
+      - vet_exchange
+      - vet_interfaces
+      - vet_lookup
+      - vet_portal_sync
+      - vet_reports
+    internal:
+      locations: any
+
+# --- Third parties (v0.5 master spec 6.2, 10): the nine partners; the owners'
+# traffic, the tenth hostname owners, comes with vet-portal's partners folder
+third_parties:
+- id: northfield-lab
+  name: Northfield Veterinary Laboratories
+  stands_for: the external reference laboratory the lab sends what it cannot run
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: northfield-lab
+  player_doc: player/partners.md#northfield-veterinary-laboratories
+  credentials:
+  - xlab_customer
+- id: regional-practices
+  name: The region's practices
+  stands_for: the 120 referring practices with an account at the lab
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: practices
+  player_doc: player/partners.md#the-regions-practices
+  credentials:
+  - practices_customer
+- id: aldermoor-central
+  name: Aldermoor Central
+  stands_for: the franchise's central national centre (site ALD-C)
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: aldermoor-central
+  player_doc: player/partners.md#aldermoor-central
+  credentials:
+  - centres_customer
+- id: aldermoor-south
+  name: Aldermoor South
+  stands_for: the franchise's southern national centre (site ALD-S)
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: aldermoor-south
+  player_doc: player/partners.md#aldermoor-south
+- id: aldermoor-abroad
+  name: Aldermoor abroad
+  stands_for: the franchise's three centres abroad, reached as one (sites ALD-BE, ALD-DE, ALD-LU)
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: aldermoor-abroad
+  player_doc: player/partners.md#aldermoor-abroad
+- id: head-office
+  name: The franchise's head office
+  stands_for: the regional franchise's head office, receiving each centre's monthly activity figures
+  role: outbound
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: head-office
+  player_doc: player/partners.md#the-franchises-head-office
+  credentials:
+  - headoffice_customer
+- id: messaging
+  name: The franchise's messaging service
+  stands_for: the franchise's e-mail and text-message service, which delivers the portal's invitations,
+    notices and reminders
+  role: outbound
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: messaging
+  player_doc: player/partners.md#the-franchises-messaging-service
+  credentials:
+  - messaging_customer
+- id: cold-storage
+  name: Cold Storage
+  stands_for: 'an off-site archive service, the vault: the WAL archive, the nightly base backups and the
+    machines'' shipped days'
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: cold-storage
+  player_doc: player/partners.md#cold-storage
+- id: authority
+  name: The veterinary authority
+  stands_for: the national veterinary services, receiving the notifications of listed diseases and the
+    yearly antimicrobial-use report
+  role: outbound
+  nodes:
+  - partners-api
+  - partners-backend
+  - partners-db
+  hostname: authority
+  player_doc: player/partners.md#the-veterinary-authority
+  credentials:
+  - authority_customer
+
+# --- Topology (master spec 14: 25 nodes) -------------------------------
+networks:
+- name: backend
+  description: 'the clinic''s one network: every node, the players'' SSH and SQL sessions, the partners''
+    calls'
+nodes:
+- name: bastion
+  brick:
+    id: bastion
+    version: 0.5.0
+  role: bastion
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters:
+    web_routes:
+      grafana: grafana:3000
+      prometheus: prometheus:9090
+      health: health:8080
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 256M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 256M
+  published_ports:
+  - port: 22
+    default: 2222
+  - port: 8080
+    default: 8080
+  seed_files:
+    README.md: player/README.md
+    story.md: player/story.md
+    issues.md: player/issues.md
+    data-policy.md: player/data-policy.md
+    data-register.md: player/data-register.md
+    partners.md: player/partners.md
+  knobs: []
+- name: records
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters:
+    vault_target: cold-storage:8000
+    vault_credential: cold_storage
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/records/postgresql.conf
+    pg_hba.conf: nodes/records/pg_hba.conf
+    crontab: nodes/records/crontab
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  data:
+    file: data/records.sql
+    databases:
+    - name: jobs
+      owner: postgres
+      tables:
+      - name: cron.job
+        description: pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *),
+          scheduled by load-data after the part's load, in portal, as portal_housekeeping.
+    - name: office
+      owner: office
+      tables:
+      - name: runs
+        description: the back office's run ledger, one row a run of its jobs that acted (a periodic job
+          on a date not its own writes none)
+      - name: regulatory_submissions
+        description: the copies of the regulatory submissions sent, here the yearly antimicrobial-use
+          reports (kind amu-report)
+      - name: medicines_register
+        description: the medicines register, one line a supply (a dispensing or a dose given) of a local
+          day, fed at 01:30 for yesterday
+      - name: controlled_movements
+        description: the controlled drugs' register, one line a movement of a controlled batch of a local
+          day, fed at 01:45
+      - name: register_extracts
+        description: the month's extract per product (lines, quantity, an md5 of its lines), closed on
+          the 1st at 03:00
+      - name: controlled_balances
+        description: each controlled batch's month (opening, received, moved, closing, signed by the vet),
+          on the 1st at 03:15
+      - name: controlled_inventories
+        description: the yearly inventory of the controlled batches, on 1 January at 03:30
+      - name: antimicrobial_use
+        description: the antimicrobials used per local day, species and ATCvet code (doses, dispensings,
+          quantity, animals and herds treated), fed at 02:00
+      - name: amu_reports
+        description: last year's report per species due, summed from the daily rows, sent on 15 January
+          at 04:00, its reference or its escalation
+      - name: working_time_days
+        description: each staff member's local day (shifts, planned and clocked hours, night hours, call-outs),
+          fed at 09:30 for yesterday
+      - name: rest_breaches
+        description: each shift begun after a rest shorter than the minimum, from the day's clocked shifts
+      - name: working_time_months
+        description: each staff member's month (hours, night hours, call-outs, breaches, the four months'
+          weekly average), on the 1st at 05:00
+      - name: daily_figures
+        description: the centre's activity per local day, section and measure (consultations, admissions,
+          discharges, the stays and housing units at midnight, new owners and animals, the lab's tests
+          and turnaround), fed at 00:30
+      - name: monthly_figures
+        description: the month's figures per section and measure, summed from the days, sent to the head
+          office from the 1st at 05:00, its reference or its escalation on the 5th
+      - name: lab_charge_lines
+        description: the lab's charges to the practices made billable or voided per local day (order,
+          test, kind, amount, the practice's patient reference and client surname), fed at 02:30
+      - name: lab_statements
+        description: each practice account's monthly statement (billable less voids, the volume discount's
+          bracket, the amount due), on the 1st at 04:00
+  options:
+  - monitoring
+  crontab_roles: []
+- name: standby
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/standby/postgresql.conf
+    pg_hba.conf: nodes/standby/pg_hba.conf
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  standby_of: records
+  options:
+  - monitoring
+- name: lab
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters:
+    vault_target: cold-storage:8000
+    vault_credential: cold_storage
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/lab/postgresql.conf
+    pg_hba.conf: nodes/lab/pg_hba.conf
+    crontab: nodes/lab/crontab
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  crontab_roles: []
+- name: machines
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters:
+    vault_target: cold-storage:8000
+    vault_credential: cold_storage
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/machines/postgresql.conf
+    pg_hba.conf: nodes/machines/pg_hba.conf
+    crontab: nodes/machines/crontab
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 192MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 32MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 128MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 20
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  data:
+    file: data/machines.sql
+    databases:
+    - name: jobs
+      owner: postgres
+      tables:
+      - name: cron.job
+        description: pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions,
+          events-partitions), scheduled by load-data after the part's loads, each as mach_maint.
+  options:
+  - monitoring
+  crontab_roles: []
+- name: pms
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 192M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/pms/queries.yaml
+    jobs.yaml: nodes/pms/jobs.yaml
+    schedule.yaml: nodes/pms/schedule.yaml
+  knobs: []
+- name: lis
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 192M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/lis/queries.yaml
+    jobs.yaml: nodes/lis/jobs.yaml
+    schedule.yaml: nodes/lis/schedule.yaml
+    scripts/: nodes/lis/scripts/
+  knobs: []
+- name: ward
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 192M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/ward/queries.yaml
+    jobs.yaml: nodes/ward/jobs.yaml
+    schedule.yaml: nodes/ward/schedule.yaml
+  knobs: []
+- name: equipment
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 192M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/equipment/queries.yaml
+    jobs.yaml: nodes/equipment/jobs.yaml
+    schedule.yaml: nodes/equipment/schedule.yaml
+    scripts/: nodes/equipment/scripts/
+  knobs: []
+- name: interfaces
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: transformer
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 192M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/interfaces/queries.yaml
+    jobs.yaml: nodes/interfaces/jobs.yaml
+    schedule.yaml: nodes/interfaces/schedule.yaml
+    scripts/: nodes/interfaces/scripts/
+  knobs: []
+- name: backoffice
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: transformer
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 256M
+    reservations:
+      cpu: 0.1
+      memory: 192M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/backoffice/queries.yaml
+    jobs.yaml: nodes/backoffice/jobs.yaml
+    schedule.yaml: nodes/backoffice/schedule.yaml
+    scripts/: nodes/backoffice/scripts/
+  knobs: []
+- name: clinic-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/clinic-api/api.yaml
+    routes/: nodes/clinic-api/routes/
+    db/: nodes/clinic-api/db/
+  knobs: []
+- name: lab-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/lab-api/api.yaml
+    routes/: nodes/lab-api/routes/
+    db/: nodes/lab-api/db/
+  knobs: []
+- name: portal-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/portal-api/api.yaml
+    routes/: nodes/portal-api/routes/
+    db/: nodes/portal-api/db/
+  knobs: []
+- name: prometheus
+  brick:
+    id: prometheus
+    version: 0.2.1
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters:
+    node_health:
+      bastion: default
+      records: default
+      standby: default
+      lab: default
+      machines: default
+      pms: default
+      lis: default
+      ward: default
+      equipment: default
+      interfaces: default
+      backoffice: default
+      clinic-api: default
+      lab-api: default
+      portal-api: default
+      prometheus: default
+      grafana: default
+      exporter-records: default
+      exporter-standby: default
+      exporter-lab: default
+      exporter-machines: default
+      pgwatch: default
+      health: default
+      partners-api: default
+      partners-backend: default
+      partners-db: default
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 384M
+    reservations:
+      cpu: 0.1
+      memory: 160M
+      disk: 512M
+  published_ports: []
+  seed_files:
+    prometheus.yml: nodes/prometheus/prometheus.yml
+  knobs: []
+- name: grafana
+  brick:
+    id: grafana
+    version: 0.3.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 384M
+    reservations:
+      cpu: 0.1
+      memory: 272M
+      disk: 256M
+  published_ports: []
+  seed_files:
+    datasources.yaml: nodes/grafana/datasources.yaml
+    dashboards.yaml: nodes/grafana/dashboards.yaml
+    node-health.json: nodes/grafana/node-health.json
+    postgresql.json: nodes/grafana/postgresql.json
+    pgwatch.json: nodes/grafana/pgwatch.json
+    alert-rules.yaml: nodes/grafana/alert-rules.yaml
+  knobs: []
+- name: exporter-records
+  brick:
+    id: postgres-exporter
+    version: 0.2.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.05
+      memory: 48M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    exporter.conf: nodes/exporter-records/exporter.conf
+  knobs: []
+- name: exporter-standby
+  brick:
+    id: postgres-exporter
+    version: 0.2.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.05
+      memory: 48M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    exporter.conf: nodes/exporter-standby/exporter.conf
+  knobs: []
+- name: exporter-lab
+  brick:
+    id: postgres-exporter
+    version: 0.2.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.05
+      memory: 48M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    exporter.conf: nodes/exporter-lab/exporter.conf
+  knobs: []
+- name: exporter-machines
+  brick:
+    id: postgres-exporter
+    version: 0.2.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.05
+      memory: 48M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    exporter.conf: nodes/exporter-machines/exporter.conf
+  knobs: []
+- name: pgwatch
+  brick:
+    id: pgwatch
+    version: 0.1.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    sources.yaml: nodes/pgwatch/sources.yaml
+  knobs: []
+- name: health
+  brick:
+    id: health-check
+    version: 0.1.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    health.yaml: nodes/health/health.yaml
+    crontab: nodes/health/crontab
+    scripts/: nodes/health/scripts/
+  crontab_roles: []
+  knobs: []
+- name: partners-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: no-access
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 128M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/partners-api/api.yaml
+    routes/: nodes/partners-api/routes/
+    db/: nodes/partners-api/db/
+  knobs: []
+- name: partners-backend
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: no-access
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/partners-backend/queries.yaml
+    jobs.yaml: nodes/partners-backend/jobs.yaml
+    schedule.yaml: nodes/partners-backend/schedule.yaml
+  knobs: []
+- name: partners-db
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: no-access
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 256M
+    reservations:
+      cpu: 0.25
+      memory: 256M
+      disk: 2G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/partners-db/postgresql.conf
+    pg_hba.conf: nodes/partners-db/pg_hba.conf
+  knobs:
+  - setting: shared_buffers
+    initial: 32MB
+    envelope:
+      min: 32MB
+      max: 64MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 16MB
+  - setting: maintenance_work_mem
+    initial: 32MB
+    envelope:
+      min: 16MB
+      max: 64MB
+  - setting: max_connections
+    initial: 40
+    envelope:
+      min: 20
+      max: 60
+  - setting: max_wal_size
+    initial: 256MB
+    envelope:
+      min: 64MB
+      max: 512MB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  data:
+    file: data/partners-db.sql
+    databases:
+    - name: partners
+      owner: postgres
+      tables:
+      - name: authority.amu_reports
+        description: the authority's stub, one row a yearly report acknowledged (its key, its reference,
+          the body as first acknowledged)
+      - name: authority.amu_report_calls
+        description: every call to the authority's reports endpoint, its number and the status answered
+          (one in fifty 503)
+      - name: authority.state
+        description: the authority's stub's state (delay_ms 0, fail_one_in 50)
+      - name: headoffice.figures
+        description: the head office's stub, one row a month's figures acknowledged (its key, its reference,
+          the body as first acknowledged)
+      - name: headoffice.figure_calls
+        description: every call to the head office's figures endpoint, its number and the status answered
+          (one in fifty 503)
+      - name: headoffice.state
+        description: the head office's stub's state (delay_ms 0, fail_one_in 50)
+      - name: centres.exchanges
+        description: the other centres' stub, one row an exchange a centre holds, the history's open ones
+          planted (its fragments left out)
+      - name: xlab.orders
+        description: the external lab's stub, one row a send-out it holds, the history's open ones planted
+          (its fragments left out)
+      - name: practices.orders
+        description: the practices' stub, one row an order posted to lab-api, the history's open ones
+          planted (their fragments left out)
+flows:
+- from: bastion
+  to: records
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: standby
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: lab
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: machines
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: pms
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: lis
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: ward
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: equipment
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: interfaces
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: backoffice
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: clinic-api
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: lab-api
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: portal-api
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: prometheus
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: grafana
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: pgwatch
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: health
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: pms
+  to: records
+  what: the practice software's record, agenda, ward screens and portal desk
+  how: postgresql 5432
+  cadence: continuous
+- from: ward
+  to: records
+  what: 'the ward service: stays, boxes and the wards'' displays'' boards'
+  how: postgresql 5432
+  cadence: continuous
+- from: lis
+  to: lab
+  what: the laboratory information system
+  how: postgresql 5432
+  cadence: continuous
+- from: equipment
+  to: machines
+  what: the machines' studies, monitors' readings and biomedical events
+  how: postgresql 5432
+  cadence: continuous
+- from: interfaces
+  to: lab-api
+  what: the centre's lab orders and their results
+  how: http 8000
+  cadence: every few minutes
+- from: interfaces
+  to: records
+  what: the integration jobs' reads and writes on clinic and portal
+  how: postgresql 5432
+  cadence: every few minutes
+- from: interfaces
+  to: lab
+  what: the send-outs, the practices' results, the portal's lab results
+  how: postgresql 5432
+  cadence: every few minutes
+- from: interfaces
+  to: machines
+  what: the imaging orders; the day partitions shipped to the vault
+  how: postgresql 5432
+  cadence: every few minutes, nightly
+- from: interfaces
+  to: partners-api
+  what: 'the partners'' calls: the other centres, the external lab, the practices, the authority, the
+    messaging service, cold storage'
+  how: http 8000
+  cadence: every few minutes
+- from: partners-api
+  to: lab-api
+  what: the practices' orders and the external lab's results
+  how: http 8000
+  cadence: continuous
+- from: partners-api
+  to: clinic-api
+  what: the other centres' exchanges
+  how: http 8000
+  cadence: continuous
+- from: partners-api
+  to: portal-api
+  what: the owners' browsers on the portal
+  how: http 8000
+  cadence: continuous
+- from: records
+  to: standby
+  what: streaming replication
+  how: postgresql 5432 (replication)
+  cadence: continuous
+- from: records
+  to: partners-api
+  what: WAL segments and the nightly base backup to cold storage
+  how: http 8000
+  cadence: each segment, nightly
+- from: lab
+  to: partners-api
+  what: WAL segments and the nightly base backup to cold storage
+  how: http 8000
+  cadence: each segment, nightly
+- from: machines
+  to: partners-api
+  what: the nightly base backup to cold storage
+  how: http 8000
+  cadence: nightly
+- from: backoffice
+  to: standby
+  what: the reports' reads of the record
+  how: postgresql 5432
+  cadence: nightly and monthly
+- from: backoffice
+  to: records
+  what: the back office's writes in office
+  how: postgresql 5432
+  cadence: nightly and monthly
+- from: backoffice
+  to: lab
+  what: the lab's statements and figures
+  how: postgresql 5432
+  cadence: nightly and monthly
+- from: backoffice
+  to: partners-api
+  what: the head office's figures and the authority's yearly report
+  how: http 8000
+  cadence: monthly, yearly
+- from: prometheus
+  to: exporter-records
+  what: metrics scrape
+  how: http 9187
+  cadence: every 15s
+- from: prometheus
+  to: exporter-standby
+  what: metrics scrape
+  how: http 9187
+  cadence: every 15s
+- from: prometheus
+  to: exporter-lab
+  what: metrics scrape
+  how: http 9187
+  cadence: every 15s
+- from: prometheus
+  to: exporter-machines
+  what: metrics scrape
+  how: http 9187
+  cadence: every 15s
+- from: exporter-records
+  to: records
+  what: statistics queries as monitoring
+  how: postgresql 5432
+  cadence: every 15s
+- from: exporter-standby
+  to: standby
+  what: statistics queries as monitoring
+  how: postgresql 5432
+  cadence: every 15s
+- from: exporter-lab
+  to: lab
+  what: statistics queries as monitoring
+  how: postgresql 5432
+  cadence: every 15s
+- from: exporter-machines
+  to: machines
+  what: statistics queries as monitoring
+  how: postgresql 5432
+  cadence: every 15s
+- from: pgwatch
+  to: records
+  what: pgwatch's metrics as monitoring
+  how: postgresql 5432
+  cadence: every minute
+- from: health
+  to: records
+  what: check_postgres as monitoring
+  how: postgresql 5432
+  cadence: every five minutes
+- from: grafana
+  to: prometheus
+  what: dashboards' queries
+  how: http 9090
+  cadence: on view
+- from: partners-backend
+  to: partners-db
+  what: the partners' state
+  how: postgresql 5432
+  cadence: continuous
+- from: partners-api
+  to: partners-db
+  what: the partners' state
+  how: postgresql 5432
+  cadence: continuous
+
+# --- Incidents, flaws and defects (master spec 17.2: the test selection but s4,
+# spec D466) ---
+fault_instances:
+- id: s1
+  fault:
+    id: purpose-urgent-priority-dropped
+    version: 0.1.0
+  node: interfaces
+  parameters: {}
+  visibility: known
+- id: s2
+  fault:
+    id: pg-archive-command-silent
+    version: 0.1.0
+  node: records
+  parameters: {}
+  visibility: hidden
+- id: s3
+  fault:
+    id: purpose-herd-use-dropped
+    version: 0.1.0
+  node: backoffice
+  parameters:
+    target_node: records
+  visibility: hidden
+- id: s5
+  fault:
+    id: security-policy-ownership-end-dropped
+    version: 0.1.0
+  node: records
+  parameters:
+    database: portal
+  visibility: hidden
+  plant_at: handover-3h
+- id: s6
+  fault:
+    id: governance-register-flow-undeclared
+    version: 0.1.0
+  node: bastion
+  parameters:
+    recipient: Cold Storage
+  visibility: hidden
+- id: s7
+  fault:
+    id: governance-statement-log-personal
+    version: 0.1.0
+  node: records
+  parameters: {}
+  visibility: hidden
+- id: s8
+  fault:
+    id: pg-standby-apply-delay
+    version: 0.1.0
+  node: standby
+  parameters: {}
+  visibility: hidden
+- id: s9
+  fault:
+    id: scheduler-display-refresh-loop
+    version: 0.1.0
+  node: ward
+  parameters:
+    unit: 7
+  visibility: hidden
+- id: s10
+  fault:
+    id: pg-monitoring-option-absent
+    version: 0.1.0
+  node: lab
+  parameters: {}
+  visibility: hidden
+
+issues:
+- id: I1
+  complaint: 'The emergency team is furious: blood gases and other urgent tests we order at night come
+    back hours late, as if the lab only looked at them on the pathologist''s morning round. It started
+    a while ago and nobody can tell us why. Please find what is wrong and fix it.'
+  expected_resolution: fix
+  covers:
+  - s1
+- id: I2
+  complaint: 'The external lab is slow: the small-animal PCR panel we sent out came back only on its fourth
+    day. Is something wrong with the send-outs?'
+  expected_resolution: report
+  covers: []
+
+# --- Host topology it was designed for (master spec 14) --------------
+designed_for:
+  platform: swarm
+  hosts:
+  - name: armenelos
+    cpu: 4
+    memory: 4G
+    disk: 20G
+  - name: vps
+    cpu: 2
+    memory: 4G
+    disk: 10G
+  placement:
+    bastion: armenelos
+    records: armenelos
+    standby: vps
+    lab: armenelos
+    machines: armenelos
+    pms: armenelos
+    lis: armenelos
+    ward: armenelos
+    equipment: armenelos
+    interfaces: armenelos
+    backoffice: vps
+    clinic-api: armenelos
+    lab-api: armenelos
+    portal-api: armenelos
+    prometheus: armenelos
+    grafana: vps
+    exporter-records: armenelos
+    exporter-standby: vps
+    exporter-lab: armenelos
+    exporter-machines: armenelos
+    pgwatch: armenelos
+    health: vps
+    partners-api: vps
+    partners-backend: vps
+    partners-db: vps

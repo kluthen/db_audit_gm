@@ -5021,7 +5021,8 @@ class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
         shutil.copytree(FIXTURE_CLINIC_LOAD, self.scenario)
 
     def test_a_fixture_without_a_register_accepted(self):
-        self.assertNotIn("governance", self.load().data)
+        # governance: since chunk 27 (the clinic's), without its register
+        self.assertNotIn("register", self.load().data["governance"])
 
     def test_a_played_scenario_without_one_refused(self):
         self.edit_yaml("scenario.yaml", lambda d: d.update(id="clinic-load"))
