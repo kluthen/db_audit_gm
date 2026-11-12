@@ -7601,3 +7601,58 @@ play (D467). **W5 item 1's "`-routine`" wording**: no spec text carries
 it (master spec 17.3 and chunk 22 already read "routine-posted"); W5-a's
 correction stands, nothing for G19. **The README without the coherence
 result** (D468) joins G19 for formats.md.
+
+### Chunk 25 merged (c8bd8ab), 2026-11-12
+
+Owner rotated on the owner's request at WIP `58cb77d` (all built, three
+short tests passed); the driver squashed it into `1c5a880` and merged
+(`c8bd8ab`), resolving the three shared lists after chunk 24 (root
+README 39 faults; `postgres` gm.md's v0.5-only sentence and rows s5,
+s10 after s3, s7, s8; `scheduler` gm.md's row s9 after s3). Unit suite
+1270 OK, 2 skipped on the merge. spec-writer's plan v18 commit landed
+while the merge was staged and took it in; the driver split it back
+(merge `c8bd8ab`, then plan v18 `40b097b`, the same tree).
+Runs: s5 `security-policy-ownership-end-dropped` on the new
+fixture-portal-scope 20/20 (374 s); s9 `scheduler-display-refresh-loop`
+planted on fixture-housing 23/23 (683 s); s10
+`pg-monitoring-option-absent` on the new fixture-lab 19/19 (21 s).
+**W5-d, as built**: s5 security, medium, state after the data load on
+`records`, `postgres` 0.5.0 only, parameter `database` (`portal`),
+`inject/10-drop-ownership-end.sh` (`ALTER POLICY` as `postgres`,
+unseen), resolutions report/propose/fix; the sealed check needs
+`gm_check_read` on `portal_animals` and `portal_ownerships` (else 2),
+evaluates the policies binding `portal_api` for the latest ended
+owner's former owner and the current owner (`portal_keeper_granted`
+swapped for a session-local false), 1 if the former owner passes, RLS
+doesn't bind, or the current owner fails, 3 with no ended ownership;
+chunk 27 plants it three hours before hand-over with `inject --at`. s9
+performance, low, seed-file on `ward`, `scheduler` 0.3.0, parameters
+`unit` (required), `rate` (`3600/h`), `db_node` (`records`), `database`
+(`clinic`); two seed changes in `compose/ward/` (`ward.board-loop`,
+`ward.board`'s SQL with the unit fixed, and a flat stream on
+`ward-board`); report only; behavioural check over
+`pg_stat_statements` (window 1m, threshold 80, it sleeps the window);
+the fixture's unit 7, display 65. s10 monitoring, low, topology
+(`option_absent: monitoring`), `postgres` 0.5.0 only, report/propose
+(D462); the check needs `monitoring` LOGIN with `pg_monitor`; the GM's
+fix reads the exporter's `monitoring_password` and creates the role
+unseen. Deviations from W5 item 4 (the code wins): fixture-portal-scope
+composes vet-lab at `records/lab` (the portal's derivation needs it);
+no weekday-morning T0 there (no scheduler node; `cron.timezone 'UTC'`);
+s9 cleared by a `ward` redeploy with the stream removed (its schedule is
+a read-only config); s9's two optional parameters. Notes, no plan
+change: `ward.board`'s unit is random, so "each display once a minute"
+is an average (s9's wording corrected); with
+`log_min_duration_statement = 0` each extended-protocol call logs its
+parameter twice. Risk: s5's check reads deparsed policy text (a wrapper
+around `portal_keeper_granted` makes it exit 2, not misjudge).
+
+### Plan v18 received; chunk 27 dispatched, 2026-11-12
+
+spec-writer settled the pre-27 points (`40b097b`): D466 the clinic
+leaves s4 out (the GM's selection: nothing in the clinic answers a post
+after the runner's timeout, so s4 would read 3 at hand-over), nine
+faults and fa; D467 the stubs' counters a known v0.5 limit, O249; D468
+the README without the coherence result, into G19; the "-routine"
+wording needed no change. Nothing for the owner. All nine other chunks
+merged; chunk 27 dispatched on its v18 text.

@@ -2097,7 +2097,8 @@ Architecture capture: W5. As built: W5-c.
 
 ### Chunk 25 — The scope faults: s5, s9 and s10
 
-Status: planned
+Status: merged (w5, c8bd8ab)
+Record: 1c5a880 (the WIP squashed), merge c8bd8ab (three shared lists resolved after chunk 24: 39 faults); s5 fixture-portal-scope 20/20 (374 s), s9 planted on fixture-housing 23/23 (683 s), s10 fixture-lab 19/19 (21 s); unit suite 1270 OK on the merge; fixture-portal-scope composes vet-lab for the portal's derivation, s9 cleared by redeploying `ward` (W5-d)
 Wave: 5
 Depends on: chunks 6, 14 and 16 (waves 2 and 3); chunk 32 (wave 4);
 chunk 36 (in wave: s10 only, its format check and fixture, spec D459)
