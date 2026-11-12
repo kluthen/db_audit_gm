@@ -1,13 +1,16 @@
 #!/bin/sh
-# Short test of the archive fixture (v0.5 build plan, chunk 11b; master spec
-# 10.4, 11.2; cold-storage.md 3; capture W1 item 6, W2 item 6, W2-f; spec
-# D356): cold storage, the vault, on the partners' shared nodes, fed by
-# records' archive_command and nightly base backup through postgres 0.5.0's
-# vault-post. On one host, about ten minutes.
+# Short test of the archive fixture (v0.5 build plan, chunks 11b and 23;
+# master spec 10.4, 11.2; cold-storage.md 3; capture W1 item 6, W2 item 6,
+# W2-f, W5 item 2; spec D356): cold storage, the vault, on the partners'
+# shared nodes, fed by records' archive_command and nightly base backup
+# through postgres 0.5.0's vault-post. The fixture unfaulted (its two faults,
+# s2 and s6, are run-planted-test.sh's). On one host, about thirteen minutes
+# (vet-core's load about three).
 #
 # On a copy of tools/tests/fixtures/fixture-archive (bastion 0.5.0; records:
 # postgres 0.5.0 archiving to cold-storage:8000 with the credential
-# cold_storage; partners-api: api 0.1.0 serving partners/coldstore/ under
+# cold_storage, vet-core's record in clinic, the filler in fill;
+# partners-api: api 0.1.0 serving partners/coldstore/ under
 # cold-storage; partners-backend: scheduler 0.3.0; partners-db: postgres
 # 0.5.0 with partners/shared/ and coldstore's data and planted manifests):
 #   fit (the laptop playground, 2 CPU / 4G / 8G) -> render -> deploy, then:
@@ -16,7 +19,8 @@
 #   - the caller first: a segment switched on records before the vault's
 #     database is loaded fails honestly (the vault answers 503, vault-post's
 #     reason in the server log, the segment kept), and ships on the
-#     archiver's retry once load-data has run;
+#     archiver's retry once load-data has run (vet-core's load archived
+#     after it: the archiver past it);
 #   - load-data -> inject -> start-load (T0): the planted manifests, the 35
 #     days before T0's day for records, wal and basebackup;
 #   - a switched segment yields a manifest naming records (wal, 16 MB, rows
@@ -119,10 +123,12 @@ rsql() { docker exec -u postgres "$(ctr records)" psql -XAtq -d "$1" -c "$2"; }
 dbsql() { docker exec -u postgres "$(ctr partners-db)" psql -XAtq -d "$1" -c "$2"; }
 archiver() { rsql postgres "select coalesce(last_archived_wal, '-') || ' ' || failed_count || ' ' || coalesce(last_failed_wal, '-') from pg_stat_archiver"; }
 switch_wal() { rsql postgres "select pg_logical_emit_message(false, 'short-test', repeat('x', 1000)); select pg_walfile_name(pg_switch_wal())" | tail -n 1; }
-wait_archived() {  # wait_archived <segment> <seconds>
+wait_archived() {  # wait_archived <segment> <seconds>: the archiver at or past it (names sort in order)
     k=0
     while [ "$k" -lt "$2" ]; do
-        case $(archiver 2>/dev/null) in "$1 "*) return 0 ;; esac
+        last=$(archiver 2>/dev/null | cut -d' ' -f1)
+        case $last in -|'') ;; *)
+            [ "$(printf '%s\n%s\n' "$1" "$last" | sort | tail -n 1)" = "$last" ] && return 0 ;; esac
         sleep 2; k=$((k + 2))
     done
     return 1
@@ -295,8 +301,10 @@ sed "s/^30 3 \* \* \* /$M $H * * * /" "$HERE/nodes/records/crontab" | docker exe
     && pass "records: the base-backup job moved to $H:$(printf %02d "$M") UTC" || fail "moving the base-backup job"
 NAME="records-$(date -u -d "@$at" +%Y%m%dT%H%MZ)"
 k=0
-while [ "$k" -lt 240 ] && [ -z "$(manifest "$NAME")" ]; do sleep 3; k=$((k + 3)); done
+while [ "$k" -lt 600 ] && [ -z "$(manifest "$NAME")" ]; do sleep 3; k=$((k + 3)); done
 w=$(manifest "$NAME")
+[ -n "$w" ] && info "the base backup's manifest $k s after the wait began (vet-core's clinic included)" \
+    || info "base backup diagnostics: $(cx records sh -c 'ls -la /run/tmp; ps -eo pid,etime,args | grep -E "pg_basebackup|vault-post" | grep -v grep; tail -n 3 /var/log/postgresql/cron/basebackup.log' 2>&1 | tr '\n' ';')"
 case $w in "basebackup|records|$NAME|1|1|"*"|$TODAY|$TODAY") pass "the base backup's manifest names records: $w" ;;
     *) fail "no base backup manifest $NAME: [$w] $(cx records cat /var/log/postgresql/cron/basebackup.log 2>&1 | tail -n 2)" ;; esac
 size=$(printf '%s' "$w" | cut -d'|' -f6)

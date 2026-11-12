@@ -6,7 +6,10 @@ coldstore/` cold storage's stub; the GM copies them into a scenario, and
 `fixture-partners` and `fixture-archive` are such copies. These tests keep
 the copies equal to the catalogue, load and render both fixtures, and read
 cold storage's page code with the brick's imports stood in (the host has
-neither FastAPI nor psycopg; the fixtures' short tests run it for real)."""
+neither FastAPI nor psycopg; the fixtures' short tests run it for real).
+The archive fixture also carries vet-core and its data register, and its two
+faults' overlays (s2, s6; chunk 23, capture W5 items 0 and 2), merged here as
+its planted test merges them."""
 
 import re
 import shutil
@@ -273,6 +276,76 @@ class TestArchiveFixture(FixtureRendered):
         self.assertEqual(self.secrets("bastion"), [])
         env = services["records"]["environment"]
         self.assertEqual((env["GM_VAULT_TARGET"], env["GM_VAULT_CREDENTIAL"]), ("cold-storage:8000", "cold_storage"))
+
+    def test_register_names_the_vault(self):
+        """vet-core composed at records/clinic, records archiving to cold
+        storage (capture W5 item 2): every entry of the true register names
+        the vault among its recipients and copies, and so does the handout
+        the bastion maps (the fixture unfaulted)."""
+        s = model.load_scenario(self.scenario)
+        self.assertEqual([(d["id"], d["at"]) for d in s.data["domains"]], [("vet-core", "records/clinic")])
+        bastion = next(n for n in s.data["nodes"] if n["name"] == "bastion")
+        self.assertEqual(bastion["seed_files"]["data-register.md"], "player/data-register.md")
+        true = load(self.scenario / "gm" / "data-register.yaml")
+        self.assertEqual(len(true["entries"]), 6)
+        for e in true["entries"]:
+            with self.subTest(entry=e["id"]):
+                self.assertIn({"copy": "cold storage (WAL archive, nightly base backup)"}, e["where"])
+                self.assertEqual([r["recipient"] for r in e["shared_with"]], ["Cold Storage"])
+        self.assertEqual(vault_entries(text(self.scenario / "player" / "data-register.md")),
+                         [e["id"] for e in true["entries"]])
+
+
+def vault_entries(handout):
+    """The ids of the handout's entries (### <id>: <name>) naming cold storage."""
+    entries = re.split(r"\n(?=#{2,3} )", handout)
+    return [re.match(r"### ([^:]+):", b).group(1) for b in entries
+            if b.startswith("### ") and "cold storage" in b.lower()]
+
+
+class TestArchivePlanted(FixtureRendered):
+    """s2 and s6 planted together on a copy, from the overlays under planted/
+    (capture W5 items 0 and 2; master spec 17.2), as run-planted-test.sh plants
+    them: the merged copy loads, its register the skill's for that merge."""
+    fixture = FX_ARCHIVE
+
+    def setUp(self):
+        super().setUp()
+        sys.path.insert(0, str(FX_ARCHIVE / "planted"))
+        self.addCleanup(sys.path.remove, str(FX_ARCHIVE / "planted"))
+        import merge
+        merge.merge(self.scenario, ["pg-archive-command-silent", "governance-register-flow-undeclared"])
+
+    def test_loads_with_both_instances(self):
+        s = model.load_scenario(self.scenario)
+        self.assertEqual([(i["id"], i["fault"]["id"], i["node"]) for i in s.data["fault_instances"]],
+                         [("f1", "fixture-basebackup-log-unread", "records"),
+                          ("s2", "pg-archive-command-silent", "records"),
+                          ("s6", "governance-register-flow-undeclared", "bastion")])
+        self.assertEqual(s.data["difficulty"]["score"], 3)
+
+    def test_s2_seed_change(self):
+        conf = text(self.scenario / "nodes" / "records" / "postgresql.conf")
+        self.assertEqual(re.findall(r"^archive_command = (.*?)\s*(?:#.*)?$", conf, re.M),
+                         ["'vault-post wal %p %f || true'"])
+        self.assertEqual(conf.split("\n", 4)[4], text(FX_ARCHIVE / "nodes" / "records" / "postgresql.conf")
+                         .replace("'vault-post wal %f %p'", "'vault-post wal %p %f || true'\t# || true: a vault "
+                                  "outage must never fill pg_wal"))
+
+    def test_s6_handout_names_the_vault_nowhere(self):
+        handout = text(self.scenario / "player" / "data-register.md")
+        self.assertNotIn("cold storage", handout.lower())
+        true = load(self.scenario / "gm" / "data-register.yaml")
+        self.assertEqual(true["entries"], load(FX_ARCHIVE / "gm" / "data-register.yaml")["entries"])
+        diff = next(i for i in load(self.scenario / "gm" / "answer-key.yaml")["instances"]
+                    if i["instance"] == "s6")["register_diff"]
+        ids = [e["id"] for e in true["entries"]]
+        self.assertEqual([(d["entry"], d["field"]) for d in diff],
+                         [(i, f) for i in ids for f in ("shared_with", "where")])
+        for d in diff:
+            with self.subTest(entry=d["entry"], field=d["field"]):
+                self.assertNotIn("cold storage", str(d["handed_out"]).lower())
+                self.assertIn("cold storage", str(model.register_diff_true(d)).lower())
 
 
 # --- cold storage's page, its brick imports stood in --------------------------------

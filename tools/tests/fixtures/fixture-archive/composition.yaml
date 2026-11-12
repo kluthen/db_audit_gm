@@ -1,0 +1,16 @@
+# The archive fixture's composition record (tools/tests, v0.5 chunk 23;
+# capture W5 item 2), written by hand as fixture-clinic-load's: vet-core
+# alone in records/clinic, no part, so no key list and no derivation; the
+# variant's scale is the core's own. Uncomposed: every producer is left out
+# (no producer node, so no compose); load-data loads the core's data, which
+# gives the data register its entries and the vault their copies.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+keys: {}
+scale: {checked: true, note: "the core alone at one centre's scale: about 0.27 million rows, 49 MB"}
+order: [vet-core]
+left_out:
+  - {domain: vet-core, producer: pms, reason: "load only: no practice software node; the fixture's load is the vault's (capture W5 item 2)"}
+  - {domain: vet-core, producer: api/clinic-api, reason: "load only: no lookup API node (capture W5 item 2)"}
+  - {domain: vet-core, producer: partners/centres, reason: "load only: the partners' nodes run cold storage alone, no other centres' stub (spec D435; capture W5 item 2)"}
+# derive: none (the core alone)

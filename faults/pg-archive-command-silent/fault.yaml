@@ -1,0 +1,121 @@
+# Catalog fault: archive_command failing silently, every segment reported
+# archived and none in the vault (v0.5 master spec 17.2, s2; clinic-traps.md
+# T35; capture W5 items 0 and 2 of specs/versions/v0.5/wave-log.md). A
+# seed-file fault: the node's postgresql.conf calls the brick's vault-post
+# with its two arguments swapped and `|| true` appended. vault-post refuses
+# the name it is given (the segment's path, pg_wal/<segment>) and exits 2
+# before posting anything; `|| true` turns that into success, so the
+# archiver counts the segment archived and recycles it. One line, both
+# mistakes visible in the file, deterministic. Nothing is run at injection.
+
+# --- Identity ---------------------------------------------------------
+id: pg-archive-command-silent
+version: 0.1.0
+title: archive_command fails silently, so every segment reads archived and none reaches the vault
+family: backups
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.5.0"]
+  preconditions:
+    - the node archives its WAL to the vault (archive_mode on, its vault_target cold storage's hostname, cold storage on the partners' shared nodes)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # the first segment archived after the start: at once on a
+                                    # busy node, archive_timeout (1h on the clinic's seeds) on a
+                                    # quiet one; the line itself shows at once
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        archive_command = 'vault-post wal %p %f || true': vault-post's name
+        and file swapped (%p, the segment's path under pg_wal/, where the name
+        goes, which vault-post's name rule refuses with exit 2 before
+        posting anything) and `|| true` appended ("so that a vault outage
+        never fills pg_wal"), so the command always exits 0. This line
+        alone; wal_level, archive_mode = on, archive_timeout and the rest of
+        the file as the scenario has them
+      material: inject/postgresql.conf.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: bastion
+    source: pg_stat_archiver, from the bastion
+    how: psql -h {database node} -d postgres -c 'SELECT archived_count, last_archived_wal, last_archived_time, failed_count, last_failed_wal FROM pg_stat_archiver'
+    shows: archived_count grows with every segment and failed_count stays 0, as if every segment reached the vault
+  - where: bastion
+    source: cold storage's manifests (GET /manifests), from the bastion
+    how: curl -s "http://cold-storage:8000/manifests?type=wal&source={database node}&from=$(date -u +%F)" (cold storage's hostname as partners.md gives it)
+    shows: no manifest names the segments pg_stat_archiver reports archived; the node's latest wal manifest, by received_at, is older than the fault
+  - where: node
+    source: /etc/postgresql/postgresql.conf
+    how: grep -n archive_command /etc/postgresql/postgresql.conf
+    shows: "'vault-post wal %p %f || true': the path where the name goes (vault-post takes the type, the name, then the file), and `|| true` hiding any failure"
+  - where: node
+    source: the server log (/var/log/postgresql/postgresql-*.log)
+    how: grep -h 'vault-post:' /var/log/postgresql/postgresql-*.log | tail
+    shows: "one \"vault-post: name pg_wal/0000000100000000000000NN: letters, digits, '.', '_' and '-' only\" line per segment, and no \"archive command failed\" line after it"
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the archive_command as failing silently: vault-post is called
+    with its name and file swapped, refuses every segment, and `|| true`
+    makes the archiver count each one archived and recycle it, so the vault
+    has received no segment since (no manifest for the segments
+    pg_stat_archiver reports archived, the WAL days on the vault's page
+    empty from the fault on); point-in-time recovery past the last base
+    backup is impossible, and `|| true` also removed the safeguard that
+    keeps and retries a segment whose archiving fails.
+  proposal: >-
+    archive_command = 'vault-post wal %f %p' (the name, then the file; no
+    `|| true`), reloaded; a segment switched (SELECT pg_switch_wal()) and
+    its manifest checked in the vault; a fresh base backup, since the
+    segments lost meanwhile are recycled and can never be sent; and
+    something that compares what the archiver reports with what the vault
+    holds (failed_count, the age of the vault's latest manifest).
+  fix: >-
+    the archive_command in effect ships segments: the latest segment
+    pg_stat_archiver reports archived has a wal manifest from this node in
+    the vault (a segment switched after the fix), whichever path set it
+    (the file and a reload, or ALTER SYSTEM).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our WAL goes to an off-site vault and PostgreSQL has never reported a
+  single archiving failure. We have never had to restore anything from it.

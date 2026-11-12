@@ -1,0 +1,100 @@
+# s6's overlay, its answer-key entry (v0.5 chunk 23; capture W5 item 2):
+# appended by planted/merge.py to the copy's gm/answer-key.yaml, after s2's.
+# register_diff written by the data-register skill (T307, recipient Cold
+# Storage): one item per entry and field changed; never edit it by hand.
+instances:
+  - instance: s6
+    what: 'the data register handed out (~/data-register.md) names cold storage, the vault, nowhere: dropped
+      from every entry''s recipients and copies, though records archives its WAL and sends its nightly
+      base backup there, so the whole medical record reaches it.'
+    why: 'a record of processing names every recipient, processors included (GDPR Art 30(1)(d)): an owner''s
+      access request or an inspector''s question answered from it would omit an off-site copy of the whole
+      record.'
+    evidence:
+      - where: bastion
+        source: the data register, ~/data-register.md (and the web front's "Data register")
+        how: grep -n -i 'cold storage' ~/data-register.md
+        shows: nothing; no entry's Shared with or Where names the vault
+      - where: bastion
+        source: records' archive settings and cold storage's manifests
+        how: psql -h records -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source=records"
+        shows: records posts to the vault (vault-post), which lists records' nightly base backups and
+          WAL segments
+      - where: bastion
+        source: cold storage's page (GET /)
+        how: curl -s http://cold-storage:8000/ (the wal chart's columns and table)
+        shows: records' wal and basebackup shipments, day by day over five weeks
+    acceptable:
+      diagnosis: cold storage, a processor, receives the whole of records (the WAL archive and the nightly
+        base backups) and the register names it on no entry; found by reading the register against the
+        archive settings, the vault's manifests and page.
+      proposal: 'the corrected entries: each entry held on records names Cold Storage among its recipients
+        (the whole instance, archived; a processor) and the vault among its copies (WAL archive, nightly
+        base backup), as register_diff states.'
+    sealed_check:
+      script: faults/governance-register-flow-undeclared/checks/fixed.sh
+      at_handover: 1
+      notes: reads only that the change is present in the served handout; never cleared in play (propose,
+        judged at the final answer against register_diff). Cleared by regenerating the handout without
+        the instance (the committed fixture's).
+    interactions:
+      - instance: s2
+        kind: conflicts-with
+        note: 'planted together on the vault (master spec 17.2): with s2 the archive fails silently, but
+          the vault still holds the planted wal and basebackup manifests and the nightly base backups
+          (the crontab''s), so this fault''s witness stands.'
+    validators_left_red: []
+    register_diff:
+      - entry: vet-core-owners
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-owners
+        field: where
+        true: ['`records/clinic` (`owners`, `animals`, `ownerships`, `herds`)', 'cold storage (WAL archive,
+            nightly base backup)']
+        handed_out: ['`records/clinic` (`owners`, `animals`, `ownerships`, `herds`)']
+      - entry: vet-core-staff
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-staff
+        field: where
+        true: ['`records/clinic` (`staff`)', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`staff`)']
+      - entry: vet-core-referrals
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-referrals
+        field: where
+        true: ['`records/clinic` (`referring_practices`, `referring_vets`, `referrals`)', 'cold storage
+            (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`referring_practices`, `referring_vets`, `referrals`)']
+      - entry: vet-core-record
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-record
+        field: where
+        true: ['`records/clinic` (`consultations`, `diagnoses`, `procedures`, `requests`, `stays`, `alerts`,
+            `animal_board`)', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`consultations`, `diagnoses`, `procedures`, `requests`, `stays`,
+            `alerts`, `animal_board`)']
+      - entry: vet-core-medicines
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-medicines
+        field: where
+        true: ['`records/clinic` (`prescriptions`, `prescription_lines`, `administrations`, `dispensings`)',
+          'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`prescriptions`, `prescription_lines`, `administrations`, `dispensings`)']
+      - entry: vet-core-exchanges
+        field: shared_with
+        true: ['Cold Storage (the whole instance, archived), a processor']
+        handed_out: no one
+      - entry: vet-core-exchanges
+        field: where
+        true: ['`records/clinic` (`exchanges`)', 'cold storage (WAL archive, nightly base backup)']
+        handed_out: ['`records/clinic` (`exchanges`)']

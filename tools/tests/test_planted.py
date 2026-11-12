@@ -2,7 +2,8 @@
 specs/versions/v0.5/wave-log.md; build plan chunk 22): every
 `tools/tests/fixtures/<fixture>/planted/<fault-id>/` merges onto a copy of
 its fixture (tools/tests/planted.py), composes and loads, planting that
-fault; a seed change written as a diff (the fault's `material`) is exactly
+fault (but fixture-archive's, planted together by its own planted/merge.py
+and tested in test_partners); a seed change written as a diff (the fault's `material`) is exactly
 the overlay's file against the fixture's; and the orders faults' two diffs
 of one script apply together, in either order (the clinic's copy carries
 both, W5 item 6).
@@ -26,7 +27,13 @@ ORDERS_FAULTS = ("purpose-urgent-priority-dropped", "purpose-retry-without-key")
 
 
 def overlays():
-    return sorted(FIXTURES.glob("*/planted/*/"))
+    """The overlays planted one at a time by planted.py. A fixture whose
+    planted/ brings its own merge.py plants its overlays together and is
+    tested where that merge is: fixture-archive's s2 and s6 (W5-b; s6's
+    overlay holds the register generated for both, so neither loads alone),
+    in test_partners.TestArchivePlanted."""
+    return sorted(p for p in FIXTURES.glob("*/planted/*/")
+                  if p.name != "__pycache__" and not (p.parent / "merge.py").is_file())
 
 
 def diff_target(diff_text):
