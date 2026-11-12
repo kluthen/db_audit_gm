@@ -2196,7 +2196,7 @@ W5-e.
 
 ### Chunk 27 — The clinic scenario, `aldermoor-centre`
 
-Status: planned
+Status: blocked (on the governance checks' third-party nodes: `partners-db` as a governance location, refused in the handout; WIP 9391eaf)
 Wave: 5
 Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 37, merged
 into `v0.5-w5` before this chunk's branch is cut; G14 (its merge, only if it applies);

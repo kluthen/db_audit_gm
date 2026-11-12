@@ -7656,3 +7656,22 @@ faults and fa; D467 the stubs' counters a known v0.5 limit, O249; D468
 the README without the coherence result, into G19; the "-routine"
 wording needed no change. Nothing for the owner. All nine other chunks
 merged; chunk 27 dispatched on its v18 text.
+
+### Chunk 27 stopped (WIP 9391eaf), 2026-11-12
+
+Two owners in turn (rotated at ~100 tool calls): WIP `4645537`
+(topology, scenario layer, composition: 25 nodes, 11 composed nodes, no
+conflict) and WIP `9391eaf` (composition record, classification, the
+story, policy, `partners.md`, the starter pack, the answer key with the
+nine instances and fa, `gm/notes.md`, the register with s6 planted).
+Left in 27a: the README, the root README's row, s4's `gm.md` aging
+paragraph (D466); then 27b. **Stopped on**: the loader refuses the
+handout naming `partners-db` (a third party's node, master spec 10.2),
+yet the register names it because `governance:` lists
+`partners-db/partners` as a personal location, and the location looks
+needed because `governance.env_value` hands every `role: database` node
+to G1/G2 (`partners-db` included), where the messaging stub's owners'
+addresses would read as a breach. Options from the chunk: (a) drop the
+location and accept or measure G1 on `partners-db` at G13; (b) a
+loader/governance change (G1/G2 skip third parties' nodes, or coverage
+exempts third-party locations). Sent to spec-writer.
