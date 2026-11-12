@@ -3730,10 +3730,11 @@ def _check_purpose_jobs(purpose, pid, part, runner, sdir, p, out):
                        f"{jobs[jname].get('key')}, but purpose {pid}'s job {jname} has key {key}")
 
 
-def _check_governance(data, nodes, by_name, creates, sdir, out):
+def _check_governance(data, nodes, by_name, creates, sdir, out, third_nodes=frozenset()):
     """governance: its files, its classes both ways, their locations,
     readers and outbound flows (master spec 6.1, 6.9, 11.3, 11.4; W1 item
-    1); and the bastion's data-policy.md mapped to its policy, none without
+    1), none on a third party's node (`third_nodes`, spec D469); and the
+    bastion's data-policy.md mapped to its policy, none without
     governance: (spec D223)."""
     label = "scenario.yaml"
     gov = data.get("governance")
@@ -3778,10 +3779,21 @@ def _check_governance(data, nodes, by_name, creates, sdir, out):
             out.append(f"{p}: {cls} is not a class ({', '.join(CLASSES)}; master spec 11.2)")
         if not isinstance(rules, dict):
             continue                         # reported against the template
-        _check_class_rules(rules, p, by_name, creates, roles, out)
+        _check_class_rules(rules, p, by_name, creates, roles, out, third_nodes)
 
 
-def _check_class_rules(rules, p, by_name, creates, roles, out):
+def _third_party_location(value, third_nodes):
+    """The refusal of a governance: location (or outbox) `value` on a third
+    party's node (spec D469), or None."""
+    node = value.partition("/")[0] if isinstance(value, str) else None
+    if node not in third_nodes:
+        return None
+    return (f"{value}: {node} is a third party's node: the customer's governance holds no "
+            "location there; what it sends the partner is an outbound flow (master spec 10.2, "
+            "spec D469)")
+
+
+def _check_class_rules(rules, p, by_name, creates, roles, out, third_nodes=frozenset()):
     locations = rules.get("locations")
     unrestricted = locations == "any"
     if unrestricted:
@@ -3791,7 +3803,8 @@ def _check_class_rules(rules, p, by_name, creates, roles, out):
                            "restricted)")
     elif isinstance(locations, list) and locations:
         for value in locations:
-            problem = _location_problem(value, by_name, creates)
+            problem = _third_party_location(value, third_nodes) \
+                or _location_problem(value, by_name, creates)
             if problem:
                 out.append(f"{p}.locations: {problem}")
         if "readers" not in rules:
@@ -3832,7 +3845,8 @@ def _check_class_rules(rules, p, by_name, creates, roles, out):
                 else ("", "", "")
             problem = None if sep and SQL_NAME_RE.match(table) and "/" in location \
                 else f"{outbox!r} is not <node>/<database>/<table>"
-            problem = problem or _location_problem(location, by_name, creates)
+            problem = problem or _third_party_location(outbox, third_nodes) \
+                or _location_problem(location, by_name, creates)
             if problem:
                 out.append(f"{fp}.outbox: {problem}")
 
@@ -3948,7 +3962,8 @@ def _check_v04(data, nodes, creates, sdir, catalog_root, out):
     by_name = {n.get("name"): n for n in nodes}
     _check_domain(data, catalog_root, out)
     _check_purposes(data, by_name, creates, sdir, catalog_root, out)
-    _check_governance(data, nodes, by_name, creates, sdir, out)
+    _check_governance(data, nodes, by_name, creates, sdir, out,
+                      third_party_nodes(data, sdir, catalog_root))
     _check_crontabs(nodes, creates, sdir, out)
     _check_pg_cron(nodes, _data_files(nodes, sdir), sdir, out)
 
@@ -6030,6 +6045,21 @@ def _third_party_nodes(data):
     entries = data.get("third_parties")
     return {n for e in entries if isinstance(e, dict) for n in e.get("nodes") or []
             if isinstance(n, str)} if isinstance(entries, list) else set()
+
+
+def third_party_nodes(data, sdir=None, catalog_root=REPO_ROOT):
+    """Every node the loader counts as a third party's (master spec 10.2):
+    each third_parties: entry's nodes, and the partners' shared nodes found
+    by name when they serve the owners alone (owners_alone_nodes, spec
+    D421; `sdir` for composition.yaml's left_out:). The one source of the
+    customer's governance leaving them out (spec D469): no governance:
+    location or outbox there, no governance walk of one."""
+    data = _dict(data)
+    nodes = _third_party_nodes(data)
+    owners = owners_alone_nodes(data, left_out_of(_composition_content(sdir)), catalog_root)
+    if owners is not None:
+        nodes |= {n for n in (owners.scheduler, owners.api) if n is not None}
+    return nodes
 
 
 def sql_statements(text):

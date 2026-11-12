@@ -148,7 +148,11 @@ where, kept for).
   (`standby_of`), "the standby `<node>`, a streaming replica"; an
   archiving node (`vault_target` on cold storage's hostname), "cold
   storage (WAL archive, nightly base backup)". Copies go on entries
-  only: an internal line's `where` holds its locations.
+  only: an internal line's `where` holds its locations. A third party's
+  node (each `third_parties:` entry's `nodes`, and the partners' shared
+  nodes serving the owners alone) is never in a `where` or the index:
+  the loader refuses its name in the handout (master spec 10.2, spec
+  D469), and the customer's governance holds no location there.
 - **shared_with** (`shared_with:`), each recipient `{recipient, fields}`
   with `flow`, `processor`, `outside_eu` when they hold:
   - a `governance:` outbound flow of a class the entry holds whose
@@ -182,10 +186,13 @@ where, kept for).
   under `where`, the entry of the activity whose tables its `data_moved`
   reads those columns from, its columns under that entry's `data`; one
   holding only `internal` columns goes in the internal table, one line per
-  purpose (`id`: the purpose id).
+  purpose (`id`: the purpose id). A purpose's table on the partners'
+  database (its `target` there, as purposes 14 and 16's) stays out of
+  its line, which lists the customer's side; what the customer sends
+  there is a recipient in `shared_with`, on an entry.
 - **The index** (`index:`): each `node/database` of any `where`, with the
   ids of the entries held there, then of the internal lines, each in file
-  order.
+  order; never a third party's node.
 - **The header**: `controller` (the centre, as the story names it),
   `contact` (a data-protection contact the story gives, or the centre's
   data-protection officer by role), `policy` (`governance.policy`).

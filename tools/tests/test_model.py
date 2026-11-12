@@ -4891,6 +4891,41 @@ class TestRegisterRefusals(RegisterCopyTest):
         self.assertFalse([m for m in missing if "stale" in m], missing)
 
 
+class TestGovernanceOnThirdParties(RegisterCopyTest):
+    """No governance: location or outbox on a third party's node (master
+    spec 10.2, spec D469): the customer's governance judges its own estate;
+    what it sends a partner is an outbound flow."""
+
+    P = "scenario.yaml: governance.classes.personal"
+    WHY = ("partners-db is a third party's node: the customer's governance holds no location "
+           "there; what it sends the partner is an outbound flow (master spec 10.2, spec D469)")
+
+    def classes(self, change):
+        self.edit_yaml("scenario.yaml", lambda d: change(d["governance"]["classes"]))
+
+    def test_a_location_refused(self):
+        self.classes(lambda c: c["personal"]["locations"].append("partners-db/partners"))
+        self.assertRefused(f"{self.P}.locations: partners-db/partners: {self.WHY}")
+
+    def test_an_outbox_refused(self):
+        self.classes(lambda c: c["personal"]["outbound"][0].update(
+            outbox="partners-db/partners/portal_outbox"))
+        self.assertRefused(f"{self.P}.outbound[messaging].outbox: "
+                           f"partners-db/partners/portal_outbox: {self.WHY}")
+
+    def test_the_helper_counts_the_owners_shared_nodes(self):
+        data = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        self.assertEqual(model.third_party_nodes(data, self.scenario), {"partners-db"})
+        data["nodes"] += [
+            {"name": "partners-backend", "brick": {"id": "scheduler", "version": "0.1.0"},
+             "write_policy": "no-access"},
+            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.0"},
+             "write_policy": "no-access"}]
+        self.assertEqual(model.third_party_nodes(data),     # no left_out: the owners' route
+                         {"partners-db", "partners-backend", "partners-api"})
+        self.assertEqual(model.third_party_nodes({}), set())
+
+
 class TestRegisterCoherenceRecord(RegisterCopyTest):
     """The register's digest of composition.yaml leaves out its top-level
     `coherence:` key and the lines indented under it, the record load-data
