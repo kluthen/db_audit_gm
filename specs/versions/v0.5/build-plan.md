@@ -2272,7 +2272,8 @@ Architecture capture: none of its own; it reads W1 to W5.
   the derivation plants in `records/portal`'s `portal_outbox`, so G4
   judges those rows rather than reading 3 (no row since `<since>`).
   - Out: the deployment and the smoke (G13, the release gate); the
-  governance checks on the standby and the transformers (O250).
+  governance checks on the standby and the transformers (a v0.5 known
+  limit, spec D471).
 - Files: `scenarios/aldermoor-centre/` (new): `scenario.yaml`,
   `composition.yaml`, `merge.yaml`, `brief.md`, `README.md`, `data/`,
   `nodes/`, `player/{data-policy.md,partners.md,data-register.md}`,
@@ -3018,8 +3019,9 @@ with `governance:` and `third_parties:` after.
   - Out: `governance.sh`'s rules and readings, unchanged (a foreign
     server or a transformer connection reaching a node not walked still
     reads "cannot judge"); the standby's walk and a transformer's HTTP
-    connections (O250); formats.md (G19); the master spec (written with
-    spec D469); chunk 27's scenario and fixture.
+    connections (a v0.5 known limit, spec D471); formats.md (G19); the
+    master spec (written with spec D469); chunk 27's scenario and
+    fixture.
 - Files: `tools/gm/governance.py`; `tools/gm/model.py` (the helper, the
   refusal); `tools/tests/test_governance.py`, `tools/tests/test_model.py`
   (a refusal case); `tools/tests/check-governance.sh`;
@@ -3067,7 +3069,8 @@ exception. GM-side checks run from the host.
 3. **The unfaulted clinic scenario** passes the governance checks and
    the coherence check, and its true register the loader's coverage
    checks (chunk 27's load-only fixture, rerun; the governance checks
-   walk the customer's nodes, `partners-db` left out, spec D469)
+   walk the customer's nodes, `partners-db` left out, spec D469; the
+   set on the whole clinic, a known limit, item 12, spec D471)
    (DoD 10).
 4. **`fit` on the clinic as built**, on armenelos plus the VPS, with
    the measured reservations (G14 applied first if it applies).
@@ -3103,10 +3106,14 @@ exception. GM-side checks run from the host.
 12. **Release notes** in [README.md](README.md): the measured figures
     (footprints at rest, each domain's load, G13's per-node readings on
     both hosts as smoke readings, not footprints); the known limits
-    named by master spec 18.4, all of it v1.0 gating (the clinic aged
+    named by master spec 18.4: v1.0 gating (the clinic aged
     and played, the overnight and periodic cadences in scenario time,
     growth and footprints over an aging, the clinic's rehearsal, the
-    stance check-list, the parts' long views); no hand-over snapshot for
+    stance check-list, the parts' long views), and the governance
+    checks on the whole clinic (G1 reading the standby as a location of
+    its own, G3 stopping at a transformer's HTTP connection, "cannot
+    judge"), fixed when a scenario first calls the set there (spec
+    D471); no hand-over snapshot for
     the whole clinic on these declarations; what a restore from the
     hand-over snapshot does not give back, the accumulated WAL and the
     cumulative statistics (master spec 15, spec D397); the partner

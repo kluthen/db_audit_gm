@@ -1576,3 +1576,12 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   Rejected: dropping the location alone (still 2); exempting it from
   coverage (a location the customer does not hold). Now in: [master spec](versions/v0.5/master-spec.md)
   10.1, 10.2, 13.2; [build plan](versions/v0.5/build-plan.md) chunks 27, 38, G19.
+- **D471 (2026-11-12, the owner, on O250 as proposed): the governance
+  check set's gaps on the whole clinic are a v0.5 known limit, fixed
+  when a scenario first calls the set there: G1 reads a standby as a
+  location of its own, G3 stops at a transformer's HTTP connection
+  ("cannot judge").** No v0.5 gate run or clinic check in play reaches
+  either; release gate item 3 stays on chunk 27's load-only fixture
+  (D469). Rejected: a second small chunk in wave 5. Now in:
+  [master spec](versions/v0.5/master-spec.md) 18.4, 20.3;
+  [build plan](versions/v0.5/build-plan.md) release gate items 3, 12.

@@ -228,7 +228,9 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
 (D422, D423), closed by the driver as recommended (D424–D427), are kept
 likewise, and so is O243, raised by the same pass and closed by capture
 W4 (D432). O247, raised by placing the owner's security rulings of
-2026-11-10, is open:
+2026-11-10, closed by the owner (D458), and O250, raised by chunk 27's
+stop (D469) and closed by the owner as proposed (D471), are kept
+likewise; O249 is open:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -366,7 +368,7 @@ W4 (D432). O247, raised by placing the owner's security rulings of
   reference. Refs: `purposes/vet-antimicrobial-use/` and
   `purposes/vet-head-office-figures/` (`material/receiver/`);
   [build plan](versions/v0.5/build-plan.md) release gate item 12.
-- **O250** (v0.5 release, the owner; raised by D469) — The governance
+- **O250** (v0.5 release; **closed** by D471, 2026-11-12: a v0.5 known limit, as proposed; raised by D469) — The governance
   check set on the whole clinic: G1 walks the standby as a location of
   its own (a standby is no location, so its every classed column would
   read a breach), and G3's transformer path stops at the first job with

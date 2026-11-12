@@ -3626,6 +3626,17 @@ roadmap's v1.0 gating so none is lost:
   the agenda turning over, a session's certificates, the care log and
   the board's cost over days, the night checks over a night.
 
+Beside them, one known limit tied to no v1.0 test, **the governance
+checks on the whole clinic**: G1 reads the standby as a location of its
+own (a standby is none, so its every classed column would read a
+breach), and G3's transformer path stops at a job's HTTP connection
+("cannot judge"), so the set run on `interfaces` and `backoffice` fails.
+No v0.5 gate run reaches either (20.3 runs the set on the clinic's
+load-only fixture, which has no standby and no transformer), and no
+clinic check in play calls the set. Fixed when a scenario first calls
+the set there: a standby's databases judged at its primary's location,
+a non-SQL connection no database path (D471).
+
 ## 19. Definition of done
 
 1. `postgres` 0.5.0 (7.1), `scheduler` 0.3.0 and `api` 0.1.0 (7.2),
@@ -3670,7 +3681,11 @@ exception.
    versions.
 3. **The unfaulted clinic scenario passes the governance checks** and
    the coherence check, and its true register passes the loader's
-   coverage checks.
+   coverage checks. The governance and coherence checks run on the
+   clinic's load-only fixture (`records`, `lab`, `machines`; the
+   partners' database not walked, D469); the governance checks on the
+   whole clinic, its standby and transformers, are a known limit (18.4,
+   D471).
 4. **`fit`** on the clinic as built, on armenelos plus the VPS.
 5. **The whole clinic deployed once** on armenelos plus the VPS (18.3).
 6. **Known limits, named** in the release notes: everything of 18.4.

@@ -7737,3 +7737,18 @@ governance set on the standby and on transformers' HTTP connections),
 fixed when a scenario first calls the set there; release gate item 3
 stays on the load-only fixture. Sent to spec-writer to record. Chunk 27
 resumed by a fresh owner from WIP `9391eaf`.
+
+### O250 recorded (D471), 2026-11-12
+
+`spec-writer`: the owner's ruling on O250 recorded as D471 (O250
+closed): the governance checks on the whole clinic (G1 reading the
+standby as a location of its own, G3 stopping at a transformer's HTTP
+connection, "cannot judge") are a v0.5 known limit, fixed when a
+scenario first calls the set there. Master spec 18.4 names it (beside
+the v1.0-gating list, tied to no v1.0 test) and 20.3 now says where its
+checks run: governance and coherence on the clinic's load-only fixture
+(`partners-db` not walked, D469), the whole clinic's governance a known
+limit. Build plan: release gate item 12's release notes name it, item 3
+points to it, chunks 27's and 38's "Out" cite D471 instead of O250; no
+chunk, gate or wave changes, the plan's Status line left to the next
+revision.
