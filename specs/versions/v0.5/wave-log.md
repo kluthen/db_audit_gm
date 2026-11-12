@@ -7551,3 +7551,38 @@ fixture-reports' `run-short-test.sh` (95/95 before; its scenario and
 starter pack changed). Risk: s3 and s8 need T0 before 00:30 local (the
 test waits only when T0 falls outside :05–:15). No new pre-27 items.
 Chunk 26 dispatched in the slot.
+
+### Chunk 26 merged (b407ad1), 2026-11-12
+
+`df62a15`, merge `b407ad1` (no conflict; no docker). The `game-master`
+skill (design: "Domains, composed", third parties; setup steps 2, 11,
+12; the stance's third-party rule and refusals; evaluation's register,
+display, false-alarm and third-party lines), `gmctl.md` (`compose`, no
+new stage, `load-data`'s coherence and clone lines, `inject`'s `on:` and
+topology lines), `feedback.md`, and the `scenario-document` skill and
+template (Domains row, Composition, Third parties, `pg_cron` jobs from a
+purpose's `ddl:`, False alarms). 83 `gmctl` invocations parse; unit
+suite 1270 OK, 2 skipped; fixture-archive's README regenerated.
+**W5-e, as built** (chunk 27 follows it): design order `domains:` →
+the scenario layer `compose/<node>/` (purposes' material on scheduler
+and `api` nodes, cold storage's stub into `partners-api`/`partners-backend`
+and its data after `partners/shared/partners-db/data.sql`, a fault's
+seed change on a composed node as its `material`'s single edit, other
+nodes' seed changes in `nodes/<node>/`) → `gmctl compose <dir>`
+(conflicts resolved in `merge.yaml`, never hand edits to a composed
+node) → `composition.yaml` by the GM (`domains`, `keys`, `scale`,
+`order`, `derive`, `left_out` in fixtures only; never `coherence:`) →
+register → README. Setup step 2 adds `gmctl compose <dir> --check`
+(exit 0, "up to date"); step 11's coherence line `coherence check: pass
+(<n> passed, 0 failed, <k> skipped; recorded in composition.yaml)`; a
+failure is a design error (teardown `failed`, fix, recompose,
+regenerate, fit, reload), never a fault. Deviations, the code winning:
+`inject`'s topology line reads "<instance>: topology fault, planted at
+rendering by the topology; nothing to run"; the template names partners'
+and composed nodes by role and `compose --check`'s lines. Decided in the
+chunk: the README leaves out the coherence result (D465's reasoning),
+sent to spec-writer with the pre-27 items. **For the wave gate**:
+regenerate fixture-send-outs' README (it has `domains:`,
+`third_parties:` and chunk 22's false alarm, so lacks the new sections).
+Risk: s9/s10's judging is written generically; chunk 25's as-built may
+add a line to Evaluation.

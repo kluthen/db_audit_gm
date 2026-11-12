@@ -2155,7 +2155,8 @@ layer of the players' (6.3). As built: W5-d.
 
 ### Chunk 26 — The GM skill and the scenario document for v0.5
 
-Status: planned
+Status: merged (w5, b407ad1)
+Record: df62a15, merge b407ad1; 83 `gmctl` invocations in the five files parse (0 failed); fixture-archive's README regenerated with Composition, Third parties and Data register; unit suite 1270 OK; the coherence result is left out of the README (as the register's digest leaves it, D465), and `inject`'s topology line follows the code's wording (W5-e)
 Wave: 5
 Depends on: chunks 2, 8, 11 and 17 (waves 1 to 4); chunk 36 (in wave,
 merge order: the false alarm's lines and `gmctl.md`'s `inject` rows,
