@@ -122,7 +122,9 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      its variant and `at:`, and `composition.yaml`'s keys, scale, order,
      derivations and left-out producers, every `merge.yaml` resolution;
      every `third_parties:` entry; every false alarm, its issue and its
-     `false_alarms:` entry with each evidence entry;
+     `false_alarms:` entry with each evidence entry; every fault
+     instance's `backlog:` with its `what` and `cleanup`, under that
+     instance's answer (spec D472);
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it

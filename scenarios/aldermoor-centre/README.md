@@ -1278,6 +1278,12 @@ Interactions: none.
 Public validators the players cannot make green (reporting each is part of
 the expected answer): none.
 
+Backlog, a consequence the GM may credit, never a fault and never counted
+toward the fault cap or the score:
+
+- **What is stuck**: the urgent requests posted routine before the fix, waiting at the lab for the next round: ops.lab_orders_sent's C-{consultation}-urgent references whose accession is a routine order at lab (lab_orders.priority), its tests not yet released.
+- **Cleanup**: each identified from the ledger and raised to urgent at the lab, or its release asked of the lab; credited, never counted.
+
 ### `s2`: `pg-archive-command-silent` on `records`, hidden
 
 - **What is wrong**: records' archive_command is 'vault-post wal %p %f || true': vault-post's name and file swapped, so vault-post refuses every segment's name (pg_wal/...), and `|| true` makes the archiver count each one archived and recycle it; no segment of records has reached the vault since the game's start (lab's archive, to the same vault, still ships).

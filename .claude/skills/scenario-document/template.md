@@ -489,6 +489,16 @@ Public validators the players cannot make green (reporting each is part of
 the expected answer): <validators_left_red: node, rule, why, one per item>
 <!-- empty: "none." -->
 
+<!-- if: backlog is present (v0.5, a round-trip fault instance; spec
+     D472): the requests the fault left stuck before the fix, as the
+     answer key writes them -->
+Backlog, a consequence the GM may credit, never a fault and never counted
+toward the fault cap or the score:
+
+- **What is stuck**: <backlog.what>
+- **Cleanup**: <backlog.cleanup>
+<!-- end if -->
+
 ### Tooling expectations
 
 <!-- once, after the last fault instance's subsection.
