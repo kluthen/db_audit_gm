@@ -15,11 +15,11 @@
       "type": "application",
       "bom-ref": "grafana/gpx_grafana-prometheus-datasource_linux_amd64",
       "name": "gpx_grafana-prometheus-datasource_linux_amd64",
-      "version": "13.3.0",
+      "version": "13.3.1",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "3fb8397ce2284b9e0851e19092ba5748ed92bfbc4caadeec66dab1d0692267a1"
+          "content": "f1458b7bacfee8ccd1be3e73ff463409c74acefc582e6f89cfac3cb013a1d900"
         }
       ],
       "properties": [
@@ -33,19 +33,19 @@
         },
         {
           "name": "dbagm:release-arg",
-          "value": "GRAFANA_VERSION=13.3.0"
+          "value": "GRAFANA_VERSION=13.3.1"
         },
         {
           "name": "dbagm:archive",
-          "value": "https://dl.grafana.com/grafana/release/13.3.0/grafana_13.3.0_40412481033_linux_amd64.tar.gz"
+          "value": "https://dl.grafana.com/grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz"
         },
         {
           "name": "dbagm:archive-sha256",
-          "value": "cec8f98cc59bc1a1945833b652371a073be678c5c159a9b1695ad63c04fae5a7"
+          "value": "6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531"
         },
         {
           "name": "dbagm:archive-member",
-          "value": "grafana-13.3.0/data/plugins-bundled/prometheus/gpx_grafana-prometheus-datasource_linux_amd64"
+          "value": "grafana-13.3.1/data/plugins-bundled/prometheus/gpx_grafana-prometheus-datasource_linux_amd64"
         },
         {
           "name": "dbagm:go-package",
@@ -57,7 +57,7 @@
         },
         {
           "name": "dbagm:vcs-revision",
-          "value": "7d5bbc86bd38f95ca5143c8490d1204787cc391b"
+          "value": "477c763fc43025630388ad21f9cff2ea526de9f2"
         },
         {
           "name": "dbagm:local-replacement",
@@ -76,10 +76,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/grafana/grafana-prometheus-datasource@v0.0.0-20261022085610-7d5bbc86bd38",
+      "bom-ref": "pkg:golang/github.com/grafana/grafana-prometheus-datasource@v0.0.0-20261027162537-477c763fc430",
       "name": "github.com/grafana/grafana-prometheus-datasource",
-      "version": "v0.0.0-20261022085610-7d5bbc86bd38",
-      "purl": "pkg:golang/github.com/grafana/grafana-prometheus-datasource@v0.0.0-20261022085610-7d5bbc86bd38",
+      "version": "v0.0.0-20261027162537-477c763fc430",
+      "purl": "pkg:golang/github.com/grafana/grafana-prometheus-datasource@v0.0.0-20261027162537-477c763fc430",
       "properties": [
         {
           "name": "dbagm:role",
@@ -89,10 +89,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/andybalholm/brotli@v1.2.6",
+      "bom-ref": "pkg:golang/github.com/andybalholm/brotli@v1.2.7",
       "name": "github.com/andybalholm/brotli",
-      "version": "v1.2.6",
-      "purl": "pkg:golang/github.com/andybalholm/brotli@v1.2.6"
+      "version": "v1.2.7",
+      "purl": "pkg:golang/github.com/andybalholm/brotli@v1.2.7"
     },
     {
       "type": "library",
