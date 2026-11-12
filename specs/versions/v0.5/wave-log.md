@@ -7319,3 +7319,37 @@ GO-2026-6859 (Go < 1.27.4, untriaged in SECURITY_TODO.md). For the
 owner, informational: CVE-2026-110289 (Grafana Git Sync SSRF by an Org
 Admin, 2026-11-11, no fixed range yet) is listed in `.tech` to watch;
 no Git Sync here and the Org Admin is the players' own account.
+
+### Chunk 36 merged (1fb6e49), W5-h, 2026-11-12
+
+`41dc320`, merge `1fb6e49`; unit suite 1252 OK, 2 skipped; every
+scenario and fixture loads. Outside its Files: `tools/gm/restart.py`
+(`plant_everything` unpacks `inject_plan`'s node; W5 item 9 gives
+`tools/gm/*.py` to 36). Three choices, confirmed by the driver: a false
+alarm's `acceptable` is one string (as `tooling_expectations`); the
+`on:` node's brick must be in `applies_to` at its version (as the
+instance's node); a topology fault takes no `seed_changes`, `scripts`
+or `parameter_changes` but may declare `parameters:` for its check.
+
+**W5-h, as built** (read by 22, 24, 25, 26, 27):
+- (a) `injection.scripts[]` item: a bare path or
+  `{script: <path>, on: <parameter>}`, no other key; the parameter
+  declared with `required: true`; in the scenario its value (else the
+  default) names a topology node whose brick at its version
+  `applies_to` names. `inject_plan` returns `(script, text, node)`; the
+  script runs there with the same `run_as` and `FAULT_*`, in the fault's
+  order, from `inject`, `inject --at` and `restart`'s replant; a node the
+  game lacks refused before anything runs. Helpers `model.script_on`,
+  `script_path`, `script_node`.
+- (b) `injection.kind: topology`: needs `option_absent`; `stage` `seed`
+  or absent; no `seed_changes`, `scripts`, `parameter_changes`;
+  `run_as` still required; the instance's node must not choose the
+  option. `inject` lists it under `InjectResult.topology` and runs
+  nothing; `inject --at` refuses it.
+- (c) false alarm: an issue with `covers: []` must expect `report` and
+  have one entry in `gm/answer-key.yaml`'s optional, non-empty
+  `false_alarms:`: `issue`, `why`, `evidence[]` (an instance's form,
+  `where` checked), `acceptable` (a string). Refused: an entry for no
+  issue, for an issue covering a fault, twice. Never counted in
+  `difficulty.score` or the cap. Helper `model.false_alarm_ids`.
+Chunk 22 dispatched in the slot.

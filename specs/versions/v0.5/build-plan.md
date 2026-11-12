@@ -2789,7 +2789,8 @@ Architecture capture: spec D451.
 
 ### Chunk 36 — The loader's three fault forms: a `state` script on another node, a `topology` fault, a false alarm
 
-Status: planned
+Status: merged (w5, 1fb6e49)
+Record: 41dc320, merge 1fb6e49; also `tools/gm/restart.py` (`plant_everything` unpacks the plan's node; outside Files, within W5 item 9); a false alarm's `acceptable` a string, the `on:` node's brick checked at its version, a topology fault may declare `parameters:` for its check (driver confirmed; W5-h in the wave log)
 Wave: 5
 Depends on: chunks 32 and 33 (wave 4: `inject.py`'s and `model.py`'s
 last holders); inserted at wave 5's preflight (spec D459, D460), cut
