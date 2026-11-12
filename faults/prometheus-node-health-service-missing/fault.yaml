@@ -16,7 +16,7 @@ severity: high
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0", "0.2.0"]
+      versions: ["0.1.0", "0.2.0", "0.2.1"]
   preconditions:
     - the node is in the prometheus node's node_health map, and its entry (or default, its brick's processes) holds the service and at least one other
     - Prometheus scrapes the node's port 9110 target

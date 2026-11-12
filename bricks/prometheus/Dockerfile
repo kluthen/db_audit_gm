@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The seed configuration (scrape
 # targets, retention) and the secret arrive at run time at the fixed paths
 # declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+# Build:  docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 # Architecture: x86_64 only (the s6-overlay and Prometheus archives below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
@@ -20,7 +20,7 @@ RUN chmod -R u=rwX,go=rX /rootfs
 FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
-ARG PROMETHEUS_VERSION=3.13.5
+ARG PROMETHEUS_VERSION=3.16.0
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -28,7 +28,7 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 # Prometheus, pinned, verified against the release's sha256sums.txt.
-ADD --checksum=sha256:0388822ace519c5a3a8ef556a541ce1b536e21d872f82deded465bd27a5a0699 \
+ADD --checksum=sha256:68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34 \
     https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz /tmp/
 
 RUN set -eux; \

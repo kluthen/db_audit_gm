@@ -11,12 +11,12 @@
 # trimmed tree is copied over.
 FROM debian:13-slim AS grafana-dist
 
-ARG GRAFANA_VERSION=13.3.0
-ARG GRAFANA_BUILD=40412481033
+ARG GRAFANA_VERSION=13.3.1
+ARG GRAFANA_BUILD=42849527790
 
 # Grafana OSS from dl.grafana.com, verified against the SHA-256 the release
 # publishes (<archive>.sha256, and grafana.com's package list).
-ADD --checksum=sha256:cec8f98cc59bc1a1945833b652371a073be678c5c159a9b1695ad63c04fae5a7 \
+ADD --checksum=sha256:6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531 \
     https://dl.grafana.com/grafana/release/${GRAFANA_VERSION}/grafana_${GRAFANA_VERSION}_${GRAFANA_BUILD}_linux_amd64.tar.gz \
     /tmp/grafana.tar.gz
 
@@ -50,7 +50,7 @@ RUN chmod -R u=rwX,go=rX /rootfs
 FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
-ARG GRAFANA_VERSION=13.3.0
+ARG GRAFANA_VERSION=13.3.1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \

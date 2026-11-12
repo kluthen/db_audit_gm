@@ -60,7 +60,7 @@ The story as the players read it: `player/story.md`.
 |---|---|---|---|---|---|
 | `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
 | `db` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `prometheus` | `prometheus` 0.2.0 | monitoring | yes | backend | fixable |
+| `prometheus` | `prometheus` 0.2.1 | monitoring | yes | backend | fixable |
 | `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
 | `grafana` | `grafana` 0.3.0 | monitoring | yes | backend | fixable |
 
@@ -136,7 +136,7 @@ Data, restored from `data/db.sql`:
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.2.0 (pinned).
+- **Brick**: `prometheus`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.

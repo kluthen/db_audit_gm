@@ -4,7 +4,7 @@
 #
 # Deploys the brick as a Swarm stack (stack.test.yml), its six seed files
 # (the optional pgwatch.json included) copied from companion/ as a scenario
-# would, with a prometheus 0.2.0 node
+# would, with a prometheus 0.2.1 node
 # for the data source; seed files and secrets are external configs and
 # secrets created here. Checks, from a client container on the stack's
 # network and from the GM side (docker exec, the API helper):
@@ -43,14 +43,14 @@
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # grafana image is also the test client: it has ssh, curl and jq):
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 # Usage: sh bricks/grafana/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-grafana
 IMAGE=127.0.0.1:5000/dbagm/grafana:0.3.0
-PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
+PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.1
 SERVICE=${STACK}_grafana
 PROM_SERVICE=${STACK}_prometheus
 NET=${STACK}_net
@@ -169,7 +169,7 @@ else
     exit 1
 fi
 if P=$(wait_healthy "$PROM_SERVICE"); then
-    pass "prometheus node (prometheus 0.2.0) healthy ($P)"
+    pass "prometheus node (prometheus 0.2.1) healthy ($P)"
 else
     fail "prometheus node did not become healthy"
     exit 1
@@ -196,7 +196,7 @@ u=$(gm ps -o user= -C grafana | sort -u | tr -d ' ')
 ids=$(gm sh -c 'echo "$(id -u grafana):$(id -g grafana) $(getent group grafconf | cut -d: -f3)"')
 [ "$ids" = "472:472 473" ] && pass "grafana is 472:472, grafconf 473" || fail "ids: $ids"
 v=$(api GET /api/health | jq -r '.version + " " + .database')
-[ "$v" = "13.3.0 ok" ] && pass "/api/health: version 13.3.0, database ok" || fail "/api/health: $v"
+[ "$v" = "13.3.1 ok" ] && pass "/api/health: version 13.3.1, database ok" || fail "/api/health: $v"
 
 # --- administrator ---------------------------------------------------------------
 r=$(api GET /api/user | jq -c '{login, isGrafanaAdmin}')

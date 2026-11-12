@@ -62,7 +62,7 @@
 # names its build command):
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 #   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
 #   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer

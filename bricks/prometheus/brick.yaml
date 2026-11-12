@@ -1,7 +1,9 @@
 # brick.yaml: Prometheus node, the game's metrics store (v0.2 master spec 7
 # and 7.2).
 #
-# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# Version 0.2.1 (unreleased until the v0.5 release gate, D100): 0.2.0, released
+# with v0.3, on Prometheus 3.16.0 (v0.5 spec D445, D446, D448; no interface or
+# seed-file change). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
@@ -11,13 +13,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: prometheus
-version: 0.2.0
+version: 0.2.1
 roles:
   - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: prometheus
-  version: "3.13.5"
-image: 127.0.0.1:5000/dbagm/prometheus:0.2.0
+  version: "3.16.0"
+image: 127.0.0.1:5000/dbagm/prometheus:0.2.1
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's figures for the node, less what the
