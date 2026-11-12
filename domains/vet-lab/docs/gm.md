@@ -205,7 +205,7 @@ At the reference T0, counted with `count(*)`:
 | `lab_sample_events` | 62 968 | |
 | `lab_send_outs` | 1 937 | 8 open at T0, all the practices' |
 | `lab_callbacks` | 9 509 | |
-| `lab_critical_calls`, `lab_notifications` | 794, 33 | no category A positive in the history |
+| `lab_critical_calls`, `lab_notifications` | 794, 33 | no category A positive in the history; a notified one's `authority_ref` in the authority stub's live form, `N<year>-<order test id, 6 digits>` (D451) |
 | `lab_charges` | 16 876 | |
 | **Total** | **330 077** | |
 

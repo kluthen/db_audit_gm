@@ -54,7 +54,8 @@ A run on any other date writes neither output nor `runs` row (spec
 D436). The feeder writes its day once. **The planted past**: every day
 from the history's first use when its 02:00 run is before `load_epoch`,
 and each 15 January's report before it (last year's, the cattle's, 11
-lines), referenced `amu-<year>` and copied.
+lines), referenced as the authority's stub references live,
+`AMU<year>-NNNN` (D451: the year posted, the stub's count), and copied.
 
 ## The invariants and where they run
 

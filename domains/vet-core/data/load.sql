@@ -609,7 +609,31 @@ SELECT pl.id,
  WHERE pr.state = 'dispensed' AND c.kind <> 'in-hospital'
  ORDER BY pr.issued_at, pl.id;
 
--- --- Checks: the ranges hold, the MINH lines match ------------------------------------
+-- --- The batches' receipts (D451) -------------------------------------------------------
+
+-- What the history drew from each batch (the doses given, the dispensings)
+-- and, for a batch still in date at T0, a month (30 days) of its average
+-- daily use over the history, one unit at least. The receipt drawn above is
+-- raised, when short, to that sum rounded up to ten, so no batch's stock,
+-- nor a controlled one's monthly balance, falls below zero. No draw reads a
+-- receipt, and no part computes one: the ids and the draws are unchanged.
+CREATE TEMP TABLE l_drawn AS
+SELECT b.id, b.quantity_received AS drawn_receipt, coalesce(a.q, 0) + coalesce(d.q, 0) AS used,
+       b.expires_on > pg_temp.vc_local(env.e, env.o)::date AS in_date,
+       extract(epoch FROM pg_temp.vc_local(env.e, env.o) - env.s) / 86400 AS days
+  FROM medicine_batches AS b CROSS JOIN l_env AS env
+  LEFT JOIN (SELECT batch_id, sum(quantity) AS q FROM administrations WHERE state = 'given' GROUP BY 1) AS a
+         ON a.batch_id = b.id
+  LEFT JOIN (SELECT batch_id, sum(quantity) AS q FROM dispensings GROUP BY 1) AS d ON d.batch_id = b.id;
+
+UPDATE medicine_batches AS b
+   SET quantity_received = greatest(d.drawn_receipt,
+                                    10 * ceil((d.used + CASE WHEN d.in_date THEN greatest(1, ceil(30 * d.used / d.days))
+                                                             ELSE 0 END) / 10))
+  FROM l_drawn AS d
+ WHERE d.id = b.id;
+
+-- --- Checks: the ranges hold, the MINH lines match, the receipts cover the draws -------
 
 DO $$
 DECLARE
@@ -625,9 +649,12 @@ BEGIN
                             WHERE p.consultation_id = m.consultation_id AND l.medicine_id = 31
                               AND (p.issued_at AT TIME ZONE b.timezone)::date + l.days + l.milk_withdrawal_days
                                   = m.withdrawal_ends_on)
+        UNION ALL SELECT 'batch ' || b.id || ' received ' || b.quantity_received || ', drawn ' || d.used
+          FROM medicine_batches AS b JOIN l_drawn AS d USING (id)
+         WHERE b.quantity_received < d.used + CASE WHEN d.in_date THEN 1 ELSE 0 END
     ) AS y;
     IF bad IS NOT NULL THEN
-        RAISE EXCEPTION 'load.sql: a range or a MINH line does not hold: %', bad;
+        RAISE EXCEPTION 'load.sql: a range, a MINH line or a receipt does not hold: %', bad;
     END IF;
 END $$;
 

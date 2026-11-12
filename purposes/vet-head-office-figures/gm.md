@@ -61,7 +61,8 @@ fault edits.
 **The planted past** (`history.sql`, W4 item 5): from the history's first
 consultation, each feeder's day `d` when `d + 1` at 00:30 is before
 `load_epoch`, each month's figures when its next 1st at 05:00 is,
-acknowledged at once with the reference `figures-<YYYY-MM>`; each run its
+acknowledged at once with the reference its stub gives live,
+`HO<YYYYMM>-NNNN` (D451: the figures' month, the stub's count); each run its
 `runs` row. The feeder runs at 00:30, so **a T0 before 00:30 local** (and a
 `load_epoch` before it, the same night) finds yesterday unplanted, the
 feeder's to write; a later T0 finds it planted, and a moved feeder writes 0.

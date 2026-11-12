@@ -25,7 +25,8 @@
 #   load-data, then:
 #   - load-data: office's tables, the planted periods (the last planted
 #     month's extract, working-time months, figures and statements the sums
-#     of their days), the standby streaming;
+#     of their days; no controlled balance below zero; the references in
+#     the stubs' live forms, D451), the standby streaming;
 #   - inject -> start-load (T0, about 00:10 local); yesterday unplanted in
 #     every feeder's table, the day before planted; a herd treatment
 #     yesterday (recorded if none);
@@ -281,8 +282,13 @@ info "planted: $(dbsql records office "SELECT (SELECT count(*) FROM medicines_re
   || (SELECT count(*) FROM daily_figures) || ' daily figures, ' || (SELECT count(DISTINCT month) FROM monthly_figures) || ' months of figures, '
   || (SELECT count(*) FROM lab_charge_lines) || ' charge lines, ' || (SELECT count(*) FROM lab_statements) || ' statements, '
   || (SELECT count(*) FROM runs) || ' runs'")"
-same "planted: the last year's antimicrobial-use report, acknowledged with its reference" "t" \
-    "$(dbsql records office "SELECT bool_and(reference IS NOT NULL AND acknowledged_at IS NOT NULL) AND count(*) > 0 FROM amu_reports WHERE year = date_trunc('year', current_date - interval '1 year')::date")"
+same "planted: the last year's antimicrobial-use report, acknowledged with its reference in the authority stub's form (AMU<year>-NNNN, D451), copied" "t" \
+    "$(dbsql records office "SELECT bool_and(a.reference ~ ('^AMU' || to_char(a.sent_at, 'YYYY') || '-[0-9]{4}$') AND a.acknowledged_at IS NOT NULL
+                                    AND s.reference = a.reference) AND count(*) > 0
+       FROM amu_reports a LEFT JOIN regulatory_submissions s ON s.kind = 'amu-report' AND s.ref = a.payload->>'report_key'
+      WHERE a.year = date_trunc('year', current_date - interval '1 year')::date")"
+same "planted: no controlled balance below zero (D451: the receipts cover the history's draws)" "0 t" \
+    "$(dbsql records office "SELECT count(*) FILTER (WHERE opening < 0 OR closing < 0) || ' ' || (count(*) > 0)::text FROM controlled_balances" | sed 's/true$/t/')"
 M=$(dbsql records office "SELECT max(month) FROM register_extracts")
 same "a planted month ($M): each product's extract the sum of its days (lines, quantity), none missing" "0 t" \
     "$(dbsql records office "SELECT count(*) FILTER (WHERE r.l IS DISTINCT FROM e.lines OR r.q IS DISTINCT FROM e.quantity) || ' ' || (count(*) > 0)::text
@@ -297,9 +303,9 @@ same "a planted month ($W): each staff member's working time the sum of their da
               WHERE day >= '$W' AND day < ('$W'::date + interval '1 month')::date GROUP BY staff_id) d
        FULL JOIN (SELECT staff_id, worked_hours, night_hours, call_outs FROM working_time_months WHERE month = '$W') m USING (staff_id)" | sed 's/true$/t/')"
 F=$(dbsql records office "SELECT max(month) FROM monthly_figures")
-same "a planted month ($F): each figure the sum of its days (the turnaround the median), acknowledged with its reference" "0 t t" \
+same "a planted month ($F): each figure the sum of its days (the turnaround the median), acknowledged with its reference in the head office stub's form (HO<YYYYMM>-NNNN, D451)" "0 t t" \
     "$(dbsql records office "SELECT count(*) FILTER (WHERE d.v IS DISTINCT FROM m.value) || ' ' || (count(*) > 0)::text || ' '
-         || bool_and(m.reference = 'figures-' || to_char(m.month, 'YYYY-MM') AND m.acknowledged_at IS NOT NULL)::text
+         || bool_and(m.reference ~ ('^HO' || to_char(m.month, 'YYYYMM') || '-[0-9]{4}$') AND m.acknowledged_at IS NOT NULL)::text
        FROM (SELECT section, measure, CASE WHEN starts_with(measure, 'turnaround.')
                     THEN round((percentile_cont(0.5) WITHIN GROUP (ORDER BY value))::numeric, 2) ELSE sum(value) END AS v
                FROM daily_figures WHERE day >= '$F' AND day < ('$F'::date + interval '1 month')::date GROUP BY 1, 2) d

@@ -415,12 +415,15 @@ SELECT row_number() OVER (ORDER BY c.called_at, c.result_id)::integer, c.*
 
 -- A positive or suspect result for a listed disease's test, technically
 -- validated: notified within the hour for category A, the day for the others
--- (rule 7), by the authority's portal.
+-- (rule 7), by the authority's portal. Its reference in the authority stub's
+-- live form, N<year>-<6 digits> (purpose 5's; D451), the digits the order
+-- test's id: unique, and far above the stub's own count, which starts at 1
+-- at T0 (it holds none of these), so no live reference repeats a planted one.
 INSERT INTO lab_notifications (id, order_test_id, diagnosis_code, category, suspected_at, notified_at, channel, authority_ref)
 SELECT row_number() OVER (ORDER BY n.suspected_at, n.order_test_id)::integer, n.order_test_id, n.diagnosis_code, n.category,
        n.suspected_at, CASE WHEN n.notified_at < (SELECT e FROM l_env) THEN n.notified_at END,
        CASE WHEN n.notified_at < (SELECT e FROM l_env) THEN 'authority-portal' END,
-       CASE WHEN n.notified_at < (SELECT e FROM l_env) THEN 'VS-' || to_char(n.notified_at, 'YYYY') || '-'
+       CASE WHEN n.notified_at < (SELECT e FROM l_env) THEN 'N' || to_char(n.notified_at, 'YYYY') || '-'
                                                            || lpad(n.order_test_id::text, 6, '0') END
   FROM (SELECT DISTINCT ON (t.order_test_id) t.order_test_id, c.diagnosis_code,
                CASE WHEN c.diagnosis_code IN ('D-FM01', 'D-AH01', 'D-SP01', 'D-LS01') THEN 'A' ELSE 'other' END AS category,
