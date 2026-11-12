@@ -2037,7 +2037,8 @@ fixture, the answer key noting the interaction (17.2). As built: W5-b.
 
 ### Chunk 24 — The reports faults: s3, s7 and s8
 
-Status: planned
+Status: merged (w5, fe9f667)
+Record: cfd8ee1, merge fe9f667 (README fault row and `postgres` gm.md's supported-faults list resolved after chunk 23); s3 planted 32/32 (777 s), s7 23/23 (657 s), s8 32/32 (768 s); fixture-reports' `backoffice` now `fixable` (D456); s3's planted rewrite covers the report year and this year up to the last planted day (W5-c); the merged tree's `test_brick_docs`/`test_planted` OK
 Wave: 5
 Depends on: chunk 20 (wave 4); chunk 35 (in wave: its fixture run,
 spec D451); chunk 36 (in wave: s3 only, its format check, overlay and

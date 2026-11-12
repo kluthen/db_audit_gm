@@ -7515,3 +7515,39 @@ them). Root README: 33 faults. W5-b stands as logged. Risk: s6's
 overlay register is tied to `merge.py`'s output byte for byte; an edit
 to the fixture or its fragments needs it regenerated (the test catches
 it). Chunk 25 dispatched in the slot.
+
+### Chunk 24 merged (fe9f667), 2026-11-12
+
+Owner rotated on the owner's request ("rotate agents, their context are
+getting heavy") after 152 tool calls; the chunk was already complete at
+`cfd8ee1`, so the driver merged it (`fe9f667`) with the owner's saved
+resolution of two shared-list conflicts (root README's fault row, 36
+faults; `bricks/postgres/docs/gm.md`'s supported-faults sentence and
+rows after chunk 23's). `test_brick_docs` and `test_planted` OK on the
+merged tree; the owner's full suite on the same resolution 1270 OK, 2
+skipped. Planted runs: s3 `purpose-herd-use-dropped` 32/32 (777 s), s7
+`governance-statement-log-personal` 23/23 (657 s), s8
+`pg-standby-apply-delay` 32/32 (768 s).
+**W5-c, as built**: s3 is a `state` fault with a seed change
+(`inject/queries.yaml.diff`, one line of `amu.feed.read`) and a script
+on the target's node (`{script: inject/20-planted-report.sh, "on":
+target_node}`, `"on"` quoted: YAML reads it as `True` bare); parameters
+`source`, `target`, `job`, `target_node` (required, `records` in the
+instance); the script rewrites every planted day from 1 January of the
+last reported year to the last planted day (not only last year's: the
+query has been faulty since then), that year's report lines, its copy in
+`regulatory_submissions` and the runs' counts, unseen; the sealed check
+judges herd treatments only (AM2's rule); `at_handover: 1`, threshold 0;
+aging minimum the 02:00 feeder's first run after a herd-visit day. s7:
+`log_statement = 'all'` after `log_min_duration_statement`; the check
+reads `pg_settings` and `pg_db_role_setting` (mod/all on a non-game role
+or non-system database). s8: `recovery_min_apply_delay = '1h'` after
+`hot_standby_feedback`; `load-data`'s standby wait passes with it.
+fixture-reports' `backoffice` is `fixable` (D456). Doc changes in
+unreleased brick versions, no bump: `scheduler` gm.md's "all seed-file
+faults" sentence amended for s3; `postgres`' "cannot host" no longer
+excludes a standby from 0.5.0. **For the wave gate**: rerun
+fixture-reports' `run-short-test.sh` (95/95 before; its scenario and
+starter pack changed). Risk: s3 and s8 need T0 before 00:30 local (the
+test waits only when T0 falls outside :05–:15). No new pre-27 items.
+Chunk 26 dispatched in the slot.
