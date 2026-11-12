@@ -7794,3 +7794,70 @@ template has no slot for an issue's `backlog:` (s1's). For G13: read G2
 on the full clinic (transformers' and purposes' roles). All chunks of
 wave 5 merged (34, 36, 35, 22, 37, 23, 24, 26, 25, 38, 27). Next: the
 wave gate.
+
+### Wave gate — results, 2026-11-12
+
+Two gate owners (rotated at the status file `gate-w5/STATUS.md`), every
+docker run under the host lock, armenelos alone; the VPS `Drain` before
+and after (G4), nothing run there. Queue ran unattended 13:30–22:02, 55
+items, 54 at rc=0; the one rc=2 (smoke-governance, its line missing the
+playground argument, a harness slip) passed on rerun.
+- **By hand:** G3 every upstream 200 (17:50); G4 armenelos
+  Leader/Active, vps-5718ad52 Drain; G11.4's post-change check already
+  CLEAR (`.tech` 982ebe0, no dependency change since).
+- **Builds:** ten bricks, every `dpkg-query` list identical, no bump:
+  postgres 0.5.0 (153), bastion 0.5.0 (157), api 0.1.0 (141), grafana
+  0.3.0 (129), prometheus 0.2.1 (126), pgbouncer 0.1.1 (133),
+  postgres-exporter 0.2.0 (129), pgwatch 0.1.0 (126), health-check 0.1.0
+  (151) from cache; scheduler 0.3.0 rebuilt (142, same list).
+- **Brick stack tests** (PASS, 0 FAIL): postgres 315 (455 s), bastion
+  116 (86 s), api 88 (192 s), scheduler 178 (881 s), grafana 130
+  (172 s), prometheus 131 (78 s), pgbouncer 120 (168 s),
+  postgres-exporter 103 (98 s), pgwatch 72 (249 s), health-check 95
+  (202 s).
+- **Static and unit:** `sh -n` 324, `perl -c` 13, `py_compile` 456, 0
+  failed; `test_go_sbom` OK; full unit suite 1277 OK, 2 skipped (227 s);
+  scheduler unit 91 OK (218 s); api unit 36 OK (4 s).
+- **Smokes:** smoke all passed (30 s); smoke-monitoring 43 (47 s);
+  smoke-monitoring-v05 27 (149 s); smoke-governance 121 (103 s, rerun);
+  smoke-load armenelos 73 (389 s); scenarios bookshop 19 (22 s), fernway
+  18 (30 s), campaign 33 (308 s), shop 26 (798 s).
+- **vet-core load:** shift 0 117.9 s, shift 2 116.2 s; 49 MB, 271152 and
+  271173 rows in 25 tables.
+- **Fixtures** (passed, 0 failed): reports short 95 (873 s); exchanges
+  42 (1523 s, the longest, 25.4 min); s3 32 (767 s); s8 32 (736 s); s7
+  23 (642 s); s10 lab 19 (21 s); core 40 (179 s); s5 portal-scope 20
+  (380 s); s2+s6 archive planted 30 (158 s); archive short 45 (554 s);
+  s4 orders 22 (452 s); s1 orders 21 (815 s); false alarm send-outs 9
+  (501 s); s9 housing 23 (674 s); clinic-load 28 (908 s); lab-core 44
+  (590 s) and partners 52 (126 s), both run after `026e023`. Every item
+  under 30 minutes. s3 started 19:01, at the end of its :53–:01 window
+  (chunk 24's s3 also started a few minutes in and passed).
+- **aldermoor-centre:** format check loads; compose up to date; register
+  and README regenerations identical; `fit` on armenelos plus the VPS
+  (declared by name, no endpoint, nothing contacted): fits; the hand-over
+  snapshot does not (21.67G of 20G on armenelos), foreseen.
+- **Gate fixes:** `7f7d9a1` (fixture-send-outs' README, chunk 26's
+  template sections); `70e0e5d` (governance readers `housing_app`,
+  `housing_ward`, `mach_service`; vet-portal rule 7 and the outbox's
+  payload; fixture-register; fixture-register's and aldermoor-centre's
+  registers regenerated; chunk 27); `026e023` (the driver's ruling: the
+  bastions of fixture-send-outs, -archive, -clinic-load, -lab-core and
+  -partners map `partners.md: player/partners.md`; fixture-archive's
+  true register and s6's overlay register regenerated, digests and the
+  new input line only, entries unchanged; README lines edited as wave 4's
+  `4ac27ad` did).
+- After the queue: lock free, no queue process, no game container,
+  service, config, secret or volume left.
+**Gate passed.**
+For spec-writer (G19 or later): the scenario-document template has no
+slot for an issue's `backlog:` (s1); `vet-portal-domain.md` lines 645,
+698 and 984 still give rule 7's old wording and `animal_name`; the
+loader does not enforce that a bastion maps partners.md when its third
+parties carry a `player_doc` (how the `026e023` gap slipped through).
+Not a gate item: chunk 27's README renderer does not reproduce the older
+wave-5 fixtures' READMEs byte for byte. For G13: read G2 on the full
+clinic (transformers' and purposes' roles).
+Next: wave sync (no dependency change since G11.4's check, so no second
+security-advisor pass; no intent register, no documentalist), G19 by
+spec-writer, the owner's report.
