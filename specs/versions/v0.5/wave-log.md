@@ -7305,3 +7305,17 @@ suite 1227 OK; SBOMs match the advisor's candidates. For the gate: the
 READMEs' pin lines were hand-edited, so each is compared to a fresh
 regeneration. G11.4's post-change check dispatched. Chunk 36 takes the
 slot.
+
+### G11.4 — post-change check (security-advisor, 2026-11-12)
+
+CLEAR over chunk 34 as merged; `.tech` at 982ebe0. The built images'
+binaries match their SBOMs; `prometheus` 0.2.1's `dpkg-query` list is
+identical to 0.2.0's (126 packages), `grafana` 0.3.0's 129. Fixed:
+GO-2026-6888 (plugin), GHSA-2v4p-qf9q-27wj and GO-2026-6865
+(prometheus, promtool), GO-2026-6860/6866 in `grafana.cdx.json` only
+(Prometheus 3.16.0 keeps x/net 0.61.0, no x/net/html symbol linked).
+Pre-existing, none reachable: GO-2026-5932, GO-2022-0635/0646,
+GO-2026-6859 (Go < 1.27.4, untriaged in SECURITY_TODO.md). For the
+owner, informational: CVE-2026-110289 (Grafana Git Sync SSRF by an Org
+Admin, 2026-11-11, no fixed range yet) is listed in `.tech` to watch;
+no Git Sync here and the Org Admin is the players' own account.
