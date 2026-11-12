@@ -7379,3 +7379,56 @@ stubs' live counters restart at 0001 after the planted series (no
 repeat, the year or month is in the reference, but a player may see the
 count not continue); a gate fix could seed the stubs' counters. Chunk
 23 dispatched in the slot.
+
+### Chunk 23 — stopped on a loader gap (WIP 009b864), 2026-11-12
+
+Everything built and checked but one loader gap: `load-data` rewrites
+`composition.yaml`'s `coherence:` key (formats.md, "Loading a composed
+domain"), a file the true register digests (`register_inputs`), so any
+deployed scenario with a register reads stale after its load and
+`inject`/`start-load`/`check` refuse it. With `composition.yaml`
+restored after `load-data` (a temporary workaround, not committed):
+`run-planted-test.sh` (s2+s6) 30/30 (161 s), `run-short-test.sh` 45/45
+(527 s). Unit suite 1256 OK. Branch `v0.5-c23-archive-faults` at
+009b864, worktree kept. **Driver's decision**: the register's digest of
+`composition.yaml` leaves out its `coherence:` key (the result never
+feeds the register; the format's two records of it kept); option (b),
+the result in `state.yaml` only, rejected. `spec-writer` records it and
+inserts chunk 37 (a `coding-executor`); 23 resumes from 009b864 with a
+fresh owner once 37 has merged, reruns both archive tests without the
+workaround, and merges. Chunk 23's own choices accepted by the driver:
+the `data-register` skill's three rules (copies on entries only, never
+internal lines; cold storage's recipient form; an emptied diff value
+written as the handout words it, "no one"); the s2/s6 interaction
+recorded as `conflicts-with`; s6's check reading the players' home
+copy (its gm.md notes a player's edit flips it; the verdict is
+`register_diff` at the final answer).
+
+**W5-b, as built (chunk 23, pending its merge)**: s2
+`pg-archive-command-silent` (backups, high, `postgres` 0.5.0; aging 1 h,
+`archive_timeout`): one line in `nodes/records/postgresql.conf`,
+material `inject/postgresql.conf.snippet`; sealed check reads
+`pg_stat_archiver` (`check-psql`) and the vault's
+`GET /manifests?type=wal&source=<host>&from=<day before>` (Perl
+`HTTP::Tiny`, target from `/run/gm-vault/target`): 0 the last archived
+segment has a manifest, 1 not (naming the latest by `received_at`), 3
+nothing archived yet, 2 unreadable; D382 a setup limit in the answer
+key. s6 `governance-register-flow-undeclared` (security, medium,
+`bastion` 0.5.0): parameter `recipient` (default `Cold Storage`),
+*propose* only; sealed check `awk` over `/home/player/data-register.md`'s
+`###` entries, case-insensitive. Fixture: instances `s2` (records), `s6`
+(bastion), both at render, read after T0; overlays merged by
+`planted/merge.py` (s2 then s6; output byte-stable, s6's overlay holds
+the register generated for that merge); vet-core at `records/clinic`,
+hand-written `composition.yaml` leaving out `pms`, `api/clinic-api`,
+`partners/centres`; 6 register entries, each copy "cold storage (WAL
+archive, nightly base backup)" and recipient `{Cold Storage, [the whole
+instance, archived], processor: true}`; filler in database `fill`.
+For chunk 27: that recipient and copy form; `register_diff` values in
+the handout's words, an empty `shared_with` written "no one"; the base
+backup through `partners-api` at 0.25 CPU took ~300 s for ~100 MB.
+Shared lists: `postgres`' "Supported faults" (s2 row, the "`0.4.0`"
+sentence amended), the root README (31 faults), `bastion`'s section
+rewritten. Noted: `load-data` loads vet-core's other-centres data and
+the `centres` role onto `partners-db` though that producer is left out
+(existing behaviour, harmless here; for the gate's eye).
