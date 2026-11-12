@@ -1532,3 +1532,12 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   `inject` rows.** Now in: [build plan](versions/v0.5/build-plan.md)
   chunks 22 to 26; [master spec](versions/v0.5/master-spec.md) 17.3,
   18.2; [test selection](versions/v0.5/clinic-test-selection.md).
+- **D465 (2026-11-12, a loader gap chunk 23 found, decided by the wave
+  driver): the true register digests `composition.yaml` without its
+  top-level `coherence:` key and the indented lines under it, the span
+  `load-data` rewrites; every other input's digest unchanged.** The
+  coherence result is setup state that never feeds the register, and
+  its rewrite left every scenario with a register stale after
+  `load-data`. Rejected: the result in `state.yaml` only (it changes the
+  format and the GM's composition record). Now in:
+  [build plan](versions/v0.5/build-plan.md) chunk 37 and G19.

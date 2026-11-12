@@ -1,10 +1,7 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v16 (2026-11-12): wave 5's preflight corrections, accepted by
-the driver (spec D459–D464): chunk 36 inserted (the loader's three
-fault forms), wave 5 at nine chunks, its edges and order, gate G19;
-s8's, s10's and s5's readings, and chunks 22 to 26 brought to the code
-and capture W5. v15 (2026-11-10) wrote in D443–D457.
+Status: v17 (2026-11-12): chunk 37 inserted (spec D465, the register's digest of `composition.yaml` without its `coherence:` key), wave 5 at ten chunks, its edges and order, G19.
+v16 (2026-11-12) wrote in D459–D464.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -112,7 +109,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 | G17 | [formats.md](../../formats.md) and master spec 5 carry chunk 29's format items as built (spec D401): a part's `data/keys.sql`, `composition.yaml`'s `left_out:`, a `history` on a purpose with no feeder and its `target` on the partners' database, a domain's `data/cron.sql` (spec D405), the purposes' DDL step in `load-data`'s order. Written from W3-f | `spec-writer`, after wave 3's gate | Release gate item 6 | done (2026-11-05, wave log) |
 | G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433); the invariant ids, `data_moved.reads` in the scenario's key form, HTTP connections `<part>_<w>` and endpoint material's `api.yaml` ("Purpose definition"; spec D438), one end-to-end invariant per round trip (spec D440). Written from W4-a to W4-g | `spec-writer`, after wave 4's gate | Release gate item 6 | done (2026-11-10, formats.md v32, master spec 5, 6, 6.2, 6.6, 12.1) |
-| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`). Written from W5-h | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
+| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`); and formats.md ("Scenario", the data register's `generated_from:` and its digests) and master spec 6.2 carry chunk 37's exclusion (spec D465): `composition.yaml` digested without its top-level `coherence:` key and the lines indented under it, every other input by its bytes. Written from W5-h and chunk 37's Record | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -128,7 +125,7 @@ none is a gate.
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
 | 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | merged into `main` (2026-11-05, b9fe67e) |
 | 4 | 17, 18, 19, 20, 21, 32, 33 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16; chunk 33 (spec D439, cut once 17 and 32 had merged) merged before the format checks of 18 to 21 and chunk 19's restart: seven chunks, one past the model's six: 33 is a fix-sized gap a running chunk found, every purpose of 18 to 21 fails without it, so it cannot wait for wave 5 | merged into `main` (2026-11-10, b4f35cc) |
-| 5 | 22, 23, 24, 25, 26, 27, 34, 35, 36 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies); chunk 36 merged before the parts of 22, 24, 25 and 26 that read it (spec D460): nine chunks, three past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448), 35 a fix-sized data correction chunks 24 and 27 read (spec D451), 36 a fix-sized loader gap the preflight found, three fault forms of the test selection the loader cannot express (spec D459); v0.5 has no later wave (spec D457, D460) | planned |
+| 5 | 22, 23, 24, 25, 26, 27, 34, 35, 36, 37 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies); chunk 36 merged before the parts of 22, 24, 25 and 26 that read it (spec D460); chunk 37 merged before chunk 23's fixture runs and merge, and before chunk 27's branch (spec D465): ten chunks, four past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448), 35 a fix-sized data correction chunks 24 and 27 read (spec D451), 36 a fix-sized loader gap the preflight found, three fault forms of the test selection the loader cannot express (spec D459), 37 a fix-sized loader gap a running chunk found (chunk 23: every scenario with a register stale after `load-data`, spec D465); v0.5 has no later wave (spec D457, D460) | planned |
 
 ```
 1 ──> 2, 3, 4, 5        (in wave 1: cut once chunk 1 has merged into v0.5-w1; the
@@ -214,9 +211,16 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
 36 ──> 26               (in-wave, merge order: the false alarm's lines and
                          `gmctl.md`'s `inject` rows; the forms fixed by capture
                          W5, Preflight corrections item 1, and spec D459)
-17, 22, 23, 24, 25, 26, 34, 35, 36 ──> 27   (in-wave: the fault ids and seed
+17, 36 ──> 37           (inserted into wave 5 after chunk 23 stopped, cut from
+                         `v0.5-w5` at once: the register's digests, and
+                         `model.py`'s last holder; spec D465)
+37 ──> 23               (in-wave: its fixture runs and merge; 23 resumes from
+                         its WIP 009b864 once 37 has merged, taking `v0.5-w5`
+                         in; the digest fixed by spec D465)
+17, 22, 23, 24, 25, 26, 34, 35, 36, 37 ──> 27   (in-wave: the fault ids and seed
                          changes of master spec 17.2, the skill's sections, the
-                         bumped pins, the corrected data, the three forms; W5)
+                         bumped pins, the corrected data, the three forms, the
+                         register's digest; W5, spec D465)
 ```
 
 Wave 1's order: chunk 1 runs alone first; chunks 2 to 5 are cut from
@@ -307,11 +311,18 @@ wave 5; `tools/tests/test_model.py` is shared with chunk 34's tag lines
 (the second to merge takes `v0.5-w5` in first; W5 item 9). The
 data-register skill is chunk 23's, the game-master and
 scenario-document skills chunk 26's; no fault chunk edits a domain's or
-a purpose's files. Chunk 27 is cut once the eight others have merged.
-The chains 34, 35 or 36, then 22 to 26, then 27, run three long, past
-the model's two: kept, since 34, 35 and 36 delay no start (only a
+a purpose's files. Chunk 37 (spec D465) takes the next free slot once
+inserted, first, cut from `v0.5-w5` at once (36 merged); `tools/gm/*.py`
+are then its alone in wave 5, and the data-register skill's `SKILL.md`
+and `template.md` shared with chunk 23: 37 merges first, and 23 resumes
+from its WIP (`009b864`) once 37 has merged, its branch taking
+`v0.5-w5` in first. Chunk 27 is cut once the nine others have merged.
+The chains 34, 35, 36 or 37, then 22 to 26, then 27, run three long,
+past the model's two: kept, since 34, 35 and 36 delay no start (only a
 merge, one fixture run or a named part waits), each is small, and W5
-with spec D459 fixes the forms 36 builds.
+with spec D459 fixes the forms 36 builds; 37 holds back only 23's
+fixture runs and merge, the gap's own cost, with the digest fixed by
+spec D465.
 
 ## Workflow deltas
 
@@ -1971,7 +1982,9 @@ backlog entry for s1. As built: W5-a.
 
 Status: planned
 Wave: 5
-Depends on: chunks 11 and 17 (waves 2 and 4)
+Depends on: chunks 11 and 17 (waves 2 and 4); chunk 37 (in wave: its
+fixture runs and merge; resumed from its WIP `009b864` once 37 has
+merged, its branch taking `v0.5-w5` in first; spec D465)
 Architecture capture: W5; s2 and s6 planted together on the archive
 fixture, the answer key noting the interaction (17.2). As built: W5-b.
 
@@ -2180,7 +2193,7 @@ W5-e.
 
 Status: planned
 Wave: 5
-Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 36, merged
+Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 37, merged
 into `v0.5-w5` before this chunk's branch is cut; G14 (its merge, only if it applies);
 W5
 Architecture capture: none of its own; it reads W1 to W5.
@@ -2852,6 +2865,57 @@ Preflight corrections item 1, and spec D459; read by chunks 22 (fa),
 - Verification: chunk checks.
 - Split rule: none expected (two modules, their tests, one skill).
 
+### Chunk 37 — The register's digest of `composition.yaml` without its `coherence:` record
+
+Status: planned
+Wave: 5
+Depends on: chunks 17 (wave 4: the register and its digests, W4 item
+1, spec D434) and 36 (in wave, merged: `model.py`'s last holder);
+inserted after chunk 23 stopped on the gap (spec D465), cut from
+`v0.5-w5` at once, built by a `coding-executor` handed the brief by the
+driver ("Read first")
+Architecture capture: spec D465; read by chunks 23 and 27 and every
+scenario with a register after.
+
+- Goal: `gmctl load-data` rewriting `composition.yaml`'s `coherence:`
+  record leaves a scenario's true register current, so `inject`,
+  `start-load` and `check` no longer refuse the archive fixture (chunk
+  23) or the clinic scenario (chunk 27) as incomplete (spec D465).
+- Scope: in:
+  - the register's digest of `composition.yaml`, where the skill
+    records it and where the loader recomputes `generated_from:`, taken
+    over the file with its top-level `coherence:` key and the indented
+    lines under it removed, the span `coherence.rewrite_record`
+    rewrites; a file without the key digests as its bytes, so
+    `fixture-register`'s register stays current; every other input's
+    digest unchanged (`file_digest`);
+  - one span finder for both: `coherence.py` imports `model`, so the
+    span logic moves into `model.py` and `rewrite_record` calls it,
+    rather than a second parser in `model.py`;
+  - the `data-register` skill: `SKILL.md`'s step 3 ("The digests") and
+    `template.md`'s `generated_from:` comment say `composition.yaml` is
+    digested without its `coherence:` key, and how to compute it.
+  - Out: formats.md and master spec 6.2 (G19); the coherence result's
+    two records, unchanged (formats.md "Loading a composed domain",
+    spec D465); chunk 23's register and fixture.
+- Files: `tools/gm/model.py` (`register_inputs`, the digest of
+  `composition.yaml`, the span finder), `tools/gm/coherence.py`
+  (`rewrite_record` reusing it); `tools/tests/test_model.py` (and
+  `test_coherence.py` where `rewrite_record`'s tests read the shared
+  finder); `.claude/skills/data-register/{SKILL.md,template.md}`
+  (shared with chunk 23, which takes `v0.5-w5` in once 37 has merged).
+- Spec sections: master spec 6.2, 13.3; formats.md "Scenario" (the data
+  register), "Loading a composed domain"; spec D434, D465.
+- Done when: a unit test: a register generated, then
+  `composition.yaml`'s `coherence:` added, or rewritten by
+  `record_composition`, the register still current; any other byte of
+  `composition.yaml` changed, the register stale ("stale register");
+  `rewrite_record`'s existing tests passing on the shared finder; every
+  scenario and fixture loads (`model.load_scenario`); the unit suite
+  passes.
+- Verification: chunk checks.
+- Split rule: none expected (two modules, their tests, one skill).
+
 ## Release gate
 
 Against master spec sections 19 and 20, on `v0.5-w5` before it merges,
@@ -2887,7 +2951,7 @@ exception. GM-side checks run from the host.
    no fault fixed; the VPS drained after and filetstudio.com answering.
 6. **The format, the loader and the skills**: formats.md v28's items in
    the templates, the loader and the `scenario-format` skill, with
-   wave 2's, chunk 29's, wave 4's and chunk 36's as-built items
+   wave 2's, chunk 29's, wave 4's and chunks 36's and 37's as-built items
    written into formats.md (G16, G17, G18, G19); the
    `data-register` skill, the GM's Setup step 2, the scenario
    document's sections (DoD 3, 4, 8).
