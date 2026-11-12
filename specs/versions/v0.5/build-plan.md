@@ -1980,7 +1980,7 @@ backlog entry for s1. As built: W5-a.
 
 ### Chunk 23 — The archive faults: s2 and s6
 
-Status: planned
+Status: blocked (on chunk 37; WIP 009b864 on `v0.5-c23-archive-faults`)
 Wave: 5
 Depends on: chunks 11 and 17 (waves 2 and 4); chunk 37 (in wave: its
 fixture runs and merge; resumed from its WIP `009b864` once 37 has

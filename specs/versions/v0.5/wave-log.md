@@ -7432,3 +7432,15 @@ sentence amended), the root README (31 faults), `bastion`'s section
 rewritten. Noted: `load-data` loads vet-core's other-centres data and
 the `centres` role onto `partners-db` though that producer is left out
 (existing behaviour, harmless here; for the gate's eye).
+
+### Plan v17: chunk 37 inserted (D465), its peek, 2026-11-12
+
+`spec-writer` at 69bd80d: D465 (the register's digest of
+`composition.yaml` without its `coherence:` key), chunk 37 inserted
+(`tools/gm/{model,coherence}.py`, their tests, the `data-register`
+skill's `SKILL.md` and `template.md`), G19 extended (formats.md and
+master spec 6.2), wave 5 at ten chunks; chunk 23 `blocked (on chunk
+37)`. **Chunk 37's peek** (no intent register): `tools/gm/*.py` held by
+no running chunk (36 merged; 22 touches none); the `data-register`
+skill shared with the stopped chunk 23, which takes `v0.5-w5` in after
+37 merges; no data, no dependency. Dispatched to a `coding-executor`.
