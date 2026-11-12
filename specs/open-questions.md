@@ -230,7 +230,7 @@ likewise, and so is O243, raised by the same pass and closed by capture
 W4 (D432). O247, raised by placing the owner's security rulings of
 2026-11-10, closed by the owner (D458), and O250, raised by chunk 27's
 stop (D469) and closed by the owner as proposed (D471), are kept
-likewise; O249 is open:
+likewise; O249 and O251 (raised at wave 5's gate) are open:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -381,6 +381,20 @@ likewise; O249 is open:
   judging a standby's databases at its primary's location, a non-SQL
   connection no database path). Refs: `tools/gm/governance.sh`;
   [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
+- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12) — The
+  loader does not enforce the format rule that a bastion maps
+  `partners.md: player/partners.md` exactly when the scenario's
+  `third_parties:` carry a `player_doc` (formats.md "Partners"). It
+  catches the omission only through `credentials:` (a listed credential
+  the unmapped page cannot name), so five fixtures whose partners list
+  none passed without the page until gate fix `026e023` mapped it by
+  hand. No v0.5 scenario or fixture breaks the rule now, and the players'
+  page is the only loss (no check reads it). Proposed: a loader refusal
+  in v0.6's first chunk touching `tools/gm/model.py` ("third parties
+  carry a `player_doc`, but the bastion maps no `partners.md`", and the
+  converse), with a unit test; no v0.5 chunk. Refs: `tools/gm/model.py`
+  (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
+  (third parties); [formats.md](formats.md) "Partners".
 
 
 ## v0.6: the setup's entry point

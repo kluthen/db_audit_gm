@@ -17,7 +17,13 @@ endpoint `api.yaml`, one end-to-end invariant per round trip; the load's
 step (2c), the GM's read policy; the register's form, its digests and
 the `fixture-` exemption; the partners' handed-over credentials and
 `partners.md`'s placeholders; a domain's `cron.sql` refused when its
-databases are not the scenario's
+databases are not the scenario's. Draft v33, after wave 5's gate (gate
+G19), with wave 5's as built (D459, D465, D468, D469, D472): a `state`
+script run on another node, the `topology` injection, a false alarm; the
+register's digest of `composition.yaml` without its `coherence:` record;
+the scenario document without the coherence result and with a cascade's
+backlog; the customer's governance holding no location on a third
+party's node and walking none
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -132,6 +138,20 @@ The owner's requirements (D23), with the earlier rulings that apply:
   create (each `at:` database, the roles and databases their schema and
   load files create, and on the partners' node each composed partner's
   `data.sql`), which `load-data` creates; a standby is never a location.
+  **From v0.5's build** (D469) the customer's governance judges the
+  customer's estate only: no location, and no outbound flow's `outbox`,
+  is on a third party's node (each `third_parties:` entry's `nodes`, and
+  the shared nodes found by name for the owners alone, "Partners"
+  below), the loader refusing one ("`<location>`: `<node>` is a third
+  party's node"); what the customer sends a partner is the outbound flow,
+  judged at the customer's outbox and declared in the register's
+  `shared_with`, its storage on the partner's side the partner's
+  business. The governance check set walks the customer's nodes only:
+  its `database_nodes` and `transformer_nodes` leave out every node the
+  loader counts as a third party's (`model.third_party_nodes`, the one
+  set for both), so a partners' database, whose `pg_hba.conf` rejects
+  `gm_check` (D383), is never walked. Its walk of a standby and of a
+  transformer's HTTP connections is a v0.5 known limit (D471).
 - **Composed domains and the data register** (from v0.5, D322, D326,
   D330, D334, D335): `domains:`, the domains the scenario's business is
   composed of, each with its `at:` ("Domain" below, "Composing
@@ -175,12 +195,23 @@ The owner's requirements (D23), with the earlier rulings that apply:
   instance's `register_diff:` into the answer key, then digests every
   input and writes both files. `gm/data-register.yaml` opens with
   `generated_from:`, a map from each input's path (scenario-relative, or
-  `catalog/<path>` for a catalogue file) to `sha256:<hex>` of its bytes;
+  `catalog/<path>` for a catalogue file) to `sha256:<hex>` of its bytes,
+  but for `composition.yaml` (v0.5's chunk 37, D465): it is digested
+  without its top-level `coherence:` key and the indented lines under
+  it, the span `load-data` rewrites, so a setup never makes the register
+  stale; a `composition.yaml` without the key digests as its bytes, and
+  every other input as its bytes (the loader's `register_digest`, the
+  span found by `coherence_span`, the one finder `load-data`'s rewrite
+  uses too);
   then `controller`, `contact`, `policy`; `entries`, one per register
   fragment activity, its `id` the fragment's, with `department`, `name`,
   `purpose`, `people`, `data` (`personal`, `customer-linked`), `where`
-  (`{at, tables}` or `{copy}`), `shared_with` (`{recipient, fields,
-  flow?, processor?, outside_eu?}`) and `kept_for` (`{period, then}`),
+  (`{at, tables}` or `{copy}`; the customer's own nodes only, never a
+  third party's node, which neither a `where` nor the index names, D469:
+  a purpose's table on the partners' database stays out, what the
+  customer sends there a recipient in `shared_with`), `shared_with`
+  (`{recipient, fields, flow?, processor?, outside_eu?}`) and `kept_for`
+  (`{period, then}`),
   the field names `register_diff:` uses; `internal`, one line per
   internal activity or purpose holding internal columns only; and
   `index`, each `node/database` to its entries. A purpose's table
@@ -216,7 +247,12 @@ The owner's requirements (D23), with the earlier rulings that apply:
   optional for it (D158); and its
   difficulty score, the number of fault instances, checked by the
   loader, with optionally the level it targets (D120, D134). An issue may also cover a
-  tooling expectation, which is not a fault (D65, D76).
+  tooling expectation, which is not a fault (D65, D76). From v0.5 an
+  issue may be a **false alarm** (v0.5's chunk 36, D459): `covers: []`,
+  its expected resolution *report*, and an entry in the answer key's
+  `false_alarms:` (below); the loader refuses an issue covering nothing
+  with another resolution or with no entry there. A false alarm is no
+  fault instance: it counts in no difficulty score and no fault cap.
 - **The answer key**, for every fault instance: what is wrong and why, the
   evidence as the player user and where it is run (a required `where`
   from v0.2: `bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`;
@@ -243,7 +279,20 @@ The owner's requirements (D23), with the earlier rulings that apply:
   `{absent: true}` for the register's absence; its resolution is *propose*, the
   corrected entry judged at the final answer against the diff (D333),
   and the scenario document shows the diff in a "Data register"
-  section.
+  section. From v0.5 a round-trip fault instance that leaves requests
+  stuck before the fix lists them as its `backlog:` (`what`, the
+  requests stuck; `cleanup`, what counts as cleaned up), a consequence
+  the GM may credit, never a fault and never counted toward the fault
+  cap or the score; the scenario document shows it with the instance's
+  answer (D472). And the answer key's optional `false_alarms:` (v0.5's
+  chunk 36, D459), non-empty when present, holds one entry per false
+  alarm: `issue` (an issue of `scenario.yaml` with `covers: []`), `why`
+  (why no fault is behind it), `evidence[]` (as a fault instance's, its
+  `where` checked) and `acceptable` (one string, as a tooling
+  expectation's); the loader refuses an entry naming no issue, an issue
+  that covers anything, or one issue twice. The scenario document shows
+  each in a "False alarms" subsection of its answer key; it is judged at
+  the final answer, on the report alone, with no sealed check.
 - **The host topology it was designed for**: the platform (Swarm,
   Kubernetes…), the hosts, their capacity (CPU, RAM, disk), and the
   resource limits, reservations and placement the scenario was sized with.
@@ -266,13 +315,20 @@ The owner's requirements (D23), with the earlier rulings that apply:
   game, the bastion publishing its port and the tools password handed
   over whether or not the topology has a web interface; the page is its
   home, linking to the web interfaces when there are any (D224,
-  replacing D103).
+  replacing D103). From v0.5 a scenario whose `third_parties:` carry a
+  `player_doc` hands the players the partners' page,
+  `player/partners.md`, mapped to the bastion's optional seed file
+  `partners.md` exactly then ("Partners" below); v0.5's loader does not
+  enforce the mapping unless an entry lists `credentials:` (O251).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
   should not read it. Enforcement goes no further (D13). The starter pack
   does not carry the warning; repeating it at the top of the other GM-side
-  files is (proposed).
+  files is (proposed). From v0.5 it renders every answer-key item a
+  fault instance carries, a cascade's `backlog:` included (D472), and
+  the false alarms; it never shows the coherence result, setup state
+  ("Composing domains" below, D468).
 
 A scenario is complete whatever the initiator sketched or left out at
 setup: the GM fills the blanks (D16). Recording which items came from the
@@ -296,6 +352,7 @@ skill (D40).
     issues.md         the issues given, each with its expected resolution (may be empty)
     data-policy.md    from v0.4, with `governance:`: the company's data policy
     data-register.md  from v0.5, with `domains:`: the data register handout (generated)
+    partners.md       from v0.5, with `third_parties:` carrying a `player_doc`: the partners' page
   gm/                 sealed: never shipped to any node
     answer-key.yaml
     notes.md          explanations the GM draws on for feedback
@@ -620,6 +677,26 @@ faults/<fault-id>/
   data load, before T0 (D226). A `state` fault may also carry
   `seed_changes`, in the scenario's copies from T0 as a `seed-file`
   fault's, its scripts planting the rest later (D254).
+  From v0.5's build (chunk 36, D459), two more forms:
+  - **A script run on another node**: an item of a `state` fault's
+    `injection.scripts[]` is a bare path, run on the instance's node, or
+    `{script: <path>, on: <parameter>}`, no other key; `<parameter>` is
+    a parameter of the fault declared `required: true`, and its value in
+    the scenario's instance (else its default) names a node of the
+    topology whose brick, at its pinned version, the fault's
+    `applies_to` names. `gmctl inject`, `inject --at` and `restart`'s
+    replant stream that script to that node under the same contract as
+    the instance's own scripts (the same `run_as` and `FAULT_*`
+    variables), in the fault's script order; a node the game lacks is
+    refused before anything runs.
+  - **`injection.kind: topology`**: the fault is planted at render by
+    the scenario's topology itself, valid only on a fault declaring
+    `option_absent` (the instance's node must not choose that option);
+    its `stage` is `seed` or absent; it has no `seed_changes`, `scripts`
+    or `parameter_changes`, keeps `run_as`, and may declare
+    `parameters:` for its sealed check. `gmctl inject` runs nothing for
+    it (it reports "topology fault, planted at rendering by the
+    topology; nothing to run"), and `inject --at` refuses it.
 - **Evidence paths** as the player user. From v0.3 each evidence's
   free text is its `source`, and its `where` is `node` (the fault's
   target node), `bastion`, or `report:<tool>` for a tool the target's
@@ -1358,7 +1435,13 @@ its `what`, the row count and the first ten rows. The result is
 recorded twice: `coherence: {run_at, result}` rewritten by `load-data`
 in `composition.yaml` (that key only, every other line kept byte for
 byte), and each check's outcome in the game's `state.yaml`; a failing
-check is recorded `result: fail` before the setup fails.
+check is recorded `result: fail` before the setup fails. Both records
+are setup state, read by nothing at design time: the data register's
+digest of `composition.yaml` leaves the `coherence:` key and the lines
+indented under it out ("Scenario" above, D465), and the scenario
+document never shows the result (D468); its Composition section says
+only that the check runs at every setup and where its result is
+recorded, so a setup never makes the register or the document stale.
 
 **The derivation step.** Where formulas would be unreasonably costly,
 the GM may sanction an ordered post-load step deriving a part's history
@@ -1494,8 +1577,14 @@ start on a name with no secret. The loader refuses a placeholder naming
 a credential no entry lists, a listed one `partners.md` does not name,
 one no endpoint answering under that entry's hostname accepts,
 `partners_backend`, and any node's `vault_credential`; `gmctl status`
-lists them as "password, handed over". A fixture whose third party has a
-`player_doc` maps `partners.md` on its bastion.
+lists them as "password, handed over". A scenario, a fixture included,
+whose third parties carry a `player_doc` maps `partners.md:
+player/partners.md` on its bastion, and one whose third parties carry
+none maps no `partners.md` (the `scenario-format` skill's rule). v0.5's
+loader enforces the mapping only through `credentials:` (a listed
+credential `partners.md` does not name); a bastion leaving the page
+unmapped beside a `player_doc` and no credential passes it (wave 5's
+gate fix `026e023` mapped it on five fixtures by hand; O251).
 
 **Cold storage's console route** (from v0.5's build, master spec 7.3):
 the bastion's `web_routes` may hold `cold-storage: "cold-storage:8000"`,
@@ -1523,6 +1612,24 @@ comes from an entry listing `partners-db`: a scenario with the owners'
 route and no third party at all is refused for the owners' `data.sql`
 (a known limit; no v0.5 scenario is one). With an entry listing a
 scheduler or `api` node, every rule above holds unchanged.
+
+**The customer's governance stops at the partners' nodes** (from
+v0.5's build, chunk 38, D469). The nodes the loader counts as a third
+party's are each `third_parties:` entry's `nodes` plus, for the owners
+alone, `partners-backend` and `partners-api` (`model.third_party_nodes`,
+one set). On them the customer's `governance:` holds nothing: a class's
+location or an outbound flow's `outbox` there is refused ("`<location>`:
+`<node>` is a third party's node: the customer's governance holds no
+location there; what it sends the partner is an outbound flow"); the
+governance check set never walks them (its `database_nodes` and
+`transformer_nodes` leave them out, and `check-governance.sh` takes its
+nodes from that value, never from the topology's roles); the data
+register names none in a `where` or its index. What the customer sends
+a partner is judged at the customer's outbox (G4) and declared as a
+recipient in the register's `shared_with`; a purpose's table on the
+partners' database (its `target` there) stays out of the register's
+`where`. A foreign server or a transformer connection reaching a node
+not walked still reads "cannot judge".
 
 ## Versions and pins (D57–D62, D72, D75, D86, D100, D229)
 

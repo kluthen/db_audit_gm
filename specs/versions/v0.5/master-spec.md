@@ -75,7 +75,11 @@ s5's calibration, former owners having had hours, not days, to look
 D464). On 2026-11-12, chunk 27's finding: the customer's governance
 holds no location on a third party's node and its checks walk none,
 what it sends there judged as an outbound flow (10.1, 10.2, 13.2; spec
-D469).
+D469). On 2026-11-12, after wave 5's gate: its format items as built,
+recorded in sections 6, 6.2, 6.3 and 6.4 and in formats.md v33 (gate
+G19; spec D459, D465, D468, D469); the scenario document showing a
+cascade's backlog (6.3, 15; spec D472); the portal's messages as built,
+naming the recipient and a reminder's due date (9.7, 12.2; spec D473).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -350,7 +354,11 @@ part's keys, `cron.sql`, `left_out:`, `ddl:`, the owners alone on the
 shared nodes), and its v32 wave 4's (the purposes' parts beyond v0.4's,
 their material, the `ops` block and calendar-gated cadences, the load's
 step (2c), the register's form and digests, the partners' handed-over
-credentials, the `cron.sql` database refusal); this section lists what v0.5 changes and
+credentials, the `cron.sql` database refusal), and its v33 wave 5's (a
+script on another node, the `topology` injection, a false alarm, the
+register's digest of `composition.yaml` without its `coherence:`
+record, the scenario document's coherence result and backlog, the
+customer's governance stopping at the partners' nodes); this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -430,7 +438,12 @@ As [formats.md](../../formats.md) "Domain" states it:
   contact and policy, the entries (`purpose`, `people`, `data` by class,
   `where`, `shared_with`, `kept_for`: the fields `register_diff:` names),
   the internal tables and a `node/database` index; a digest no longer
-  matching is refused as a stale register.
+  matching is refused as a stale register. As built in wave 5 (spec
+  D465): `composition.yaml` is digested without its top-level
+  `coherence:` key and the lines indented under it, the record
+  `load-data` rewrites at every setup, so a setup never makes the
+  register stale; every other input by its bytes. No `where` and no
+  index line names a third party's node (13.2, spec D469).
 - **`third_parties:`**, one entry per partner, and
   **`partners.md`**, the fifth optional starter-pack file, mapped to the
   bastion's optional seed file `partners.md` (10.2, 10.3):
@@ -473,7 +486,17 @@ As [formats.md](../../formats.md) "Domain" states it:
 - **A cascade's backlog**: for a round-trip fault, the requests the
   fault left stuck before the fix are listed as a consequence the GM may
   credit the players for cleaning up; not a fault, never counted toward
-  the fault cap.
+  the fault cap. Its form is the instance's `backlog: {what, cleanup}`,
+  and the scenario document shows it with the instance's answer (spec
+  D472).
+- **A false alarm** (17.2's fa; as built in wave 5, spec D459): an
+  issue with `covers: []` expecting *report*, and its entry in the
+  answer key's optional `false_alarms:`: `issue`, `why`, `evidence[]`
+  (as an instance's) and `acceptable` (one string). The loader refuses
+  an issue covering nothing with another resolution or no entry, and an
+  entry naming no issue, an issue covering anything, or one issue twice.
+  It is no fault instance: no sealed check, no score, no cap; judged at
+  the final answer on the report alone.
 - **A third party's evidence**: a sealed check may read a partner's side
   as evidence (callbacks sent against callbacks received, a vault's
   manifests); it judges the customer's side only. No expected *fix*
@@ -489,7 +512,19 @@ As [formats.md](../../formats.md) "Domain" states it:
   `governance-register-*`, in the `security` family; the
   `data-register` skill writes the changed handout.
 - A fault may **require an option** (a lost `pg_monitor` grant on the
-  `monitoring` role) or plant its absence (17.2, s10).
+  `monitoring` role) or plant its absence (17.2, s10). As built in wave
+  5 (spec D459), the absence is planted by **`injection.kind:
+  topology`**: at render, by the scenario's topology itself (the
+  instance's node not choosing the option), valid only with
+  `option_absent`, with no seed change, script or parameter change, and
+  nothing for `gmctl inject` to run (`inject --at` refuses it).
+- **A script run on another node** (17.2's s3; as built in wave 5,
+  spec D459): an item of a `state` fault's `injection.scripts[]` may be
+  `{script: <path>, on: <parameter>}`, the parameter a required one of
+  the fault whose value in the instance names a node of the topology
+  whose brick the fault's `applies_to` names; `gmctl inject`, `inject
+  --at` and a restart's replant stream it there under the instance's
+  own script contract, in the fault's order.
 - A partner's misbehaviour (an outage, slow answers, a lost or
   duplicated callback) is a key switching that partner's state on the
   shared nodes, placed as a timeline change or as standing behaviour;
@@ -2411,7 +2446,8 @@ hashes, a document's vet's name, the outbox's address and payload.
    no job reads; a withdrawal counts from the next message; reminders
    on opt-in (*gv*).
 7. **Messages** via the messaging service only: address, template, the
-   animal's name, a link; never a result, diagnosis, identifier or
+   recipient's name, the animal's name, a reminder's due date, a link
+   (as built, spec D473); never a result, diagnosis, identifier or
    password; reminders 08:00–20:00, never for a dead animal, a former
    owner or a closed account, each with a withdrawal link.
 8. **Audit**: every opening recorded; pgaudit without parameters.
@@ -2451,7 +2487,9 @@ bounces): `queue-notices` every 5 minutes (transactional, no consent);
 event); `send-messages` every minute (reminders 08:00–20:00, consent
 checked again, the same key on retry, an incident after six attempts).
 Invariants MS1–MS6; the outbound flow `to: messaging` carries
-`address`, `template`, `animal_name`, `link`.
+`address` and the payload's keys `template`, `name` (the recipient's),
+`animal` (its name), `due_on` (a reminder's due date) and `link` (as
+built, spec D473).
 
 #### Loading and the build
 
@@ -3348,7 +3386,9 @@ tenth of a gigabyte there.
   answers); a report-only fault on a display judged at the final answer,
   never cleared in play.
 - **The `scenario-document` skill**: "Third parties", "Composition" and
-  "Data register" sections.
+  "Data register" sections; in the answer key, the false alarms (spec
+  D459) and each fault instance's backlog (6.3, spec D472); never the
+  coherence result, setup state (spec D468).
 
 ## 16. Player access and rules
 

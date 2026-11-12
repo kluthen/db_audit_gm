@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take the next number from
+D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -1486,7 +1486,8 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   all seven have.** 34 is the owner's placement (D446), 35 a fix-sized
   data correction chunks 24 and 27 read; v0.5 has no later wave. Now in:
   [build plan](versions/v0.5/build-plan.md) "Waves", chunks 34, 35.
-- **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.- **D459 (2026-11-12, wave 5's preflight correction 1, accepted by the
+- **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.
+- **D459 (2026-11-12, wave 5's preflight correction 1, accepted by the
   wave driver): chunk 36 builds three fault forms: a `state` script run
   on another node (`{script, on: <parameter>}`), `injection.kind:
   topology` with `option_absent`, and a false alarm (`covers: []`,
@@ -1585,3 +1586,20 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   (D469). Rejected: a second small chunk in wave 5. Now in:
   [master spec](versions/v0.5/master-spec.md) 18.4, 20.3;
   [build plan](versions/v0.5/build-plan.md) release gate items 3, 12.
+- **D472 (2026-11-12, wave 5's gate finding; spec-writer): the scenario
+  document shows a round-trip fault instance's `backlog:` (`what`,
+  `cleanup`) with that instance's answer, as it shows every other
+  answer-key item.** The document renders the answer key for review and a
+  GM's restart (master spec 6.3: the backlog is in it, a creditable
+  consequence); the template had no slot, so `aldermoor-centre`'s s1 lost
+  it. Now in: [formats.md](formats.md) "Scenario";
+  [master spec](versions/v0.5/master-spec.md) 6.3, 15;
+  [build plan](versions/v0.5/build-plan.md) release gate item 6.
+- **D473 (2026-11-12, wave 5's gate fix `70e0e5d`, recorded by
+  spec-writer): the portal's messages carry the address, template, the
+  recipient's name, the animal's name, a reminder's due date and a link;
+  the flow `to: messaging` declares `address` and the payload keys
+  `template`, `name`, `animal`, `due_on`, `link`, not `animal_name`.**
+  The derivation and MS4 write them so (chunk 16); the approved text
+  named the animal only. Now in: [master spec](versions/v0.5/master-spec.md)
+  9.7 rule 7, 12.2; [vet-portal](versions/v0.5/vet-portal-domain.md).

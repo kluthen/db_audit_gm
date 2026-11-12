@@ -23,7 +23,10 @@ functions, status codes, grants, id ranges and figures the build needed,
 the GM notes (`domains/vet-portal/docs/gm.md`) holding the detail; the
 desk's refusal of a closed account's owner kept with a false-alarm line
 (D426) and T274's witness at the rate as built (D427), as the driver
-ruled.
+ruled. Brought to as built after wave 5's gate (2026-11-12, D473):
+rule 7's message contents and the messaging flow's fields, the
+recipient's name and a reminder's due date among them (gate fix
+`70e0e5d`).
 
 `vet-portal` is the owners' portal of the centre a scenario deploys
 (D285), the centre's own (D293), a **part**: it requires `vet-core`
@@ -642,9 +645,9 @@ exception would allow an opt-out, O214).
 
 **Messages.** Only through the franchise's messaging service, a
 processor (Art 28). A message carries its address, its template, the
-animal's name and a link; never a result, a diagnosis, a natural
-identifier or another owner's data (the outbound flow `to: messaging`,
-D191). An invitation or a reset carries a one-time token, never a
+recipient's name, the animal's name, a reminder's due date and a link
+(as built, D473); never a result, a diagnosis, a natural identifier or
+another owner's data (the outbound flow `to: messaging`, D191). An invitation or a reset carries a one-time token, never a
 password. Reminders are sent 08:00 to 20:00, never for an animal that
 has died, never to anyone but its current owner, never to a closed
 account, each with a withdrawal link. Every message has its key, kept
@@ -695,7 +698,8 @@ For the owner to judge realistic:
 6. **Consents**: the shop's events, the latest the truth; withdrawal at
    once; reminders on opt-in (game value, O214).
 7. **Messages**: through the franchise's messaging service only;
-   address, template, the animal's name and a link; reminders 08:00 to
+   address, template, the recipient's name, the animal's name, a
+   reminder's due date and a link (as built, D473); reminders 08:00 to
    20:00, never for a dead animal, a former owner or a closed account;
    one key per message.
 8. **Audit**: every document opened recorded; pgaudit writes, DDL and
@@ -979,10 +983,11 @@ received messages (evidence).
 | MS6 | No reminder for an animal dead, or to anyone but its current owner, by the core at `sent_at`; no message to a closed account | runs | the daily reminders; one or two deaths and three sales a day |
 
 **Data moved**: the address, the recipient's and the animal's names,
-a link with a one-time token (personal), to the franchise's messaging
-service, a processor (Art 28). The `governance:` fragment's outbound
-flow: `to: messaging`, fields `address`, `template`, `animal_name`,
-`link`.
+a reminder's due date, a link with a one-time token (personal), to the
+franchise's messaging service, a processor (Art 28). The scenario's
+outbound flow (the fragment's comment names it): `to: messaging`,
+fields `address` and the payload's keys `template`, `name`, `animal`,
+`due_on`, `link` (as built, D473).
 
 ### The roles the purposes add
 
