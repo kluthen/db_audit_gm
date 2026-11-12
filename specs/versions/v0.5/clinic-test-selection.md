@@ -1,6 +1,6 @@
 # v0.5 — the clinic's test selection
 
-Status: draft v4, ready for review; the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325), s6 for the data register's T307 (D332). The spec's own pick of faults from
+Status: draft v5 (2026-11-12): s8's witness and present reading, s10's resolutions and fixed reading, s5's calibration, the reports fixture as built (D461–D464). Draft v4: the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325), s6 for the data register's T307 (D332). The spec's own pick of faults from
 the [traps](clinic-traps.md), for the build's tests and the proof in
 play: a fixture, not the canonical scenario (D309). A game's faults are
 the GM's to select at deploy, with whoever sets up the game; this
@@ -26,9 +26,9 @@ the selection planted at once ([README](README.md#testing-in-v05-d314)).
 | s5 | T270 ([vet-portal](vet-portal-domain.md#3-who-sees-what-the-policies)), the animals' policy without the ownership's end | M | row-level security and owner-scoped access, "the clinic's richest governance case" (D293), new in the clinic | the policy on `portal` (DDL), a few hours before T0 | portal-scope |
 | s6 | T307 ([data register](data-register-handout.md#4-the-trap-family-the-register-itself-t300t308)), cold storage, the vault, declared nowhere in the players' data register | M | the data register (D330) and its skill (D331): a planted deviation, the true and handed-out registers, the answer key's diff; resolved by *propose* | the bastion's `data-register.md` (seed-file), written by the `data-register` skill | archive |
 | s7 | T1, statement logging on `records` | M | governance in the logs (core rule 10); the held `governance-statement-log-personal` (D191) built | `records`' `postgresql.conf` | reports |
-| s8 | T33, the standby an hour behind (`recovery_min_apply_delay`) | M | the reporting standby (D299): the night's feeders missing the evening | the standby's `postgresql.conf` | reports |
+| s8 | T33, the standby an hour behind (`recovery_min_apply_delay`) | M | the reporting standby (D299): the 00:30 feeder (`feed-daily-figures`) missing the evening's last hour, every feeder the entries made late for yesterday | the standby's `postgresql.conf` | reports |
 | s9 | T150 ([vet-housing](vet-housing-domain.md#1-the-ward-service-and-the-displays-d287)), a faulty display reading its board in a loop | M | D287's own case, the owner's: many small consumers behind one service, found through the redundant query and the box → stay → animal chain; reported, never fixed | the display's key in `ward`'s profile layer (D264) | housing |
-| s10 | T10, `monitoring` not chosen on `lab` | M | the options model (D289) | the topology's `options` | lab |
+| s10 | T10, `monitoring` not chosen on `lab` | M | the options model (D289); resolved by *report* or *propose* (D462) | the topology's `options` | lab |
 | fa | "The external lab is slow" | false alarm | a PCR answered on its fourth day, within its one-to-five-day turnaround | an issue in the starter pack, no fault | send-outs |
 
 Calibration for the classes: s1 is the customer's complaint (the
@@ -37,7 +37,7 @@ hours in the vault and nothing says so; s3 is a year deep with the next
 yearly report due in January; s4 is planted with the partner's standing
 slowness only, a few duplicates a week, so it stays minor; s8 an hour's
 delay, the customer's "for safety"; s5 is planted a few hours before T0,
-so only the day's sales are exposed and it stays minor; s9 at one
+so former owners have had hours, not days, to look, and it stays minor; s9 at one
 display looping about once a second, below what saturates the ward's
 pool (V if it did, at a feeding round).
 
@@ -70,7 +70,7 @@ switched by the test.
 |---|---|---|---|
 | orders | `records` (`clinic`), `lab`, `clinic-api`, `lab-api`, `pms`, `lis`, `interfaces` | a weekday, 10:00 | s1, s4 |
 | archive | `records`, the partners' `api` node (cold storage's hostname) and database | any | s2, s6 |
-| reports | `records` (`clinic`, `office`), the standby, `backoffice` | a Friday, 01:20 (Thursday held herd visits) | s3, s7, s8 |
+| reports | `records` (`clinic`, `office`), the standby, `lab`, `backoffice`, the partners' three nodes | about 00:10, any day (a herd treatment recorded by the test when the load holds none) | s3, s7, s8 |
 | send-outs | `lab`, `interfaces`, the partners' `api` node (the external lab's hostname), database and back end | a weekday, 15:50 | fa |
 | lab | `lab`, its exporter | any | s10 |
 | portal-scope | `records` (`clinic`, `portal`), `portal-api` | a weekday, a few hours after the fault is planted | s5 |
@@ -114,7 +114,8 @@ the deployment.
   *Fixed*: after the fix, the next switched segment's manifest present;
   the gap stays, a finding the players report. About 10 minutes.
 - **s3, herd prescriptions dropped.** *Present*: the 02:00 feeder's day
-  (Thursday, herd visits) short of the herd treatments the source holds;
+  (yesterday, with a herd treatment the test records when the load
+  holds none) short of the herd treatments the source holds;
   last year's planted report short of the cattle's herd use. *Fixed*:
   after the query's fix, the feeder moved to the next minute (D132) and
   its day complete; the planted report stays wrong, its rerun
@@ -142,10 +143,16 @@ the deployment.
   `records`' log after a few `pms`-style writes run by the test as
   `vet_app`. *Fixed*: after the fix and a reload, the same writes leave
   no personal data in the log. About 10 minutes.
-- **s8, the standby behind.** *Present*: `pg_stat_replication`'s replay
-  lag at an hour; the 01:30 feeder's day missing the supplies of the
-  evening's last hour. *Fixed*: the delay removed, the lag near zero, the
-  feeder moved and its day complete. About 20 minutes.
+- **s8, the standby behind.** *Present*: the delay in effect, WAL
+  received and not replayed (`pg_last_wal_receive_lsn()` ahead of
+  `pg_last_wal_replay_lsn()`); a feeder's day missing the rows committed
+  within the hour, here the late entries for yesterday's last hour the
+  test records after T0, present on `records`, absent on the standby.
+  *Fixed*: the delay removed, the backlog replayed at once, the day
+  removed and the feeder moved again, its day complete. In a game the
+  witness is the 00:30 feeder, `feed-daily-figures`, missing the commits
+  after 23:30; the replay lag reads an hour only after an hour of the
+  delay (D461). About 20 minutes.
 - **s9, a faulty display.** Reported, never fixed: a display's
   firmware is no layer of the players' (D209's precedent). *Present*:
   the board statement's calls well above 64 a minute in
@@ -158,9 +165,13 @@ the deployment.
   the final answer and never switches the display off during play
   (gm-stance, "Stop only", "No events outside the schedule"). About 15
   minutes.
-- **s10, `monitoring` not chosen.** *Present*: the exporter's login
-  errors against `lab`. *Fixed*: the option chosen and the node
-  redeployed, the exporter's metrics present. About 15 minutes.
+- **s10, `monitoring` not chosen.** Resolved by *report* or *propose*,
+  never *fix*: players read no service credential, and the option
+  chosen later creates nothing on an existing `pgdata` (D462).
+  *Present*: the exporter's login errors against `lab`. *Fixed*: the
+  role the option brings created on `lab` with the game's monitoring
+  password, as the option's initdb step does (the GM applying the
+  accepted proposal); the exporter's metrics present. About 15 minutes.
 - **fa, the external lab is slow.** The fixture plants a PCR send-out
   answered on its fourth day; the check reads its `due_by` against
   `answered_at`, within its turnaround. About 5 minutes, on the
@@ -174,7 +185,8 @@ built, the ten faults and the false alarm planted at once. Its checks
 purpose running for about 30 minutes, each one's first run read; each
 fault's present reading where it reads within the window (s2, s5, s6,
 s7, s8, s9 and s10 at once, s5 as a planted former owner's visit, s6
-the handout against the vault's page, s9 the display's excess calls;
+the handout against the vault's page, s8 the delay in effect with WAL
+received and not replayed, s9 the display's excess calls;
 s1 at the first urgent order, if one comes; s3 only with T0 placed
 before its feeder, so it rests on its fixture). No fault is fixed there.
 None of the ten may exhaust a node's memory, so none sets
@@ -184,5 +196,5 @@ rules still bind the run (D159).
 Unproven in v0.5 (the major test before the v1.0 tag): the ten faults
 at once through their cycles after a full aging, the classes as the
 hand-over finds them (s1 noticed, s2 and s3 on the verge), s5's
-exposure over days of sales, the feeders at their own hours, s9 found
+exposure over days, the feeders at their own hours, s9 found
 across a hand-over.

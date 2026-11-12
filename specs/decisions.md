@@ -1486,4 +1486,49 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   all seven have.** 34 is the owner's placement (D446), 35 a fix-sized
   data correction chunks 24 and 27 read; v0.5 has no later wave. Now in:
   [build plan](versions/v0.5/build-plan.md) "Waves", chunks 34, 35.
-- **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.
+- **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.- **D459 (2026-11-12, wave 5's preflight correction 1, accepted by the
+  wave driver): chunk 36 builds three fault forms: a `state` script run
+  on another node (`{script, on: <parameter>}`), `injection.kind:
+  topology` with `option_absent`, and a false alarm (`covers: []`,
+  `report`, the answer key's `false_alarms:`, in no score or cap).** s3,
+  s10 and fa had no form in the loader. Rejected: the forms split into
+  chunks 22 and 24, serialising three chunks. Now in:
+  [build plan](versions/v0.5/build-plan.md) chunk 36, gate G19.
+- **D460 (2026-11-12, wave 5's preflight correction 1, accepted by the
+  wave driver): wave 5 holds nine chunks; 36 takes the first free slot,
+  and only 22's fa issue, 24's s3, 25's s10 and 26's false-alarm and
+  `inject` lines wait for its merge.** A fix-sized loader gap; v0.5 has
+  no later wave. Now in: [build plan](versions/v0.5/build-plan.md)
+  "Waves", workflow deltas.
+- **D461 (2026-11-12, wave 5's preflight correction 2, accepted by the
+  wave driver): s8's witness in a game is the 00:30 feeder; its short
+  test reads the delay in effect, WAL received and not replayed, and
+  late entries the test records after T0; the class unchanged.** The
+  01:30 feeder's day is complete under a one-hour delay, and the lag
+  reads an hour only after an hour. Now in:
+  [master spec](versions/v0.5/master-spec.md) 17.2, 17.3, 18.3;
+  [test selection](versions/v0.5/clinic-test-selection.md); build plan
+  chunk 24.
+- **D462 (2026-11-12, wave 5's preflight correction 3, accepted by the
+  wave driver): s10 is resolved by *report* or *propose*; fixed, the
+  option's role created on `lab` with the game's monitoring password,
+  the GM applying the accepted proposal.** Players read no service
+  credential, and the option chosen later creates nothing on an
+  existing `pgdata`. Now in: [master spec](versions/v0.5/master-spec.md)
+  17.3; [test selection](versions/v0.5/clinic-test-selection.md);
+  build plan chunk 25.
+- **D463 (2026-11-12, wave 5's preflight correction 4, accepted by the
+  wave driver): s5 is planted a few hours before T0, so former owners
+  have had hours, not days, to look; class M unchanged.** The portal
+  copies every ownership, so every past sale is exposed, not only the
+  day's. Now in: [master spec](versions/v0.5/master-spec.md) 17.2;
+  [test selection](versions/v0.5/clinic-test-selection.md);
+  [vet-portal](versions/v0.5/vet-portal-domain.md).
+- **D464 (2026-11-12, wave 5's preflight correction 5, accepted by the
+  wave driver): chunks 22 to 26 and the reports fixture's texts to the
+  code and capture W5: T0 about 00:10 any day; chunk 23's register on
+  the archive fixture; `fixture-lab` without a domain or Prometheus;
+  the `planted/<fault-id>/` overlays; chunk 26's false alarm and
+  `inject` rows.** Now in: [build plan](versions/v0.5/build-plan.md)
+  chunks 22 to 26; [master spec](versions/v0.5/master-spec.md) 17.3,
+  18.2; [test selection](versions/v0.5/clinic-test-selection.md).

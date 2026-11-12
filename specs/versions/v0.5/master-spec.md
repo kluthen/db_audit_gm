@@ -65,7 +65,14 @@ spec D445); Prometheus on its 3.16 line in a later wave, so `prometheus`
 (6.7, 7.5; spec D446, D448); an arrival stamped when `pms` records it
 (9.4; spec D447). Also as built: PR1 judges each delivery a practice
 result makes due; on-call shifts take no part in the 11 hours' rest
-comparison (9.4, 12.2; spec D450, D452).
+comparison (9.4, 12.2; spec D450, D452). On 2026-11-12, wave 5's
+preflight: s8's witness the 00:30 feeder, and its short test's present
+reading the delay in effect with WAL received and not replayed (17.2,
+17.3, 18.3; spec D461); s10 resolved by *report* or *propose*, its
+fixed reading the option's role created by the GM (17.3; spec D462);
+s5's calibration, former owners having had hours, not days, to look
+(17.2; spec D463); the reports fixture as built (17.3, 18.2; spec
+D464).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -3393,10 +3400,10 @@ alarm.
 | s2 | **`archive_command` failing silently**: segments reported archived, none in the vault | on the verge | replication's archive; the vault's `wal` manifests and its page | `records`' `postgresql.conf` |
 | s3 | **Herd prescriptions dropped from the antimicrobial use**: the daily feeder misses treatments given through a herd; last year's planted report short of the cattle's use, with the next yearly report due in January | on the verge | a periodic report and its daily feeder as witness | the feeder's query on `backoffice`, and the planted report |
 | s4 | **A retry under a new `client_ref`**: a timed-out order post retried with a new key, a duplicate order now and then | minor | a round trip's correlation key; the catalogue's held retry-without-key fault built | `interfaces`' script |
-| s5 | **The portal's animals policy ignores an ownership's end**: former owners still see the animals they sold; planted a few hours before T0, so only the day's sales are exposed | minor | row-level security and owner-scoped access | the policy on `portal` (DDL) |
+| s5 | **The portal's animals policy ignores an ownership's end**: former owners still see the animals they sold; planted a few hours before T0, so former owners have had hours, not days, to look | minor | row-level security and owner-scoped access | the policy on `portal` (DDL) |
 | s6 | **Cold storage, the vault, declared nowhere in the data register**: a flow to a processor missing from the handout | minor | the data register and its skill: a planted deviation, the two registers, the diff; resolved by *propose* | the bastion's `data-register.md`, written by the skill |
 | s7 | **Statement logging on `records`**: owners' names and phone numbers in the server log | minor | governance in the logs; the catalogue's held statement-logging fault built | `records`' `postgresql.conf` |
-| s8 | **The standby an hour behind** (`recovery_min_apply_delay`, "for safety"): the night's feeders miss the evening | minor | the reporting standby | the standby's `postgresql.conf` |
+| s8 | **The standby an hour behind** (`recovery_min_apply_delay`, "for safety"): the 00:30 feeder (`feed-daily-figures`) misses the evening's last hour, and every feeder the entries made late for yesterday | minor | the reporting standby | the standby's `postgresql.conf` |
 | s9 | **A faulty display reading its board in a loop**, about once a second, below what saturates the ward's pool: found through the ward service's redundant statement and the box, stay and animal chain; reported, never fixed, a display's firmware being no layer of the players' | minor | many small consumers behind one service | the display's key in `ward`'s profile layer |
 | s10 | **`monitoring` not chosen on `lab`**: the exporter cannot log in | minor | the options model | the topology's `options` |
 | fa | **"The external lab is slow"**: a PCR answered on its fourth day, within its one-to-five-day turnaround | false alarm | an issue with no fault behind it | an issue in the starter pack |
@@ -3429,8 +3436,9 @@ the deployment, on the fixtures of 18.2:
   `pg_stat_archiver` reports it archived, no `wal` manifest names it, the
   vault's page shows the gap; fixed: the next switched segment's
   manifest present, the gap staying a finding. About 10 minutes.
-- **s3**: present: the 02:00 feeder's day (a Thursday, herd visits)
-  short of the herd treatments the source holds; last year's planted
+- **s3**: present: the 02:00 feeder's day (yesterday, with a herd
+  treatment the test records when the load holds none) short of the
+  herd treatments the source holds; last year's planted
   report short. Fixed: after the query's fix, the feeder moved to the
   next minute and its day complete; the planted report stays wrong, its
   rerun recommended. About 20 minutes.
@@ -3454,19 +3462,29 @@ the deployment, on the fixtures of 18.2:
   few practice-software writes the test runs as `vet_app`. Fixed: after
   the fix and a reload, the same writes leave no personal data. About 10
   minutes.
-- **s8**: present: the replay lag at an hour; the 01:30 feeder's day
-  missing the evening's last hour of supplies. Fixed: the delay removed,
-  the lag near zero, the feeder moved and its day complete. About 20
-  minutes.
+- **s8**: present: the delay in effect, WAL received and not replayed
+  (`pg_last_wal_receive_lsn()` ahead of `pg_last_wal_replay_lsn()`);
+  a feeder's day missing the rows committed within the hour, here the
+  late entries for yesterday's last hour the test records after T0,
+  present on `records` and absent on the standby. Fixed: the delay
+  removed, the backlog replayed at once, the day removed and the feeder
+  moved again, its day complete. In a game the witness is the 00:30
+  feeder, `feed-daily-figures`, missing the commits after 23:30; the
+  replay lag reads an hour only after an hour of the delay, never in a
+  short test. About 20 minutes.
 - **s9**: present: the board statement's calls well above 64 a minute in
   `pg_stat_statements`, from `ward`, the unit's parameter logged for
   `vet_display` alone. Reported: the chain from the parameter to the
   unit, its display's serial and the animal. Cleared, by the test only:
   the display's key switched off, the calls back to 64 a minute. About
   15 minutes.
-- **s10**: present: the exporter's login errors against `lab`. Fixed:
-  the option chosen and the node redeployed, the exporter's metrics
-  present. About 15 minutes.
+- **s10**: resolved by *report* or *propose*, never *fix*: players read
+  no service credential (access model 5), and the option chosen later
+  creates nothing on an existing `pgdata`. Present: the exporter's
+  login errors against `lab`. Fixed: the role the option brings created
+  on `lab` with the game's monitoring password, as the option's initdb
+  step does (the GM applying the accepted proposal); the exporter's
+  metrics present. About 15 minutes.
 - **fa**: the fixture plants a PCR send-out answered on its fourth day;
   the check reads its due date against its answer, within turnaround.
   About 5 minutes.
@@ -3524,7 +3542,7 @@ fitting one host.
 |---|---|---|---|
 | orders | `records` (`clinic`), `lab`, `clinic-api`, `lab-api`, `pms`, `lis`, `interfaces` | a weekday, 10:00 | s1, s4; the centre's orders round trip |
 | archive | `records`, the partners' `api` node and database | any | s2, s6; archiving, the vault's page, the register |
-| reports | `records` (`clinic`, `office`), `standby`, `backoffice` | a Friday, 01:20 | s3, s7, s8; the standby, the feeders |
+| reports | `records` (`clinic`, `office`), `standby`, `lab`, `backoffice`, the partners' three nodes | about 00:10, any day (a herd treatment recorded by the test when the load holds none) | s3, s7, s8; the standby, the feeders |
 | send-outs | `lab`, `interfaces`, the partners' three nodes | a weekday, 15:50 | fa; the external lab's round trip |
 | lab | `lab`, its exporter | any | s10; the options model |
 | portal-scope | `records` (`clinic`, `portal`), `portal-api` | a weekday, hours after the planting | s5 |
@@ -3559,8 +3577,8 @@ milestone only. Its checks:
 - **the test selection planted at once**, **each fault read present
   only**, where it reads within the window: s2, s5,
   s6, s7, s8, s9 and s10 at once (s5 as a planted former owner's visit,
-  s6 the handout against the vault's page, s9 the display's excess
-  calls); s1 at the first urgent order, if one comes; s3 resting on its
+  s6 the handout against the vault's page, s8 the delay in effect with
+  WAL received and not replayed, s9 the display's excess calls); s1 at the first urgent order, if one comes; s3 resting on its
   fixture, since its feeder runs at 02:00. No fault is fixed there;
 - **its place: the release gate**, once every part is built;
 - no aging, no overnight cadence, no fault taken through its cycle, no
@@ -3574,7 +3592,7 @@ roadmap's v1.0 gating so none is lost:
 - **the clinic aged and played**: a full aging and a session, the ten
   faults at once through their cycles; the classes as the hand-over
   finds them (s1 already noticed, s2 and s3 on the verge); s5's exposure
-  over days of sales; s9 found across a hand-over;
+  over days; s9 found across a hand-over;
 - **the overnight and periodic cadences in scenario time**: the feeders
   at night, the base backups, the 16:00 send-outs, the pathologist's
   rounds, a periodic run placed in the aging; that a planted

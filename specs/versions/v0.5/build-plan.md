@@ -1,13 +1,10 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v15 (2026-11-10): after wave 4's gate and the owner's rulings
-of that day (spec D443–D457): G18 done; G11.2 accepted; the patch-bump
-rule in the wave gate's rebuilds; chunk 34 (`grafana`'s data-source
-plugin, `prometheus` 0.2.1 on Prometheus 3.16.x, gates G11.3 and G11.4)
-and chunk 35 (vet-core's batch receipts, the planted partner
-references) inserted into wave 5; wave 4's findings in chunks 22, 24,
-26 and 27; wave 5's row, edges and order; "Settled" and "Pending with
-the owner". v14 wrote in D438–D441, v13 D431–D437.
+Status: v16 (2026-11-12): wave 5's preflight corrections, accepted by
+the driver (spec D459–D464): chunk 36 inserted (the loader's three
+fault forms), wave 5 at nine chunks, its edges and order, gate G19;
+s8's, s10's and s5's readings, and chunks 22 to 26 brought to the code
+and capture W5. v15 (2026-11-10) wrote in D443–D457.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -115,6 +112,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 | G17 | [formats.md](../../formats.md) and master spec 5 carry chunk 29's format items as built (spec D401): a part's `data/keys.sql`, `composition.yaml`'s `left_out:`, a `history` on a purpose with no feeder and its `target` on the partners' database, a domain's `data/cron.sql` (spec D405), the purposes' DDL step in `load-data`'s order. Written from W3-f | `spec-writer`, after wave 3's gate | Release gate item 6 | done (2026-11-05, wave log) |
 | G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433); the invariant ids, `data_moved.reads` in the scenario's key form, HTTP connections `<part>_<w>` and endpoint material's `api.yaml` ("Purpose definition"; spec D438), one end-to-end invariant per round trip (spec D440). Written from W4-a to W4-g | `spec-writer`, after wave 4's gate | Release gate item 6 | done (2026-11-10, formats.md v32, master spec 5, 6, 6.2, 6.6, 12.1) |
+| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`). Written from W5-h | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -130,7 +128,7 @@ none is a gate.
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
 | 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | merged into `main` (2026-11-05, b9fe67e) |
 | 4 | 17, 18, 19, 20, 21, 32, 33 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16; chunk 33 (spec D439, cut once 17 and 32 had merged) merged before the format checks of 18 to 21 and chunk 19's restart: seven chunks, one past the model's six: 33 is a fix-sized gap a running chunk found, every purpose of 18 to 21 fails without it, so it cannot wait for wave 5 | merged into `main` (2026-11-10, b4f35cc) |
-| 5 | 22, 23, 24, 25, 26, 27, 34, 35 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies): eight chunks, two past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448) and 35 a fix-sized data correction chunks 24 and 27 read (spec D451); v0.5 has no later wave (spec D457) | planned |
+| 5 | 22, 23, 24, 25, 26, 27, 34, 35, 36 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies); chunk 36 merged before the parts of 22, 24, 25 and 26 that read it (spec D460): nine chunks, three past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448), 35 a fix-sized data correction chunks 24 and 27 read (spec D451), 36 a fix-sized loader gap the preflight found, three fault forms of the test selection the loader cannot express (spec D459); v0.5 has no later wave (spec D457, D460) | planned |
 
 ```
 1 ──> 2, 3, 4, 5        (in wave 1: cut once chunk 1 has merged into v0.5-w1; the
@@ -205,9 +203,20 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
                          new fixture of its own; spec D457)
 35 ──> 24               (in-wave, its fixture run only: the balances and the
                          references as corrected; spec D451)
-17, 22, 23, 24, 25, 26, 34, 35 ──> 27   (in-wave: the fault ids and seed changes
-                         of master spec 17.2, the skill's sections, the bumped
-                         pins, the corrected data; W5)
+32, 33 ──> 36           (inserted into wave 5 at its preflight, cut from
+                         `v0.5-w5` at once: `inject.py`'s and `model.py`'s last
+                         holders; spec D459)
+36 ──> 22               (in-wave, partial: fa's issue in its fixture only)
+36 ──> 24               (in-wave, partial: s3 only, its format check, overlay
+                         and run)
+36 ──> 25               (in-wave, partial: s10 only, its format check and
+                         `fixture-lab`)
+36 ──> 26               (in-wave, merge order: the false alarm's lines and
+                         `gmctl.md`'s `inject` rows; the forms fixed by capture
+                         W5, Preflight corrections item 1, and spec D459)
+17, 22, 23, 24, 25, 26, 34, 35, 36 ──> 27   (in-wave: the fault ids and seed
+                         changes of master spec 17.2, the skill's sections, the
+                         bumped pins, the corrected data, the three forms; W5)
 ```
 
 Wave 1's order: chunk 1 runs alone first; chunks 2 to 5 are cut from
@@ -287,10 +296,22 @@ before 34's branch. 34 holds `bricks/{grafana,prometheus}/`, every
 `IMAGES=` lines; a chunk merging after it takes `v0.5-w5` in and pins
 `prometheus` 0.2.1 in its own new fixtures (a shared list). 35 holds
 `domains/vet-core/data/` and the histories of purposes 8 and 9; chunk
-24's fixture runs once 35 has merged. Chunk 27 is cut once the seven
-others have merged. The chains 34 or 35 then 22 to 25, then 27, run
-three long, past the model's two: kept, since 34 and 35 delay no start
-(only a merge and one fixture run wait) and each is small.
+24's fixture runs once 35 has merged. Chunk 36 (spec D459, D460) takes
+the first free slot, ahead of 22 to 26; those start beside or after it
+on what does not wait for it, and only the parts named wait for its
+merge: 22's fa issue in its fixture, 24's s3 (its format check,
+overlay and run), 25's s10 (its format check and fixture), 26's
+false-alarm and `inject` lines; each takes `v0.5-w5` in before them.
+`tools/gm/*.py` and the scenario-format skill are chunk 36's alone in
+wave 5; `tools/tests/test_model.py` is shared with chunk 34's tag lines
+(the second to merge takes `v0.5-w5` in first; W5 item 9). The
+data-register skill is chunk 23's, the game-master and
+scenario-document skills chunk 26's; no fault chunk edits a domain's or
+a purpose's files. Chunk 27 is cut once the eight others have merged.
+The chains 34, 35 or 36, then 22 to 26, then 27, run three long, past
+the model's two: kept, since 34, 35 and 36 delay no start (only a
+merge, one fixture run or a named part waits), each is small, and W5
+with spec D459 fixes the forms 36 builds.
 
 ## Workflow deltas
 
@@ -339,7 +360,9 @@ three long, past the model's two: kept, since 34 and 35 delay no start
   when it merges; a chunk merging after it adds it to its own new
   fixtures; spec D435); in wave 5, the `prometheus` pins: chunk 34
   re-pins every scenario and fixture on `v0.5-w5`, a chunk merging after
-  it pins 0.2.1 in its own new fixtures (spec D457).
+  it pins 0.2.1 in its own new fixtures (spec D457); in wave 5 too,
+  `tools/tests/test_model.py`, chunk 34's tag lines beside chunk 36's
+  tests (spec D460).
 - **Chunk checks**, in addition to the model's (v0.4's, kept):
   - Python: `python3 -m unittest discover -s tools/tests -t .`;
   - the scheduler program's unit tests, inside its image: `sh
@@ -1892,10 +1915,11 @@ chunk 29's (c) accepts (spec D401).
 
 Status: planned
 Wave: 5
-Depends on: chunk 18 (wave 4)
+Depends on: chunk 18 (wave 4); chunk 36 (in wave: fa's issue in its
+fixture only, spec D459)
 Architecture capture: W5, for chunk 27: each fault's id, its seed
 changes and its timeline moment in the fixture; the answer key's
-backlog entry for s1.
+backlog entry for s1. As built: W5-a.
 
 - Goal: s1 (T40, the urgent priority dropped) and s4 (T41, a retry under
   a new `client_ref`, the held `purpose-retry-without-key` built) as
@@ -1908,7 +1932,12 @@ backlog entry for s1.
   the urgent orders posted after the fix, the routine-posted ones a
   credited backlog; fa's issue for the starter pack and the planted PCR
   send-out answered on its fourth day; **each fault's timeline moment**
-  in its fixture, before its test's reading. On the orders fixture
+  in its fixture, before its test's reading. Each fault is planted on a
+  copy of its fixture from an overlay committed under
+  `planted/<fault-id>/`, the fixture's committed files kept unfaulted
+  (W5 item 0). fa's issue takes chunk 36's form (`covers: []`,
+  `expected_resolution: report`, its `false_alarms:` entry) and waits
+  for its merge. On the orders fixture
   (s1, s4: the emergencies raised in its profile layer; one post
   delayed past the runner's ten-second timeout by a lock held on
   `lab_orders`) and the send-outs fixture (fa). **From wave 4** (spec
@@ -1921,8 +1950,9 @@ backlog entry for s1.
 - Files: `faults/<s1's id>/`, `faults/<s4's id>/` (new, ids by the
   catalogue's naming: s4 `purpose-retry-without-key`); the false alarm's
   material in the send-outs fixture; `tools/tests/fixtures/fixture-{orders,send-outs}/`
-  (their fault instances and answer keys);
-  `bricks/scheduler/docs/gm.md` ("Supported faults", a shared list).
+  (each fault's overlay under `planted/<fault-id>/`, fa's issue and
+  answer-key entry); `bricks/scheduler/docs/gm.md` ("Supported
+  faults") and the root `README.md`'s fault table (shared lists).
 - Spec sections: master spec 17.2, 17.3 (s1, s4, fa), 12 (a cascade's
   fix), 6.3, 6.4; [clinic-test-selection.md](clinic-test-selection.md).
 - Done when: s1 read present (a `routine` order whose request is
@@ -1931,8 +1961,9 @@ backlog entry for s1.
   minutes; s4 present (two orders, two `client_ref`s, for one
   consultation) and fixed (one order, the second post answered with the
   first accession), about 15 minutes; fa's check reading the due date
-  against the answer within turnaround, about 5 minutes; each fault
-  complete by the format skill.
+  against the answer within turnaround, about 5 minutes, its issue
+  accepted by the loader as a false alarm; each fault complete by the
+  format skill.
 - Verification: chunk checks; each short test is this chunk's point.
 - Split rule: none expected.
 
@@ -1942,7 +1973,7 @@ Status: planned
 Wave: 5
 Depends on: chunks 11 and 17 (waves 2 and 4)
 Architecture capture: W5; s2 and s6 planted together on the archive
-fixture, the answer key noting the interaction (17.2).
+fixture, the answer key noting the interaction (17.2). As built: W5-b.
 
 - Goal: s2 (T35, `archive_command` failing silently) and s6 (T307, the
   vault declared nowhere in the data register, `governance-register-flow-undeclared`),
@@ -1956,11 +1987,22 @@ fixture, the answer key noting the interaction (17.2).
   vault's planted manifests and base backups. A check finding a node's
   latest `wal` manifest orders by `received_at`, never by name; s2's
   answer key notes the planted names sorting above the live ones as a
-  setup limit, not a fault (spec D382).
+  setup limit, not a fault (spec D382). **The archive fixture gains a
+  register** (W5 item 2): vet-core composed at `records/clinic`
+  (uncomposed, every producer `left_out:`, `composition.yaml` written
+  by hand), with vet-core's `governance:`, its default policy as
+  `player/data-policy.md`, `governance.register` and both registers
+  generated by the `data-register` skill; the test's filler table in a
+  database of its own; each fault planted from an overlay under
+  `planted/<fault-id>/` (W5 item 0). The skill's T307 row gains the
+  `where` item s6 drops.
 - Files: `faults/<s2's id>/`, `faults/governance-register-flow-undeclared/`
-  (new); `tools/tests/fixtures/fixture-archive/` (its fault instances,
-  answer key and register); `bricks/postgres/docs/gm.md`,
-  `bricks/bastion/docs/gm.md` ("Supported faults").
+  (new); `tools/tests/fixtures/fixture-archive/` (vet-core composed,
+  its register, the overlays); `tools/tests/test_partners.py` (which
+  loads the fixture); `.claude/skills/data-register/SKILL.md` (T307's
+  `where` item); `bricks/postgres/docs/gm.md`,
+  `bricks/bastion/docs/gm.md` ("Supported faults"); the root
+  `README.md`'s fault table (a shared list).
 - Spec sections: master spec 13.4, 17.2, 17.3 (s2, s6), 6.3, 6.4;
   [data-register-handout.md](data-register-handout.md) 4, 5.
 - Done when: s2 present (`pg_stat_archiver` reporting the segment
@@ -1969,9 +2011,12 @@ fixture, the answer key noting the interaction (17.2).
   staying a finding), about 10 minutes; s6 present (the bastion serving
   `data-register.md` in `/home/player` and on the page with cold storage
   among no entry's recipients, the true register naming it, the vault's
-  page listing `records`' manifests), cleared, and its *propose* judged
-  against `register_diff:`, about 10 minutes; both complete by the
-  format skill.
+  page listing `records`' manifests), cleared (the skill run by the
+  chunk owner on a copy without the instance, its handout naming cold
+  storage on every entry the true register does, the loader passing,
+  recorded in W5-b; the short test reads present only), and its
+  *propose* judged against `register_diff:`, about 10 minutes; both
+  complete by the format skill.
 - Verification: chunk checks.
 - Split rule: none expected.
 
@@ -1979,8 +2024,10 @@ fixture, the answer key noting the interaction (17.2).
 
 Status: planned
 Wave: 5
-Depends on: chunk 20 (wave 4)
-Architecture capture: W5.
+Depends on: chunk 20 (wave 4); chunk 35 (in wave: its fixture run,
+spec D451); chunk 36 (in wave: s3 only, its format check, overlay and
+run, spec D459)
+Architecture capture: W5. As built: W5-c.
 
 - Goal: s3 (T69, herd prescriptions dropped from the antimicrobial use),
   s7 (T1, statement logging on `records`, the held
@@ -1989,9 +2036,17 @@ Architecture capture: W5.
 - Scope: in: each `fault.yaml` and material: s3 the feeder's query on
   `backoffice` and last year's planted report short of the cattle's use;
   s7 `records`' `postgresql.conf`; s8 the standby's
-  `recovery_min_apply_delay`; on the reports fixture (T0 a Friday at
-  01:20, Thursday's herd visits held), each feeder moved as a player
-  may. **From wave 4** (spec D456): the fixture's `backoffice` takes the
+  `recovery_min_apply_delay`; on the reports fixture as built (T0 about
+  00:10 local, any day, the test recording a herd treatment yesterday
+  when the load holds none; spec D435's fixture), each feeder moved as
+  a player may, each fault planted from an overlay under
+  `planted/<fault-id>/` (W5 item 0). s3's planted report is rewritten
+  by a `state` script run on `records` (`office`) while the instance's
+  node is `backoffice`: chunk 36's form (a). s8's present reading is the
+  delay in effect, WAL received and not replayed, and a feeder's day
+  missing the late entries the test records after T0 (spec D461); the
+  setup's standby wait (`load-data`) is shown with the delay in effect.
+  **From wave 4** (spec D456): the fixture's `backoffice` takes the
   access model's `fixable-file` (every wave-4 fixture runner is
   `no-access`), so s3's query fix and the moved feeders are made as the
   players make them; its standby keeps the fixture's 1.75G disk (the
@@ -2002,19 +2057,25 @@ Architecture capture: W5.
   report keeps the authority's reference form.
 - Files: `faults/<s3's id>/`, `faults/governance-statement-log-personal/`,
   `faults/<s8's id>/` (new); `tools/tests/fixtures/fixture-reports/`
-  (fault instances, answer key); `bricks/postgres/docs/gm.md`,
-  `bricks/scheduler/docs/gm.md` ("Supported faults").
+  (the overlays under `planted/<fault-id>/`); `bricks/postgres/docs/gm.md`,
+  `bricks/scheduler/docs/gm.md` ("Supported faults") and the root
+  `README.md`'s fault table (shared lists).
 - Spec sections: master spec 17.2, 17.3 (s3, s7, s8), 11.1, 12.1
-  (periodic purposes, a planted report).
+  (periodic purposes, a planted report), 18.2; spec D461, D464.
 - Done when: s3 present (the 02:00 feeder's day short of the herd
   treatments, last year's report short) and fixed (after the query's
   fix, the feeder moved and its day complete; the planted report still
   wrong, its rerun recommended), about 20 minutes; s7 present (an
   owner's name and phone in `records`' log after the test's writes as
   `vet_app`) and fixed (none after a reload), about 10 minutes; s8
-  present (the replay lag at an hour, the 01:30 feeder's day missing the
-  evening's last hour) and fixed (the lag near zero, the feeder's day
-  complete), about 20 minutes; each complete by the format skill.
+  present (the delay in effect; `pg_last_wal_receive_lsn()` ahead of
+  `pg_last_wal_replay_lsn()`; a feeder's day missing the entries the
+  test records after T0, dated yesterday's last hour, present on
+  `records` and absent on the standby) and fixed (the delay removed and
+  reloaded, the backlog replayed at once, the day removed and the
+  feeder moved again, its day complete), about 20 minutes; `load-data`'s
+  standby wait passing with the delay in effect; each complete by the
+  format skill.
 - Verification: chunk checks.
 - Split rule: none expected.
 
@@ -2022,9 +2083,10 @@ Architecture capture: W5.
 
 Status: planned
 Wave: 5
-Depends on: chunks 6, 14 and 16 (waves 2 and 3); chunk 32 (wave 4)
+Depends on: chunks 6, 14 and 16 (waves 2 and 3); chunk 32 (wave 4);
+chunk 36 (in wave: s10 only, its format check and fixture, spec D459)
 Architecture capture: W5; s9 a report-only fault on a component no
-layer of the players' (6.3).
+layer of the players' (6.3). As built: W5-d.
 
 - Goal: s5 (T270, the portal's animals policy ignoring an ownership's
   end), s9 (T150, a faulty display reading its board in a loop) and
@@ -2035,10 +2097,15 @@ layer of the players' (6.3).
   `portal-scope` fixture (`records` with `clinic` and `portal`,
   `portal-api`, the bastion); s9 the display's key in `ward`'s profile
   layer, its resolution *report*, judged at the final answer, never
-  cleared in play, on the housing fixture; s10 the topology's `options`
-  planting the option's absence (the loader's exception), on a `lab`
-  fixture (`lab`, its exporter, the bastion). **Notes for the capture,
-  from chunk 16** (spec D423): s5's check, if it reads `portal` as
+  cleared in play, on the housing fixture, planted from an overlay
+  under `planted/<fault-id>/` (W5 item 0); s10 the topology's `options`
+  planting the option's absence, `injection.kind: topology` (chunk 36's
+  form (b)), resolved by *report* or *propose*, never *fix* (spec D462),
+  on `fixture-lab`: the bastion, `lab` (a plain `postgres` 0.5.0 node
+  with a small data file, no domain) and a `postgres-exporter` 0.2.0
+  node, no Prometheus (so no `prometheus` pin). `fixture-portal-scope`
+  and `fixture-lab`, built for their faults, commit the instance.
+  **Notes for the capture, from chunk 16** (spec D423): s5's check, if it reads `portal` as
   `gm_check`, reads through the `gm_check_read` policies and first
   finds them in place (spec D432); T270 edits `portal_animals_scope`'s owner branch; the
   keeper's withdrawal is tested in `portal_keeper_granted`, not in the
@@ -2048,11 +2115,12 @@ layer of the players' (6.3).
 - Files: `faults/<s5's id>/`, `faults/<s9's id>/`, `faults/<s10's id>/`
   (new); `tools/tests/fixtures/fixture-portal-scope/`,
   `tools/tests/fixtures/fixture-lab/` (new),
-  `tools/tests/fixtures/fixture-housing/` (fault instance, answer key);
-  `bricks/postgres/docs/gm.md`, `bricks/scheduler/docs/gm.md`
-  ("Supported faults").
+  `tools/tests/fixtures/fixture-housing/` (s9's overlay under
+  `planted/<fault-id>/`); `bricks/postgres/docs/gm.md`,
+  `bricks/scheduler/docs/gm.md` ("Supported faults") and the root
+  `README.md`'s fault table (shared lists).
 - Spec sections: master spec 17.2, 17.3 (s5, s9, s10), 6.3, 6.4, 7.1,
-  9.5 ("Finding a faulty display"), 9.7.
+  9.5 ("Finding a faulty display"), 9.7; spec D462, D463.
 - Done when: s5 present (as the former owner, `GET /animals` on
   `portal-api` returns the horse they sold) and fixed (it does not, and
   the buyer still sees it), about 10 minutes; s9 present (the board
@@ -2060,9 +2128,12 @@ layer of the players' (6.3).
   parameter logged for `vet_display`), reported (the chain to the
   display's serial and the animal) and cleared by the test only (the
   key off, the calls back to 64 a minute), about 15 minutes; s10 present
-  (the exporter's login errors against `lab`) and fixed (the option
-  chosen, the node redeployed, the metrics present), about 15 minutes;
-  each complete by the format skill.
+  (the exporter's login errors against `lab`, `pg_up` 0) and fixed (the
+  role the option brings created on `lab` with the game's monitoring
+  password, as the option's initdb step does, the GM applying the
+  accepted proposal; the exporter's metrics present), about 15 minutes,
+  the game's `monitoring_password` shown to exist when only the
+  exporter declares it (W5 item 4); each complete by the format skill.
 - Verification: chunk checks.
 - Split rule: none expected.
 
@@ -2070,9 +2141,12 @@ layer of the players' (6.3).
 
 Status: planned
 Wave: 5
-Depends on: chunks 2, 8, 11 and 17 (waves 1 to 4)
+Depends on: chunks 2, 8, 11 and 17 (waves 1 to 4); chunk 36 (in wave,
+merge order: the false alarm's lines and `gmctl.md`'s `inject` rows,
+spec D459)
 Architecture capture: W5, for chunk 27: the composition steps at design
-time and the coherence check at setup, as the GM runs them.
+time and the coherence check at setup, as the GM runs them. As built:
+W5-e.
 
 - Goal: the `game-master` and `scenario-document` skills carry master
   spec 15's items not yet written.
@@ -2086,7 +2160,11 @@ time and the coherence check at setup, as the GM runs them.
   `scenario-document`: the "Third parties" and "Composition" sections,
   and in the template's jobs table a row for a `pg_cron` job a
   purpose's `ddl:` schedules (purpose 6's `lab-critical-calls`, listed
-  in the node's jobs table by analogy in wave 4; spec D456).
+  in the node's jobs table by analogy in wave 4; spec D456). Once
+  chunk 36 has merged: the false alarm, judged at the final answer
+  (Evaluation), shown in the scenario document's issues and answer
+  key; `gmctl.md`'s `inject` rows for a script run on another node and
+  for a `topology` fault ("planted by the topology; nothing to run").
   - Out: Setup step 2 and the "Data register" section (chunk 17).
 - Files: `.claude/skills/game-master/{SKILL.md,gmctl.md,feedback.md}`,
   `.claude/skills/scenario-document/{SKILL.md,template.md}`.
@@ -2102,8 +2180,8 @@ time and the coherence check at setup, as the GM runs them.
 
 Status: planned
 Wave: 5
-Depends on: chunk 17 (wave 4); chunks 22 to 26, merged into `v0.5-w5`
-before this chunk's branch is cut; G14 (its merge, only if it applies);
+Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 36, merged
+into `v0.5-w5` before this chunk's branch is cut; G14 (its merge, only if it applies);
 W5
 Architecture capture: none of its own; it reads W1 to W5.
 
@@ -2708,6 +2786,69 @@ Architecture capture: spec D451.
 - Verification: chunk checks.
 - Split rule: none expected.
 
+### Chunk 36 — The loader's three fault forms: a `state` script on another node, a `topology` fault, a false alarm
+
+Status: planned
+Wave: 5
+Depends on: chunks 32 and 33 (wave 4: `inject.py`'s and `model.py`'s
+last holders); inserted at wave 5's preflight (spec D459, D460), cut
+from `v0.5-w5` at once, built by a `coding-executor` handed the brief
+by the driver
+Architecture capture: capture W5, "What the sources leave short" and
+Preflight corrections item 1, and spec D459; read by chunks 22 (fa),
+24 (s3), 25 (s10), 26 and 27. As built: W5-h.
+
+- Goal: the loader and `gmctl inject` accept the three forms the test
+  selection needs and today has none for: s3's planted report rewritten
+  on another node than its instance's, s10's absence planted by the
+  topology, fa's issue with no fault behind it (master spec 17.2).
+- Scope: in:
+  - **(a) a `state` script run on another node** (s3): an item of
+    `injection.scripts[]` may be `{script: <path>, on: <parameter>}`
+    beside today's bare path; `<parameter>` is a required parameter of
+    the fault whose value, in the scenario's instance, names a node of
+    the topology whose brick `applies_to` names. `gmctl inject` and
+    `gmctl inject --at` stream that script to that node under the same
+    contract as the instance's own scripts (`inject_plan`), in the
+    fault's script order;
+  - **(b) `injection.kind: topology`** (s10): planted at render by the
+    scenario's topology itself (`stage: seed`), with no seed change,
+    script or parameter; valid only with `option_absent`; `gmctl
+    inject` and `inject --at` have nothing to run for it;
+  - **(c) a false alarm** (fa): an issue with `covers: []` and
+    `expected_resolution: report`, accepted only when the answer key's
+    `false_alarms:` lists it; an entry holds `issue` (the issue's id),
+    `why`, `evidence[]` (in an instance's form) and `acceptable`; a
+    false alarm counts in no score and no cap;
+  - the `scenario-format` skill: `SKILL.md`'s fault, scenario and
+    answer-key items for (a) to (c), and the comments of
+    `templates/{fault,scenario,answer-key}.yaml`.
+  - Out: the faults and fixtures using the forms (22, 24, 25); the
+    game-master and scenario-document skills (26); formats.md and
+    master spec 6.3, 6.4 (G19).
+- Files: `tools/gm/model.py` (`check_fault_dir`'s injection checks,
+  `_check_issues`, `_check_answer_key`), `tools/gm/inject.py`
+  (`inject_plan`), and `tools/gm/aging.py` if `inject --at` plants
+  apart from it; `tools/tests/{test_model,test_inject}.py` (and
+  `test_aging.py` with `aging.py`); `test_model.py` is shared with
+  chunk 34's tag lines (the second to merge takes `v0.5-w5` in first);
+  `.claude/skills/scenario-format/{SKILL.md,templates/fault.yaml,templates/scenario.yaml,templates/answer-key.yaml}`.
+- Spec sections: master spec 6.3, 6.4, 17.2; formats.md "Fault
+  definition", "Scenario"; capture W5 items 1, 3, 4 and Preflight
+  corrections item 1; spec D459.
+- Done when: unit tests show (a) a script on another node accepted, and
+  refused: its parameter not declared, or not required, its value
+  naming no node of the topology, or a node whose brick `applies_to`
+  omits; `inject_plan` sending that script to the named node and the
+  others to the instance's; (b) a `topology` fault with `option_absent`
+  accepted, without it refused, and `inject` running nothing for it;
+  (c) an issue with `covers: []`, `expected_resolution: report` and its
+  `false_alarms:` entry accepted, and refused: `covers: []` with no
+  `false_alarms:` entry, or with another resolution; every existing
+  scenario and fixture still passing the loader; the unit suite passes.
+- Verification: chunk checks.
+- Split rule: none expected (two modules, their tests, one skill).
+
 ## Release gate
 
 Against master spec sections 19 and 20, on `v0.5-w5` before it merges,
@@ -2743,8 +2884,8 @@ exception. GM-side checks run from the host.
    no fault fixed; the VPS drained after and filetstudio.com answering.
 6. **The format, the loader and the skills**: formats.md v28's items in
    the templates, the loader and the `scenario-format` skill, with
-   wave 2's, chunk 29's and wave 4's as-built items written into
-   formats.md (G16, G17, G18); the
+   wave 2's, chunk 29's, wave 4's and chunk 36's as-built items
+   written into formats.md (G16, G17, G18, G19); the
    `data-register` skill, the GM's Setup step 2, the scenario
    document's sections (DoD 3, 4, 8).
 7. **The bricks**: `postgres` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0,

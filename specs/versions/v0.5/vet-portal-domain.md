@@ -1340,8 +1340,8 @@ item 14's questions are closed (D320).
 12. **[clinic-test-selection.md](clinic-test-selection.md)**, a proposed
     swap: **s5 (T78, `lab-api`'s idempotency lookup unindexed) replaced
     by T270 (the portal's policy without the ownership's end), class
-    M**, planted a few hours before T0 so only the day's sales are
-    exposed. Reasons: the owner-scoped access is "the clinic's richest
+    M**, planted a few hours before T0, so former owners have had
+    hours, not days, to look (D463). Reasons: the owner-scoped access is "the clinic's richest
     governance case" (D293) and none of the ten covers it, nor
     row-level security, new in the clinic; s5's own growth is not shown
     in v0.5 anyway, and s1 and s4 keep the orders fixture's `api` side
