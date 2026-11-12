@@ -6,8 +6,10 @@
 # its timeout), post-lab-orders posts the group again under a reference of its
 # own, so when the lab did take the first post, the consultation has two lab
 # orders, a tube expected that never comes (LO2). Its evidence needs an answer
-# slower than the runner's timeout: the partner's standing slowness only, a
-# few a week, so its aging minimum is unbounded (stated in gm.md).
+# slower than the runner's timeout, and nothing standing gives one (lab-api's
+# five-second statement_timeout turns a longer wait into a rolled-back 503):
+# a scenario selects it only with that slowness planted and stated, so its
+# aging minimum is unbounded (gm.md; spec D466, the clinic leaves it out).
 
 # --- Identity ---------------------------------------------------------
 id: purpose-retry-without-key
@@ -36,9 +38,9 @@ aging:
   technique: real-time
   minimum: 0m                       # counted from the first post answered later than the runner's
                                     # timeout after planting (spec D189): the next run posts its
-                                    # retry as a second order. Nothing in the clinic plants one:
-                                    # the partner's standing slowness gives a few a week, so the
-                                    # minimum is unbounded (gm.md)
+                                    # retry as a second order. Nothing standing answers that late
+                                    # (lab-api's five-second statement_timeout), so the minimum is
+                                    # unbounded: planted slowness only (gm.md, spec D466)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

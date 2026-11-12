@@ -1,0 +1,26 @@
+# partners-backend: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e): cold storage's and the
+# purposes' partners' baseline streams (coldstore, authority, headoffice,
+# messaging), copied as written; the domains' partners come through
+# gmctl compose. Intensity 1.0.
+queries:
+  coldstore.normal:
+    sql: >-
+      INSERT INTO coldstore.state (hostname, name, value)
+      VALUES ('cold-storage', 'delay_ms', '0'), ('cold-storage', 'uploads', 'accept')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  authority.normal:
+    sql: >-
+      INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'),
+      ('authority', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  headoffice.normal:
+    sql: >-
+      INSERT INTO headoffice.state (hostname, name, value) VALUES ('head-office', 'delay_ms', '0'),
+      ('head-office', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  messaging.normal:
+    sql: >-
+      INSERT INTO messaging.state (hostname, name, value) VALUES ('messaging', 'delay_ms', '0'),
+      ('messaging', 'fail_one_in', '50')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

@@ -16,4 +16,5 @@ Descriptive only. As `player`:
    on two order tests (LO2).
 
 Expected: 1 at any time; 2 and 3 only after a post answered later than
-the runner's ten-second timeout, a few a week in the clinic.
+the runner's ten-second timeout, which only planted slowness gives
+(gm.md, spec D466).

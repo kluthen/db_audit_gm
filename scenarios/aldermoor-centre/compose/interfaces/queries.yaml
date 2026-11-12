@@ -1,0 +1,81 @@
+# the integration engine, interfaces: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e), the material of
+# vet-lab-centre-orders (runner), vet-lab-practice-results (runner), vet-lab-send-outs (runner), vet-centre-exchanges (runner), vet-notifiable-diseases (runner), vet-bookings-sync (runner), vet-imaging-orders (runner), cold-storage-archive (runner), vet-portal-release (runner), vet-portal-messages (runner),
+# copied as written for the clinic's nodes.
+queries:
+  lab-orders.post:
+    script: scripts/lab_orders.py:post
+    options:
+      batch: 20                # orders (consultation and priority) posted a run at most
+  lab-orders.fetch:
+    script: scripts/lab_orders.py:fetch
+    options:
+      margin_minutes: 15       # the feed read again this far before the watermark: a release
+                               # committing after its released_at is never missed; the copies'
+                               # primary key keeps each request once
+  practice-results.deliver:
+    script: scripts/practice_results.py:deliver
+    options:
+      batch: 40                # deliveries posted a run at most
+      parallel: 4              # posted at once: one practice's dead callback never holds the others
+      days: 30                 # the practices' orders read back this far (ordered_at)
+  send-outs.send:
+    script: scripts/send_outs.py:send
+    options:
+      batch: 60                # send-outs packed and posted a run at most (about 7 a working day)
+  send-outs.chase:
+    script: scripts/send_outs.py:chase
+    options:
+      batch: 40                # send-outs retried or chased a run at most
+      window: "08:00-19:59"    # local hours it acts in, Monday to Saturday (spec D436)
+  exchanges.sync:
+    script: scripts/centre_exchanges.py:sync
+    options: {batch: 20}
+  exchanges.chase:
+    script: scripts/centre_exchanges.py:chase
+    options: {batch: 50}
+  notify.vet:
+    script: scripts/notifiable_diseases.py:notify_vet
+    options: {batch: 20}
+  notify.lab:
+    script: scripts/notifiable_diseases.py:notify_lab
+    options: {batch: 20}
+  notify.escalate:
+    script: scripts/notifiable_diseases.py:escalate
+    options: {}
+  bookings.check-in:
+    script: scripts/bookings_sync.py:check_in
+    options: {batch: 50, site: 1}
+  bookings.book-requests:
+    script: scripts/bookings_sync.py:book_requests
+    options: {batch: 20}
+  bookings.cancel-deceased:
+    script: scripts/bookings_sync.py:cancel_deceased
+    options: {batch: 50}
+  imaging.post:
+    script: scripts/imaging_orders.py:post
+    options: {batch: 50}
+  imaging.fetch:
+    script: scripts/imaging_orders.py:fetch
+    options: {batch: 100, urgent_hours: 18, routine_working_days: 3}
+  archive.ship:
+    script: scripts/cold_storage.py:ship
+    options: {source: machines, last_hour: 5}
+  portal.identity:
+    script: scripts/portal_release.py:sync_identity
+    options: {margin_minutes: 2, link: "https://portal.example.net/activate/"}
+  portal.records:
+    script: scripts/portal_release.py:publish_records
+    options: {margin_minutes: 2}
+  portal.results:
+    script: scripts/portal_release.py:publish_results
+    options: {margin_minutes: 2, account: 1}
+  messages.notices:
+    script: scripts/portal_messages.py:queue_notices
+    options: {margin_minutes: 2, link: "https://portal.example.net/"}
+  messages.reminders:
+    script: scripts/portal_messages.py:queue_reminders
+    options: {link: "https://portal.example.net/", species: "dog,cat,rabbit,ferret,horse"}
+  messages.send:
+    script: scripts/portal_messages.py:send_messages
+    options: {batch: 100, attempts: 6}

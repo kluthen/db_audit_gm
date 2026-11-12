@@ -1,0 +1,171 @@
+# api.yaml of node partners-api, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+endpoints:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/api.yaml
+  centres_exchanges:
+    hosts:
+    - aldermoor-central
+    - aldermoor-south
+    - aldermoor-abroad
+    credentials:
+    - centres_customer
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/api.yaml
+  centres_tick:
+    hosts:
+    - aldermoor-central
+    - aldermoor-south
+    - aldermoor-abroad
+    credentials:
+    - partners_backend
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/api.yaml
+  practices_results:
+    hosts:
+    - practices
+    credentials:
+    - practices_customer
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/api.yaml
+  practices_tick:
+    hosts:
+    - practices
+    credentials:
+    - partners_backend
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/api.yaml
+  xlab_orders:
+    hosts:
+    - northfield-lab
+    credentials:
+    - xlab_customer
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/api.yaml
+  xlab_tick:
+    hosts:
+    - northfield-lab
+    credentials:
+    - partners_backend
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners_tick:
+    hosts:
+    - owners
+    credentials:
+    - partners_backend
+  # from scenario: compose/partners-api/api.yaml
+  coldstore_shipments:
+    hosts:
+    - cold-storage
+    credentials:
+    - cold_storage
+  # from scenario: compose/partners-api/api.yaml
+  coldstore_manifests:
+    hosts:
+    - cold-storage
+  # from scenario: compose/partners-api/api.yaml
+  coldstore_page:
+    hosts:
+    - cold-storage
+  # from scenario: compose/partners-api/api.yaml
+  authority_notifications:
+    hosts:
+    - authority
+    credentials:
+    - authority_customer
+  # from scenario: compose/partners-api/api.yaml
+  authority_amu_reports:
+    hosts:
+    - authority
+    credentials:
+    - authority_customer
+  # from scenario: compose/partners-api/api.yaml
+  headoffice_figures:
+    hosts:
+    - head-office
+    credentials:
+    - headoffice_customer
+  # from scenario: compose/partners-api/api.yaml
+  messaging_messages:
+    hosts:
+    - messaging
+    credentials:
+    - messaging_customer
+connections:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/api.yaml
+  centres-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: centres
+    pool:
+      size: 2
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/api.yaml
+  centres-clinic:
+    driver: http
+    target: clinic-api:8000
+    credential: clinic_centres
+    pool: 1
+    timeout: 10s
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/api.yaml
+  practices-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: practices
+    pool:
+      size: 2
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/api.yaml
+  practices-lab:
+    driver: http
+    target: lab-api:8000
+    credential: lab_practices
+    pool: 1
+    timeout: 10s
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/api.yaml
+  xlab-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: xlab
+    pool:
+      size: 2
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/api.yaml
+  xlab-lab:
+    driver: http
+    target: lab-api:8000
+    credential: lab_xlab
+    pool: 1
+    timeout: 10s
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: owners
+    pool:
+      size: 2
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners-portal:
+    driver: http
+    target: portal-api:8000
+    pool: 2
+    timeout: 10s
+  # from scenario: compose/partners-api/api.yaml
+  coldstore-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: coldstore
+    pool:
+      size: 2
+  # from scenario: compose/partners-api/api.yaml
+  authority-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: authority
+    pool:
+      size: 2
+  # from scenario: compose/partners-api/api.yaml
+  headoffice-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: headoffice
+    pool:
+      size: 2
+  # from scenario: compose/partners-api/api.yaml
+  messaging-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: messaging
+    pool:
+      size: 2

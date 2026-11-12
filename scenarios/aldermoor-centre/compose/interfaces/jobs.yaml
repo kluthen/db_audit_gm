@@ -1,0 +1,105 @@
+# the integration engine, interfaces: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e), the material of
+# vet-lab-centre-orders (runner), vet-lab-practice-results (runner), vet-lab-send-outs (runner), vet-centre-exchanges (runner), vet-notifiable-diseases (runner), vet-bookings-sync (runner), vet-imaging-orders (runner), cold-storage-archive (runner), vet-portal-release (runner), vet-portal-messages (runner),
+# copied as written for the clinic's nodes.
+jobs:
+  - name: post-lab-orders
+    key: lab-orders.post
+    connections:               # the script's names -> the schedule's connections
+      source: clinic
+      api: lab-api
+    at: "* * * * *"
+  - name: fetch-lab-results
+    key: lab-orders.fetch
+    connections:
+      source: clinic
+      api: lab-api
+    at: "*/5 * * * *"
+  - name: deliver-practice-results
+    key: practice-results.deliver
+    connections:               # the script's names -> the schedule's connections
+      source: lab-dispatch
+      partner: practices
+    at: "* * * * *"
+  - name: send-outs
+    key: send-outs.send
+    connections:               # the script's names -> the schedule's connections
+      source: lab-dispatch
+      partner: northfield-lab
+    at: "0 16 * * 1,2,3,4,5"
+  - name: chase-send-outs
+    key: send-outs.chase
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: "*/15 * * * *"
+  - name: sync-exchanges
+    key: exchanges.sync
+    connections: {clinic: clinic, partner_central: centres-central, partner_south: centres-south,
+                  partner_abroad: centres-abroad}
+    at: "*/5 * * * *"
+  - name: chase-exchanges
+    key: exchanges.chase
+    connections: {clinic: clinic, partner_central: centres-central, partner_south: centres-south,
+                  partner_abroad: centres-abroad}
+    at: "0 9 * * 1,2,3,4,5"
+  - name: notify-vet
+    key: notify.vet
+    connections: {clinic: clinic, receiver: authority}
+    at: "*/5 * * * *"
+  - name: notify-lab
+    key: notify.lab
+    connections: {lab: lab-dispatch, receiver: authority}
+    at: "*/5 * * * *"
+  - name: escalate-notifications
+    key: notify.escalate
+    connections: {clinic: clinic, lab: lab-dispatch}
+    at: "*/15 * * * *"
+  - name: check-in
+    key: bookings.check-in
+    connections: {clinic: clinic, sched: sched}
+    at: "* * * * *"
+  - name: book-requests
+    key: bookings.book-requests
+    connections: {clinic: clinic, sched: sched}
+    at: "* * * * *"
+  - name: cancel-deceased
+    key: bookings.cancel-deceased
+    connections: {clinic: clinic, sched: sched}
+    at: "* * * * *"
+  - name: post-imaging-orders
+    key: imaging.post
+    connections: {clinic: clinic, pacs: pacs}
+    at: "* * * * *"
+  - name: fetch-imaging-reports
+    key: imaging.fetch
+    connections: {clinic: clinic, pacs: pacs}
+    at: "*/5 * * * *"
+  - name: ship-partitions
+    key: archive.ship
+    connections: {vitals: vitals, biomed: biomed, partner: cold-storage}
+    at: "40 0-5 * * *"
+  - name: sync-portal-identity
+    key: portal.identity
+    connections: {clinic: portal-clinic, portal: portal-sync}
+    at: "*/5 * * * *"
+  - name: publish-records
+    key: portal.records
+    connections: {clinic: portal-clinic, portal: portal-sync}
+    at: "*/5 * * * *"
+  - name: publish-results
+    key: portal.results
+    connections: {clinic: portal-clinic, lab: portal-lab, portal: portal-sync}
+    at: "*/5 * * * *"
+  - name: queue-notices
+    key: messages.notices
+    connections: {portal: portal-dispatch}
+    at: "*/5 * * * *"
+  - name: queue-reminders
+    key: messages.reminders
+    connections: {portal: portal-dispatch}
+    at: "0 9 * * *"
+  - name: send-messages
+    key: messages.send
+    connections: {portal: portal-dispatch, partner: messaging}
+    at: "* * * * *"

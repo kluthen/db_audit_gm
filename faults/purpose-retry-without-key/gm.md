@@ -26,13 +26,16 @@ second tube that never comes (T41, LO2; the fault held since D201).
 - Parameters: `source` (`records/clinic`), `lab` (`lab/lab`), `job`
   (`post-lab-orders`), the clinic's names.
 - **Aging minimum (spec D189), unbounded.** The definition's `0m`
-  counts from the first post answered later than the runner's timeout.
-  The clinic plants no slow answer: the partner's standing slowness gives
-  a few a week (class M by the calibration), so a game of hours may show
-  none. A scenario wanting the evidence plants the slowness (locks or a
-  slow answer at the lab's order API, a partner behaviour) and states it;
-  otherwise the players find the fault by reading the script, and the
-  check reads *too soon* (3) for want of a retry.
+  counts from the first post answered later than the runner's timeout,
+  and nothing standing answers one: `lab-api` runs each statement under a
+  five-second `statement_timeout`, so a longer wait is cancelled, the
+  order rolled back and answered 503, retried under the same key (no
+  evidence). A scenario selects this fault only with that slowness
+  planted and stated (locks held at the lab's order tables past the
+  runner's ten seconds, as the orders fixture's test does); otherwise its
+  check reads *too soon* (3) at the hand-over, a failure (`at_handover`
+  3 only when the fault is masked), and after any fix. The clinic leaves
+  it out (spec D466).
 - **Backlog** (master spec 6.3; the answer key's `backlog:`): the
   duplicate orders the retries left before the fix, found by the
   ledger's `-{HHMM}` references beside their timed-out first; cleaned up

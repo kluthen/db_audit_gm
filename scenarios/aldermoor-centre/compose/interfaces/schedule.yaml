@@ -1,0 +1,111 @@
+# the integration engine, interfaces: the scenario layer of aldermoor-centre (game-master,
+# "Domains, composed", step 2; capture W5-e), the material of
+# vet-lab-centre-orders (runner), vet-lab-practice-results (runner), vet-lab-send-outs (runner), vet-centre-exchanges (runner), vet-notifiable-diseases (runner), vet-bookings-sync (runner), vet-imaging-orders (runner), cold-storage-archive (runner), vet-portal-release (runner), vet-portal-messages (runner),
+# copied as written for the clinic's nodes. Intensity 1.0: the clinic's own rates.
+intensity: 1.0
+connections:
+  clinic:                      # the source and the target: requests, consultations, ops.*
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_interfaces
+    pool: {size: 2}
+  lab-api:                     # the api part: POST /orders, GET /orders (the released-results feed)
+    driver: http
+    target: lab-api:8000
+    credential: lab_centre
+    pool: 1
+    timeout: 10s
+  lab-dispatch:                # the source and the target: orders, tests, results, lab_callbacks, ops.*
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_dispatch
+    pool: {size: 1}
+  practices:                   # the partner part: POST /results, one call per delivery attempt
+    driver: http
+    target: practices:8000
+    credential: practices_customer
+    pool: 4
+    timeout: 30s
+  northfield-lab:              # the partner part: POST /orders, POST /orders/{send_key}/resend
+    driver: http
+    target: northfield-lab:8000
+    credential: xlab_customer
+    pool: 1
+    timeout: 10s
+  centres-central:
+    driver: http
+    target: aldermoor-central:8000
+    credential: centres_customer
+    pool: 1
+    timeout: 10s
+  centres-south:
+    driver: http
+    target: aldermoor-south:8000
+    credential: centres_customer
+    pool: 1
+    timeout: 10s
+  centres-abroad:
+    driver: http
+    target: aldermoor-abroad:8000
+    credential: centres_customer
+    pool: 1
+    timeout: 10s
+  authority:
+    driver: http
+    target: authority:8000
+    credential: authority_customer
+    pool: 1
+    timeout: 10s
+  sched:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: sched_interfaces
+    pool: {size: 1}
+  pacs:
+    driver: sql/postgresql
+    target: machines:5432/pacs
+    role: mach_orders
+    pool: {size: 1}
+  vitals:
+    driver: sql/postgresql
+    target: machines:5432/vitals
+    role: mach_archive
+    pool: {size: 1}
+  biomed:
+    driver: sql/postgresql
+    target: machines:5432/biomed
+    role: mach_archive
+    pool: {size: 1}
+  cold-storage:
+    driver: http
+    target: cold-storage:8000
+    credential: cold_storage
+    pool: 1
+    timeout: 60s
+  portal-clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_portal_sync
+    pool: {size: 1}
+  portal-lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_release
+    pool: {size: 1}
+  portal-sync:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_sync
+    pool: {size: 1}
+  portal-dispatch:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_dispatch
+    pool: {size: 1}
+  messaging:
+    driver: http
+    target: messaging:8000
+    credential: messaging_customer
+    pool: 1
+    timeout: 5s
+streams: []
