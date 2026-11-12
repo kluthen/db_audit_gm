@@ -3,10 +3,11 @@
 # hand: change an input and regenerate. It describes the system as designed and
 # composed, before any fault is planted.
 generated_from:
-  scenario.yaml: sha256:0741ff4bd92554946331ecd841935945cff8dac61ffe49a89b2310a527344eb6
+  scenario.yaml: sha256:eff956a43629a53f4a859dedf02207e0ed0c9bc742998915c0257e748586541c
   composition.yaml: sha256:b67f8334d2bf2cc14746c68e86087901bd13fc52b55c64ef8ba125082d05efa7
   data/classification.yaml: sha256:73cd34489def405b8674279bbf7117411777f8d6c36a5ee8865fca8292e79b8d
   player/data-policy.md: sha256:377c648f1378915add8f36a7e65d116b64f80cf463217393b321772dff5289df
+  player/partners.md: sha256:390a3b26a84b44c2c0743bc5f8cd398cb8e5ef4b36e2792d5b4ded577de33425
   gm/answer-key.yaml: sha256:9623e4059b01260c46537f0312c1a78d991219bd7cb4f2fd28d4b8b1547f6811
   catalog/domains/vet-core/data/register.yaml: sha256:73b8280acdc88031b1493c04d3dbd1e144e1a54bc93d8550eec7c06100498bc2
 controller: Aldermoor Veterinary Hospitals' centre

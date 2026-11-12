@@ -81,7 +81,7 @@ The story as the players read it: `player/story.md`.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`.
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` → `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface: the
 web front serves the starter-pack page alone, and the tools password is
@@ -457,7 +457,7 @@ Judged at the final answer, on the report alone: no sealed check.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the partners `player/partners.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`

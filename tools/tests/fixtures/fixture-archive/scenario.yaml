@@ -115,6 +115,7 @@ nodes:
       issues.md: player/issues.md
       data-policy.md: player/data-policy.md
       data-register.md: player/data-register.md
+      partners.md: player/partners.md
     knobs: []
 
   - name: records

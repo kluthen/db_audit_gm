@@ -179,6 +179,7 @@ nodes:
       story.md: player/story.md
       issues.md: player/issues.md
       data-policy.md: player/data-policy.md
+      partners.md: player/partners.md
     knobs: []
 
   - name: records
