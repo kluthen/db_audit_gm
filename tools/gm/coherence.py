@@ -53,8 +53,7 @@ CHECK_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 CHECK_KEYS = ("id", "what", "database", "reads", "sql")
 FIRST_ROWS = 10
 PASS, FAIL, SKIPPED = "pass", "fail", "skipped"
-RECORD_KEY = "coherence"
-_RECORD_RE = re.compile(r"^coherence\s*:(\s|$)")
+RECORD_KEY = model.COHERENCE_RECORD_KEY
 _SELECT_RE = re.compile(r"^(select|with)\b", re.IGNORECASE)
 
 
@@ -219,18 +218,17 @@ def result_of(outcomes):
 
 def rewrite_record(text, run_at, result):
     """`text` (a composition.yaml) with its top-level `coherence:` key, and
-    the indented lines under it, replaced by `coherence: {run_at, result}`,
-    appended when absent; every other line byte for byte."""
+    the indented lines under it (model.coherence_span, the span the
+    register's digest leaves out), replaced by `coherence: {run_at,
+    result}`, appended when absent; every other line byte for byte."""
     line = f"{RECORD_KEY}: {{run_at: '{run_at}', result: {result}}}\n"
     lines = text.splitlines(keepends=True)
-    start = next((i for i, ln in enumerate(lines) if _RECORD_RE.match(ln)), None)
-    if start is None:
+    span = model.coherence_span(lines)
+    if span is None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         return "".join(lines) + line
-    end = start + 1
-    while end < len(lines) and lines[end][:1] in (" ", "\t") and lines[end].strip():
-        end += 1
+    start, end = span
     return "".join(lines[:start]) + line + "".join(lines[end:])
 
 

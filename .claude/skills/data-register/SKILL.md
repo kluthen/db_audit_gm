@@ -89,7 +89,14 @@ later edit to an input makes the register stale (W4 item 1).
    true entries (see "Register faults") and write its instance's
    `register_diff:` into `gm/answer-key.yaml`. The answer key is then
    final.
-3. **The digests.** For each input, `sha256sum <file>`; record it as
+3. **The digests.** For each input, `sha256sum <file>`, except
+   `composition.yaml`, digested without its top-level `coherence:` key and
+   the indented lines under it (the record `load-data` rewrites, spec D465;
+   a file without the key digests as its bytes):
+   `python3 -c 'from tools.gm import model;
+   print(model.register_digest("composition.yaml", "<dir>/composition.yaml"))'`
+   from the repository root (it gives any input's digest, its label
+   first). Record each as
    `sha256:<hex>` under its path: scenario-relative
    (`scenario.yaml`, `data/classification.yaml`, `gm/answer-key.yaml`), or
    `catalog/<path>` for a catalogue file

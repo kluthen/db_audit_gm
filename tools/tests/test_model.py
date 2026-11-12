@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from tools.gm import fit, localimpl, model, render
+from tools.gm import coherence, fit, localimpl, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
 from tools.tests.test_compose import OwnersAloneCase
 
@@ -4709,7 +4709,7 @@ class RegisterCopyTest(RefusalAsserts, ScenarioCopyTest):
         sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
         inputs = model.register_inputs(sc, self.scenario)
         self.write_register(lambda r: r.update(generated_from={
-            rel: model.file_digest(path) for rel, path in inputs.items()}))
+            rel: model.register_digest(rel, path) for rel, path in inputs.items()}))
 
     def entry(self, reg, eid):
         return next(e for e in reg["entries"] if e["id"] == eid)
@@ -4889,6 +4889,91 @@ class TestRegisterRefusals(RegisterCopyTest):
             "register_diff[1].field: 'tables' is not one of purpose, people, data, where, "
             "shared_with, kept_for")
         self.assertFalse([m for m in missing if "stale" in m], missing)
+
+
+class TestRegisterCoherenceRecord(RegisterCopyTest):
+    """The register's digest of composition.yaml leaves out its top-level
+    `coherence:` key and the lines indented under it, the record load-data
+    rewrites; any other byte still makes it stale (build plan chunk 37;
+    spec D465)."""
+
+    STALE = ("generated_from: composition.yaml changed since the register was generated "
+             "(its digest differs): stale register: regenerate with the data-register skill")
+    BLOCK = "coherence:\n  run_at: '2026-11-04T09:30:00Z'\n  result: pass\n"
+
+    def composition(self):
+        return self.scenario / "composition.yaml"
+
+    def edit(self, change):
+        path = self.composition()
+        path.write_text(change(path.read_text()))
+
+    def test_the_record_added_keeps_it_current(self):
+        original = self.composition().read_text()
+        self.edit(lambda t: t + self.BLOCK)
+        self.load()
+        self.edit(lambda t: self.BLOCK + original)          # anywhere at the top level
+        self.load()
+        self.edit(lambda t: original.replace(
+            "order:", "coherence: {run_at: 't', result: fail}\norder:"))
+        self.load()
+
+    def test_the_record_rewritten_by_load_data_keeps_it_current(self):
+        coherence.record_composition(self.composition(), "2026-11-04T09:30:00Z", "pass")
+        self.assertEqual(model.strict_load(self.composition().read_text())["coherence"],
+                         {"run_at": "2026-11-04T09:30:00Z", "result": "pass"})
+        self.load()
+        coherence.record_composition(self.composition(), "2026-11-05T00:10:00Z", "fail")
+        self.load()
+
+    def test_any_other_byte_changed_makes_it_stale(self):
+        coherence.record_composition(self.composition(), "t", "pass")
+        for change in (lambda t: t.replace("records/portal}", "records/portal }", 1),
+                       lambda t: t + "# edited after the record\n",
+                       lambda t: t.replace("coherence:", "# a comment\ncoherence:"),
+                       lambda t: t.replace("\n", "\n\n", 1)):
+            with self.subTest(change=change):
+                before = self.composition().read_text()
+                self.edit(change)
+                self.assertRefused(self.STALE)
+                self.composition().write_text(before)
+                self.load()
+
+    def test_without_the_key_the_digest_is_the_files_bytes(self):
+        path = self.composition()
+        self.assertEqual(model.register_digest("composition.yaml", path),
+                         model.file_digest(path))
+        reg = self.register()
+        self.assertEqual(reg["generated_from"]["composition.yaml"], model.file_digest(path))
+        self.edit(lambda t: t + self.BLOCK)
+        self.assertEqual(model.register_digest("composition.yaml", path),
+                         reg["generated_from"]["composition.yaml"])
+        self.assertNotEqual(model.file_digest(path), reg["generated_from"]["composition.yaml"])
+        scenario = self.scenario / "scenario.yaml"        # any other input: its bytes
+        scenario.write_text(scenario.read_text() + self.BLOCK)
+        self.assertEqual(model.register_digest("scenario.yaml", scenario),
+                         model.file_digest(scenario))
+        self.assertIsNone(model.register_digest("composition.yaml", self.tmp / "none.yaml"))
+
+
+class TestCoherenceSpan(unittest.TestCase):
+    """The one finder of composition.yaml's `coherence:` record, shared by
+    coherence.rewrite_record and the register's digest (spec D465)."""
+
+    def span(self, text):
+        return model.coherence_span(text.splitlines(keepends=True))
+
+    def test_block_flow_and_absent(self):
+        self.assertEqual(self.span("a: 1\ncoherence:\n  run_at: t\n\tresult: pass\nb: 2\n"),
+                         (1, 4))
+        self.assertEqual(self.span("coherence: {run_at: t, result: pass}\nb: 2\n"), (0, 1))
+        self.assertEqual(self.span("coherence :\n  result: pass"), (0, 2))
+        self.assertIsNone(self.span("a: 1\n  coherence: x\ncoherences: y\n# coherence: z\n"))
+        self.assertIsNone(self.span(""))
+
+    def test_ends_at_a_blank_line_or_a_top_level_line(self):
+        self.assertEqual(self.span("coherence:\n  result: pass\n\n  x: 1\n"), (0, 2))
+        self.assertEqual(self.span("coherence:\n  result: pass\n# c\n  x: 1\n"), (0, 2))
 
 
 class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
