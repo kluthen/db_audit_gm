@@ -7273,3 +7273,20 @@ s8's witness and present reading; s10's resolution (`report`,
 `propose`) and fixed reading; s5's calibration wording; the chunk texts
 brought to the code. No owner question; the owner is told of the ninth
 chunk in the report.
+
+### Plan v16: W5's corrections applied, chunk 36 inserted, 2026-11-12
+
+`spec-writer` at c2edbc6 (D459–D464, the driver's acceptance of W5's
+preflight corrections): chunk 36 inserted (the loader's three fault
+forms: a `state` script on another node, `injection.kind: topology`, a
+false alarm with `false_alarms:`), gate G19 (formats.md and master spec
+6.3, 6.4 after the gate); wave 5 at nine chunks (D460); s8's witness the
+00:30 feeder (D461); s10 resolved by *report* or *propose*, its fixed
+reading the GM applying the proposal (D462); s5's calibration "hours,
+not days" (D463); chunks 22 to 26 brought to the code and W5 (D464).
+**Chunk 36's peek** (no intent register): its files are
+`tools/gm/{model,inject}.py` (and `aging.py`), their tests and the
+`scenario-format` skill, held by no running chunk; `test_model.py`
+shared with chunk 34's tag lines (the second to merge takes `v0.5-w5`
+in); no data, no dependency (no G11 row). It takes the first free slot,
+ahead of 22 to 26.
