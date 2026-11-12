@@ -6670,3 +6670,560 @@ documentalist preflight: capture W5 drafted for the driver from the
 chunks' **Architecture capture** lines, as W1 to W4. Chunk 35's capture
 is spec D451 and none of W5's items touch its files, so it is dispatched
 beside the capture's drafting.
+
+### Capture W5 — the ten faults and the false alarm, the GM's composition, the monitoring images, what the clinic reads (chunks 22–26, 34, 35; read by 27)
+
+Recorded 2026-11-12, before any fault chunk starts; drafted for the
+wave driver from the **Architecture capture** lines of chunks 22 to 26,
+34 and 35 (plan v15, with its header, "Read first", the gates, the
+dependency graph, wave 5's order, "Per-wave gate contents" row 5, the
+shared lists, "Left for the build"), chunk 27 as far as it reads W5,
+master spec 6.3, 6.4, 6.7, 7.1 ("Options"), 12, 13.3, 13.4, 14, 15, 16,
+17.1 to 17.4 and 18.1 to 18.3, [clinic-test-selection.md](clinic-test-selection.md),
+[clinic-traps.md](clinic-traps.md) (T1, T10, T33, T35, T40, T41, T69,
+T150, T270, T307, section 9's false alarms),
+[data-register-handout.md](data-register-handout.md) 4 and 5, access
+model 2, 5 and 9.3, vet-portal's document (D423, T270, T274) and
+vet-housing's GM notes ("finding a faulty display"),
+[formats.md](../../formats.md) v32 ("Scenario", "Fault definition",
+"Purpose definition", "Composing domains"), spec D443 to D458, and the
+code on `v0.5-w5` at 01b0385: `faults/` (the 29 definitions, their
+kinds), `tools/gm/{model,inject,compose,render,localimpl}.py`
+(`check_fault_dir`, `_check_fault_options`, `_check_monitors`,
+`_check_fault_instance_options`, `_check_issues`, the template schema's
+`allow_empty`, `inject_plan`), `tools/tests/test_brick_docs.py`, the
+fixtures `fixture-{orders,send-outs,archive,reports,housing,portal,clinic-load,register}`
+(their `scenario.yaml` and `run-short-test.sh` headers), the purposes
+the faults touch (`vet-lab-centre-orders`, `vet-antimicrobial-use`,
+`vet-medicines-registers`), `domains/vet-portal/data/{schema,derive}.sql`,
+`domains/vet-housing/producers/ward/`, `bricks/{postgres,scheduler,bastion,api,postgres-exporter,grafana,prometheus}/`
+(`docs/gm.md` "Supported faults", `vault-post`, `gm-entrypoint`'s
+option step, the two Dockerfiles), the skills `scenario-format`
+(templates `fault.yaml`, `scenario.yaml`, `answer-key.yaml`,
+`composition.yaml`), `data-register`, `game-master`,
+`scenario-document`; and G11.3 and G11.4's results as the driver relayed
+them. W1 to W4's rules: cited, not restated; **(choice)** marks a point
+the sources left open, settled here with its reason; each item names
+the chunk that writes it and those that read it. Held: W1 to W4 with
+their addenda W1-w to W1-z, W2-a to W2-g, W3-a to W3-h, W4-a to W4-g;
+where the merged code differs from them or from the spec, the code and
+the addenda win. Chunks record their as-built outcomes as **W5-a**
+(chunk 22), **W5-b** (23), **W5-c** (24), **W5-d** (25), **W5-e** (26),
+**W5-f** (34), **W5-g** (35), **W5-h** (chunk 36, if inserted:
+Preflight corrections, item 1) and **W5-i** (27).
+
+**What the sources leave short.** Read against the merged loader, three
+of the eleven have no form: s3 is planted on two nodes (the feeder's
+query on `backoffice`, the planted report in `office` on `records`),
+while a fault instance has one node and its `state` scripts run there
+only (`inject_plan`); s10's absence is a topology fact, and no
+injection kind (`seed-file`, `state`, `parameter`) expresses a change
+with no seed file, script or parameter; the false alarm is an issue
+covering no fault, and `issues[].covers: []` is refused ("empty": the
+template's comment does not allow it). Read against the bricks and the
+data: with a one-hour `recovery_min_apply_delay` the 01:30 feeder's day
+is complete (the standby has replayed to 00:30); a redeployed `lab`
+choosing `monitoring` creates nothing on an existing `pgdata`
+(`postgres` `docs/gm.md`, "Changed later"); the portal copies every
+ownership, so T270 exposes every past sale, not the day's. Items 0, 3,
+4 and 6 settle what can be settled; Preflight corrections, items 1 to
+5, carry the rest to the plan.
+
+**0. Rules shared by the fault chunks** (22 to 25 write them; read by
+26, 27)
+
+- **Ids and families (choice; formats.md "Fault definition", the
+  catalogue's prefixes)**: a fault living in a database node's files or
+  state `pg-`, in a scheduler node's files `scheduler-`, a purpose fault
+  `purpose-`, governance `governance-`, row-level and credential faults
+  `security-`:
+
+  | # | Trap | Id | Family | Kind | Instance node | `applies_to` |
+  |---|---|---|---|---|---|---|
+  | s1 | T40 | `purpose-urgent-priority-dropped` | rules | seed-file | `interfaces` | `scheduler` 0.3.0; purposes `vet-lab-centre-orders` |
+  | s2 | T35 | `pg-archive-command-silent` | backups | seed-file | `records` | `postgres` 0.5.0 |
+  | s3 | T69 | `purpose-herd-use-dropped` | data-flow | state with seed changes (D254) | `backoffice` | `scheduler` 0.3.0, `postgres` 0.5.0 (its office script, item 3); purposes `vet-antimicrobial-use` |
+  | s4 | T41 | `purpose-retry-without-key` | data-flow | seed-file | `interfaces` | `scheduler` 0.3.0; purposes `vet-lab-centre-orders` |
+  | s5 | T270 | `security-policy-ownership-end-dropped` | security | state | `records` | `postgres` 0.5.0 |
+  | s6 | T307 | `governance-register-flow-undeclared` | security | seed-file (`data-register.md`) | `bastion` | `bastion` 0.5.0 |
+  | s7 | T1 | `governance-statement-log-personal` | security | seed-file | `records` | `postgres` 0.5.0 |
+  | s8 | T33 | `pg-standby-apply-delay` | replication | seed-file | `standby` | `postgres` 0.5.0 |
+  | s9 | T150 | `scheduler-display-refresh-loop` | performance | seed-file | `ward` | `scheduler` 0.3.0 |
+  | s10 | T10 | `pg-monitoring-option-absent` | monitoring | `topology` (item 4) | `lab` | `postgres` 0.5.0 only |
+
+  Versions: v0.5's only (`0.5.0`, `0.3.0`), each fault needing a v0.5
+  feature or a v0.5 domain; `postgres`' "Supported faults" sentence "all
+  also name `0.4.0`" is amended by the first chunk adding to it.
+  **s10 never names `postgres-exporter`**: `test_brick_docs.py` would
+  then require its `docs/gm.md` to list it, and a documentation change
+  bumps a released brick (master spec 6.7); the exporter's side is
+  s10's `gm.md` and the scenario's answer key.
+- **Where a seed change is written (choice)**: on a node `gmctl compose`
+  writes (a scheduler or `api` node of a composed scenario), in the
+  scenario layer `compose/<node>/`, never in `nodes/<node>/`, so
+  `gmctl compose --check` stays clean and the change survives a
+  recompose; elsewhere (`records`, `standby`, `lab`, the bastion) in
+  `nodes/<node>/` as v0.4. Each fault's `seed_changes[].change` says
+  the one edit and its `material` is that edit alone (a function, a
+  setting line, a stream), never a whole file, since s1 and s4 change
+  the same script and s2 and s7 the same `postgresql.conf`: the clinic's
+  copy carries both, each sealed check judging its own edit's behaviour
+  or setting, so fixing one leaves the other present.
+- **The fixtures' committed form (choice)**: an existing fixture keeps
+  its committed files unfaulted, so its wave-4 short test and the gate's
+  rerun stand; a fault's short test plants on a copy, from an overlay
+  committed in the fixture under `planted/<fault-id>/` (the fault
+  instance and issue as `scenario.yaml` fragments, the answer-key entry,
+  the seed change at its scenario path), merged into the copy by the
+  test (host Python, PyYAML), the README of the copy not regenerated
+  (no commit). The loader never reads `planted/`. A fixture built for
+  its fault (`fixture-portal-scope`, `fixture-lab`) commits the
+  instance, and `fixture-lab` must (the loader refuses its topology
+  without it). One short test per fault, one at a time (gate row 5),
+  but s2 and s6 together (17.2).
+- **Time placed (master spec 18.1)**: every seed-file fault is planted
+  at render, so its moment is the fixture's start, before T0; a `state`
+  fault at `gmctl inject` after `load-data` and its coherence check,
+  before `start-load`; s5's game moment three hours before hand-over
+  (item 6). Each fault's readings fall after T0, at moments the test
+  places (the table in item 7).
+- **A feeder's day as present and fixed reading (choice)**: a feeder
+  writes its day once (W4-d), so a test reading a short day and then a
+  complete one removes, between the two, that day's output rows and its
+  run row in `office`, as the GM, in one transaction, unseen (the
+  players' rerun, which the answer key credits), before moving the
+  feeder again. s3 and s8 use it.
+- **Checks**: as W4 item 0, "Where a check runs", and the scheduler's
+  convention (`check-sql` prints booleans as `True`/`False`; database
+  nodes have no Python: shell and SQL). A check reading the portal
+  first finds `gm_check_read` in place (W4 item 7, D432). A check may
+  read a partner's side as evidence, never judge it (6.3); a public
+  partner endpoint is read with the node's own client (`postgres`: Perl
+  `HTTP::Tiny`, as `vault-post`; no `curl` there).
+- **Brick documentation**: each new fault is a row in the "Supported
+  faults" of every brick its `applies_to` names (`test_brick_docs.py`):
+  `postgres` s2, s3, s5, s7, s8, s10; `scheduler` s1, s3, s4, s9;
+  `bastion` s6, whose section today says the bastion hosts no fault and
+  none should be written: chunk 23 rewrites it for register faults
+  (6.4, 13.4: the handout only, nothing on the bastion changing).
+  `api` and `postgres-exporter` gain none.
+
+**1. The orders faults: s1, s4 and the false alarm** (chunk 22 writes,
+W5-a records; read by 26, 27)
+
+- **s1** `purpose-urgent-priority-dropped`: in `scripts/lab_orders.py`,
+  `post`'s body field `"priority": priority` sent as `routine` whatever
+  the group's priority (the mapping's one line; the `client_ref`
+  `C-<consultation>-<priority>` unchanged, so the grouping still splits
+  urgent from routine). Seed change `scripts/` on `interfaces`, in
+  `compose/interfaces/`. Sealed check on `interfaces`, `judges: runs`:
+  each `urgent` request posted since the judged moment went out
+  `urgent` (`ops.lab_orders_sent` against `requests` through
+  `check-sql`), and LO4's end to end on those completed (D456). Fixed
+  on the runner's repository (write override), `gm-reload-scheduler`.
+- **s1's backlog** (6.3; the answer key's `backlog:`): `what`: the
+  urgent requests posted `routine` before the fix, waiting at `lab` for
+  the next pathologist's round (`ops.lab_orders_sent`'s `-routine`
+  references whose requests are `urgent`, against `lab_orders.priority`);
+  `cleanup`: each identified from the trace and raised to `urgent` at
+  `lab` (or its release asked of the lab), credited, never counted.
+  **(choice)** s4's instance lists one too: the duplicate orders the
+  retries left before the fix, cleaned up by cancelling the second
+  order of each pair at `lab`.
+- **s4** `purpose-retry-without-key`: the same file, the `client_ref`
+  built anew on a retry (the run's minute appended after a timeout), so
+  a timed-out post posted again is a new order. Seed change `scripts/`
+  as s1's. Sealed check `judges: runs`: one order per consultation and
+  priority since the judged moment (LO2), the orders read at `lab`
+  through `check-sql`. In a game its witness needs an answer slower
+  than the runner's ten seconds; the clinic plants none, so its rate is
+  "a few a week" by the calibration, unproven until v1.0 (and it is
+  not read at G13, 18.3).
+- **The false alarm, fa**: no fault definition. An issue "The external
+  lab is slow", `expected_resolution: report`, covering no fault (the
+  form is Preflight corrections, item 1 (c)); the answer key's
+  `false_alarms:` entry: why it is no fault (a PCR answered on its
+  fourth day, within its one-to-five-day turnaround), the evidence
+  (`lab_send_outs`' `due_by` against `answered_at`, as `dba` on `lab`),
+  what counts (the players report no fault behind it, citing the
+  turnaround). Its PCR: one the load already planted (vet-lab's 1 937
+  send-outs), found by a query the answer key gives; on the send-outs
+  fixture, if the load holds none, the test places one, as it places a
+  due send-out today. fa's check is the fixture test's own query, not a
+  sealed check.
+- **Fixtures**: `fixture-orders` (T0 about 10:00 local, a weekday when
+  the host's is; as built) for s1 and s4, each its overlay, the
+  emergencies raised in its own `compose/pms/` layer for s1 only;
+  `fixture-send-outs` (T0 15:45–15:51, as built) for fa.
+
+**2. The archive faults: s2 and s6** (chunk 23 writes, W5-b records;
+read by 26, 27)
+
+- **s2** `pg-archive-command-silent` **(choice)**: `records`'
+  `postgresql.conf`, `archive_command = 'vault-post wal %p %f || true'`:
+  the arguments swapped (the name `pg_wal/…` refused by `vault-post`'s
+  name rule, exit 2, its reason on standard error, so in the server log)
+  and `|| true`, added so a vault outage never fills `pg_wal`: the
+  archiver counts every segment archived and none reaches the vault.
+  One line, both mistakes visible in the file, deterministic. Sealed
+  check on `records`, live state: the latest segment
+  `pg_stat_archiver` counts archived (`check-psql`) has a `wal`
+  manifest from source `records` (cold storage's public `GET
+  /manifests?type=wal&source=records`, Perl `HTTP::Tiny`, the latest
+  by `received_at`, never by name, D382); evidence only, the vault
+  never judged.
+- **s6** `governance-register-flow-undeclared`: parameter `recipient`
+  (default cold storage's `partners.md` name). **(choice)** T307's
+  change drops the recipient from every entry's `shared_with` and its
+  `{copy: cold storage (WAL archive, nightly base backup)}` item from
+  every entry's `where`, so the vault is named nowhere (handout 4, T307;
+  the skill's table names `shared_with` only); `register_diff:` one item
+  per entry and field changed. Sealed check on the bastion, live: the
+  served handout (`/home/player/data-register.md`, read as root) names
+  the recipient on no entry: exit 1; never cleared in play.
+- **The archive fixture gains a register (choice)**: a register with no
+  domain has no entry to drop cold storage from, so `fixture-archive`
+  composes vet-core at `records/clinic` (uncomposed, every producer
+  `left_out:` with the centres, `composition.yaml` written by hand as
+  `fixture-clinic-load`'s), with vet-core's `governance:`, its default
+  policy as `player/data-policy.md`, `governance.register` and both
+  registers generated by the skill. Its data file stops creating
+  `clinic` (now vet-core's `at:`): the test's filler table moves to a
+  database of its own. Five nodes, unchanged. The load adds vet-core's
+  (about three minutes).
+- **Readings**: s2 and s6 planted together (17.2); present: a segment
+  switched by the test (`pg_switch_wal()`), counted archived, no
+  manifest, the gap on the page; the served handout without cold
+  storage while the page lists `records`' planted `wal` and
+  `basebackup` manifests (the base backup is the crontab's, unaffected
+  by s2). Fixed (s2): the line corrected and reloaded, the next switched
+  segment's manifest present, the gap staying a finding. **Cleared (s6;
+  choice)**: the skill has no `gmctl` generator (13.3), so the test
+  cannot regenerate; the chunk owner runs the skill on a copy without
+  the instance, its handout naming cold storage on every entry the true
+  register does and the loader passing, recorded in W5-b; the short
+  test reads present only. The answer key notes the interaction (the
+  vault still holding the planted manifests and base backups) and the
+  setup limit of D382.
+
+**3. The reports faults: s3, s7, s8** (chunk 24 writes, W5-c records;
+read by 27; after chunk 35 for its fixture run)
+
+- **The fixture as built** (W4-d, 20a, 20b; the code wins over the
+  plan's "a Friday at 01:20"): T0 about 00:10 local, any day, the test
+  recording a herd treatment yesterday when the load holds none; eight
+  nodes. `backoffice` takes `fixable-file` (D456).
+- **s3** `purpose-herd-use-dropped`: `amu.feed.read` in `backoffice`'s
+  `queries.yaml` (in `compose/backoffice/`), the dispensings' `LEFT JOIN
+  animals` made an inner join, so a herd prescription (no animal)
+  drops. **The planted report short**: a `state` script rewriting, in
+  `office`, last year's planted `antimicrobial_use` days and the
+  `amu_reports` lines as the faulty query would have written them
+  (the herd dispensings subtracted per day, species and code; the
+  reference and its form kept, chunk 35's `AMU<year>-NNNN`), run as
+  `postgres` over the socket, unseen (statement logging, pgaudit and
+  `pg_stat_statements` off for the session, as `load-data`'s are),
+  after the history and the coherence check. It must run on `records`
+  while the instance's node is `backoffice`: the loader's gap,
+  Preflight corrections, item 1 (a). Sealed check on `backoffice`,
+  `judges: runs`: each day the feeder wrote since the judged moment
+  counts every herd treatment under its herd's species (AM2's rule).
+- **s7** `governance-statement-log-personal`: `records`'
+  `postgresql.conf`, `log_statement = 'all'`. Sealed check on
+  `records`, live: no `log_statement` but `none` or `ddl` in effect,
+  server-wide or in `pg_db_role_setting` for a role or database
+  writing personal data. Present: the test's `pms`-style writes as
+  `vet_app` (an owner's name and phone) in the log; fixed after a
+  reload.
+- **s8** `pg-standby-apply-delay`: the standby's `postgresql.conf`,
+  `recovery_min_apply_delay = '1h'`, from its first start; the clone
+  reaches consistency undelayed (PostgreSQL applies no delay before
+  consistency), so the setup is unaffected: chunk 24 verifies
+  `load-data`'s standby wait with the delay in effect (risk). Sealed
+  check on `standby`, live: the delay in effect is 0. **Present in a
+  short test (choice)**: the delay in effect, WAL received and not
+  replayed (`pg_last_wal_receive_lsn()` ahead of
+  `pg_last_wal_replay_lsn()`), and the feeder's day missing rows the
+  test records after T0, dated yesterday's last hour (late entries, as
+  `pms`' staff enter them after midnight), present on `records`, absent
+  on the standby. "The replay lag at an hour" reads only after an hour
+  of the delay: Preflight corrections, item 2. Fixed: the delay
+  removed, reloaded, the backlog replayed at once, the day removed and
+  the feeder moved again (item 0), its day complete.
+- **Interactions** (for 27's answer key): s3 and s8 both bite feeders
+  reading the standby; s8 never hides a herd treatment, s3's witness
+  stands with it. s7 and s2 share `records`' file (item 0).
+
+**4. The scope faults: s5, s9, s10** (chunk 25 writes, W5-d records;
+read by 26, 27)
+
+- **s5** `security-policy-ownership-end-dropped`: a `state` fault
+  (parameters `database` default `portal`), its script `ALTER POLICY
+  portal_animals_scope ON portal_animals USING (…)` with the owner
+  branch's `o.until_at IS NULL` left out, the keeper branch untouched
+  (T274's is `portal_keeper_granted`, D427), as `postgres`, unseen;
+  planted after the coherence check. **Fixture `fixture-portal-scope`
+  (choice)**: the bastion, `records` (`clinic`, `portal`), `portal-api`;
+  vet-core and vet-portal composed (the derivation, D322), every
+  producer `left_out:`; T0 a weekday morning. **The sale**: the test,
+  after `load-data` and before `inject`, records a horse's sale dated
+  two hours back in `clinic` and its copy in `portal`, as `pms` and
+  purpose 15 would. Present: as the former owner (its password
+  `portal_password(n, load_epoch)`, vet-portal's GM notes), `POST
+  /login` then `GET /animals` on `portal-api` returns the horse; fixed:
+  not, the buyer still sees it. **Sealed check** on `records`, live, as
+  `gm_check` (guard first), never as `portal_api` or `dba`: it judges
+  whether the live policy admits a former owner; the mechanism is
+  chunk 25's, recorded in W5-d (`gm_check` holds no `EXECUTE` on
+  `portal_keeper_granted`, so the policy's text cannot simply be
+  evaluated as `gm_check`).
+- **s9** `scheduler-display-refresh-loop`: parameters `unit` (a unit
+  with a display) and `rate` (default `3600/h`, about once a second):
+  a key `ward.board-loop` whose `sql` is `ward.board`'s byte for byte
+  with `unit` fixed, and a stream on `ward-board` at `rate`, both in
+  `compose/ward/` (seed changes `queries.yaml`, `schedule.yaml`;
+  vet-housing's GM notes, W3 item 3). Resolution `report` only, every
+  write policy; never cleared in play (6.3). Sealed check on `ward`,
+  `behavioural: true`: `ward.board`'s `queryid` calls a minute on
+  `records` through `check-sql`, window and threshold in the answer key
+  (64 a minute and a margin). Cleared by the test only: the stream
+  removed by the GM's path the brick allows (the live schedule as root
+  and `gm-reload-scheduler`, or `ward` redeployed from the recomposed
+  layer), recorded in W5-d. On `fixture-housing` (as built).
+- **s10** `pg-monitoring-option-absent`: `option_absent: monitoring`;
+  `injection.kind: topology` (Preflight corrections, item 1 (b)); the
+  scenario's `lab` without `options: [monitoring]`, which
+  `_check_monitors` accepts for every monitoring node targeting the
+  instance's node. **Resolution (choice)**: `report` and `propose`,
+  never `fix`: players read no service credential (access model 5), so
+  they cannot give a role the exporter's password, and choosing the
+  option later creates nothing on an existing `pgdata` (`postgres`'
+  GM notes). Acceptance: the `monitoring` role, a member of
+  `pg_monitor`, with the exporter's credential (the option chosen at the
+  next build). Sealed check on `lab`, live: `monitoring` exists, `LOGIN`,
+  a member of `pg_monitor`. **Fixture `fixture-lab` (choice)**: the
+  bastion, `lab` (a plain `postgres` 0.5.0 node with a small data file,
+  no domain), a `postgres-exporter` 0.2.0 node; no Prometheus, so no
+  `prometheus` pin. Present: the exporter's login errors, `pg_up 0`.
+  Fixed (Preflight corrections, item 3): the test creates the role as
+  the option's initdb step does, with the game's `monitoring_password`,
+  the GM applying an accepted proposal; the exporter's metrics present.
+  Risk: `monitoring_password` exists in a game where only the exporter
+  declares it (`postgres`' notes say so); chunk 25 shows it.
+
+**5. The GM's composition and setup** (chunk 26 writes, W5-e records;
+read by 27)
+
+The steps as the GM runs them, for `game-master` `SKILL.md`
+("Designing a scenario", "Setup") and `gmctl.md`:
+1. **At design**: `domains:` in `scenario.yaml` (the core's `variant:`,
+   each `at:`); each purpose's material copied into `compose/<node>/`,
+   each third party's stub folders into `compose/partners-api/` and
+   `compose/partners-backend/` with their `data.sql` in `partners-db`'s
+   data file (W4 item 0); the faults' seed changes on composed nodes in
+   `compose/<node>/` (item 0).
+2. `gmctl compose <dir>`: on a conflict between two sources of one
+   layer, it stops naming both; the GM resolves it in `merge.yaml` and
+   reruns, until it merges.
+3. `composition.yaml`, written by the GM: `domains` (as `domains:`),
+   `keys` (each part's core ranges and functions, against the core's
+   notes), `scale` (`checked`), `order`, `derive` (sanctioned steps),
+   `left_out` (fixtures only); `coherence:` is written by `load-data`.
+4. **Setup step 2**: the format check, `gmctl compose <dir> --check`
+   (exit 0: up to date) with it, then the register (chunk 17's), then
+   the scenario document.
+5. **At setup**: `load-data` runs the coherence check after the loads,
+   (2b), (2c), the derivations and the histories; a failure is a design
+   error: the setup stops, the GM tears down, fixes the composition (a
+   range, a function, a scale) or a domain, and reloads; never a fault.
+   Faults are planted after it (`gmctl inject`).
+Beside these, chunk 26 writes what its scope lists (third parties
+played by no one, their support never answering, an overstep on a third
+party's node refused; a report-only fault judged at the final answer; a
+register fault judged on *propose*; the scenario document's "Third
+parties" and "Composition" sections, the jobs table's row for a
+`ddl:`-scheduled `pg_cron` job), and, once chunk 36 has merged, the
+false alarm: judged at the final answer (Evaluation), shown in the
+scenario document's issues and answer key, and `gmctl.md`'s `inject`
+row for a script run on another node and a `topology` fault ("planted
+by the topology; nothing to run").
+
+**6. What chunk 27 reads** (chunks 22 to 26, 34, 35 leave it; W5-i
+records)
+
+- **The instances**: the ten of item 0's table, on its nodes; s3's
+  office node `records`; s5 planted three hours before hand-over (a
+  `state` fault within the aging); every other at render. The seed
+  changes in the clinic's copies: `compose/interfaces/` s1 and s4 in
+  one `lab_orders.py`; `compose/backoffice/` s3; `compose/ward/` s9;
+  `nodes/records/postgresql.conf` s2 and s7; `nodes/standby/postgresql.conf`
+  s8; `lab` without `options: [monitoring]` (the other three database
+  nodes with it); the handout with s6 by the skill.
+- **The answer key**: s1's and s4's `backlog:`; s6's `register_diff:`
+  (the skill's); s9 `report` only; s10 `propose`; fa's `false_alarms:`
+  entry; interactions: s1 and s4 (one file), s2 and s7 (one file), s2
+  and s6 (the vault's planted manifests and base backups stand), s3 and
+  s8 (item 3), **s7 and s9** (with `log_statement = 'all'` the board's
+  parameter is already in the log, so s9's careful step is unneeded
+  while s7 stands; s9's acceptance "no instance-wide logging left
+  behind" is met by s7's fix), **s10 beyond the exporter** (pgwatch's
+  `lab` source and the health check's `lab` check fail too; one
+  instance covers every monitoring node targeting `lab`). The aging
+  minima: s3 from the 02:00 feeder's first run, s1 from the first
+  urgent order, s8 from the 00:30 feeder's (item 3, Preflight
+  corrections item 2), s4 unbounded (stated).
+- **Pins**: every brick at the version its chunk leaves: `postgres`
+  0.5.0, `scheduler` 0.3.0, `api` 0.1.0, `bastion` 0.5.0 (with `curl`,
+  D443), `pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0
+  (Grafana 13.3.1, item 7), `prometheus` 0.2.1, `postgres-exporter`
+  0.2.0; each fault at 0.1.0.
+- **From wave 4** (D456): purpose 5's `clinic-reports` targets the
+  standby, as purpose 7's; the story names the vet signing the
+  controlled-drugs balances, the lowest-id vet employed, read on
+  vet-core's load as chunk 35 leaves it (D451, D454).
+- **`left_out:`**: none in the clinic (every producer composed); no
+  shared `left_out:` line is added in wave 5 (no new producer folder).
+
+**7. The monitoring images: chunk 34** (W5-f records; read by 27)
+
+G11.3 and G11.4 cleared (the driver's relay, 2026-11-12); the values:
+
+- **(a) `grafana` 0.3.0, the first route**: Grafana **13.3.1** (build
+  42849527790) bundles the Prometheus data-source plugin at **13.2.5**
+  (brotli 1.2.7). Tarball
+  `https://dl.grafana.com/grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz`,
+  sha256 `6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531`.
+  In `bricks/grafana/`: the Dockerfile's two `GRAFANA_VERSION` (13.3.0
+  to 13.3.1), `GRAFANA_BUILD` (40412481033 to 42849527790) and the
+  archive's `--checksum`; `brick.yaml`'s upstream version 13.3.1, the
+  label 0.3.0 kept (D458); the archive's layout is 13.3.0's, so the
+  trim step and `tools/go-sbom` are unchanged but for the pins; both
+  SBOMs regenerated (`grafana.cdx.json`, the plugin's); no catalogue
+  plugin pinned; `docs/gm.md`.
+- **(b) `prometheus` 0.2.1 on Prometheus 3.16.0**: tarball
+  `https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz`,
+  sha256 `68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34`.
+  In `bricks/prometheus/`: the Dockerfile's `PROMETHEUS_VERSION` (3.13.5
+  to 3.16.0) and `--checksum`; `brick.yaml` version 0.2.1, upstream
+  3.16.0; both SBOMs; `docs/gm.md` drops the 3.13 LTS wording. **No
+  seed-file or flag change**: `promtool` 3.16.0 `check config` passes
+  all eight seed files, and the runtime information and endpoints are
+  unchanged. The re-pins as the plan lists them.
+- Chunk 34 was dispatched on its plan's Files: W5 assigns it nothing
+  more. A chunk merging after it pins `prometheus` 0.2.1 in a new
+  fixture of its own; wave 5 plans none with a `prometheus` node
+  (`fixture-lab` has the exporter only).
+
+**8. Chunk 35** (W5-g records; read by 24, 27): its capture is spec
+D451; W5 adds nothing. No conflict found: the fault chunks edit no
+domain or purpose file (item 9); s3's state script runs after the
+histories chunk 35 corrects and keeps their reference form; chunk 24's
+fixture runs after 35's merge (D457).
+
+**9. Wave 5 coordination** (for the driver and chunks 22 to 27, 34 to
+36)
+
+- **Files**: `faults/<id>/` each its chunk's; `tools/gm/*.py`, the
+  `scenario-format` skill (`SKILL.md`, templates) chunk 36's alone in
+  wave 5, `tools/tests/test_model.py` shared with chunk 34's tag lines
+  (the second to merge takes `v0.5-w5` in); the `data-register` skill
+  chunk 23's (T307's row); `game-master` and `scenario-document` chunk
+  26's alone; no fault chunk edits a domain's or a purpose's files
+  (`domains/`, `purposes/`: chunk 35's in wave 5), each fault's needs
+  stated in its own `gm.md`; fixtures: 22 `fixture-orders`,
+  `fixture-send-outs`; 23 `fixture-archive` (and `tools/tests/test_partners.py`,
+  which loads it); 24 `fixture-reports`; 25 `fixture-housing`,
+  `fixture-portal-scope`, `fixture-lab`; 27 `fixture-clinic-load`; 34
+  its four.
+- **Shared lists**, the second to merge taking `v0.5-w5` in first:
+  `bricks/postgres/docs/gm.md` "Supported faults" (23, 24, 25: each its
+  rows, the first amending the "`0.4.0`" sentence);
+  `bricks/scheduler/docs/gm.md` "Supported faults" (22, 24, 25); the
+  root `README.md`'s fault table (22 to 25) and brick table (34).
+  `bricks/bastion/docs/gm.md` is chunk 23's alone.
+- **Order**: 34 and 35 running; 22, 23, 25 and 26 can start at once
+  on what does not wait for chunk 36; 24 once a slot frees. Waiting for
+  chunk 36's merge (if inserted): 22's fa issue in a fixture, 24's s3
+  (its format check, overlay and run), 25's s10 (its format check and
+  fixture), 26's false-alarm and `inject` lines; chunk 27 for all.
+
+**Choices made here, not in the spec** (for the driver's review): the
+13 marked **(choice)** above, items 0 to 4, and chunk 36's scope
+(Preflight corrections, item 1).
+
+### Preflight corrections for spec-writer
+
+1. **Three fault forms the loader cannot express; no chunk** (W5
+   "What the sources leave short", items 1, 3, 4). Proposal: an
+   inserted **chunk 36** for a `coding-executor`, cut from `v0.5-w5`
+   now: (a) a `state` script run on another node: `injection.scripts[]`
+   items may be `{script: <path>, on: <parameter>}`, the parameter a
+   required one whose value names a node of the topology, whose brick
+   `applies_to` names; `gmctl inject` (and `inject --at`) streams that
+   script there under the same contract (s3); (b) `injection.kind:
+   topology`, planted at render by the scenario's topology, no seed
+   change, script or parameter, valid only with `option_absent` (s10);
+   (c) a false alarm: an issue with `covers: []` and
+   `expected_resolution: report`, accepted when the answer key's
+   `false_alarms:` lists it (`issue`, `why`, `evidence[]` as an
+   instance's, `acceptable`), counted in no score or cap. Files
+   `tools/gm/{model,inject}.py` (and `aging.py` if `--at` plants
+   apart), `tools/tests/{test_model,test_inject}.py`, the
+   `scenario-format` skill (`SKILL.md`, `templates/{fault,scenario,answer-key}.yaml`);
+   Done when each acceptance and refusal is shown by a unit test (a
+   script on another node, its parameter naming no node or a node whose
+   brick `applies_to` omits refused; a `topology` fault without
+   `option_absent` refused; `covers: []` without a `false_alarms:`
+   entry, or with another resolution, refused). Edges `36 ──> 22` (fa's
+   issue), `36 ──> 24` (s3), `36 ──> 25` (s10), `36 ──> 26` (merge
+   order: the false alarm and `inject` lines), `36 ──> 27`. Wave 5 then
+   holds nine chunks. Fallback: (b) and (c) in chunk 22 and (a) in
+   chunk 24, with 25 waiting on 22's merge: serialises three chunks.
+   formats.md ("Fault definition", "Scenario") and master spec 6.3, 6.4
+   carry them after the gate: a gate row **G19** like G18, `spec-writer`'s,
+   blocking release gate item 6.
+2. **s8's witness and reading** (W5 item 3): with a one-hour delay the
+   standby has replayed to 00:30 when the 01:30 feeder runs, so its day
+   is complete; the 00:30 feeder (`feed-daily-figures`) misses the
+   commits after 23:30, and every feeder misses entries made late for
+   yesterday. And "the replay lag at an hour" reads only after an hour
+   of the delay, never in a short test or G13's thirty minutes.
+   Proposal: master spec 17.2, 17.3 and 18.3, the test selection and
+   chunk 24's Done when: present, the delay in effect, WAL received and
+   not replayed, the feeder's day missing the rows committed within the
+   hour (in the short test, late entries the test records after T0);
+   the game's witness the 00:30 feeder. The class (an hour, "for
+   safety") unchanged.
+3. **s10's fix** (W5 item 4): "the option chosen and the node
+   redeployed" creates nothing on an existing `pgdata` (`postgres`'
+   GM notes), and players read no service credential (access model 5).
+   Proposal: s10's resolutions `report` and `propose`; 17.3's fixed
+   reading "the role the option brings created on `lab` with the game's
+   monitoring password, as the option's initdb step does (the GM
+   applying the accepted proposal), the exporter's metrics present";
+   chunk 25's Done when likewise.
+4. **s5's calibration** (W5 item 4): the portal copies every ownership
+   (vet-portal's `derive.sql`), so without `until_at IS NULL` every
+   former owner with an account sees every animal sold, not only the
+   day's. Proposal: master spec 17.2, the test selection's calibration
+   and vet-portal's document read "planted a few hours before T0, so
+   former owners have had hours, not days, to look"; the class M
+   unchanged.
+5. **Chunk texts to the code** (W5 items 0 to 3): chunk 24 and master
+   spec 18.2's reports row: T0 about 00:10 local, any day, a herd
+   treatment recorded when the load holds none (as built, D435's
+   fixture); chunk 23's Files gain `.claude/skills/data-register/SKILL.md`
+   (T307's `where` item) and `tools/tests/test_partners.py`, its scope
+   vet-core composed on the archive fixture with its register; chunk 25
+   `fixture-lab` without a domain or Prometheus; chunks 22 to 25 the
+   `planted/<fault-id>/` overlays; chunk 26's scope gains the false
+   alarm and the `inject` rows (after chunk 36).
+
+### Questions for the owner
+
+None. The test selection is the spec's, and selecting a game's faults
+is the GM's (master spec 17.1, the owner's standing word): s8's witness,
+s10's resolution and s5's wording are the spec's to correct (Preflight
+corrections, items 2 to 4), none changing a class or what players see
+in kind. For the owner's information: if chunk 36 is inserted, wave 5
+holds nine chunks, three past the model's six.
