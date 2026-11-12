@@ -7500,3 +7500,18 @@ import model; print(model.register_digest("composition.yaml",
 final newline reads stale once when the record is appended (none such
 in the repo). Chunk 23 resumed by a fresh `coding-leader` from WIP
 009b864, its branch taking `v0.5-w5` in first.
+
+### Chunk 23 merged (2282aac), 2026-11-12
+
+Fresh owner from WIP 009b864, after chunk 37: the WIP squashed into
+`b8be1df`, merge `2282aac`. With no workaround: `run-planted-test.sh`
+(s2+s6) 30/30 (175 s), `run-short-test.sh` 45/45 (563 s); registers
+current with the loader (no `coherence:` key in the fixture's
+`composition.yaml`), none regenerated. Unit suite 1270 OK. Integration
+fix accepted: chunk 22's `test_planted.py` sweep skips `__pycache__` and
+any fixture whose `planted/` brings its own `merge.py` (s2's and s6's
+overlays load only together; `test_partners.TestArchivePlanted` covers
+them). Root README: 33 faults. W5-b stands as logged. Risk: s6's
+overlay register is tied to `merge.py`'s output byte for byte; an edit
+to the fixture or its fragments needs it regenerated (the test catches
+it). Chunk 25 dispatched in the slot.

@@ -1981,7 +1981,8 @@ backlog entry for s1. As built: W5-a.
 
 ### Chunk 23 — The archive faults: s2 and s6
 
-Status: in progress (resumed from WIP 009b864 after chunk 37)
+Status: merged (w5, 2282aac)
+Record: b8be1df (the WIP squashed), merge 2282aac; s2+s6 planted 30/30 (175 s), unfaulted 45/45 (563 s); the `data-register` skill gained three rules (W5-b); `tools/tests/test_planted.py`'s sweep leaves out fixtures bringing their own `planted/merge.py` and `__pycache__` (the archive pair tested in `test_partners`)
 Wave: 5
 Depends on: chunks 11 and 17 (waves 2 and 4); chunk 37 (in wave: its
 fixture runs and merge; resumed from its WIP `009b864` once 37 has
