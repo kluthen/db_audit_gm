@@ -7353,3 +7353,29 @@ or `parameter_changes` but may declare `parameters:` for its check.
   issue, for an issue covering a fault, twice. Never counted in
   `difficulty.score` or the cap. Helper `model.false_alarm_ids`.
 Chunk 22 dispatched in the slot.
+
+### Chunk 35 merged (e1dd102), W5-g, 2026-11-12
+
+`7d05eb6`, merge `e1dd102`. (a) vet-core's load raises each batch's
+`quantity_received` (only when short) to its history's draws plus, in
+date at `load_epoch`, 30 days of average use (one unit at least),
+rounded up to ten; the load's check block fails on a receipt below its
+draws; receipts now up to 3 550 (mean 1 338). (b) purpose 8's history
+plants `AMU<year>-NNNN` (the stub's count in posting order, the
+`regulatory_submissions` copy alike), purpose 9's `HO<YYYYMM>-NNNN`;
+the sweep corrected vet-lab's planted `lab_notifications.authority_ref`
+(`VS-<year>-…` to the live `N<year>-<6 digits>`, the digits the order
+test's id so no planted value repeats a live one; driver confirmed);
+the centres', practices' and external lab's references already matched.
+Figures: vet-core load +2 139.1 s, shift 0 120.6 s, 49 MB (busy host;
+the unchanged load 139.9 s there); vet-lab 84-88 s, 54 MB;
+`check_domain_dir` clean on both; 0 of 1 260 balances below zero;
+fixture-reports 95/95 (948 s, the forms and balances asserted),
+fixture-core 40/40 (277 s), fixture-clinic-load 23/23 (1115 s); unit
+1227 OK (before 36's merge).
+For the gate: fixture-exchanges (asserts a non-null `authority_ref`)
+reruns on the merged branch. **Minor, for spec-writer with G19**: the
+stubs' live counters restart at 0001 after the planted series (no
+repeat, the year or month is in the reference, but a player may see the
+count not continue); a gate fix could seed the stubs' counters. Chunk
+23 dispatched in the slot.

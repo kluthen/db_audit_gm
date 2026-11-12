@@ -2745,7 +2745,8 @@ release, any configuration 3.16 changes in the brick's seed files.
 
 ### Chunk 35 — The planted data the reports read: vet-core's batch receipts, the partners' references
 
-Status: planned
+Status: merged (w5, e1dd102)
+Record: 7d05eb6, merge e1dd102; vet-core load +2 139.1 s / shift 0 120.6 s, 49 MB, ~270.6k rows (busy host); 0 of 1 260 controlled balances below zero (938 before); the sweep also corrected vet-lab's `lab_notifications.authority_ref` to `N<year>-<order test id, 6 digits>` (`domains/vet-lab/data/load.sql`, its gm.md; loads 84-88 s, 54 MB), the digits the order test's id (driver confirmed); fixture-reports 95/95 (948 s), fixture-core 40/40, fixture-clinic-load 23/23
 Wave: 5
 Depends on: chunks 9 (wave 2: vet-core's load) and 20 (wave 4: the
 histories of purposes 7 to 9); inserted after wave 4's gate (spec
