@@ -30,9 +30,9 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
-| Difficulty | score 1 (1 fault instance), level easy |
+| Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 00:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-lab` (at `lab/lab`, on its own node), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`), and their producers' fragments composed by `gmctl compose` from `domains/vet-lab/producers/api/lab-api/` (into `nodes/lab-api/`), `domains/vet-lab/producers/partners/xlab/` and `domains/vet-lab/producers/partners/practices/` (into `nodes/partners-api/` and `nodes/partners-backend/`, the latter with the scenario layer `compose/partners-backend/`); the purposes' runner material in the scenario layer `compose/interfaces/` (into `nodes/interfaces/`); left out: vet-core's `pms`, `api/clinic-api` and `partners/centres`, vet-lab's `lis`; its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`), `vet-lab`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -50,10 +50,7 @@ for, not any one playground.
 
 A veterinary hospital keeps its medical record in one PostgreSQL database, records, and its laboratory's in another, lab; an integration engine delivers the lab's results to the region's practices' callbacks and posts the day's send-outs to an outside reference laboratory, whose answers come back days later through the lab's order API.
 
-The story as the players read it: `player/story.md`. The partners as the
-players read them: `player/partners.md` (Northfield Veterinary
-Laboratories, `northfield-lab`, and the region's practices, `practices`,
-both round-trip, on `partners-api`, `partners-backend` and `partners-db`).
+The story as the players read it: `player/story.md`.
 
 ## 3. Topology
 
@@ -83,14 +80,12 @@ both round-trip, on `partners-api`, `partners-backend` and `partners-db`).
   report-only.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
-- **Published ports**: 22 (default host port 2222), 8080 (default host
-  port 8080).
-- **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+- **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`.
 
-Web front routes (`web_routes`): none. The topology has no web interface:
-the web front serves the starter-pack page alone, and the tools password
-is handed over all the same.
+Web front routes (`web_routes`): none. The topology has no web interface: the
+web front serves the starter-pack page alone, and the tools password is
+handed over all the same.
 
 Resources (absolute, never recomputed per playground):
 
@@ -98,6 +93,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -109,8 +106,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`;
-  `pg_hba.conf` → `nodes/records/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`; `pg_hba.conf` → `nodes/records/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -130,8 +126,8 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain `vet-core` is loaded into the database
-`clinic` (see section 1).
+Data: no data file; the domain loaded here by `load-data`: `vet-core` into the database `clinic` (see "Composition" below).
+
 #### Node `lab`
 
 - **Brick**: `postgres`, version 0.5.0 (pinned).
@@ -140,8 +136,7 @@ Data: no data file; the domain `vet-core` is loaded into the database
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/lab/postgresql.conf`;
-  `pg_hba.conf` → `nodes/lab/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/lab/postgresql.conf`; `pg_hba.conf` → `nodes/lab/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -161,8 +156,8 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain `vet-lab` is loaded into the database
-`lab` (see section 1).
+Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the database `lab` (see "Composition" below).
+
 #### Node `lab-api`
 
 - **Brick**: `api`, version 0.1.0 (pinned).
@@ -171,8 +166,7 @@ Data: no data file; the domain `vet-lab` is loaded into the database
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `api.yaml` → `nodes/lab-api/api.yaml`; `routes/` →
-  `nodes/lab-api/routes/`; `db/` → `nodes/lab-api/db/`.
+- **Seed files**: `api.yaml` → `nodes/lab-api/api.yaml`; `routes/` → `nodes/lab-api/routes/`; `db/` → `nodes/lab-api/db/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -180,6 +174,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 128M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -191,9 +187,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` →
-  `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`;
-  `scripts/` → `nodes/interfaces/scripts/`.
+- **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` → `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`; `scripts/` → `nodes/interfaces/scripts/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -201,6 +195,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -212,8 +208,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `api.yaml` → `nodes/partners-api/api.yaml`; `routes/` →
-  `nodes/partners-api/routes/`; `db/` → `nodes/partners-api/db/`.
+- **Seed files**: `api.yaml` → `nodes/partners-api/api.yaml`; `routes/` → `nodes/partners-api/routes/`; `db/` → `nodes/partners-api/db/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -221,6 +216,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 128M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -232,8 +229,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `queries.yaml` → `nodes/partners-backend/queries.yaml`; `jobs.yaml` →
-  `nodes/partners-backend/jobs.yaml`; `schedule.yaml` → `nodes/partners-backend/schedule.yaml`.
+- **Seed files**: `queries.yaml` → `nodes/partners-backend/queries.yaml`; `jobs.yaml` → `nodes/partners-backend/jobs.yaml`; `schedule.yaml` → `nodes/partners-backend/schedule.yaml`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -241,6 +237,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -252,8 +250,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`;
-  `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`; `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -284,6 +281,7 @@ Data, restored from `data/partners-db.sql`:
   | `practices.orders` | the practices' stub, one row an order posted to lab-api (account, client_ref, accession), the history's open ones planted |
   | `practices.deliveries` | the practices' stub, one row a delivery_key acknowledged, repeats counted |
   | `practices.state` | the practices' stub's state (delay_ms 0, the customer's utc_offset) |
+
 ### Flows
 
 | From | To | What | How | Cadence |
@@ -299,12 +297,39 @@ Data, restored from `data/partners-db.sql`:
 | `partners-api` | `partners-db` | the stubs' state and records, each as its own role (practices, xlab) | postgresql 5432 | per request |
 | `partners-api` | `lab-api` | the practices' orders (credential lab_practices) and the external lab's answers (credential lab_xlab) | http 8000 | per tick |
 
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM.
+`gmctl compose` writes the files of `interfaces`, `lab-api`, `partners-api`, `partners-backend` (each `nodes/<node>/`): its output, never edited by hand.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+| `vet-lab` | — | `lab/lab` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner` |
+
+- **Load order**: `vet-core` → `vet-lab`.
+- **Derivations**: none.
+- **Scale**: checked: the core and its lab at one centre's scale: about 0.27 and 0.33 million rows, 49 and 54 MB.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: no practice software node in the send-outs fixture (eight nodes at most, D314)
+  - `vet-core`'s `api/clinic-api`: no lookup API node in the send-outs fixture (eight nodes at most, D314): the lab's identity lookups are lis's, left out too
+  - `vet-lab`'s `lis`: no information system node in the send-outs fixture (eight nodes at most, D314): the short test receives, validates and releases as lis would (time placed)
+  - `vet-core`'s `partners/centres`: the partners' nodes carry the lab's partners only (eight nodes at most, D314): the other centres' stub (purpose 4's) is fixture-exchanges' (spec D435)
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: `compose/interfaces/`, `compose/partners-backend/`.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
+
 ### Purposes
 
 #### Purpose `vet-lab-practice-results`
 
-Defined in `purposes/vet-lab-practice-results/` (catalog), its material copied into
-this scenario.
+Defined in `purposes/vet-lab-practice-results/` (catalog), its material copied into this scenario.
 
 | Part | Mapped to |
 |---|---|
@@ -315,8 +340,7 @@ this scenario.
 
 #### Purpose `vet-lab-send-outs`
 
-Defined in `purposes/vet-lab-send-outs/` (catalog), its material copied into
-this scenario.
+Defined in `purposes/vet-lab-send-outs/` (catalog), its material copied into this scenario.
 
 | Part | Mapped to |
 |---|---|
@@ -324,6 +348,24 @@ this scenario.
 | `target` | `lab/lab` |
 | `runner` | `interfaces` |
 | `partner` | `partners-api` |
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `northfield-lab` | Northfield Veterinary Laboratories | the external reference laboratory the lab sends what it cannot run | round-trip | partners-api, partners-backend, partners-db | `northfield-lab` | `player/partners.md#northfield-veterinary-laboratories` | none | none |
+| `regional-practices` | The region's practices | the 120 referring practices with an account at the lab | round-trip | partners-api, partners-backend, partners-db | `practices` | `player/partners.md#the-regions-practices` | none | none |
+
+The partners' hidden schedule: `nodes/partners-backend/schedule.yaml`.
 
 ## 4. Host topology it was designed for
 
@@ -361,11 +403,9 @@ Placement and the reservations it was sized with:
 
 #### Issue `I1`: expected resolution report
 
-> The external lab is slow: the small-animal PCR panel we sent out came
-> back only on its fourth day. Is something wrong with the send-outs?
+> The external lab is slow: the small-animal PCR panel we sent out came back only on its fourth day. Is something wrong with the send-outs?
 
-Covers: none (a false alarm, explained by `gm/answer-key.yaml`'s
-`false_alarms:` entry for `I1`; it counts in no score).
+Covers: none (a false alarm, explained in section 6's "False alarms"; it counts in no score).
 
 ## 6. Answer key
 
@@ -373,10 +413,8 @@ Longer explanations for feedback: `gm/notes.md`.
 
 ### `f1`: `fixture-random-page-cost` on `records`, hidden
 
-- **What is wrong**: random_page_cost is 4.0, the spinning-disk default, on
-  SSD storage.
-- **Why it matters**: the planner overprices index scans and favours
-  sequential scans.
+- **What is wrong**: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
+- **Why it matters**: the planner overprices index scans and favours sequential scans.
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -390,8 +428,7 @@ Acceptable answers:
 - **Proposal**: lower random_page_cost to about 1.1.
 
 Sealed check: `faults/fixture-random-page-cost/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
-fault (faults/ in the fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own fault (faults/ in the fixture folder).
 
 Interactions: none.
 
@@ -402,42 +439,36 @@ the expected answer): none.
 
 None.
 
+### False alarms
+
+#### Issue `I1`: no fault behind it
+
+- **Why there is none**: no fault: the small-animal PCR panel (PCRSA) the lab sends to Northfield has a 96-hour turnaround, and a send-out is due by its packing plus 50 minutes plus that turnaround (lab_send_outs.due_by); the panel answered on its fourth day after it was sent came back before its due_by, within its turnaround (one to five days across the send-outs).
+
+Evidence, as the `player` user (and `dba` in psql):
+
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `bastion` | lab_send_outs' due_by against answered_at, with the test's turnaround | `psql -h lab -d lab -c "SELECT s.id, x.code, x.turnaround_hours, s.sent_at, s.answered_at, s.due_by, s.due_by >= s.answered_at AS in_time FROM lab_send_outs s JOIN lab_order_tests t ON t.id = s.order_test_id JOIN lab_tests x ON x.id = t.test_id WHERE x.code = 'PCRSA' AND s.answered_at >= s.sent_at + interval '3 days' AND s.answered_at < s.sent_at + interval '4 days' ORDER BY s.answered_at DESC LIMIT 10"` | the panel answered on its fourth day, before its due_by (in_time true), its turnaround 96 hours |
+
+Acceptable answer: the players report no fault behind the complaint: the panel was answered within its turnaround (before its due_by), citing lab_send_outs' due_by against answered_at; a proposal to show the vets the expected date is a bonus, never required. A send-out answered after its due_by (about 6 % of the load's) is the external lab's own delay, which the send-outs' chase follows, and not this complaint.
+
+Judged at the final answer, on the report alone: no sealed check.
+
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology,
-  node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`; the partners' page
-  `player/partners.md`, which the third parties' `player_doc` points to.
-  It does not carry this document's warning, and nothing in it names a
-  hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`
-  - `lab-api`: `nodes/lab-api/api.yaml`, `nodes/lab-api/routes/`
-    (`orders.py`, `send_outs.py`), `nodes/lab-api/db/` (`orders.py`,
-    `send_outs.py`)
-  - `interfaces`: `nodes/interfaces/queries.yaml`,
-    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`,
-    `nodes/interfaces/scripts/` (`practice_results.py`, `send_outs.py`)
-  - `partners-api`: `nodes/partners-api/api.yaml`, `nodes/partners-api/routes/`
-    (`practices_results.py`, `practices_tick.py`, `xlab_orders.py`,
-    `xlab_tick.py`), `nodes/partners-api/db/` (the same four)
-  - `partners-backend`: `nodes/partners-backend/queries.yaml`,
-    `nodes/partners-backend/jobs.yaml`, `nodes/partners-backend/schedule.yaml`
-  - `partners-db`: `nodes/partners-db/postgresql.conf`,
-    `nodes/partners-db/pg_hba.conf`
+  - `lab-api`: `nodes/lab-api/api.yaml`, `nodes/lab-api/routes/`, `nodes/lab-api/db/`
+  - `interfaces`: `nodes/interfaces/queries.yaml`, `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`, `nodes/interfaces/scripts/`
+  - `partners-api`: `nodes/partners-api/api.yaml`, `nodes/partners-api/routes/`, `nodes/partners-api/db/`
+  - `partners-backend`: `nodes/partners-backend/queries.yaml`, `nodes/partners-backend/jobs.yaml`, `nodes/partners-backend/schedule.yaml`
+  - `partners-db`: `nodes/partners-db/postgresql.conf`, `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
-  - `partners-db`: `data/partners-db.sql`, first;
-  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
-    `data/load.sql`, into `records/clinic`, then the domain `vet-lab`'s
-    `data/schema.sql`, its `data/keys.sql` (after the core's) and
-    `data/load.sql`, into `lab/lab`, and its two partners'
-    `producers/partners/xlab/data.sql` and
-    `producers/partners/practices/data.sql`, into `partners` on
-    `partners-db`, in `composition.yaml`'s order; then the purposes' DDL
-    from the catalogue (`vet-lab-practice-results`' and
-    `vet-lab-send-outs`' `material/target/ddl.sql`, into `lab/lab`); the
-    domains' coherence checks after.
-- **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
-  `gm/notes.md`.
+  - `partners-db`: `data/partners-db.sql`
+  - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-lab/`.
+- **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`.
+- **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/interfaces/`, `compose/partners-backend/`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
