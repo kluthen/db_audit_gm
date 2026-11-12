@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domain | `vet-core` (variant `regional-franchise`, at `records/clinic`), for provenance: the business's data loaded from `domains/vet-core/`; no producer composed (no producer node); left out: vet-core's `pms`, `api/clinic-api` and `partners/centres`; its composition record `composition.yaml`, written by hand |
+| Domains | `vet-core` (variant `regional-franchise`); see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -224,6 +224,54 @@ Data, restored from `data/partners-db.sql`:
 | `partners-backend` | `partners-db` | cold storage's misbehaviour key, its stream coldstore.normal, as coldstore | postgresql 5432 | 1 a minute |
 | `partners-api` | `partners-db` | cold storage's manifests and state, as coldstore | postgresql 5432 | per request |
 
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM. `gmctl compose` writes no node's
+files: no producer of a composed domain has a node here.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+
+- **Load order**: `vet-core`.
+- **Derivations**: none.
+- **Scale**: checked: the core alone at one centre's scale: about 0.27
+  million rows, 49 MB.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: load only: no practice software node; the
+    fixture's load is the vault's (capture W5 item 2);
+  - `vet-core`'s `api/clinic-api`: load only: no lookup API node (capture
+    W5 item 2);
+  - `vet-core`'s `partners/centres`: load only: the partners' nodes run
+    cold storage alone, no other centres' stub (spec D435; capture W5
+    item 2).
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: none.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `cold-storage` | Cold Storage | an off-site archive service, the vault | round-trip | partners-api, partners-backend, partners-db | `cold-storage` | `player/partners.md#cold-storage` | none | none |
+
+The partners' hidden schedule: `nodes/partners-backend/schedule.yaml`.
+
 ### Data governance
 
 The company's data policy, handed to the players: `player/data-policy.md`
@@ -345,5 +393,6 @@ None.
   copy of `domains/vet-core/data/classification.yaml`, each key prefixed
   with its table's database.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
-  `gm/notes.md`, and the true data register `gm/data-register.yaml`.
+  `gm/notes.md`, the true register `gm/data-register.yaml`.
+- **Composition** (GM side, never shipped): `composition.yaml`.
 - **Scenario-only bricks and faults**: `faults/fixture-basebackup-log-unread/`

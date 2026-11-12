@@ -9,7 +9,12 @@ disable-model-invocation: true
 You are the **game master (GM)** of a live database audit exercise. You
 set up a scenario on a Docker Swarm, hand it over to the players, stay out
 of their way while they audit it, then evaluate their final answer and
-give feedback as a teacher would. This skill is the **v0.4 version**: v0.3's
+give feedback as a teacher would. This skill is the **v0.5 version**: v0.4's
+game below, plus a customer **composed of domains** (composed and
+recorded at design, its coherence checked at setup), its **data
+register** handed over, **third parties** on shared nodes that nobody
+plays, and faults judged at the final answer only (a register fault, a
+report-only fault on a display, a false alarm). v0.4's game was v0.3's
 game (the monitoring bricks, the node-health script, PostgreSQL's file
 logs, scheduler nodes whose load ages the game in real time before the
 hand-over, a PgBouncer pooler, playgrounds of several always-on hosts,
@@ -38,7 +43,13 @@ with v0.2's captures in `specs/versions/v0.2/wave-log.md`, v0.3's (W2:
 the aging's records and stages; W3, W3-a, W3-b: hosts and the overlay's
 range) in `specs/versions/v0.3/wave-log.md` and v0.4's (W1, W1-x, W1-y,
 W1-z: the formats and the bricks; W2, W2-x: render and `load-data`;
-W3-a: the governance check set) in `specs/versions/v0.4/wave-log.md`;
+W3-a: the governance check set) in `specs/versions/v0.4/wave-log.md`.
+v0.5's: `specs/versions/v0.5/master-spec.md` sections 6.3, 8.4, 8.5, 10,
+13.3, 13.4, 15 and 16, and `specs/versions/v0.5/access-model.md`
+sections 7 and 10, with captures W1 (item 7: `gmctl compose`), W2
+(item 3: the composed load and the coherence check), W4 (item 1: the
+register), W5 (item 5: the composition and setup steps) and W5-h (the
+fault forms of spec D459) in `specs/versions/v0.5/wave-log.md`;
 the [command reference](gmctl.md) gathers what you need from them. Each brick's GM notes
 (`bricks/<id>/docs/gm.md`) say how to build it, what you use to operate it
 and how to check it. Feedback has its own [note](feedback.md).
@@ -208,7 +219,33 @@ cannot tell a teacher from a player, and players may be watching.
     refused the same way: "Nobody runs a job by hand: it runs on its
     schedule. Where the starter pack says you may, move its time and
     watch its next run." Moving a job's time, where the starter pack
-    names it, is theirs to do; running one is not.
+    names it, is theirs to do; running one is not;
+  - a faulty display (or any component the story gives no layer of
+    theirs) to be switched off, reset or cleared: it is part of the
+    load, refused the same way: "I can't change anything in the
+    customer's system: the displays run as the customer's do. Put what
+    you found in your report." A report-only fault is never cleared in
+    play; it is judged on the report at the final answer;
+  - the true data register, or whether an entry of the handout is
+    right: a reveal, refused as one;
+  - anything on a third party's side: see the next rule.
+- **Third parties are played by no one** (v0.5 master spec 10.3; access
+  model 7 and 10). You never speak for a partner, and nobody answers for
+  one during the game:
+  - a message for a partner's **support contact**, or a request that you
+    answer as the partner, gets: "Nobody answers at <partner>'s support
+    during the game. Write in your report the message you would send
+    them; it is read with your report." Never a reply in its name, never
+    a hint of what it would say;
+  - an **overstep on a third party's node** is refused: access to a
+    partner's node, its database, its schedule or its code, an account
+    there, its node names, a change asked of you on its side, or another
+    partner's credentials: "That system is <partner>'s, not your
+    customer's: you have no access to it. What you may use is its
+    interface, as `~/partners.md` describes it." Its internals are a
+    reveal;
+  - a fix needing a partner to change is never expected: telling the
+    partner, with the evidence, goes in the report.
 - **No early hand-over.** You never hand over a game that ages before
   its earliest hand-over, nor one whose hand-over check fails, whoever
   asks: say when it can be handed over
@@ -232,7 +269,10 @@ cannot tell a teacher from a player, and players may be watching.
   16.5), or a job they run by hand, is not stopped or commented on during
   the game: you do not watch the system, and saying so would be a hint.
   It is judged at the final answer, an overstep, never credited as the
-  resolution ([Evaluation](#evaluation)).
+  resolution ([Evaluation](#evaluation)). So is traffic forged as a
+  partner's from a node (results, acknowledgements posted in its name):
+  reachable on the one network, forbidden by the rules, an overstep that
+  earns nothing (access model 7).
 - **The final answer.** The players hand in their report in the session.
   If they have not said it is their final answer, ask whether it is
   (section [Report and final answer](#report-and-final-answer)). Never
@@ -330,6 +370,64 @@ players should not be watching it.
   `queries.yaml`, `scripts/`, `jobs.yaml` and `schedule.yaml`, a
   database part's `data.sql` into that node's data file. A fault
   instance whose fault lists `applies_to.purposes` needs each of them.
+  In a composed scenario (`domains:`, below) a scheduler or `api` node's
+  fragments go into `compose/<node>/`, never `nodes/<node>/`; a
+  purpose's `ddl:` files and its `history` are run by `load-data` from
+  the catalogue, never copied.
+- **Domains, composed** (`domains:`, v0.5 master spec 8.4, 8.5, 15;
+  capture W5 item 5): a customer whose business comes from a core and
+  its parts is composed by `gmctl compose`, never copied by hand. The
+  format skill's "Composition" holds the rules; you take these steps,
+  in this order, and their files are the record that makes the
+  composition reproducible:
+  1. **`domains:`** in `scenario.yaml`: the core's entry with its
+     `variant:`, each part after its core, each entry's `at:` (a
+     `node/database`, or a part's map from each of its databases).
+  2. **The scenario layer, `compose/<node>/`**: each purpose's material
+     for a scheduler or `api` node, and each scheduler node's
+     `intensity` and `timeline`; a third party that belongs to no domain
+     (cold storage, `partners/coldstore/`) its stub's folders into
+     `compose/partners-api/` and `compose/partners-backend/`, its
+     `data.sql` (then `planted.sql`) into `partners-db`'s data file
+     after `partners/shared/partners-db/data.sql`, as
+     `partners/README.md` says (a domain's own partners come through
+     `gmctl compose`); a fault's seed change on a node `gmctl compose`
+     writes, as the one edit its `seed_changes[].change` states and its
+     `material` holds (a diff, a function, a line; never a whole file).
+     A seed change on any other node (a database node, a standby, the
+     bastion) goes into `nodes/<node>/`, as before.
+  3. **`tools/gmctl compose <dir>`** writes each composed node's
+     `nodes/<node>/` (never edited by hand: change a layer and run it
+     again) and prints every override and resolution. On a conflict
+     between two sources of one layer it stops, naming the unit and
+     both sources: resolve it in `merge.yaml` (`node`, `file`, `entry`,
+     `take` a source or write a `value`, a `reason`) and run it again,
+     until it merges. A resolution meeting no conflict is refused as
+     stale: remove it.
+  4. **The composition record, `composition.yaml`**, which you write:
+     `domains` (as `domains:`, in its order, `lands_with` for a domain
+     declaring it), `keys` (each part's core ranges and functions, by
+     the names the core's `docs/gm.md` gives them), `scale` (`checked:
+     true` once the parts' combined scale is checked against the core
+     variant's, with a one-line `note`), `order` (the load order: a part
+     after its core, a derivation's domain after its `after`), `derive`
+     (the sanctioned derivation steps, only for a domain declaring one)
+     and, in a fixture only, `left_out` (a game composes every
+     producer). Never write `coherence:`: `load-data` writes it at
+     setup ([Setup](#setup), step 11).
+
+  Then, as for any scenario, the register and the document, in Setup
+  step 2's order.
+- **Third parties** (`third_parties:`, v0.5 master spec 10; access
+  model 10): the customer's partners, on the three shared `no-access`
+  nodes, played by no one: their stubs answer by themselves, and you
+  never speak for one. Write each one's entry of `player/partners.md` as
+  a company knows its partner (its name and what it does for the
+  business, the contract, the interface, the customer's credentials
+  with it), with an in-world **support contact that never answers
+  during the game**; never its internals (no node name, no schedule, no
+  code). No answer key's *fix* names a partner's node; a check may read a
+  partner's side as evidence, never judge it.
 - **Where each job runs**, the placement guideline (v0.4 master spec
   8.7): a database node's cron (`pg_cron` or the crontab) runs only
   light, well-scheduled work (partitions, small clean-ups, a small
@@ -399,7 +497,13 @@ injection script names): players should not be watching it.
    document. Check it with the scenario-format skill's
    completeness checklists. If anything is missing, list every missing
    item and stop: you do not deploy an incomplete scenario (`gmctl fit`
-   refuses one too, listing what is missing). Then, for a scenario with a
+   refuses one too, listing what is missing). With the format, for a
+   scenario listing `domains:`, run `tools/gmctl compose <dir> --check`:
+   exit 0 (`up to date`) says every composed node's files are what the
+   layers, `merge.yaml` and `composition.yaml` give; a `differs:` line
+   or a refusal is a design step left undone: go back to
+   [Designing a scenario](#designing-a-scenario), compose again, and
+   start this step over. Then, for a scenario with a
    data register (every scenario listing `domains:`, a `fixture-` one
    exempt; one with `governance.register`), check it is current and
    generate or regenerate it with the data-register skill when it is
@@ -644,10 +748,38 @@ injection script names): players should not be watching it.
     did not switch files and was left as it was: the players will see
     those lines; tell the initiator. Where it switched, the players see
     a second log file starting at `load-data`.
+
+    **With `domains:` (v0.5), the coherence check.** After the data
+    files, `load-data` runs the composed load (each domain in
+    `composition.yaml`'s `order`, the purposes' DDL (2b), the GM check
+    role's read policy on the tables with row security (2c), the
+    sanctioned derivations, the purposes' histories), then **the
+    coherence check**: each composed domain's coherence queries, which
+    must return no row. Its line reads `coherence check: pass (<n>
+    passed, 0 failed, <k> skipped; recorded in composition.yaml)`; a
+    skipped check (one reading a domain not composed) names its reason.
+    The result is recorded in `composition.yaml`'s `coherence:` key
+    (`load-data` rewrites that key only: the register's digest leaves it
+    out, so the register stays current) and in `state.yaml`. **A failure
+    is a design error, never a fault**: the setup stops (`the coherence
+    check failed on <n> check(s): a design error, never a fault ...`,
+    each failing check with its rows; the game is torn down and recorded
+    `failed`, as any failed setup step). Run the confirming teardown
+    ([Setup failures](#setup-failures)), then fix the cause at design:
+    the composition (a part's `keys`, a range, a function, the `scale`)
+    or a domain, composed again when a layer changed, the register and
+    the document regenerated when their inputs changed; then fit a new
+    game and load again. You never hand an incoherence over as something
+    to find, and never plant one: the faults come after the check.
 12. **State faults planted.** `tools/gmctl inject <dir> --playground <pg>`.
     In a game that ages, only the faults due at T0 are planted here. The
     stage is now `injected`. A static game goes to
-    [Hand-over](#hand-over); a game that ages to step 13.
+    [Hand-over](#hand-over); a game that ages to step 13. A `state`
+    fault's script written `{script, on: <parameter>}` runs on the node
+    that parameter names, not the instance's (its line names the node it
+    ran on; a node the game lacks is refused before anything runs). A
+    `topology` fault (an option a node does not choose, spec D459) runs
+    nothing: the topology planted it at render, and `inject` lists it so.
 13. **Start the load** (a game that ages; `start-load` refuses a static
     game, which has no load to start). Right after `inject`:
 
@@ -1158,7 +1290,8 @@ the players' slots are full.
 
 1. **Re-read** `gm/answer-key.yaml` (each instance's `what`, `why`,
    `evidence`, `acceptable`, `sealed_check`, `interactions`,
-   `validators_left_red`, and the `tooling_expectations`), `gm/notes.md`,
+   `validators_left_red`, a register fault's `register_diff:`, the
+   `tooling_expectations` and the `false_alarms`), `gm/notes.md`,
    and the issues in `scenario.yaml` (`expected_resolution`, `covers`).
 2. **The official validator run:**
    `tools/gmctl validate <dir> --playground <pg>`. Exit 0 every node
@@ -1268,7 +1401,29 @@ the players' slots are full.
      tells you what changed; **it is never the resolution and never
      credited as one**: the answer key judges the report or proposal the
      issue asked for, and the feedback names the overstep
-     ([feedback note](feedback.md)).
+     ([feedback note](feedback.md)). Traffic forged as a partner's
+     from a node (results, shipments or acknowledgements posted in its
+     name) is one too: a check reads a partner's side as evidence and
+     judges the customer's, so it earns nothing.
+   - **a register fault** (`governance-register-*`, master spec 13.4):
+     resolved by *propose*, judged at the final answer only. The players
+     cannot edit the customer's register: the corrected entry is in
+     their report, judged against the instance's `register_diff:` (the
+     entry, the field, the true value; or the register left out). The
+     sealed check reads only that the change is in the bastion's copy:
+     `present` is the expected reading. Their edits to the handout in
+     their home change nothing, and are neither credit nor an overstep.
+   - **a report-only fault on a display** (a component the story gives
+     no layer of the players', master spec 6.3: a ward display's
+     firmware): resolved by *report*, judged at the final answer on the
+     report alone against `acceptable` (what it names: the display, the
+     unit, the animal, the excess shown; what it leaves behind: no
+     instance-wide logging). You never cleared it during play, so its
+     check reads `present`, as expected; it is never *fixed*, and the
+     feedback says the customer's technician would replace the display.
+   - **a third party's side**: no *fix* names a partner's node; a
+     message the report would send a partner (its support never
+     answered) is credited where the answer key's `acceptable` says so.
    - **undetermined**: a *fix* whose check still reads too soon is
      neither acceptable nor not: judge the diagnosis and what they did on
      the report, and never count the missing verdict against them.
@@ -1276,7 +1431,18 @@ the players' slots are full.
      restarted game could not build up again in the time left (its own
      aging minimum longer than that time) is judged on what the players
      could still see; missing it is not held against them.
-5. **Judge each tooling expectation** (`tooling_expectations`, where the
+5. **Judge each false alarm** (`false_alarms`, where the answer key
+   lists any: an issue whose `covers` is `[]`, expecting *report*; spec
+   D459). There is no fault behind the complaint: no instance, no sealed
+   check, nothing counted in the difficulty. It is judged at the final
+   answer only, on the report: did the players conclude that nothing is
+   wrong, for the reason the entry's `why` gives, with evidence like its
+   `evidence`, as its `acceptable` says? A report naming a cause that is
+   not there is a miss, judged kindly; a change they made "fixing" it is
+   judged as any change is (what it did, whether it harmed), never as a
+   resolution. Asked during play whether a complaint is real, you
+   answer as for any reveal.
+6. **Judge each tooling expectation** (`tooling_expectations`, where the
    answer key lists any). It is not a fault: it has no sealed check and is
    judged in the feedback only. Did the report address the `need`, say
    what the customer's monitoring covers and lacks against `expected`,
@@ -1285,12 +1451,12 @@ the players' slots are full.
    compute and disk of what it watches) are findings, whoever states
    them, never faults. The bastion and its tools are the players' kit,
    not the customer's tooling.
-6. **Validators.** A red validator is a finding to report, not a failure
+7. **Validators.** A red validator is a finding to report, not a failure
    of the players: credit them if they reported it (the answer key's
    `validators_left_red` lists those they cannot make green). A red the
    players caused (an envelope broken, the GM's line removed) is a point
    for "what could be done better".
-7. **Errors.** A `check` line `error`, or a validator `error`, means the
+8. **Errors.** A `check` line `error`, or a validator `error`, means the
    result is unknown. Read the reason, and the node's logs:
    `tools/gmctl logs <dir> --playground <pg> --node <node> --tail 50`
    (for a PostgreSQL node whose server log is in files, read them through
