@@ -1,6 +1,7 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v18 (2026-11-12): before chunk 27, the chunks' open points settled (spec D466–D468): the clinic leaves s4 out (chunk 27, G13), the stubs' counters a known limit (O249, release gate item 12), the scenario document without the coherence result (G19).
+Status: v19 (2026-11-12): chunk 27's stop settled (spec D469): the customer's governance holds no location on a third party's node and its checks walk none; chunk 38 inserted (the walk and the loader's refusal), chunk 27 resuming after it without `partners-db/partners` in `governance:`; G19 and release gate item 3 extended; O250 raised.
+v18 (2026-11-12) settled the open points before chunk 27 (spec D466–D468).
 v17 (2026-11-12) wrote in D465 (chunk 37); v16 D459–D464.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
@@ -109,7 +110,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 | G17 | [formats.md](../../formats.md) and master spec 5 carry chunk 29's format items as built (spec D401): a part's `data/keys.sql`, `composition.yaml`'s `left_out:`, a `history` on a purpose with no feeder and its `target` on the partners' database, a domain's `data/cron.sql` (spec D405), the purposes' DDL step in `load-data`'s order. Written from W3-f | `spec-writer`, after wave 3's gate | Release gate item 6 | done (2026-11-05, wave log) |
 | G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433); the invariant ids, `data_moved.reads` in the scenario's key form, HTTP connections `<part>_<w>` and endpoint material's `api.yaml` ("Purpose definition"; spec D438), one end-to-end invariant per round trip (spec D440). Written from W4-a to W4-g | `spec-writer`, after wave 4's gate | Release gate item 6 | done (2026-11-10, formats.md v32, master spec 5, 6, 6.2, 6.6, 12.1) |
-| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`); and formats.md ("Scenario", the data register's `generated_from:` and its digests) and master spec 6.2 carry chunk 37's exclusion (spec D465): `composition.yaml` digested without its top-level `coherence:` key and the lines indented under it, every other input by its bytes; and formats.md ("Composing domains", where the result is recorded twice) states that the scenario document never shows the coherence result, setup state (spec D468). Written from W5-h, chunk 37's Record and W5-e | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
+| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`); and formats.md ("Scenario", the data register's `generated_from:` and its digests) and master spec 6.2 carry chunk 37's exclusion (spec D465): `composition.yaml` digested without its top-level `coherence:` key and the lines indented under it, every other input by its bytes; and formats.md ("Composing domains", where the result is recorded twice) states that the scenario document never shows the coherence result, setup state (spec D468); and formats.md ("Scenario": `governance:` and the data register; "The partners' nodes") carries chunk 38's rule (spec D469): no `governance:` location or outbox on a third party's node, the governance check set walking the customer's nodes only, no third party's node in a register's `where`. Written from W5-h, chunk 37's and chunk 38's Records and W5-e | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -125,7 +126,7 @@ none is a gate.
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
 | 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | merged into `main` (2026-11-05, b9fe67e) |
 | 4 | 17, 18, 19, 20, 21, 32, 33 | wave 3; chunk 32 (spec D431) merged before chunk 17 merges, and before the format check and fixture of purposes 5, 6, 9, 14, 15 and 16; chunk 33 (spec D439, cut once 17 and 32 had merged) merged before the format checks of 18 to 21 and chunk 19's restart: seven chunks, one past the model's six: 33 is a fix-sized gap a running chunk found, every purpose of 18 to 21 fails without it, so it cannot wait for wave 5 | merged into `main` (2026-11-10, b4f35cc) |
-| 5 | 22, 23, 24, 25, 26, 27, 34, 35, 36, 37 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies); chunk 36 merged before the parts of 22, 24, 25 and 26 that read it (spec D460); chunk 37 merged before chunk 23's fixture runs and merge, and before chunk 27's branch (spec D465): ten chunks, four past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448), 35 a fix-sized data correction chunks 24 and 27 read (spec D451), 36 a fix-sized loader gap the preflight found, three fault forms of the test selection the loader cannot express (spec D459), 37 a fix-sized loader gap a running chunk found (chunk 23: every scenario with a register stale after `load-data`, spec D465); v0.5 has no later wave (spec D457, D460) | planned |
+| 5 | 22, 23, 24, 25, 26, 27, 34, 35, 36, 37, 38 | wave 4; G11.3 and G11.4 (chunk 34), G11.4's post-change check before its gate; G14 (chunk 27, only if it applies); chunk 36 merged before the parts of 22, 24, 25 and 26 that read it (spec D460); chunk 37 merged before chunk 23's fixture runs and merge, and before chunk 27's branch (spec D465); chunk 38 merged before chunk 27 resumes (spec D469): eleven chunks, five past the model's six: 34 is the owner's placement of the Prometheus move (spec D446, D448), 35 a fix-sized data correction chunks 24 and 27 read (spec D451), 36 a fix-sized loader gap the preflight found, three fault forms of the test selection the loader cannot express (spec D459), 37 a fix-sized loader gap a running chunk found (chunk 23: every scenario with a register stale after `load-data`, spec D465), 38 another (chunk 27: the governance checks unable to judge a scenario with a partners' database, and a governance location there unrenderable in the handout, spec D469); v0.5 has no later wave (spec D457, D460) | planned |
 
 ```
 1 ──> 2, 3, 4, 5        (in wave 1: cut once chunk 1 has merged into v0.5-w1; the
@@ -214,6 +215,13 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
 17, 36 ──> 37           (inserted into wave 5 after chunk 23 stopped, cut from
                          `v0.5-w5` at once: the register's digests, and
                          `model.py`'s last holder; spec D465)
+17, 37 ──> 38           (inserted into wave 5 after chunk 27 stopped, cut from
+                         `v0.5-w5` at once: `governance.py`, `model.py`'s
+                         refusal, the data-register skill; spec D469)
+38 ──> 27               (in-wave: 27 resumes from its WIP 9391eaf once 38 has
+                         merged, taking `v0.5-w5` in; its `governance:`, register
+                         and load-only fixture's governance checks fixed by
+                         spec D469)
 37 ──> 23               (in-wave: its fixture runs and merge; 23 resumes from
                          its WIP 009b864 once 37 has merged, taking `v0.5-w5`
                          in; the digest fixed by spec D465)
@@ -317,6 +325,13 @@ are then its alone in wave 5, and the data-register skill's `SKILL.md`
 and `template.md` shared with chunk 23: 37 merges first, and 23 resumes
 from its WIP (`009b864`) once 37 has merged, its branch taking
 `v0.5-w5` in first. Chunk 27 is cut once the nine others have merged.
+Chunk 38 (spec D469) is cut from `v0.5-w5` at once when inserted (37
+merged; 27 stopped at WIP `9391eaf`, the only running chunk); the
+governance set's GM side, the loader's governance check and the
+data-register skill's `SKILL.md` are then its alone; 27 resumes from
+its WIP with a fresh owner once 38 has merged, its branch taking
+`v0.5-w5` in first, the gap's own cost, with the rule fixed by spec
+D469.
 The chains 34, 35, 36 or 37, then 22 to 26, then 27, run three long,
 past the model's two: kept, since 34, 35 and 36 delay no start (only a
 merge, one fixture run or a named part waits), each is small, and W5
@@ -2199,8 +2214,9 @@ W5-e.
 Status: blocked (on the governance checks' third-party nodes: `partners-db` as a governance location, refused in the handout; WIP 9391eaf)
 Wave: 5
 Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 37, merged
-into `v0.5-w5` before this chunk's branch is cut; G14 (its merge, only if it applies);
-W5
+into `v0.5-w5` before this chunk's branch is cut; chunk 38, merged
+before it resumes from its WIP `9391eaf` (spec D469); G14 (its merge,
+only if it applies); W5
 Architecture capture: none of its own; it reads W1 to W5.
 
 - Goal: the clinic scenario of master spec 17, complete by the format
@@ -2237,8 +2253,26 @@ Architecture capture: none of its own; it reads W1 to W5.
   `statement_timeout` turns a longer wait into a rolled-back 503), so a
   scenario selects s4 only with that slowness planted and stated, else
   its check reads too soon at the hand-over, a failure (`at_handover` 3
-  only when masked); the clinic leaves it out.
-  - Out: the deployment and the smoke (G13, the release gate).
+  only when masked); the clinic leaves it out. **From chunk 38** (spec
+  D469): `governance:` names no third party's location, so
+  `partners-db/partners` leaves `personal`'s locations (no class lists
+  it; the owners' addresses the messaging service and the partners'
+  stubs keep there are the partners' business, not walked); the
+  register regenerated by the skill as chunk 38 leaves it: the internal
+  lines of purposes 14 and 16 (`cold-storage-archive`,
+  `vet-portal-messages`) list their customer-side tables only, no
+  `where` and no index line names `partners-db`, the messaging service
+  staying the recipient of the portal's entry (the `messaging` flow on
+  `portal_outbox`) and cold storage of each archiving node's entries,
+  s6 planted against that register; `fixture-clinic-load` carries the
+  scenario's `governance:` (its classes and locations, the
+  classification copy, the data policy mapped on its bastion), so its
+  governance checks run: `sh tools/tests/check-governance.sh
+  <fixture> <playground> <since>`, `<since>` before the first sent row
+  the derivation plants in `records/portal`'s `portal_outbox`, so G4
+  judges those rows rather than reading 3 (no row since `<since>`).
+  - Out: the deployment and the smoke (G13, the release gate); the
+  governance checks on the standby and the transformers (O250).
 - Files: `scenarios/aldermoor-centre/` (new): `scenario.yaml`,
   `composition.yaml`, `merge.yaml`, `brief.md`, `README.md`, `data/`,
   `nodes/`, `player/{data-policy.md,partners.md,data-register.md}`,
@@ -2255,7 +2289,8 @@ Architecture capture: none of its own; it reads W1 to W5.
   README matches a fresh regeneration; `fit` accepts the placement on
   armenelos plus the VPS (or G14 is raised with the figures); the
   load-only fixture passes the coherence check and the governance
-  checks unfaulted.
+  checks unfaulted: `check-governance.sh` exits 0, G1 to G4 walking
+  `records`, `lab` and `machines`, `partners-db` not walked (spec D469).
 - Verification: chunk checks.
 - Split rule: 27a the composition, the topology, the policy, the
   register and the document; 27b `fit`, the load-only fixture and its
@@ -2934,6 +2969,77 @@ scenario with a register after.
 - Verification: chunk checks.
 - Split rule: none expected (two modules, their tests, one skill).
 
+### Chunk 38 — The governance checks leave third parties' nodes out
+
+Status: planned
+Wave: 5
+Depends on: chunks 17 (wave 4: the register's coverage, W4 item 1)
+and 37 (in wave, merged: `model.py`'s last holder); inserted after
+chunk 27 stopped on the gap (spec D469), cut from `v0.5-w5` at once,
+built by a `coding-executor` handed the brief by the driver ("Read
+first")
+Architecture capture: spec D469; read by chunk 27 and every scenario
+with `governance:` and `third_parties:` after.
+
+- Goal: the customer's governance judges the customer's estate only
+  (master spec 10.1, 10.2): the governance check set walks no third
+  party's node, so a scenario with a partners' database passes it
+  unfaulted instead of reading 2 there (`partners-db`'s `pg_hba.conf`
+  rejects `gm_check` from the network, spec D383); and the loader
+  refuses a governance location on a third party's node, which the
+  register could render only by naming that node in the handout (spec
+  D469).
+- Scope: in:
+  - `governance.env_value`: `database_nodes` and `transformer_nodes`
+    leave out every node the loader counts as a third party's (each
+    `third_parties:` entry's `nodes`, and the shared nodes found by name
+    for the owners alone, formats.md "The owners alone"), read from one
+    helper in `model.py` (`_third_party_nodes` made public, or the set
+    the loader already builds), not a second list; the value's keys
+    and every other field unchanged;
+  - the loader's governance check (`_check_class_rules` or its caller):
+    a `governance.classes.<class>.locations` item, or an `outbound`
+    flow's `outbox`, on a third party's node refused: "`<location>`:
+    `<node>` is a third party's node: the customer's governance holds
+    no location there; what it sends the partner is an outbound flow
+    (master spec 10.2, spec D469)";
+  - `tools/tests/check-governance.sh`: the nodes it runs on taken from
+    the `CHECK_GOVERNANCE` value it already computes (`database_nodes`'
+    first for G1 to G4, each of `transformer_nodes` for G3), no longer
+    from `scenario.yaml`'s roles, so a third party's node is never
+    picked;
+  - the `data-register` skill's `SKILL.md`, its "where" rule: a third
+    party's node is never in a `where` or the index (the loader refuses
+    its name in the handout, master spec 10.2); a purpose's table on
+    the partners' database (its `target` there, as purposes 14 and 16's)
+    stays out of its line, which lists the customer's side; what the
+    customer sends there is a recipient in `shared_with`, on an entry.
+  - Out: `governance.sh`'s rules and readings, unchanged (a foreign
+    server or a transformer connection reaching a node not walked still
+    reads "cannot judge"); the standby's walk and a transformer's HTTP
+    connections (O250); formats.md (G19); the master spec (written with
+    spec D469); chunk 27's scenario and fixture.
+- Files: `tools/gm/governance.py`; `tools/gm/model.py` (the helper, the
+  refusal); `tools/tests/test_governance.py`, `tools/tests/test_model.py`
+  (a refusal case); `tools/tests/check-governance.sh`;
+  `.claude/skills/data-register/SKILL.md`.
+- Spec sections: master spec 10.1, 10.2, 13.2, 13.3; formats.md
+  "Scenario" (`governance:`, the data register), "The partners' nodes";
+  spec D383, D469.
+- Done when: a unit test: `env_value` on a scenario with
+  `third_parties:` and a `partners-db` (`fixture-register` or
+  `fixture-archive`, both with `governance:`) lists no third party's
+  node in `database_nodes` or `transformer_nodes`, and
+  `fixture-instances`' value is unchanged; a `governance:` location
+  `partners-db/partners` refused with the message above, an outbox
+  there likewise; `check-governance.sh` passes `sh -n` and reads its
+  nodes from the value; every scenario and fixture loads
+  (`model.load_scenario`); the unit suite passes. No deployment: the
+  walk is proved by chunk 27's load-only fixture.
+- Verification: chunk checks.
+- Split rule: none expected (two modules, their tests, one harness, one
+  skill rule).
+
 ## Release gate
 
 Against master spec sections 19 and 20, on `v0.5-w5` before it merges,
@@ -2959,7 +3065,9 @@ exception. GM-side checks run from the host.
    `applies_to` carrying the new versions (DoD 11).
 3. **The unfaulted clinic scenario** passes the governance checks and
    the coherence check, and its true register the loader's coverage
-   checks (chunk 27's load-only fixture, rerun) (DoD 10).
+   checks (chunk 27's load-only fixture, rerun; the governance checks
+   walk the customer's nodes, `partners-db` left out, spec D469)
+   (DoD 10).
 4. **`fit` on the clinic as built**, on armenelos plus the VPS, with
    the measured reservations (G14 applied first if it applies).
 5. **The whole clinic deployed once** on armenelos plus the VPS: G12,

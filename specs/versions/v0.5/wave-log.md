@@ -7675,3 +7675,25 @@ addresses would read as a breach. Options from the chunk: (a) drop the
 location and accept or measure G1 on `partners-db` at G13; (b) a
 loader/governance change (G1/G2 skip third parties' nodes, or coverage
 exempts third-party locations). Sent to spec-writer.
+
+### Plan v19: chunk 27's stop settled (D469), chunk 38 inserted, 2026-11-12
+
+`spec-writer`: the customer's governance judges its own estate (D469):
+no `governance:` location or outbox on a third party's node, none in a
+register `where`, and the governance set walks none (`database_nodes`
+and `transformer_nodes` without them); what goes to a partner is a flow
+(G4, `shared_with`). Grounding: `partners-db`'s `pg_hba.conf` has no
+`gm_check` host line (D383) and ends `host all all all reject`, so a
+walk from `records` reads 2 there whatever `governance:` says, which
+option (a) alone would not have fixed; with the location kept, G1 and
+G2 would also have read `centres.exchanges.animal_id` there (classed
+customer-linked by name). **Chunk 38** inserted (`coding-executor`,
+`governance.py`, the loader's refusal, `check-governance.sh` reading
+its nodes from the value, the data-register skill's "where" rule);
+chunk 27 resumes from `9391eaf` once 38 has merged, `partners-db/partners`
+out of `governance:`, the register regenerated, `fixture-clinic-load`
+given the scenario's `governance:` and its checks run with `<since>`
+before the derivation's first outbox row. G13 unchanged. **O250**
+raised for the owner: on the whole clinic, G1 reads the standby as a
+location and G3 stops at the transformers' HTTP connections; no v0.5
+gate run reaches either; proposed a named known limit.

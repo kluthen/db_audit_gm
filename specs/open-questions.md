@@ -366,6 +366,19 @@ W4 (D432). O247, raised by placing the owner's security rulings of
   reference. Refs: `purposes/vet-antimicrobial-use/` and
   `purposes/vet-head-office-figures/` (`material/receiver/`);
   [build plan](versions/v0.5/build-plan.md) release gate item 12.
+- **O250** (v0.5 release, the owner; raised by D469) — The governance
+  check set on the whole clinic: G1 walks the standby as a location of
+  its own (a standby is no location, so its every classed column would
+  read a breach), and G3's transformer path stops at the first job with
+  an HTTP connection ("not a database node's database"), so
+  `check-governance.sh` on `interfaces` and `backoffice` reads 2. Neither
+  touches a v0.5 gate run (the load-only fixture has no standby and no
+  transformer) nor a clinic check in play (none calls the set).
+  Proposed: name it a v0.5 known limit (master spec 18.4, release gate
+  item 6), fixed when a scenario first calls the set there (the walk
+  judging a standby's databases at its primary's location, a non-SQL
+  connection no database path). Refs: `tools/gm/governance.sh`;
+  [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
 
 
 ## v0.6: the setup's entry point

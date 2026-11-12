@@ -1567,3 +1567,12 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   for the register's digest (D465), so a setup never makes the README
   stale.** Now in: [build plan](versions/v0.5/build-plan.md) G19
   (formats.md, "Composing domains").
+- **D469 (2026-11-12, chunk 27's stop; spec-writer): the customer's
+  governance judges its own estate: no `governance:` location or outbox
+  on a third party's node (refused), no register `where` naming one, no
+  governance walk of one; data sent a partner is judged as a flow (G4,
+  `shared_with`).** 10.1 judges the customer's side, and `partners-db`
+  rejects `gm_check` from the network (D383): every walk there reads 2.
+  Rejected: dropping the location alone (still 2); exempting it from
+  coverage (a location the customer does not hold). Now in: [master spec](versions/v0.5/master-spec.md)
+  10.1, 10.2, 13.2; [build plan](versions/v0.5/build-plan.md) chunks 27, 38, G19.

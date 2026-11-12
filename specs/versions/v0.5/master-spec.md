@@ -72,7 +72,10 @@ reading the delay in effect with WAL received and not replayed (17.2,
 fixed reading the option's role created by the GM (17.3; spec D462);
 s5's calibration, former owners having had hours, not days, to look
 (17.2; spec D463); the reports fixture as built (17.3, 18.2; spec
-D464).
+D464). On 2026-11-12, chunk 27's finding: the customer's governance
+holds no location on a third party's node and its checks walk none,
+what it sends there judged as an outbound flow (10.1, 10.2, 13.2; spec
+D469).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -2503,7 +2506,12 @@ round-trip partner, either side asking.
   with the evidence, is a finding the answer key may credit, never a
   fix.
 - **The GM's checks** may read a third party's side as evidence; they
-  judge the customer's side.
+  judge the customer's side. The customer's governance (13) holds no
+  location on a third party's node, and its checks (G1 to G4) never
+  walk one: what the customer sends a partner is an outbound flow,
+  judged at the customer's outbox (G4) and declared in the register's
+  "shared with"; the partner's storage of it is the partner's business
+  (spec D469).
 - v0.4's customs gateway stays as built; from v0.5's scenarios on, a
   pushed obligation's `receiver` is a declared third party.
 
@@ -2558,7 +2566,8 @@ round-trip partner, either side asking.
   storage's read-only paths, or among the starter pack's nodes; no fault
   instance's expected *fix* names a third-party node; a third-party
   `postgres` node's seed `pg_hba.conf` admits no role but the partners'
-  own on their database.
+  own on their database; no `governance:` location or outbound flow's
+  outbox is on a third-party node (spec D469).
 
 ### 10.3 What the players are told
 
@@ -3117,7 +3126,8 @@ players compare it with the databases.
   twenty entries and the internal table, about 150 lines.
 - **One entry**: the activity (a name and a stable id, `core-owners`);
   its purpose; the people concerned; the data held, by class; where
-  (`node/database`, the tables, the copies: the standby, the vault);
+  (`node/database`, the customer's own nodes only, never a third
+  party's, spec D469; the tables, the copies: the standby, the vault);
   shared with (each recipient inside or a third party by its
   `partners.md` name, with the fields it receives, processors marked,
   transfers outside the EU marked); kept for (the period, then erased or
