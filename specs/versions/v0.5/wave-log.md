@@ -7861,3 +7861,35 @@ clinic (transformers' and purposes' roles).
 Next: wave sync (no dependency change since G11.4's check, so no second
 security-advisor pass; no intent register, no documentalist), G19 by
 spec-writer, the owner's report.
+
+### Wave sync and G19, 2026-11-12
+
+- **No security post-change pass:** no dependency changed after G11.4's
+  check (`.tech` 982ebe0); the gate's ten builds kept identical
+  `dpkg-query` lists.
+- **No intent register:** no documentalist sync.
+- **G19 done** (`42d9d09`, spec-writer): formats.md v33 and master spec
+  6.2, 6.3, 6.4, 15 carry chunks 36-38 as built (D459, D465, D468,
+  D469); plan v20. New: D472 (the scenario document shows a round-trip
+  instance's `backlog:` under its answer; spec call within settled
+  intent), D473 (vet-portal-domain.md and master spec 9.7 rule 7, 12.2:
+  the outbox's payload as built, no `animal_name`), O251 open (a loader
+  refusal for a bastion's `partners.md` mapping against the third
+  parties' `player_doc`, proposed for v0.6's first chunk on `model.py`).
+  D470 recorded as reserved, never used.
+- **Gate fix from D472** (`07a5bed`, coding-executor): the
+  scenario-document template's section 6 and its SKILL.md check carry
+  the backlog slot; aldermoor-centre's README regenerated (+6 lines, s1
+  only; second regeneration identical); format check, compose --check,
+  `test_repo_scenarios_load` and `test_planted` OK. The two planted
+  answer keys with `backlog:` (fixture-orders) have no README.
+- `doc-ids compare main v0.5-w5`: 0 collisions.
+
+### Wave 5 — report to the owner, 2026-11-12
+
+Chunks merged: 34, 36, 35, 22, 37, 23, 24, 26, 25, 38, 27 (inserted:
+36, 37, 38). Gate passed (every item under 30 min; fixes `7f7d9a1`,
+`70e0e5d`, `026e023`, `07a5bed`). Decisions D459-D473 (D470 unused).
+Owner sign-off asked: O251's placement in v0.6; D473 (the approved
+master spec's rule 7 brought to the build). Merge into main on the
+owner's word; then G12/G13 and the release gate in a fresh session.
