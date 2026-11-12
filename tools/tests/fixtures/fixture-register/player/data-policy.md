@@ -26,8 +26,9 @@ gets back only its own orders. A send-out to the external lab carries no
 owner, client or natural identifier.
 
 **What leaves.** The portal's messages go only through the franchise's
-messaging service, our processor: an address, a template, the animal's
-name and a link, nothing else. Results leave the lab once released.
+messaging service, our processor: an address, a template, the
+recipient's name, the animal's name, a reminder's due date and a link,
+nothing else. Results leave the lab once released.
 
 **Retention** (*game values*). Clinical records, the lab's orders and
 results, images and reports: 5 years from the last entry; medicines 5

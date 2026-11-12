@@ -67,17 +67,17 @@ governance:
   classes:
     personal:
       locations: [records/clinic, records/portal, lab/lab, machines/pacs, machines/biomed]
-      readers: [vet_app, vet_lookup, vet_reports, sched_app, sched_reports, lab_app, lab_api,
-                lab_dispatch, lab_reports, mach_pacs_app, mach_biomed_app, portal_api,
-                portal_housekeeping]
+      readers: [vet_app, vet_lookup, vet_reports, housing_app, housing_ward, sched_app,
+                sched_reports, lab_app, lab_api, lab_dispatch, lab_reports, mach_pacs_app,
+                mach_biomed_app, mach_service, portal_api, portal_housekeeping]
       outbound:                     # fields: the payloads' keys
         - to: messaging
           outbox: records/portal/portal_outbox
-          fields: [address, template, animal_name, link]
+          fields: [address, template, name, animal, due_on, link]
     customer-linked:
       locations: [records/clinic, records/portal, machines/vitals]
-      readers: [vet_app, vet_lookup, vet_display, vet_reports, sched_app, sched_reports,
-                mach_vitals_app, portal_api, portal_housekeeping]
+      readers: [vet_app, vet_lookup, vet_display, vet_reports, housing_app, housing_ward,
+                sched_app, sched_reports, mach_vitals_app, portal_api, portal_housekeeping]
     internal:
       locations: any
 

@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`), its part `vet-housing` (at `records/clinic`, beside its core: `lands_with: vet-core`), its part `vet-scheduling` (at `records/clinic`), its part `vet-lab` (at `lab/lab`, on its own node), its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`) and its part `vet-portal` (at `records/portal`, beside the core), for provenance: the business's data loaded from `domains/vet-core/`, then `domains/vet-housing/`, `domains/vet-scheduling/`, `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`), `domains/vet-machinery/` and `domains/vet-portal/` (the owners' traffic's state, `domains/vet-portal/producers/partners/owners/data.sql`, into `partners` on `partners-db`), and `vet-portal`'s derivation, `domains/vet-portal/data/derive.sql`, after the core's and the lab's loads, as the composition record sanctions it; no producer composed (no producer node); left out: vet-core's `pms`, `api/clinic-api` and `partners/centres`, vet-housing's `pms` and `ward`, vet-scheduling's `pms`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`, vet-machinery's `equipment`, vet-portal's `api/portal-api`, `partners/owners` and `pms`; its composition record `composition.yaml`, written by hand |
+| Domains | `vet-core` (variant `regional-franchise`), `vet-housing`, `vet-scheduling`, `vet-lab`, `vet-machinery`, `vet-portal`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -49,10 +49,7 @@ for, not any one playground.
 
 A veterinary hospital keeps its medical record, its wards, its agenda and its owners' portal on one PostgreSQL instance, records, its laboratory's database on another, lab, and its machines' three systems (the imaging archive, the monitors' central station, biomedical engineering) on a third, machines, reached through a bastion.
 
-The story as the players read it: `player/story.md`. The partners as the
-players read them: `player/partners.md` (Northfield Veterinary
-Laboratories, `northfield-lab`, and the region's practices, `practices`,
-both round-trip, their state on `partners-db`).
+The story as the players read it: `player/story.md`.
 
 ## 3. Topology
 
@@ -79,16 +76,12 @@ both round-trip, their state on `partners-db`).
   report-only.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
-- **Published ports**: 22 (default host port 2222), 8080 (default host
-  port 8080).
-- **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md`
-  → `player/data-policy.md`; `partners.md` → `player/partners.md`;
-  `data-register.md` → `player/data-register.md`.
+- **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md` → `player/data-policy.md`; `partners.md` → `player/partners.md`; `data-register.md` → `player/data-register.md`.
 
-Web front routes (`web_routes`): none. The topology has no web interface:
-the web front serves the starter-pack page alone, and the tools password
-is handed over all the same.
+Web front routes (`web_routes`): none. The topology has no web interface: the
+web front serves the starter-pack page alone, and the tools password is
+handed over all the same.
 
 Resources (absolute, never recomputed per playground):
 
@@ -96,6 +89,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -107,8 +102,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`;
-  `pg_hba.conf` → `nodes/records/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`; `pg_hba.conf` → `nodes/records/pg_hba.conf`.
 
 Jobs on the node (pg_cron on, metadata in `jobs`, cron.timezone `'UTC'`), scheduled by `load-data` from the domain `vet-portal`'s `data/cron.sql` after its load (its data file schedules none):
 
@@ -142,8 +136,7 @@ Data, restored from `data/records.sql`:
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *), scheduled by load-data after the part's load, in portal, as portal_housekeeping. |
 
-The domains `vet-core`, `vet-housing` and `vet-scheduling` are loaded into
-the database `clinic`, and `vet-portal` into `portal` (see section 1).
+The domains loaded here by `load-data`, after the data file: `vet-core`, `vet-housing` and `vet-scheduling` into the database `clinic`; `vet-portal` into the database `portal` (see "Composition" below).
 
 #### Node `lab`
 
@@ -153,8 +146,7 @@ the database `clinic`, and `vet-portal` into `portal` (see section 1).
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/lab/postgresql.conf`;
-  `pg_hba.conf` → `nodes/lab/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/lab/postgresql.conf`; `pg_hba.conf` → `nodes/lab/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -174,8 +166,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain `vet-lab` is loaded into the database
-`lab` (see section 1).
+Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the database `lab` (see "Composition" below).
 
 #### Node `machines`
 
@@ -185,8 +176,7 @@ Data: no data file; the domain `vet-lab` is loaded into the database
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/machines/postgresql.conf`;
-  `pg_hba.conf` → `nodes/machines/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/machines/postgresql.conf`; `pg_hba.conf` → `nodes/machines/pg_hba.conf`.
 
 Jobs on the node (pg_cron on, metadata in `jobs`, cron.timezone `'UTC'`), scheduled by `load-data` from the domain `vet-machinery`'s `data/cron.sql` after its load (its data file schedules none):
 
@@ -222,8 +212,7 @@ Data, restored from `data/machines.sql`:
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions, events-partitions), scheduled by load-data after the part's loads, each as mach_maint. |
 
-The domain `vet-machinery` is loaded into the databases `pacs`, `vitals`
-and `biomed` (see section 1).
+The domain loaded here by `load-data`, after the data file: `vet-machinery` into the databases `pacs`, `vitals` and `biomed` (see "Composition" below).
 
 #### Node `partners-db`
 
@@ -233,8 +222,7 @@ and `biomed` (see section 1).
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`;
-  `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`; `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -277,6 +265,65 @@ Data, restored from `data/partners-db.sql`:
 | `bastion` | `lab` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `machines` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM.
+`gmctl compose` writes no node's files: no producer of a composed domain has a node here.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+| `vet-housing` | — | `records/clinic` | `vet-core` | `stays.id`, `sections.id`, `staff.id`, `core_stay`, `core_species`, `core_stay_alert`, `core_staff` |
+| `vet-scheduling` | — | `records/clinic` | — | `consultations.id`, `consultations.booking_id`, `requests.id`, `exchanges.id`, `staff.id`, `animals.id`, `core_shifts`, `core_staff`, `core_consultation`, `core_request`, `core_exchange`, `core_animal`, `core_death`, `core_referring_practice`, `vc_agenda` |
+| `vet-lab` | — | `lab/lab` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner` |
+| `vet-machinery` | — | `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner`, `core_stay` |
+| `vet-portal` | — | `records/portal` | — | `core_owner`, `core_ownership` |
+
+- **Load order**: `vet-core` → `vet-housing` → `vet-scheduling` → `vet-lab` → `vet-machinery` → `vet-portal`.
+- **Derivations**:
+  - `vet-portal` after `vet-core`, `vet-lab`: the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404).
+- **Scale**: checked: the core and its five parts at one centre's scale, each as its own fixture measured it: the core about 0.27 million rows, housing 0.14, scheduling 0.13, the lab 0.33, the machinery 0.28, the portal 0.20.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: load only: no practice software node (spec D407)
+  - `vet-core`'s `api/clinic-api`: load only: no lookup API node (spec D407)
+  - `vet-core`'s `partners/centres`: load only: the other centres' state loaded and checked on partners-db, no partners' node (spec D435)
+  - `vet-housing`'s `pms`: load only: no practice software node (spec D407)
+  - `vet-housing`'s `ward`: load only: no ward service node (spec D407)
+  - `vet-scheduling`'s `pms`: load only: no practice software node (spec D407)
+  - `vet-lab`'s `lis`: load only: no laboratory information system node (spec D407)
+  - `vet-lab`'s `api/lab-api`: load only: no lab order API node (spec D407)
+  - `vet-lab`'s `partners/xlab`: load only: the external lab's state loaded and checked on partners-db, no partners' node (spec D407)
+  - `vet-lab`'s `partners/practices`: load only: the practices' state loaded and checked on partners-db, no partners' node (spec D407)
+  - `vet-machinery`'s `equipment`: load only: no machines' producer node (spec D407)
+  - `vet-portal`'s `api/portal-api`: load only: no portal API node (spec D407)
+  - `vet-portal`'s `partners/owners`: load only: the owners' state loaded and checked on partners-db, no owners' route (spec D407)
+  - `vet-portal`'s `pms`: load only: no practice software node, so no desk stream (spec D407)
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: none.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `northfield-lab` | Northfield Veterinary Laboratories | the external reference laboratory the lab sends what it cannot run | round-trip | partners-db | `northfield-lab` | `player/partners.md#northfield-veterinary-laboratories` | none | none |
+| `regional-practices` | The region's practices | the 120 referring practices with an account at the lab | round-trip | partners-db | `practices` | `player/partners.md#the-regions-practices` | none | none |
+
 ### Data governance
 
 The company's data policy, handed to the players: `player/data-policy.md`
@@ -285,9 +332,9 @@ classes: `data/classification.yaml`.
 
 | Class | Locations | Separation | Readers | Outbound |
 |---|---|---|---|---|
-| `personal` | records/clinic, records/portal, lab/lab, machines/pacs, machines/biomed | — | vet_app, vet_lookup, vet_reports, sched_app, sched_reports, lab_app, lab_api, lab_dispatch, lab_reports, mach_pacs_app, mach_biomed_app, portal_api, portal_housekeeping | messaging (records/portal/portal_outbox): address, template, animal_name, link |
-| `customer-linked` | records/clinic, records/portal, machines/vitals | — | vet_app, vet_lookup, vet_display, vet_reports, sched_app, sched_reports, mach_vitals_app, portal_api, portal_housekeeping | none |
-| `internal` | any | — | — | — |
+| `personal` | `records/clinic`, `records/portal`, `lab/lab`, `machines/pacs`, `machines/biomed` | — | `vet_app`, `vet_lookup`, `vet_reports`, `housing_app`, `housing_ward`, `sched_app`, `sched_reports`, `lab_app`, `lab_api`, `lab_dispatch`, `lab_reports`, `mach_pacs_app`, `mach_biomed_app`, `mach_service`, `portal_api`, `portal_housekeeping` | `messaging` (`records/portal/portal_outbox`): address, template, name, animal, due_on, link |
+| `customer-linked` | `records/clinic`, `records/portal`, `machines/vitals` | — | `vet_app`, `vet_lookup`, `vet_display`, `vet_reports`, `housing_app`, `housing_ward`, `sched_app`, `sched_reports`, `mach_vitals_app`, `portal_api`, `portal_housekeeping` | none |
+| `internal` | any | — | — | none |
 
 The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
 `pgbouncer_lookup`) are skipped as readers and may not be listed as one;
@@ -300,11 +347,7 @@ rule.
 
 ### Data register
 
-Generated by the data-register skill; never edited by hand. The handout,
-`player/data-register.md`, is on the bastion as `data-register.md`; the
-true register, `gm/data-register.yaml` (sealed): controller Aldermoor
-Veterinary Hospitals' centre, contact the franchise's data-protection
-officer, 20 entries, 9 internal lines, 6 locations in its index.
+Generated by the data-register skill; never edited by hand. The handout, `player/data-register.md`, is on the bastion as `data-register.md`; the true register, `gm/data-register.yaml` (sealed): controller Aldermoor Veterinary Hospitals' centre, contact the franchise's data-protection officer, 20 entries, 9 internal lines, 6 locations in its index.
 
 | Department | Entries |
 |---|---|
@@ -356,10 +399,8 @@ Longer explanations for feedback: `gm/notes.md`.
 
 ### `f1`: `fixture-random-page-cost` on `records`, hidden
 
-- **What is wrong**: random_page_cost is 4.0, the spinning-disk default, on
-  SSD storage.
-- **Why it matters**: the planner overprices index scans and favours
-  sequential scans.
+- **What is wrong**: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
+- **Why it matters**: the planner overprices index scans and favours sequential scans.
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -373,8 +414,7 @@ Acceptable answers:
 - **Proposal**: lower random_page_cost to about 1.1.
 
 Sealed check: `faults/fixture-random-page-cost/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
-fault (faults/ in the fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own fault (faults/ in the fixture folder).
 
 Interactions: none.
 
@@ -387,51 +427,18 @@ None.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology,
-  node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`, and the data policy
-  `player/data-policy.md`; the partners' page `player/partners.md`, which
-  the third parties' `player_doc` points to; the data register
-  `player/data-register.md`, generated by the data-register skill.
-  It does not carry this document's warning, and nothing in it names a
-  hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, and the data register `player/data-register.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`
-  - `machines`: `nodes/machines/postgresql.conf`,
-    `nodes/machines/pg_hba.conf`
-  - `partners-db`: `nodes/partners-db/postgresql.conf`,
-    `nodes/partners-db/pg_hba.conf`
+  - `machines`: `nodes/machines/postgresql.conf`, `nodes/machines/pg_hba.conf`
+  - `partners-db`: `nodes/partners-db/postgresql.conf`, `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
-  - `records`: `data/records.sql` (the database `jobs` and pg_cron in it);
-    `machines`: `data/machines.sql` (the database `jobs` and pg_cron in
-    it); `partners-db`: `data/partners-db.sql`; first;
-  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
-    `data/load.sql`, into `records/clinic`; then the domain
-    `vet-housing`'s `data/schema.sql` and `data/load.sql` (the core's
-    `data/keys.sql` ahead), into `records/clinic`; then the domain
-    `vet-scheduling`'s `data/schema.sql` and `data/load.sql` (the core's
-    `data/keys.sql` ahead), into `records/clinic`; then the domain
-    `vet-lab`'s `data/schema.sql`, its `data/keys.sql` (after the core's)
-    and `data/load.sql`, into `lab/lab`, and its two partners'
-    `producers/partners/xlab/data.sql` and
-    `producers/partners/practices/data.sql`, into `partners` on
-    `partners-db`; then the domain `vet-machinery`'s: for each of `pacs`,
-    `vitals` and `biomed` on `machines`, the database created with
-    `CONNECT` revoked from `PUBLIC`, its `data/<database>/schema.sql`,
-    then the core's `data/keys.sql` ahead of its
-    `data/<database>/load.sql`; then its `data/cron.sql` on `machines`'
-    `jobs`; then the domain `vet-portal`'s `data/schema.sql`, its
-    `data/keys.sql` (after the core's) and `data/load.sql`, into
-    `records/portal`, the owners' `producers/partners/owners/data.sql`
-    into `partners` on `partners-db` (the keys ahead), and its
-    `data/cron.sql` on `records`' `jobs`; in `composition.yaml`'s order;
-    then `vet-portal`'s `data/derive.sql` in `records/portal`, reading
-    the core and the lab through `gm_src_vet_core` and `gm_src_vet_lab`;
-    the domains' coherence checks after.
-- **Column classification**: `data/classification.yaml`, the scenario's
-  copy of the six domains' `domains/<id>/data/classification.yaml`, each
-  key prefixed with its table's database.
-- **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
-  `gm/notes.md`, and the true data register `gm/data-register.yaml`.
+  - `records`: `data/records.sql`
+  - `machines`: `data/machines.sql`
+  - `partners-db`: `data/partners-db.sql`
+  - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-housing/`, `domains/vet-scheduling/`, `domains/vet-lab/`, `domains/vet-machinery/`, `domains/vet-portal/`.
+- **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml`, each key prefixed with its table's database.
+- **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`.
+- **Composition** (GM side, never shipped): `composition.yaml`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`

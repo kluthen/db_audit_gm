@@ -14,7 +14,7 @@ generated_from:
   catalog/domains/vet-scheduling/data/register.yaml: sha256:c4521268cc3d211e17e75565bdebce365e32156e21c969f34b160957b2829546
   catalog/domains/vet-lab/data/register.yaml: sha256:0b07ec2dc264d04960f262756985684d8e1ff5c8390965b9b4e057f23e0e31bd
   catalog/domains/vet-machinery/data/register.yaml: sha256:cba9ab9753e2a1569d8fb14ec2d0b0dfb7b0144eb61d1cf39080df4528436774
-  catalog/domains/vet-portal/data/register.yaml: sha256:e2c1a00d7e0714aad6894593471b0dfee329ac3ba6e575f4390542ac633ff355
+  catalog/domains/vet-portal/data/register.yaml: sha256:cc02c6728c770548cfc216b6071a9263e14c26942ac6ad6e2f2049e486457242
   catalog/purposes/vet-lab-centre-orders/purpose.yaml: sha256:c397055508c3bdc901f10a7fc5745074edc512ba57a1745ebd8e9f40d68e7b93
   catalog/purposes/vet-lab-practice-results/purpose.yaml: sha256:220f1d7def02d55a996f303c768f2883d3d02a27193a07646ff74b4dbf680758
   catalog/purposes/vet-lab-send-outs/purpose.yaml: sha256:8725f35c14026bde264c6d26d7cd3532e80c7e17ceff338d6c39273c576920f0
@@ -552,8 +552,8 @@ entries:
     department: The owners' portal
     name: Messages to the owners
     purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging
-      service, each with its key, its address, its template, the animal's name and a link, the reminders
-      on consent (rules 6, 7)
+      service, each with its key, its address, its template, the recipient's name, the animal's name,
+      a reminder's due date and a link, the reminders on consent (rules 6, 7)
     people: [owners, keepers]
     data:
       personal: [portal.portal_outbox.account_id, portal.portal_outbox.owner_id, portal.portal_outbox.address,

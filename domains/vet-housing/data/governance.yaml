@@ -4,11 +4,18 @@
 # rule 7: least grants). The GM merges it into the scenario's governance:
 # beside the core's: the locations are written for the node records and the
 # database clinic, renamed as the scenario does. Housing holds no personal
-# data; the board's animal_id is customer-linked, read by the displays
-# (vet_display) and the back office (vet_reports) only.
+# data of its own; the board's animal_id is customer-linked, read by the
+# displays (vet_display) and the back office (vet_reports). Its two roles
+# read the core's classed columns by grant (data/schema.sql): housing_app
+# the animals' and the staff's ids (personal) and the stays', alerts' and
+# board's animal_id (customer-linked), housing_ward the staff's ids and the
+# board, so both are readers of both classes where the core lives.
 classes:
+  personal:
+    locations: [records/clinic]
+    readers: [housing_app, housing_ward]
   customer-linked:
     locations: [records/clinic]
-    readers: [vet_display, vet_reports]
+    readers: [vet_display, vet_reports, housing_app, housing_ward]
   internal:
     locations: any
