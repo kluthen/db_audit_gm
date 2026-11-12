@@ -7697,3 +7697,23 @@ before the derivation's first outbox row. G13 unchanged. **O250**
 raised for the owner: on the whole clinic, G1 reads the standby as a
 location and G3 stops at the transformers' HTTP connections; no v0.5
 gate run reaches either; proposed a named known limit.
+
+### Plan v19 received; chunk 38 dispatched, 2026-11-12
+
+spec-writer settled chunk 27's stop (`e568415`): D469, the customer's
+governance judges the customer's estate only (master spec 10.1): no
+`governance:` location or outbox on a third party's node (the loader
+refuses one), no register `where` or index line naming one, and the
+governance check set never walks one; what the customer sends a partner
+is a flow on its side (G4 at the outbox, `shared_with`). Found on the
+way: `partners-db` rejects `gm_check` from the network (D383), so the
+walk read 2 there whatever `governance:` said. Chunk 38 inserted
+(coding-executor, no deployment, no new dependency; no intent register,
+so no peek); chunk 27 resumes from WIP `9391eaf` after it merges.
+**With the owner**: O250 — on the whole clinic `check-governance.sh`
+would still fail on the standby (G1 reads it as a location) and on
+transformers with HTTP connections (G3 reads 2); no v0.5 gate run
+reaches either, but master spec 20.3 says the unfaulted clinic passes
+the governance checks. spec-writer recommends naming it a v0.5 known
+limit (fix when a scenario first calls the set there); the alternative
+is a second small chunk in wave 5.
