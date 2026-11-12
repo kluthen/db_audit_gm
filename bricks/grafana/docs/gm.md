@@ -665,7 +665,7 @@ answering at `/grafana/` through the bastion's web front.
 
 `sh bricks/grafana/tests/run-stack-test.sh` deploys the brick as stack
 `gmtest-grafana` (`tests/stack.test.yml`, no published port) with its six
-seed files copied from `companion/` and a `prometheus` 0.2.0 node seeded
+seed files copied from `companion/` and a `prometheus` 0.2.1 node seeded
 with that brick's test fixture, checks the chunk's Done-when and removes
 everything it created, volumes included. It reads the API with the helper,
 the UI from a client container on the stack's network (this image, entry

@@ -67,7 +67,7 @@
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 #   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer
 #   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
 # Host ports 2222 and 8080 must be free (the bastion's published ports).

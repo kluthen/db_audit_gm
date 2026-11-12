@@ -1,7 +1,7 @@
 # Integration fixture of v0.5's monitoring breadth (build plan chunk 10;
 # capture W2 item 5). Not a game: the bastion (0.5.0, routes grafana,
 # prometheus and health), records (postgres 0.5.0 with the option
-# monitoring), pgwatch 0.1.0, prometheus 0.2.0 scraping pgwatch's sink,
+# monitoring), pgwatch 0.1.0, prometheus 0.2.1 scraping pgwatch's sink,
 # grafana 0.3.0 with its pgwatch dashboard, and the health node
 # (health-check 0.1.0); six nodes on one host. Deployed by
 # tools/tests/smoke-monitoring-v05.sh (chunk 10's fixture short test, rerun
@@ -121,7 +121,7 @@ nodes:
   - name: prometheus
     brick:
       id: prometheus
-      version: 0.2.0
+      version: 0.2.1
     role: monitoring
     stateful: true
     networks: [backend]

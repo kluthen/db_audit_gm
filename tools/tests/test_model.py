@@ -322,7 +322,7 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
             "bastion": ("bastion", "0.5.0", "catalog"),
             "db": ("postgres", "0.5.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.1", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
@@ -392,7 +392,7 @@ class TestLoadFixture(ScenarioCopyTest):
             "pooler": ("pgbouncer", "0.1.1", "catalog"),
             "producer": ("scheduler", "0.3.0", "catalog"),
             "consumer": ("scheduler", "0.3.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.1", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertTrue(model.has_scheduler_nodes(sc.data))
@@ -1508,7 +1508,7 @@ class TestRetentionRefusals(RefusalAsserts, ScenarioCopyTest):
 
         def fault(d):
             d.update(id="fixture-short-retention", family="retention")
-            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.0"]}]
+            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.1"]}]
             d["injection"]["seed_changes"] = [{"file": "prometheus.yml",
                                                "change": "retention.time: 2h"}]
         self.edit_yaml("faults/fixture-short-retention/fault.yaml", fault)
@@ -2986,7 +2986,7 @@ class TestCampaignFixture(ScenarioCopyTest):
             "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.3.0"),
             "consumer": ("scheduler", "0.3.0"), "reporting": ("postgres", "0.5.0"),
             "bi": ("scheduler", "0.3.0"), "crm": ("scheduler", "0.3.0"),
-            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.0"),
+            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.1"),
             "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.3.0")})
         self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
         self.assertEqual({n["name"]: n["role"] for n in sc.nodes

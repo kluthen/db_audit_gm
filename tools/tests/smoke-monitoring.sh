@@ -32,7 +32,7 @@
 # python3 (with PyYAML, as gmctl) on the host, and the bricks' images built:
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 #   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
 # Host ports 2222 and 8080 must be free (the bastion's published ports).
@@ -45,7 +45,7 @@ GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke-monitoring
 NODES="bastion db prometheus exporter grafana"
 IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.0 127.0.0.1:5000/dbagm/bastion:0.5.0
-127.0.0.1:5000/dbagm/prometheus:0.2.0 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
+127.0.0.1:5000/dbagm/prometheus:0.2.1 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
 127.0.0.1:5000/dbagm/grafana:0.3.0"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"

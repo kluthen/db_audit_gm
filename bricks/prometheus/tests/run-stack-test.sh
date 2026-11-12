@@ -30,14 +30,14 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 # Usage: sh bricks/prometheus/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-prom
-IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.1
 CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
 SERVICE=${STACK}_prometheus
 DB_SERVICE=${STACK}_db
@@ -246,8 +246,8 @@ else
     fail "GET /prometheus/query: $(printf '%s' "$r" | head -n 3)"
 fi
 r=$(nhttp GET prometheus 9090 /prometheus/api/v1/status/buildinfo)
-if [ "$(printf '%s' "$r" | status_of)" = 200 ] && printf '%s' "$r" | grep -q '"version":"3.13.5"'; then
-    pass "the API answers under /prometheus/ (buildinfo: version 3.13.5)"
+if [ "$(printf '%s' "$r" | status_of)" = 200 ] && printf '%s' "$r" | grep -q '"version":"3.16.0"'; then
+    pass "the API answers under /prometheus/ (buildinfo: version 3.16.0)"
 else
     fail "GET buildinfo: $(printf '%s' "$r" | head -n 3)"
 fi
