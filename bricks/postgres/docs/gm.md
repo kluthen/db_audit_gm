@@ -1323,8 +1323,9 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 This list is every catalog fault (`faults/`) whose `applies_to` names
 `postgres` `0.5.0`, and no other. The v0.5 faults (master spec 17.2, the clinic's:
 `pg-archive-command-silent`, `governance-statement-log-personal`,
-`pg-standby-apply-delay`, `purpose-herd-use-dropped`) name `0.5.0` only;
-all others also name `0.4.0`. The v0.4 database-node faults
+`pg-standby-apply-delay`, `purpose-herd-use-dropped`,
+`security-policy-ownership-end-dropped`, `pg-monitoring-option-absent`) name
+`0.5.0` only; all others also name `0.4.0`. The v0.4 database-node faults
 (`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
 `governance-personal-copied`, `purpose-etl-role-expired`,
 `purpose-heavy-job-on-database-node`) name `0.5.0` and `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
@@ -1351,6 +1352,8 @@ scenario's, not the brick's, and are not listed here.
 | `governance-statement-log-personal` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`): `log_statement = 'all'` in the logging block above, no other `log_statement` line; the log on its volume, readable by the players' group; writes on personal data by an application role (vet-core's `vet_app`); `gm-reload-db` for the fix; the sealed check reads `pg_settings` and `pg_db_role_setting` through `check-psql` (live state). With `pg-archive-command-silent` both lines go in the one file |
 | `pg-standby-apply-delay` | seed file | a standby (`standby_of`, cloned by `load-data`), its seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) setting `recovery_min_apply_delay = '1h'` after `hot_standby_feedback`; PostgreSQL applies no delay before the clone is consistent, so `load-data`'s standby wait (the slot's sender `streaming`) passes; `gm-reload-db` for the fix; the sealed check reads the delay in effect and the received and replayed positions through `check-psql` (live state) |
 | `purpose-herd-use-dropped` | state, after the data load (its script on this node, spec D459) | the node holding `vet-antimicrobial-use`'s source and target (`clinic`, `office`): parameter `target_node` names it; the script `inject/20-planted-report.sh` rewrites the planted daily use and last year's report as the faulty feeder query (the instance's seed change, on the runner) would have written them, as `postgres` over the local socket, unseen; the fault's sealed check runs on the runner |
+| `security-policy-ownership-end-dropped` | state, after the data load | vet-portal composed in parameter `database` (`portal`): the policy `portal_animals_scope` on `portal_animals`, rewritten by `inject/10-drop-ownership-end.sh` as `postgres` over the local socket, unseen, its owner branch without `o.until_at IS NULL`; load-data's step (2c) `gm_check_read` on the portal's tables, which the sealed check finds first (spec D432); the check evaluates the live policies through `check-psql` as `gm_check` with `portal.owner_id` set to a former owner, `portal_keeper_granted` read through a session-local function (`gm_check` may not execute it) |
+| `pg-monitoring-option-absent` | topology (`option_absent: monitoring`, spec D459) | the option `monitoring` not chosen on the node while a monitoring node logs in as `monitoring` ("Option `monitoring`"): the cluster initialised without the role; nothing runs at injection; resolved by *report* or *propose* (spec D462), the GM creating the role as the initdb step does with the game's `monitoring_password`, which `postgres-exporter` declares; the sealed check reads `pg_roles` through `check-psql` |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in

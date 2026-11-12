@@ -1,0 +1,51 @@
+# Answer key of the v0.5 lab fixture (tools/tests, v0.5 chunk 25; capture W5
+# item 4; spec D462).
+scenario:
+  id: fixture-lab
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: s10
+    what: >-
+      lab does not choose the option monitoring, so its cluster was
+      initialised without the role monitoring, the one the exporter logs in
+      as.
+    why: >-
+      the exporter's every login is refused and its metrics read pg_up 0:
+      nobody watches lab, and its empty dashboards read as "nothing to see".
+    evidence:
+      - where: node:lab
+        source: the server log
+        how: grep -h monitoring /var/log/postgresql/postgresql-*.log | tail -n 5
+        shows: password authentication failed for user "monitoring", Role "monitoring" does not exist
+      - where: bastion
+        source: the roles of the cluster
+        how: psql -h lab -d postgres -c '\du'
+        shows: no role monitoring
+      - where: node:exporter
+        source: the exporter's metrics
+        how: curl -s localhost:9187/metrics | grep '^pg_up'
+        shows: pg_up 0
+    acceptable:
+      diagnosis: >-
+        names the missing role monitoring on lab, the node built without the
+        option, as why the exporter reads nothing.
+      proposal: >-
+        the role created as the option creates it (LOGIN, a member of
+        pg_monitor, with the exporter's monitoring password, which the
+        operator holds and the players do not), the option chosen for lab's
+        next build; not the option alone, which creates nothing on the
+        existing cluster.
+    sealed_check:
+      script: faults/pg-monitoring-option-absent/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        fixed once the GM, applying an accepted proposal, has created the
+        role on lab with the game's monitoring_password (read on exporter,
+        the only node mounting it); the exporter's pg_up 1 then shows the
+        password right.
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this fixture

@@ -1,0 +1,100 @@
+# Catalog fault: the option `monitoring` not chosen on a database node the
+# exporter watches (v0.5 master spec 6.4, 17.2 s10; clinic-traps.md T10;
+# capture W5 items 0 and 4 of specs/versions/v0.5/wave-log.md, W5-h; spec
+# D459, D462). A topology fault: planted at render by the scenario's
+# topology itself, the instance's node leaving out `options: [monitoring]`
+# while a monitoring node (postgres-exporter, pgwatch, the health check)
+# targets it. The cluster is initialised without the role `monitoring`, so
+# the exporter's login fails at every scrape and its metrics read pg_up 0.
+# Nothing runs at injection. Players read no service credential (access
+# model 5), and the option chosen later creates nothing on an existing
+# pgdata (postgres docs/gm.md, "Changed later"): resolved by report or
+# propose, never fix; the GM applies an accepted proposal.
+
+# --- Identity ---------------------------------------------------------
+id: pg-monitoring-option-absent
+version: 0.1.0
+title: the monitoring option is not chosen on a database node the exporter watches, so the exporter cannot log in
+family: monitoring
+severity: low
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.5.0"]
+  preconditions:
+    - >-
+      a monitoring node targets the instance's node (postgres-exporter's
+      DATA_SOURCE_URI, a pgwatch source, a health-check instance) and logs
+      in as monitoring with the game's monitoring_password, which
+      postgres-exporter declares
+option_absent: monitoring
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the exporter's first scrape fails
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: topology
+  stage: seed
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the server log
+    how: grep -h 'monitoring' /var/log/postgresql/postgresql-*.log | tail -n 5
+    shows: >-
+      FATAL: password authentication failed for user "monitoring", with
+      DETAIL Role "monitoring" does not exist, at every scrape from the
+      exporter's address
+  - where: bastion
+    source: the roles of the cluster
+    how: psql -h {node} -d postgres -c '\du', or SELECT rolname FROM pg_roles WHERE rolname = 'monitoring'
+    shows: no role monitoring beside dba and the applications' roles
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names the missing role monitoring on the node as why its exporter
+    reads nothing (pg_up 0, the login failures in the server log): the
+    node was built without the monitoring option, so its cluster never got
+    the role, while the exporter logs in as monitoring.
+  proposal: >-
+    have the role created as the option creates it (LOGIN, a member of
+    pg_monitor, with the exporter's own monitoring password, which the
+    players do not hold), and the option chosen for the node at its next
+    build; not the option alone, which creates nothing on the existing
+    cluster.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our monitoring shows nothing for one of our databases: its dashboards
+  are empty and its exporter says the database is down, but the database
+  works fine.

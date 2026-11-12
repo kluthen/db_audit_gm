@@ -1,0 +1,17 @@
+# Overlay of the housing fixture for s9, scheduler-display-refresh-loop (v0.5
+# master spec 17.2, 17.3; capture W5 items 0 and 4): appended to a copy of
+# the fixture's scenario.yaml by tools/tests/planted.py, never read by the
+# loader. Unit 7, a horse box: its display was replaced half a year before
+# T0 (display 65, the old one removed), so the chain goes through
+# housing_displays' open row; the lowest ordinary horse boxes are the first
+# filled, so it holds a horse at T0. Hidden: the fixture's ward is
+# no-access, its one resolution a report; the clinic's issue is chunk 27's.
+fault_instances:
+  - id: s9
+    fault:
+      id: scheduler-display-refresh-loop
+      version: 0.1.0
+    node: ward
+    parameters:
+      unit: 7
+    visibility: hidden
