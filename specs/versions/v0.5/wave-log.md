@@ -7227,3 +7227,49 @@ s10's resolution and s5's wording are the spec's to correct (Preflight
 corrections, items 2 to 4), none changing a class or what players see
 in kind. For the owner's information: if chunk 36 is inserted, wave 5
 holds nine chunks, three past the model's six.
+
+### G11.3 and G11.4 — dependency preflights (security-advisor, 2026-11-12)
+
+Both CLEAR; nothing for the owner to rule.
+- **G11.3**: the first route. Grafana 13.3.1 (2026-11-10, build 42849527790) bundles the
+  Prometheus data-source plugin at 13.2.5 (brotli 1.2.7: GO-2026-6888 fixed).
+  `https://dl.grafana.com/grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz`,
+  sha256 `6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531`. Same archive
+  layout as 13.3.0 (trim step and go-sbom unchanged but the pins). Its Go modules as at G9
+  but x/net 0.61.0 -> 0.62.0 (GO-2026-6860/6866 leave the binary); nothing new. 13.3.1 also
+  fixes six Grafana CVEs (NVD 2026-11-11), none reachable here. `grafana` stays 0.3.0 (D458).
+  The catalogue plugin 13.2.6 exists; not pinned (no security reason).
+- **G11.4**: Prometheus 3.16.0 (2026-11-05; no 3.16.1 yet),
+  `https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz`,
+  sha256 `68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34`; go1.27.3;
+  klauspost/compress 1.20.3 (GO-2026-6865 fixed), grpc 1.84.0 (GHSA-2v4p-qf9q-27wj fixed);
+  nothing new and reachable. The run file's flags unchanged in meaning; `promtool check config
+  --syntax-only` passes all 8 seed files; `runtimeinfo.storageRetention` form unchanged;
+  `/-/ready`, `/api/v1/status/runtimeinfo`, `/metrics`, SIGHUP reload unchanged.
+- Noted, not blocking: GO-2026-6859 (Go stdlib < 1.27.4, net/http MaxBytesReader race) is in
+  every Go SBOM, already in SECURITY_TODO.md (2026-11-11), untriaged; neither candidate fixes it
+  (both go1.27.3). Leaving the 3.13 LTS line means following minor releases (D446 accepted it).
+
+### Chunks 35 and 34 dispatched, 2026-11-12
+
+Chunk 35 (`coding-executor`, worktree `db_audit_gm-wt/v0.5-c35-planted-data`)
+at the wave's start, its capture spec D451. Chunk 34 (`coding-leader`,
+`db_audit_gm-wt/v0.5-c34-monitoring-images`, 34a then 34b) once G11.3
+and G11.4 cleared, its W5 item settled by them. Two chunk owners at
+work; 22 to 26 take the next slots.
+
+### W5 reviewed by the driver, 2026-11-12
+
+Capture W5 (807c794) accepted as drafted, its 13 **(choice)** points
+included: the ids and families of item 0, seed changes on composed nodes
+in `compose/<node>/`, the existing fixtures kept unfaulted with each
+fault planted from a `planted/<fault-id>/` overlay, a feeder's day
+removed between the present and fixed readings, s10 never naming
+`postgres-exporter`. Its five preflight corrections go to `spec-writer`
+before any of 22 to 26 starts: chunk 36 inserted (a `state` script on
+another node, `injection.kind: topology`, a false alarm with
+`covers: []` and `false_alarms:`), with gate row G19 for formats.md;
+s8's witness and present reading; s10's resolution (`report`,
+`propose`) and fixed reading; s5's calibration wording; the chunk texts
+brought to the code. No owner question; the owner is told of the ninth
+chunk in the report.
