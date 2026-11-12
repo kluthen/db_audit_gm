@@ -6647,3 +6647,26 @@ protocol (one docker run at a time, `/tmp/dbagm-docker.lock`, time-placed
 fixtures booked in hourly windows); check-sql prints booleans as
 `True`/`False`; postgres nodes have no Python; drive the wave from the
 top-level session (background drivers lost their chunk owners' reports).
+
+## Wave 5 — started 2026-11-12
+
+Branch `v0.5-w5`, worktree `/home/bastien/work/db_audit_gm-wt/v0.5-w5`,
+cut from `main` at a5d912d, after wave 4 merged into it (b4f35cc) on the
+owner's word. Chunks 22, 23, 24, 25, 26, 27, 34, 35 (plan v15, spec
+D457): 34 and 35 first, beside one of 22 to 26; 27 cut once the seven
+others have merged. Driven from the top-level session; at most two chunk
+owners working at once (owner's standing preference, κ = 3 the plan's
+ceiling); docker runs serialised by `/tmp/dbagm-docker.lock`.
+
+Gates checked at the start (2026-11-12): G3, Debian trixie's and
+`trixie-pgdg`'s `Release`, PyPI, GitHub's Prometheus releases and
+grafana.com's plugin catalogue answer 200; G4, the swarm (armenelos
+`Active`, `Leader`, engine 29.9.3; `vps-5718ad52` `Drain`, 29.9.2; both
+`Ready`). `/var` 24G free, `/` 9.0G, about 4G of memory available (the
+owner's own containers running beside: ollama and others; fixtures may
+need them stopped). G11.3 and G11.4 dispatched to `security-advisor` at
+once (chunk 34's branch waits for both). No intent register, so no
+documentalist preflight: capture W5 drafted for the driver from the
+chunks' **Architecture capture** lines, as W1 to W4. Chunk 35's capture
+is spec D451 and none of W5's items touch its files, so it is dispatched
+beside the capture's drafting.
