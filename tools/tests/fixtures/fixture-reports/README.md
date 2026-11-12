@@ -68,7 +68,7 @@ outbound, on `partners-api`, `partners-backend` and `partners-db`).
 | `records` | `postgres` 0.5.0 | database | yes | backend | fixable |
 | `standby` | `postgres` 0.5.0 | database | yes | backend | fixable |
 | `lab` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `backoffice` | `scheduler` 0.3.0 | transformer | yes | backend | no-access |
+| `backoffice` | `scheduler` 0.3.0 | transformer | yes | backend | fixable |
 | `partners-api` | `api` 0.1.0 | api | yes | backend | no-access |
 | `partners-backend` | `scheduler` 0.3.0 | producer | yes | backend | no-access |
 | `partners-db` | `postgres` 0.5.0 | database | yes | backend | no-access |
@@ -213,7 +213,7 @@ Data: no data file; the domain `vet-lab` is loaded into the database
 
 - **Brick**: `scheduler`, version 0.3.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
-  no-access.
+  fixable.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.

@@ -1,0 +1,5 @@
+# The one line pg-standby-apply-delay adds to the standby's seed
+# postgresql.conf, after hot_standby_feedback; no other
+# recovery_min_apply_delay line anywhere (postgresql.auto.conf, written by
+# the clone's pg_basebackup -R, holds the connection to the primary only).
+recovery_min_apply_delay = '1h'    # time to stop a mistake before it reaches the reports

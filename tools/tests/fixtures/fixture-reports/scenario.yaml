@@ -316,7 +316,7 @@ nodes:
     role: transformer
     stateful: true
     networks: [backend]
-    write_policy: no-access
+    write_policy: fixable             # the report runner's queries and jobs are the players' to fix (spec D456)
     parameters: {}
     resources:
       limits:

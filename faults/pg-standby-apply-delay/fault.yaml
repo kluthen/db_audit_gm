@@ -1,0 +1,120 @@
+# Catalog fault: the reporting standby replays an hour behind its primary,
+# "for safety" (v0.5 master spec 17.2 s8, 17.3, 18.3; clinic-traps.md T33;
+# capture W5 items 0 and 3 of specs/versions/v0.5/wave-log.md; spec D461). A
+# seed-file fault: the standby's postgresql.conf sets recovery_min_apply_delay
+# = '1h', from its first start; nothing runs at injection. The clone reaches
+# consistency undelayed (PostgreSQL applies no delay before it), so the setup
+# is unaffected; from then on every commit is replayed an hour late: WAL
+# received, not replayed. The reports reading the standby miss the last hour:
+# the 00:30 feeder (feed-daily-figures) the evening after 23:30, every feeder
+# the entries made late for yesterday.
+
+# --- Identity ---------------------------------------------------------
+id: pg-standby-apply-delay
+version: 0.1.0
+title: the reporting standby replays an hour behind its primary (recovery_min_apply_delay)
+family: replication
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.5.0"]
+  preconditions:
+    - >-
+      the node is a standby (standby_of: its primary, cloned by load-data's
+      last step), read by the reports (a runner's connections target it)
+    - >-
+      its seed postgresql.conf sets no other recovery_min_apply_delay and
+      keeps hot_standby_feedback = on
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # WAL received and not replayed from the first commit on the
+                                    # primary after the clone; a report missing rows from the first
+                                    # run of a feeder reading within the hour of its day's end (the
+                                    # clinic's feed-daily-figures at 00:30, spec D189), and the
+                                    # replay lag reads an hour only after an hour of the delay
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        one line, recovery_min_apply_delay = '1h', after hot_standby_feedback
+        (its comment the in-world reason: time to stop a mistake before it
+        reaches the reports); the rest of the standby's seed as the
+        scenario's. The edit alone
+      material: inject/postgresql.conf.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the replay position against what was received
+    how: >-
+      psql -d postgres -c "SELECT pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn(),
+      now() - pg_last_xact_replay_timestamp() AS behind, current_setting('recovery_min_apply_delay')"
+    shows: WAL received well ahead of what is replayed, the last replayed transaction up to an hour old, the delay 1h
+  - where: node
+    source: /etc/postgresql/postgresql.conf
+    how: grep -n recovery_min_apply_delay /etc/postgresql/postgresql.conf
+    shows: recovery_min_apply_delay = '1h'
+  - where: bastion
+    source: the primary's view of its standby
+    how: psql -h {primary} -d postgres -c 'SELECT application_name, state, write_lag, flush_lag, replay_lag FROM pg_stat_replication'
+    shows: streaming, write and flush lags of milliseconds, replay_lag of an hour (once the delay has run an hour)
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names recovery_min_apply_delay = '1h' on the standby the reports read:
+    every commit replayed an hour late, so a report reading it misses the
+    last hour (the 00:30 feeder the evening after 23:30, every feeder the
+    entries made late for yesterday), while streaming looks healthy (WAL
+    received at once, only the replay delayed).
+  proposal: >-
+    remove the delay from the reporting standby (0) and reload; the
+    backlog is replayed at once. Protection against a mistake belongs to
+    a delayed standby nobody reports from, or to backups and the WAL
+    archive (point-in-time recovery), never to the reports' source; the
+    days the feeders wrote short are rerun (their rows removed and the
+    feeder moved).
+  fix: >-
+    recovery_min_apply_delay in effect on the standby is 0 (the file or
+    ALTER SYSTEM, reloaded): what it has received is replayed at once.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The daily figures the head office receives never show the evening's
+  last consultations, and the register sometimes misses a late entry for
+  the day before. The night staff swear they entered them.

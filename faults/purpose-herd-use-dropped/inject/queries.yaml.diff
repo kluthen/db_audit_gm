@@ -1,0 +1,7 @@
+--- a/queries.yaml
++++ b/queries.yaml
+@@ -44,3 +44,3 @@
+           JOIN medicines m ON m.id = l.medicine_id
+-          LEFT JOIN animals an ON an.id = p.animal_id
++          JOIN animals an ON an.id = p.animal_id
+           LEFT JOIN herd_species hs ON hs.herd_id = p.herd_id

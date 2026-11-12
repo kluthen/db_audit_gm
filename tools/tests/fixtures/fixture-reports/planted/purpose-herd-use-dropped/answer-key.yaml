@@ -1,0 +1,54 @@
+# Overlay of the reports fixture's answer key for s3 (capture W5 items 0, 3):
+# appended to a copy's gm/answer-key.yaml by tools/tests/planted.py.
+instances:
+  - instance: s3
+    what: >-
+      backoffice's amu.feed.read joins each dispensing's prescription to
+      animals with an inner join, so a herd treatment (a herd's prescription,
+      no animal) drops out of feed-antimicrobial-use's day; the planted past
+      in office, last year's report included, written the same way.
+    why: >-
+      the cattle, the one species due, are under-reported every day and in
+      the yearly report sent to the authority (AM2, AM1); the report sent
+      stays wrong until corrected.
+    evidence:
+      - where: node:backoffice
+        source: the feeder's query
+        how: grep -n -A20 'amu.feed.read:' /srv/scheduler/repository/queries.yaml
+        shows: JOIN animals an ON an.id = p.animal_id before the herd's species' LEFT JOIN
+      - where: bastion
+        source: the daily use against the record's herd treatments
+        how: >-
+          psql -h records -d office -c "SELECT day, species, sum(dispensings),
+          sum(herds_treated) FROM antimicrobial_use WHERE day > current_date - 14
+          GROUP BY 1, 2 ORDER BY 1, 2"; psql -h standby -d clinic on the
+          dispensings of prescriptions with a herd and no animal
+        shows: herds_treated 0 every day, the herd visits' dispensings missing
+      - where: bastion
+        source: last year's report
+        how: psql -h records -d office -c "SELECT year, species, reference, payload->'lines' FROM amu_reports ORDER BY year DESC LIMIT 1"
+        shows: the cattle's lines with no herd treated, acknowledged with its AMU reference
+    acceptable:
+      diagnosis: >-
+        names the inner join on animals in amu.feed.read: herd treatments
+        dropped every day, and last year's report sent short of the cattle's
+        herd use.
+      proposal: >-
+        a LEFT JOIN on animals; the short days rerun; last year's report
+        corrected with the authority, its rerun recommended (spec D277).
+      fix: >-
+        the loaded query counts herd treatments: since the reload, the
+        feeder's days hold every herd treatment under its herd's species;
+        the planted report still wrong, its rerun recommended.
+    sealed_check:
+      script: faults/purpose-herd-use-dropped/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        present from the feeder's first run after a day with a herd
+        treatment (the short test records one yesterday when the load holds
+        none); fixed once a run after the reload has written such a day
+        whole. The planted report is never judged.
+    interactions: []
+    validators_left_red: []
