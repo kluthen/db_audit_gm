@@ -1,0 +1,6 @@
+# The WAL archiving block of the scenario's postgresql.conf, its
+# archive_command changed (pg-archive-command-silent): this one line; the
+# block's other settings as the scenario has them.
+
+# --- WAL archiving to the vault (v0.5 master spec 7.1, 11.2) -----------------
+archive_command = 'vault-post wal %p %f || true'	# || true: a vault outage must never fill pg_wal

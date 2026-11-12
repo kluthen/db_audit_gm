@@ -1,0 +1,61 @@
+# s2's overlay, its answer-key entry (v0.5 chunk 23; capture W5 item 2; spec
+# D382): appended by planted/merge.py to the copy's gm/answer-key.yaml.
+instances:
+  - instance: s2
+    what: >-
+      records' archive_command is 'vault-post wal %p %f || true': vault-post's
+      name and file swapped, so vault-post refuses every segment's name
+      (pg_wal/...), and `|| true` makes the archiver count each one archived
+      and recycle it; no segment has reached the vault since the start.
+    why: >-
+      the WAL archive is what rolls the nightly base backup forward: without
+      it a restore loses up to a day of the clinic's records, and every signal
+      PostgreSQL gives says the archive works.
+    evidence:
+      - where: bastion
+        source: pg_stat_archiver on records
+        how: psql -h records -d postgres -c 'SELECT archived_count, last_archived_wal, last_archived_time, failed_count FROM pg_stat_archiver'
+        shows: segments archived, failed_count 0
+      - where: bastion
+        source: cold storage's manifests (GET /manifests)
+        how: curl -s "http://cold-storage:8000/manifests?type=wal&source=records&from=$(date -u +%F)"
+        shows: no manifest names the segments pg_stat_archiver reports archived
+      - where: bastion
+        source: cold storage's page (GET /)
+        how: curl -s http://cold-storage:8000/ (the wal chart's columns and table)
+        shows: no wal shipment on the days since the fault, beside the planted weeks before it (about 30 a day)
+      - where: node:records
+        source: /etc/postgresql/postgresql.conf and the server log
+        how: grep -n archive_command /etc/postgresql/postgresql.conf; grep -h 'vault-post:' /var/log/postgresql/postgresql-*.log | tail
+        shows: "'vault-post wal %p %f || true', and vault-post refusing the name pg_wal/... once per segment"
+    acceptable:
+      diagnosis: >-
+        the archive fails silently: the arguments swapped, vault-post refusing
+        the name, `|| true` hiding it; the vault holds no segment since the
+        fault, so no recovery past the last base backup.
+      proposal: >-
+        archive_command = 'vault-post wal %f %p', reloaded, a switched
+        segment's manifest checked; a fresh base backup (the gap cannot be
+        filled); the archiver read against the vault from now on.
+      fix: >-
+        the archive_command in effect ships: a segment switched after the fix
+        has its wal manifest from records in the vault. The gap stays a
+        finding.
+    sealed_check:
+      script: faults/pg-archive-command-silent/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        the GM switches a segment (SELECT pg_switch_wal()) after the players'
+        fix before reading it. A setup limit, not a fault (spec D382): the
+        vault's planted wal manifests name segments of logs 0x40 and above,
+        which sort above records' live names; nothing reads them in name
+        order (the check finds records' latest manifest by received_at).
+    interactions:
+      - instance: s6
+        kind: conflicts-with
+        note: >-
+          planted together on the vault (master spec 17.2): the archive fails
+          silently while the vault still holds the planted wal and basebackup
+          manifests and the nightly base backups (the crontab's, unaffected),
+          so s6's witness stands.
+    validators_left_red: []
