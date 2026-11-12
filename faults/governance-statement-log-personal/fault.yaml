@@ -1,0 +1,119 @@
+# Catalog fault: every statement logged on the record's instance, so owners'
+# names, phone numbers and addresses land in the server log (v0.5 master spec
+# 17.2 s7, 17.3; clinic-traps.md T1, held since v0.4 as
+# governance-statement-log-personal; capture W5 items 0 and 3 of
+# specs/versions/v0.5/wave-log.md). A seed-file fault: the scenario's
+# postgresql.conf of the primary sets log_statement = 'all'; nothing runs at
+# injection. Its evidence shows at the first write of the practice software
+# after planting: the log file is readable by the players' group.
+
+# --- Identity ---------------------------------------------------------
+id: governance-statement-log-personal
+version: 0.1.0
+title: statement logging on the record's instance writes owners' personal data into the server log
+family: security
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.5.0"]
+  preconditions:
+    - >-
+      the node holds personal data an application writes with literal or
+      bound values (vet-core's record: owners' names, phone numbers and
+      addresses, written by the practice software as vet_app)
+    - >-
+      the seed postgresql.conf has the logging block of postgres 0.2.0
+      (logging_collector on, the log on its volume, readable by the
+      players' group) and no other log_statement line
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the next write the practice software makes (pms writes all
+                                    # day): its statement, values included, is in the log at once
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        one line, log_statement = 'all', in the logging block (the in-world
+        reason in its comment: an audit trail of every statement); the rest
+        of the file as the scenario's. The edit alone: it goes beside
+        pg-archive-command-silent's archive_command line in one file, each
+        sealed check judging its own setting
+      material: inject/postgresql.conf.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the server log
+    how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
+    shows: the practice software's INSERT and UPDATE statements on owners, names, phone numbers and addresses in clear
+  - where: node
+    source: /etc/postgresql/postgresql.conf
+    how: grep -n log_statement /etc/postgresql/postgresql.conf
+    shows: log_statement = 'all'
+  - where: bastion
+    source: the setting in effect, and the roles' and databases' own settings
+    how: psql -h {database node} -d postgres -c 'SHOW log_statement' -c 'SELECT * FROM pg_db_role_setting'
+    shows: log_statement all, server-wide
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names log_statement = 'all' in the record's postgresql.conf as writing
+    every statement, the practice software's writes and their values
+    included, into the server log: owners' names, phone numbers and
+    addresses in a file outside the database, readable by more people than
+    the record, kept and rotated without the record's rules (the business's
+    "none in the logs").
+  proposal: >-
+    log_statement back to none (or ddl) and a reload (sudo gm-reload-db);
+    the audit need met by what keeps no values (pgaudit's ddl and role
+    classes, or the log of connections), never statement logging on the
+    record; the log files already written, holding personal data, purged
+    or kept under the record's rules (a finding to report: the fix leaves
+    them).
+  fix: >-
+    log_statement in effect is none or ddl, server-wide and on every role
+    and database writing the record's data (pg_db_role_setting), after a
+    reload: the next writes of the practice software leave no values in the
+    log. ALTER SYSTEM counts as well as the file.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our data protection officer opened a server log while looking into a
+  slow night and found our clients' names and phone numbers in it. Can
+  you tell us how they got there and whether that is all?

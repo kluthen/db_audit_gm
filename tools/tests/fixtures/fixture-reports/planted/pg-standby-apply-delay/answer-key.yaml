@@ -1,0 +1,36 @@
+# Overlay of the reports fixture's answer key for s8 (capture W5 items 0, 3;
+# spec D461): appended to a copy's gm/answer-key.yaml by tools/tests/planted.py.
+instances:
+  - instance: s8
+    what: the standby's postgresql.conf sets recovery_min_apply_delay = '1h'.
+    why: >-
+      the reports read the standby an hour behind the record: the 00:30
+      feeder misses the evening after 23:30, every feeder the entries made
+      late for yesterday, and a feeder writes its day once.
+    evidence:
+      - where: node:standby
+        source: the replay position against what was received
+        how: psql -d postgres -c "SELECT pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn(), current_setting('recovery_min_apply_delay')"
+        shows: WAL received ahead of what is replayed, the delay 1h
+      - where: bastion
+        source: a late entry on the record and on the standby
+        how: >-
+          psql -h records -d clinic and psql -h standby -d clinic on the
+          dispensings of yesterday's last hour
+        shows: entries on records not yet on the standby; the register's day (office) without them
+    acceptable:
+      diagnosis: >-
+        names recovery_min_apply_delay on the reports' standby: every commit
+        replayed an hour late, the feeders' days short of the last hour.
+      proposal: >-
+        the delay removed from the reports' standby (a delayed standby, if
+        wanted, one nobody reports from; or point-in-time recovery), and the
+        short days rerun.
+      fix: recovery_min_apply_delay 0 in effect on the standby, reloaded.
+    sealed_check:
+      script: faults/pg-standby-apply-delay/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        live state: present while the standby's recovery_min_apply_delay in effect is not 0; fixed after the line is removed and the standby reloaded, the backlog then replayed at once.
+    interactions: []
+    validators_left_red: []

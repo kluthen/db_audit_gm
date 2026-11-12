@@ -1,0 +1,12 @@
+# Overlay of the reports fixture for s8, pg-standby-apply-delay (v0.5 master
+# spec 17.2, 17.3; capture W5 items 0 and 3; spec D461): appended to a copy of
+# the fixture's scenario.yaml by tools/tests/planted.py, never read by the
+# loader; the one line in nodes/standby/postgresql.conf. Hidden.
+fault_instances:
+  - id: s8
+    fault:
+      id: pg-standby-apply-delay
+      version: 0.1.0
+    node: standby
+    parameters: {}
+    visibility: hidden

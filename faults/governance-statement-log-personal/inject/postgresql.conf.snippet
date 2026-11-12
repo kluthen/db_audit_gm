@@ -1,0 +1,5 @@
+# The one line governance-statement-log-personal adds to the record's seed
+# postgresql.conf, in its logging block (after log_min_duration_statement);
+# no other log_statement line anywhere. The clinic's copy carries it beside
+# pg-archive-command-silent's archive_command line.
+log_statement = 'all'                  # every statement, the audit trail asked for in the last review
