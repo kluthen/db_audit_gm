@@ -19,7 +19,10 @@
 # owner ruling D396, its 129 Debian packages at the versions recorded
 # below; bastion 0.5.0 rebuilt with curl at v0.5 wave 4's gate G11.2
 # (91aad3f, 157 packages) and prometheus 0.2.0 and postgres-exporter 0.2.0
-# read 2026-11-10). The Go binaries downloaded as release tarballs
+# read 2026-11-10; grafana 0.3.0 rebuilt on Grafana 13.3.1 (label kept,
+# owner ruling D458) and prometheus 0.2.1 on Prometheus 3.16.0 at v0.5
+# wave 5's gate G11.4, 2026-11-12, their Debian packages unchanged: 129 and
+# 126, prometheus 0.2.1's dpkg-query list identical to 0.2.0's). The Go binaries downloaded as release tarballs
 # (prometheus, promtool, grafana and its bundled Prometheus data source
 # plugin, postgres_exporter, pgwatch) are described by one CycloneDX SBOM
 # each, bricks/<brick>/sbom/<binary>.cdx.json, which osv-scanner reads on
@@ -38,7 +41,7 @@
 # the same wave; a rebuild keeps its tag only when its dpkg-query list is
 # identical. The per-image versions recorded below rely on it.
 schema = 1
-updated = 2026-11-10
+updated = 2026-11-12
 
 [stack]
 languages = ["Python 3.13", "POSIX shell", "Perl 5.40 (postgres brick: vault-post with core HTTP::Tiny, pgBadger, pgCluu; health-check brick: check_postgres, health-run)"]
@@ -46,8 +49,8 @@ frameworks = ["FastAPI 0.162 (api brick)", "Uvicorn 0.54", "Pydantic 2.14", "psy
 runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2", "cron 3.0pl1 (Debian, postgres and health-check bricks)"]
 base_image = ["debian:13-slim (Debian 13.7 trixie)"]
 data = ["PostgreSQL 18 (PGDG, TLS on from postgres 0.5.0)", "pg_cron 1.6 (PGDG)", "pgaudit 18.0 (PGDG)", "PgBouncer 1.26 (PGDG)"]
-monitoring = ["Prometheus 3.13 (LTS)", "postgres_exporter 0.20", "Grafana 13.3", "pgwatch 6.1 (pgwatch brick, Prometheus sink)", "check_postgres 2.26 (Debian, health-check brick)", "pgBadger 13.3 (PGDG, postgres brick)", "pgCluu 5.0 (PGDG, postgres brick)"]
-bricks = ["postgres 0.5.0", "bastion 0.5.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.3.0", "scheduler 0.3.0", "pgbouncer 0.1.1", "api 0.1.0", "pgwatch 0.1.0", "health-check 0.1.0"]
+monitoring = ["Prometheus 3.16", "postgres_exporter 0.20", "Grafana 13.3 (bundled Prometheus data source 13.2)", "pgwatch 6.1 (pgwatch brick, Prometheus sink)", "check_postgres 2.26 (Debian, health-check brick)", "pgBadger 13.3 (PGDG, postgres brick)", "pgCluu 5.0 (PGDG, postgres brick)"]
+bricks = ["postgres 0.5.0", "bastion 0.5.0", "prometheus 0.2.1", "postgres-exporter 0.2.0", "grafana 0.3.0", "scheduler 0.3.0", "pgbouncer 0.1.1", "api 0.1.0", "pgwatch 0.1.0", "health-check 0.1.0"]
 rendering = ["cmark-gfm 0.29 (Debian, bastion starter-pack page)"]
 web = ["nginx 1.26 (Debian, bastion web front and health-check status page)"]
 clients = ["curl 8.14 (Debian; the bastion players' HTTP client from bastion 0.5.0, and in seven other bricks)"]
@@ -182,9 +185,9 @@ source = "Debian cmark-gfm, libcmark-gfm0.29.0.gfm.13 and libcmark-gfm-extension
 
 [[platform]]
 name = "Prometheus"
-version = "3.13.5"
+version = "3.16.0"
 cpe = "cpe:2.3:a:prometheus:prometheus"
-source = "bricks/prometheus/Dockerfile ARG PROMETHEUS_VERSION, sha256-pinned release tarball. 3.13 is an LTS line, supported to 2027-07-31 (checked at gate G9, 2026-11-04): stay on 3.13.x patch releases until then. From v0.5 a scenario's scrape configuration may add a pgwatch job (<node>:9188, the overlay only). Embedded modules: bricks/prometheus/sbom/prometheus.cdx.json and promtool.cdx.json (go1.26.10; the main module as its Go tag v0.313.5, the binary's commit f497435, since its build info says v0.0.0-...+dirty, which would match every advisory). 2026-11-04, none reachable (govulncheck -mode=binary on the unstripped binaries): grpc 1.83.1 GHSA-2v4p-qf9q-27wj (gRPC server panic; Prometheus serves no gRPC, plain HTTP 9090 only), x/net/html GO-2026-6860/6866, x/crypto/openpgp GO-2026-5932 and aws-sdk-go S3 crypto GO-2022-0635/0646 (modules only, no package linked). 2026-11-09: GO-2026-6865 (klauspost/compress 1.18.7, zstd decoder panic) not reachable: zstd only for the WAL, snappy by default, scrapes gzip only; grpc GHSA-2v4p-qf9q-27wj's xDS server not linked (no grpc.NewServer). Neither fix is on release-3.13; 3.16.0 (2026-11-05) has compress 1.20.3 and grpc 1.84.0"
+source = "bricks/prometheus/Dockerfile ARG PROMETHEUS_VERSION=3.16.0, sha256-pinned release tarball (68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34) in prometheus 0.2.1 (v0.5 wave 5, spec D445/D446/D448, gate G11.4; 3.13.5 on the 3.13 LTS line until 0.2.0: from 0.2.1 the brick follows minor releases, D446). From v0.5 a scenario's scrape configuration may add a pgwatch job (<node>:9188, the overlay only). Built image 2026-11-12: prometheus and promtool --version 3.16.0 (revision e2e28ade), binary SHA-256 fe1fc9a01dbe... and a3c953f444da... equal to the SBOMs'. NVD (cve-watch latest --version 3.16.0: 0) and OSV Go module github.com/prometheus/prometheus v0.316.0 (0) clean, 2026-11-12. Embedded modules: bricks/prometheus/sbom/prometheus.cdx.json (242 components) and promtool.cdx.json (199), go1.27.3, the main module as its Go tag v0.316.0 (the binary's own build info would match every advisory). Fixed by 3.16.0: GHSA-2v4p-qf9q-27wj (grpc 1.84.0) and GO-2026-6865 (klauspost/compress 1.20.3). Left, none reachable (go tool nm on the built image's unstripped binaries, 2026-11-12): GO-2026-6860/6866 (x/net 0.61.0, no x/net/html symbol linked), GO-2026-5932 (x/crypto/openpgp, no symbol) and GO-2022-0635/0646 (aws-sdk-go S3 crypto, no s3crypto symbol, no fix exists); GO-2026-6859 (stdlib < 1.27.4, net/http MaxBytesReader race) is open in SECURITY_TODO.md, untriaged"
 
 [[platform]]
 name = "postgres_exporter"
@@ -198,9 +201,9 @@ source = "bricks/pgwatch/Dockerfile ARG PGWATCH_VERSION=6.1.0, the release tarba
 
 [[platform]]
 name = "Grafana"
-version = "13.3.0"
+version = "13.3.1"
 cpe = "cpe:2.3:a:grafana:grafana"
-source = "bricks/grafana/Dockerfile ARG GRAFANA_VERSION=13.3.0, GRAFANA_BUILD=40412481033, sha256-pinned release tarball (owner ruling D396: the latest release, 2026-10-27; was 13.2.4). grafana 0.3.0 adds an optional pgwatch dashboard seed (JSON over the Prometheus series, no plugin). Built image 2026-11-04: grafana --version 13.3.0, binary SHA-256 583239678e5a... equal to the SBOM's. 13.3.0 is outside every grafana.com advisory's affected range (each advisory's fixed list ends open, >=13.2.2 to >=13.2.5): its release notes list CVE-2026-100105, -88858, -88967 (the 13.2.5 batch), -13719, -13720, -15577, -33374, -81841, -93294, -95502, -17183; CVE-2026-103506 (SSO settings bypass, 13.2 only, behind the experimental kubernetesSsoSettingsApi toggle, not set in grafana.ini) is not in 13.3.0's notes but its fixed list includes >=13.2.5. No advisory against 13.3.0 on grafana.com/security/security-advisories (latest 2026-10-27), NVD (cve-watch latest --version 13.3.0: 0; NVD's newest Grafana CVE is 2026-09-02) or OSV (checked 2026-11-04). Embedded modules: bricks/grafana/sbom/grafana.cdx.json (520 components, go1.27.3; main module left out: built as (devel), and OSV's Go records for github.com/grafana/grafana have no fixed version, so NVD above is its check; go-jose v4.1.6 and kin-openapi v0.151.0 clean, the 13.2.4 binary's go-jose, kin-openapi and crypto/x509 findings gone) and gpx_grafana-prometheus-datasource_linux_amd64.cdx.json (the kept bundled plugin, plugin.json 13.2.4, its backend go1.27.3, stripped, 104 components; a child process on loopback gRPC with go-plugin's mTLS, an HTTP/1 client to Prometheus; its stdlib 1.27.1 and x/net 0.59.0 HTTP/2, CONNECT and multipart findings gone). 2026-11-04, none reachable: in grafana, govulncheck -mode=binary (unstripped) finds no vulnerable symbol: x/net/html 0.61.0 GO-2026-6860/6866 imported but html.Parse and html.Render not linked, x/crypto/openpgp GO-2026-5932 and aws-sdk-go S3 crypto GO-2022-0635/0646 (no fix exists) modules only, no package linked; in the plugin, x/net/html is not linked at all (no x/net/html function in its pclntab; govulncheck's symbol hit there is its module-level fallback for a stripped binary). 2026-11-09: the bundled plugin's brotli 1.2.6 (GO-2026-6888) is reachable only through a data source a player points at their own server; plugin 13.2.5 (grafana.com catalog, 2026-10-27) has 1.2.7, Grafana 13.3.0 bundles 13.2.4"
+source = "bricks/grafana/Dockerfile ARG GRAFANA_VERSION=13.3.1, GRAFANA_BUILD=42849527790, sha256-pinned release tarball (6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531; v0.5 wave 5, spec D445/D446/D448, gate G11.3; was 13.3.0, owner ruling D396, and 13.2.4 before; the brick label stays 0.3.0, unreleased, owner ruling D458). grafana 0.3.0 adds an optional pgwatch dashboard seed (JSON over the Prometheus series, no plugin). Built image 2026-11-12: grafana --version 13.3.1, binary SHA-256 f62d1816778c... and the bundled plugin's f1458b7bacfe... equal to the SBOMs'. The players log in as Grafana's administrator (the tools password). Fixed by 13.3.1 (its release notes; NVD published them 2026-11-11 with no CPE configuration yet, so cve-watch latest does not list them): CVE-2026-102589 (image-renderer key accepted across instances sharing renderer_token; no renderer here), CVE-2026-107509 (a Viewer crashes Grafana with an SQL Expression cast; the players are its administrators already), CVE-2026-110992, CVE-2026-111024, CVE-2026-13721 and CVE-2026-14242 (Git Sync provisioning path traversal and folder-permission bypasses; no Git Sync repository): none reachable as an attack here. Not in 13.3.1's notes: CVE-2026-110289 (GHSA-97fx-j86f-w2rp, Git Sync connection SSRF by an Org Admin, published 2026-11-11 with no affected or fixed range anywhere; no Git Sync connection here and the Org Admin is the players' own account): watch for its range. The grafana.com 2026-10-27 batch (CVE-2026-100105, -88858, -88967; CVE-2026-103506 behind the kubernetesSsoSettingsApi toggle, not set) fixed since 13.3.0. NVD (cve-watch latest --version 13.3.1: 0) and OSV clean 2026-11-12. Embedded modules: bricks/grafana/sbom/grafana.cdx.json (520 components, go1.27.3; main module left out: built as (devel), and OSV's Go records for github.com/grafana/grafana have no fixed version, so NVD above is its check; x/net 0.62.0, GO-2026-6860/6866 gone) and gpx_grafana-prometheus-datasource_linux_amd64.cdx.json (the kept bundled Prometheus data source plugin, plugin.json 13.2.5, its backend go1.27.3, stripped, 104 components; a child process on loopback gRPC with go-plugin's mTLS, an HTTP/1 client to Prometheus; brotli 1.2.7, so GO-2026-6888 is fixed, which was reachable through a data source a player points at their own server). Left, none reachable (2026-11-12): in grafana, GO-2026-5932 (x/crypto/openpgp) and GO-2022-0635/0646 (aws-sdk-go S3 crypto, no fix exists), modules only, no openpgp or s3crypto symbol (go tool nm); in the plugin, GO-2026-6860/6866 (x/net 0.61.0), no x/net/html function in its pclntab; in both, GO-2026-6859 (stdlib < 1.27.4), open in SECURITY_TODO.md, untriaged. The grafana.com catalogue's plugin 13.2.6 exists, not pinned (no security reason, G11.3)"
 
 [[platform]]
 name = "Python"
