@@ -7,7 +7,10 @@ adds the fault undetermined at the final answer, and 12 the judgement
 after a restart with no history; v0.4 master spec 11.7 adds what "fixed"
 means for a governance fault, 12.8 a check judging runs undetermined at
 the final answer, 16.3 a report judged against an incident and 16.5 an
-overstep on another party's system). v0.4 version, expected to evolve as
+overstep on another party's system; v0.5 master spec 6.3, 10.3, 13.4 and
+17.2 add a register fault judged on *propose*, a report-only fault on a
+display, a partner's support that never answered, traffic forged as a
+partner's, and a false alarm). v0.5 version, expected to evolve as
 games are played: the owner judges the tone and the tooling's usefulness
 at acceptance. A players' score is deferred (after v1.0, v0.3 master
 spec 2; a scenario's difficulty score is not the players'): v0.4 gives no
@@ -25,11 +28,13 @@ score and saves nothing.
 - the times the report gives its fixes, and the `--since` you passed for
   each fix made outside a job's runner (master spec 12.1);
 - what you read on a node the story gives another party, and any job
-  run by hand: the players' changes there, an overstep or none;
+  run by hand: the players' changes there, an overstep or none; and any
+  traffic forged as a partner's (a partner's side read as evidence);
 - `gm/answer-key.yaml` (`what`, `why`, `evidence`, `acceptable`; and
-  `tooling_expectations`: `need`, `expected`, `acceptable`, `notes`), the
-  issues of `scenario.yaml`, and `gm/notes.md`, whose feedback points are
-  written for this.
+  `tooling_expectations`: `need`, `expected`, `acceptable`, `notes`; a
+  register fault's `register_diff:`; `false_alarms`: `issue`, `why`,
+  `evidence`, `acceptable`), the issues of `scenario.yaml`, and
+  `gm/notes.md`, whose feedback points are written for this.
 
 ## Structure
 
@@ -113,7 +118,31 @@ it.
      set to run at once) is the same overstep: a run outside the
      schedule, which the rules forbid; a check reading `fixed` through
      it is not taken as the fix, and the point to make is that moving a
-     job's time is how to see a fix work;
+     job's time is how to see a fix work. Traffic forged as a partner's
+     (results or acknowledgements posted in its name from a node) is the
+     same: it earns nothing, and the point is that a partner's side is
+     evidence to read, never the customer's to write;
+   - **a register fault** (*propose*): the corrected entry in their
+     report against the answer key's `register_diff:` (the entry, the
+     field, the true value; or the register missing). Say what the
+     register declared and what the system does, and whether their
+     correction would close the gap; their copy of the handout in their
+     home changed nothing, which is no fault of theirs;
+   - **a report-only fault on a display** (a component no layer of
+     theirs, its firmware): judged on the report alone. Credit the chain
+     they followed (the statement, the excess, the unit, the display, the
+     animal) and the care taken (no instance-wide logging left behind);
+     say that the customer's technician would replace the display, and
+     that you never switched it off during the game;
+   - **a false alarm** (an issue covering no fault, `false_alarms`):
+     credit a report that concluded nothing is wrong, with the evidence
+     (the entry's `why` and `evidence`); when they named a cause that
+     is not there, say what showed it is not, kindly: telling a customer
+     "this is working as agreed", with the proof, is a finding too. A
+     change they made for it is judged as any change, never as a fix;
+   - **a partner's support**, which never answered during the game: credit
+     the message they would have sent, where the answer key says so;
+     a partner's internals were never theirs to reach;
    - one improvement, if there is one worth making.
 3. **The other faults present** (the hidden ones, and any known one the
    issues did not lead to), one block each: found or missed. When found,

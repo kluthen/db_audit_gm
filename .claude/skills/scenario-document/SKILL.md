@@ -8,7 +8,7 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). This is its **v0.4 version**, expected
+skill's [template](template.md). This is its **v0.5 version**, expected
 to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
@@ -25,7 +25,12 @@ node's write overrides, a behavioural check's window and threshold; see
 "The v0.3 items" below) and v0.4's (`specs/versions/v0.4/master-spec.md`,
 6.1, 6.2, 7.2, 11.5 and 14: the purposes a scenario uses, its domain, its
 governance and policy file, its database-node jobs, a check judging runs
-or triggers; see "The v0.4 items" below). The template's sections follow the keys of the
+or triggers; see "The v0.4 items" below) and v0.5's
+(`specs/versions/v0.5/master-spec.md`, 10.3 and 15, with capture W5
+item 5 of `specs/versions/v0.5/wave-log.md`: the "Third parties",
+"Composition" and "Data register" sections, a `pg_cron` job a purpose's
+`ddl:` schedules, a false alarm; see "The v0.5 items" and "The data
+register (v0.5)" below). The template's sections follow the keys of the
 format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -75,9 +80,13 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
    Two exceptions: a node's parameter whose value is a map is rendered by
    its `shape`, read from the pinned brick's `brick.yaml` (see
    "Map-valued parameters" below); and a database node's jobs are read
-   from its seed `crontab`, its seed `postgresql.conf`, its data file and
-   the `data/cron.sql` of each domain `domains:` places on it (see "The
-   v0.4 items" below).
+   from its seed `crontab`, its seed `postgresql.conf`, its data file,
+   the `data/cron.sql` of each domain `domains:` places on it and the
+   `ddl:` files of each purpose mapped onto it (see "The v0.4 items" and
+   "The v0.5 items" below). A scenario listing `domains:` adds its
+   composition record, `composition.yaml`, and `merge.yaml` when present
+   (the "Composition" section, "The v0.5 items" below), with the node
+   lines `tools/gmctl compose <dir> --check` prints.
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -107,8 +116,13 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      locations, separation, readers and outbound flows, and the policy
      file; every database node's crontab roles and each of its jobs
      (every crontab entry, every `pg_cron` job its data file schedules,
-     and from v0.5 every one a domain's `data/cron.sql` schedules there);
-     every check's `judges` and threshold;
+     and from v0.5 every one a domain's `data/cron.sql` or a purpose's
+     `ddl:` schedules there); every check's `judges` and threshold;
+   - from v0.5, when the scenario has them: every `domains:` entry with
+     its variant and `at:`, and `composition.yaml`'s keys, scale, order,
+     derivations and left-out producers, every `merge.yaml` resolution;
+     every `third_parties:` entry; every false alarm, its issue and its
+     `false_alarms:` entry with each evidence entry;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it
@@ -220,6 +234,57 @@ the v0.3 document, unchanged.
 - **A check judging runs or triggers**: under the sealed check, what it
   judges (`runs` or `triggers`) since the judged moment and its threshold,
   as the answer key writes them.
+
+## The v0.5 items
+
+Each is an "if:" block of the template: a scenario without the key gets
+the v0.4 document, unchanged.
+
+- **Composition** (`domains:`; master spec 8.4, 8.5, 15; capture W5
+  item 5): section 1's "Domains" row, and a subsection of section 3 after
+  the flows. It reads `scenario.yaml`'s `domains:`, `composition.yaml`
+  and `merge.yaml` (when present), lists the scenario layer's folders
+  `compose/<node>/` by path and the nodes `gmctl compose` writes, from
+  the node lines of `tools/gmctl compose <dir> --check` (design time, no
+  playground, nothing written; it must read `up to date`, else the
+  composition is a design step left undone): a row per domain (variant, `at:`,
+  `lands_with`, the `keys` it relies on), the load `order`, the
+  `derive` steps, the `scale` as checked, the `left_out` producers (a
+  fixture's) and each `merge.yaml` resolution (node, file, entry, the
+  source taken or "a value written", the reason). Its last line says
+  the coherence check runs at every setup and where its result is
+  recorded; **the result itself is never rendered**: `coherence:` is
+  setup state, rewritten by `load-data`, and the document, like the
+  register's digest (spec D465), leaves it out, so a setup never makes
+  the document stale. The domains' own files and the merged nodes'
+  files are named by path, never copied.
+- **Third parties** (`third_parties:`; master spec 10.3): a subsection of
+  section 3 after the purposes, a row per entry as `scenario.yaml`
+  writes it (id, name, what it stands for, role, nodes, hostname, its
+  `player_doc`, the customer's credentials with it by name), then the
+  GM-side facts: played by no one, its support contact never answering
+  during the game, its nodes `no-access` and named to no player; the
+  partners' hidden schedule by path (`partners-backend`'s
+  `schedule.yaml`); the fault instances whose node is one of its nodes.
+  The partners' page itself (`player/partners.md`) is named, not copied.
+- **A `pg_cron` job a purpose's `ddl:` schedules** (spec D456; purpose
+  6's `lab-critical-calls`): `load-data` runs each `purposes:` entry's
+  `ddl:` files (step (2b)) in the database its part is mapped to, so a
+  `cron.schedule_in_database` call in one is a job on that part's node,
+  listed in the node's jobs table like a domain's `data/cron.sql` job,
+  after them, in `purposes:` order: its name, schedule and `username` as
+  the call writes them, its database the part's mapped database when
+  the call writes `current_database()`. The jobs line names the purpose
+  and the file (`purposes/<id>/<ddl path>`, step (2b)). The file is read
+  from the catalogue for this alone.
+- **A false alarm** (an issue whose `covers` is `[]`, its
+  `false_alarms:` entry in the answer key; spec D459): in section 5 the
+  issue's "Covers" line says it covers nothing and points to section 6;
+  in section 6 a "False alarms" subsection after the tooling
+  expectations, one block per entry: the issue, `why`, the evidence
+  table (`where`, `source`, `how`, `shows`, as an instance's) and
+  `acceptable`. A false alarm is no fault instance: it has no row in
+  "Fault instances" and counts in no difficulty score.
 
 ## The data register (v0.5)
 

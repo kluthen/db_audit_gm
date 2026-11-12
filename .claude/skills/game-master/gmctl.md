@@ -1,8 +1,9 @@
 # `gmctl` for the GM — command reference
 
-Every call the [GM skill](SKILL.md) makes, as built in v0.4. Run from the
+Every call the [GM skill](SKILL.md) makes, as built in v0.5. Run from the
 repository root. Each subcommand takes `<scenario-dir> --playground
-<name>`, prints a readable result, and exits non-zero on failure; `gmctl
+<name>` (`compose` alone takes no playground: it runs at design time),
+prints a readable result, and exits non-zero on failure; `gmctl
 <subcommand> --help` is the authority when this page and the tool
 disagree. Fixed by captures W2-A, W2-C, W3-A and W3-B in
 `specs/versions/v0.1/wave-log.md` (master spec 11); v0.2 changes the
@@ -28,7 +29,21 @@ of the server log, spec D258), `check --since` and `--instance` with the
 judged moment (12.1), and the web front in every game, so the bastion's
 second port and the tools password in every game (7.3; spec D224,
 replacing D103); fixed by captures W1, W1-x, W1-z, W2, W2-x and W3-a in
-`specs/versions/v0.4/wave-log.md`.
+`specs/versions/v0.4/wave-log.md`. v0.5 (master spec 8.4, 8.5 and 15)
+adds one subcommand, `compose`, run at design time with no game, and no
+stage; `load-data` gains the composed load of a scenario listing
+`domains:` (each domain's databases and files, its partners' state and
+its `data/cron.sql`, the purposes' DDL, the GM check role's read policy
+on the tables with row security, the derivations, the purposes'
+histories), then **the coherence check**, whose failure fails the step
+as a design error, and the standbys' clone; `snapshot` records a
+primary's replication slots and `restart` clones the standbys again
+from the snapshot; `inject` runs a `state` fault's script on the node an
+`on:` parameter names and lists a `topology` fault as planted by the
+topology, running nothing; fixed by captures W1 (item 7), W2 (item 3),
+W4 (item 7) and W5 (item 5), with the as-built addenda W2-a to W2-g and
+W5-h, in `specs/versions/v0.5/wave-log.md`, and spec D397, D432, D459
+and D465.
 
 ## Stages
 
@@ -49,7 +64,11 @@ stage reached, the `--reason` text (or `null`) and the time. Only the
 first one writes it (a later teardown leaves it as it is); a failed game
 keeps stage `failed` and its failure beside it. A new game has no record,
 and a stage or failure recorded after it (a retried `deploy`) clears it.
-The teardown a failed step runs itself writes none.
+The teardown a failed step runs itself writes none. v0.5 adds no stage:
+`compose` runs with no game and records nothing in `state.yaml`; the
+coherence check is part of `load-data`, before `data-loaded`, and
+records `coherence: {run_at, result, checks}` in `state.yaml` beside the
+`coherence:` key it rewrites in the scenario's `composition.yaml`.
 
 ## Commands
 
@@ -60,10 +79,10 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts (or one shared host) `[--host <name>[,manager][,shared][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]`; either form `[--overlay-range <cidr>]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted`; `overlay_range` in `playground.yaml` with `--overlay-range` (D183: the range a game on several hosts takes its overlay's /24 from; kept by a re-fit without the option; never declared: 10.20.0.0/16); `shared: true` on a host given `shared` (written only when given; absent, not shared) | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, a node carrying a fault that declares `needs_unshared_host` placed on a `shared` host (naming the mapping to change, `--map <designed host>=<host>` onto a host that is not shared), a playground whose only hosts are shared for such a scenario (v0.4 master spec 13.3), `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; an `--overlay-range` that is not IPv4, wider than /8, narrower than /24, with host bits set or outside 10/8, 172.16/12 and 192.168/16; these last write nothing) |
 | `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS] [--overlay-range <cidr>]` | `rendered`, or `failed` in deploy | `deployed`; `images` in `state.yaml` on several hosts | 0; 1 refused (an image missing on the manager; on several hosts: `--init-swarm`, a host with nodes not `Ready` and `active` in the swarm, naming `docker node update --availability active <host>`, which the owner runs, or a host that does not answer without an SSH agent and a terminal, as a host timer's run reaches it; a Docker context `dbagm-<host>` aimed elsewhere; no free /24 left in the range in force, or the recorded overlay subnet, inside that range, now overlapping a network: each names the networks taken and their hosts, and the way out, `--overlay-range <cidr>` for this run or `gmctl fit --overlay-range <cidr>` for the playground (D183); an `--overlay-range` `fit` would refuse; nothing created) or failed. `--overlay-range`: this run's range in place of the playground's, not recorded in `playground.yaml` |
-| `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed (a data file, a role's or a user mapping's password, the GM check role's grants or read policies, or a `pg_cron` launcher not connected within 60 s: torn down, stage `failed`) |
-| `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
+| `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed (a data file, a domain's, a purpose's DDL, a derivation or a history, a role's or a user mapping's password, the GM check role's grants or read policies, a `pg_cron` launcher not connected within 60 s, a standby's clone, or the coherence check returning a row, a design error: torn down, stage `failed`) |
+| `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`; a script whose `on:` parameter names a node the game lacks: nothing run) or failed |
 | `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
-| `tools/gmctl inject <dir> --playground <pg> --at <YYYY-MM-DDTHH:MMZ>\|now --instance <id>` | `load-started` | `plantings.<id>`: its host timer, or its attempt and, on success, `planted_at` | 0 scheduled or planted; 1 refused (not a `state` instance, a T0 instance (master spec 8.5), an instant not in the future or at or after the planned hand-over, an instant for an instance already planted, at or after hand-over) or the planting failed (recorded, nothing torn down, the stage unchanged) |
+| `tools/gmctl inject <dir> --playground <pg> --at <YYYY-MM-DDTHH:MMZ>\|now --instance <id>` | `load-started` | `plantings.<id>`: its host timer, or its attempt and, on success, `planted_at` | 0 scheduled or planted; 1 refused (not a `state` instance: a `seed-file`, `parameter` or `topology` fault, planted at render; a T0 instance (master spec 8.5), an instant not in the future or at or after the planned hand-over, an instant for an instance already planted, at or after hand-over) or the planting failed (recorded, nothing torn down, the stage unchanged) |
 | `tools/gmctl check <dir> --playground <pg> --early-check` (never with `--since` or `--instance`: exit 2) | `load-started` (the host timer runs it; the GM may run it again) | `early_check.result`; the outages; the earliest hand-over | 0 passed; 1 failed (recorded, nothing torn down); 2 refused (no scheduler node, another stage) |
 | `tools/gmctl check <dir> --playground <pg> --handover-check` (never with `--since` or `--instance`: exit 2) | `load-started`; `injected` with no scheduler node | a record in `handover_checks`; the outages; the earliest hand-over | 0 passed; 1 failed; 3 failed only on too-soon readings (wait the longest remaining window, then run it again); 2 refused |
 | `tools/gmctl snapshot <dir> --playground <pg>` | `load-started` with the earliest hand-over reached; `injected` with no scheduler node | `snapshot`: `taken` with each copy's host and volume (`dbagm-snapshot_<game id>_<node>_<volume>`, labelled `dbagm.snapshot=<game id>`) and, from v0.5, each primary's (a `postgres` node that is no standby) persistent physical replication slots under `slots:` (its standbys' own slots and temporary ones left out), `not-fitting` when `fit` said the copies do not fit (nothing copied), or `failed` with its reason (its copies removed, nothing torn down) | 0 taken or not fitting; 1 refused (another stage, before the earliest hand-over or while it waits for a planting, once handed over) or failed (run it again). Each volume by its brick's method; a `stop` brick (Prometheus, Grafana) is stopped briefly and started again; the nodes with a `vault_target` (an archiving `postgres` node) copied first, then the rest in `nodes` order, so the vault's copy is the later one (`postgres`' `docs/gm.md`, "Snapshot"); taking it again replaces the copies |
@@ -291,17 +310,50 @@ password or key. The GM's reads, one per tool, are in the skill's
   running; <n> line(s) of its start-up failures removed from the server
   log (<files>)`; a log that did not switch files is left as it was,
   with a `warning:` line.
+  The composed load's own summary lines (v0.5, a scenario listing
+  `domains:`; capture W2 item 3), before the passwords': `<node>/<db>:
+  database created for the domains, CONNECT revoked from PUBLIC`, one per
+  domain file run (`<node>/<db>: <what>`), `<node>/partners: partner
+  <prefix>'s state (<domain>)`, `<node>/<db>: purpose <id>'s DDL (<part>),
+  unseen`, `<node>/<db>: <domain>'s derivation, unseen`, `<node>/<db>:
+  purpose <id>'s history, unseen`, then **the coherence check**:
+  `coherence check: pass (<n> passed, 0 failed, <k> skipped; recorded in
+  composition.yaml)`, and under it `<domain> <check>: skipped (<reason>)`
+  for each check reading a domain not composed (or the partners'
+  database in a game with none). Its record is `composition.yaml`'s
+  `coherence: {run_at, result}`, that key alone rewritten, every other
+  line byte for byte (the register's digest leaves it out, spec D465),
+  and `state.yaml`'s `coherence:` with each check's outcome. A check
+  returning a row fails the step as a design error, never a fault: the
+  reason reads `the coherence check failed on <n> check(s): a design
+  error, never a fault (fix the composition, a range, a function or a
+  scale, and reload; master spec 8.5)`, then each failing check, `<domain>
+  <check> (<what>): <count> row(s); first <k>:` and its first ten rows as
+  JSON. Last of the step (v0.5), each standby is cloned from its primary,
+  in topology order: `<standby>: cloned from <primary>, a standby
+  streaming from slot <slot>`.
 - **A failed setup step** (`deploy`, `load-data`, `inject`): `setup failed
   before stage <stage>: <reason>`, the teardown it ran, then `Recorded in
   state.yaml (stage failed).` A `load-data` step's reason ends `psql exit
   N: <line>`, psql's first `ERROR:` line (else `FATAL:` or `psql:`, else
   its first line of output).
 - **`inject`**: one line per script, `<instance> <script> (<node>, as
-  <user>): ok|exit N`, then the script's output indented 4 spaces; the
-  summary names each fault it ran nothing for, `<instance>: seed-file
-  fault, planted by the seed files; nothing to run` or `<instance>:
-  parameter fault, planted at rendering; nothing to run`. Spoilers: keep
-  it from the players.
+  <user>): ok|exit N`, then the script's output indented 4 spaces;
+  `<node>` is the node the script ran on: the instance's, or, for a
+  script item written `{script: <path>, on: <parameter>}` (v0.5, spec
+  D459; capture W5-h), the node that parameter's value (else its
+  default) names, with the same user and `FAULT_*` variables, in the
+  fault's script order (a node the game lacks is refused before anything
+  runs: `fault instance <id> (<fault>): <script> runs on parameter
+  <parameter>'s node '<node>', which is not a node of game <game id>`).
+  The summary names each fault it ran nothing for, `<instance>: seed-file
+  fault, planted by the seed files; nothing to run`, `<instance>:
+  parameter fault, planted at rendering; nothing to run` or (v0.5)
+  `<instance>: topology fault, planted at rendering by the topology;
+  nothing to run` (an option the instance's node does not choose); and
+  each instance planted later, `<instance>: planted at <plant_at>, once
+  the load runs (gmctl inject --at after gmctl start-load); nothing run
+  now`. Spoilers: keep it from the players.
 - **`start-load`**: `Game <id>: starting the load at <instant>.`, one
   line per scheduler node (`running since <instant>` or `FAILED:
   <reason>`), then `Load started: T0 <instant>. Stage load-started.`, the
