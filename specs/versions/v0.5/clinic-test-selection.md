@@ -1,6 +1,6 @@
 # v0.5 — the clinic's test selection
 
-Status: draft v5 (2026-11-12): s8's witness and present reading, s10's resolutions and fixed reading, s5's calibration, the reports fixture as built (D461–D464). Draft v4: the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325), s6 for the data register's T307 (D332). The spec's own pick of faults from
+Status: draft v6 (2026-11-12): s4's calibration as built, and the clinic leaving s4 out (D466). Draft v5: s8's witness and present reading, s10's resolutions and fixed reading, s5's calibration, the reports fixture as built (D461–D464). Draft v4: the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325), s6 for the data register's T307 (D332). The spec's own pick of faults from
 the [traps](clinic-traps.md), for the build's tests and the proof in
 play: a fixture, not the canonical scenario (D309). A game's faults are
 the GM's to select at deploy, with whoever sets up the game; this
@@ -34,8 +34,13 @@ the selection planted at once ([README](README.md#testing-in-v05-d314)).
 Calibration for the classes: s1 is the customer's complaint (the
 emergency team's blood gases hours late); s2 has no copy of the last
 hours in the vault and nothing says so; s3 is a year deep with the next
-yearly report due in January; s4 is planted with the partner's standing
-slowness only, a few duplicates a week, so it stays minor; s8 an hour's
+yearly report due in January; s4's evidence needs a post answered after
+the runner's ten seconds while each of `lab-api`'s statements waits under
+its five-second `statement_timeout` (a longer wait is a rolled-back 503,
+retried under the same key), so it stays minor, and nothing in the
+clinic plants that slowness: `aldermoor-centre` leaves s4 out, its check
+reading too soon at the hand-over, and s4 is proven on its fixture
+alone (D466); s8 an hour's
 delay, the customer's "for safety"; s5 is planted a few hours before T0,
 so former owners have had hours, not days, to look, and it stays minor; s9 at one
 display looping about once a second, below what saturates the ward's
@@ -180,7 +185,8 @@ the deployment.
 ## The proof in play (D314)
 
 The whole clinic deployed once on armenelos plus the VPS, every part
-built, the ten faults and the false alarm planted at once. Its checks
+built, the ten faults but s4 (left out of the clinic, D466) and the
+false alarm planted at once. Its checks
 (ruled, D339): the deployment and `fit`; every producer, partner and
 purpose running for about 30 minutes, each one's first run read; each
 fault's present reading where it reads within the window (s2, s5, s6,
@@ -193,8 +199,8 @@ None of the ten may exhaust a node's memory, so none sets
 `needs_unshared_host` and the placement is free on that count; the VPS
 rules still bind the run (D159).
 
-Unproven in v0.5 (the major test before the v1.0 tag): the ten faults
-at once through their cycles after a full aging, the classes as the
+Unproven in v0.5 (the major test before the v1.0 tag): the clinic's
+nine faults at once through their cycles after a full aging, the classes as the
 hand-over finds them (s1 noticed, s2 and s3 on the verge), s5's
 exposure over days, the feeders at their own hours, s9 found
 across a hand-over.

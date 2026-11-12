@@ -353,6 +353,19 @@ W4 (D432). O247, raised by placing the owner's security rulings of
   binding released versions; chunk 34 is written so, 0.3.1 adding the
   re-pins to its commit. Refs: [build plan](versions/v0.5/build-plan.md)
   chunk 34; [master spec](versions/v0.5/master-spec.md) 6.7.
+- **O249** (later, before the clinic is first played, v1.0 gating;
+  raised by D467) — The partner stubs' reference counters: the
+  authority's `AMU<year>-NNNN` and the head office's `HO<YYYYMM>-NNNN`
+  count the stub's own rows (`count(*) + 1`), empty at the load, so the
+  first live reference restarts at 0001 after the series the purposes'
+  histories plant on the customer's side (chunk 35, D451). No repeat
+  (the year or month is in the reference), but a player may read the
+  count not continuing as a fault. Proposed: each stub's `data.sql`
+  seeds its rows (or an offset) to continue the planted series, from the
+  history's own `load_epoch` derivation, a test reading the first live
+  reference. Refs: `purposes/vet-antimicrobial-use/` and
+  `purposes/vet-head-office-figures/` (`material/receiver/`);
+  [build plan](versions/v0.5/build-plan.md) release gate item 12.
 
 
 ## v0.6: the setup's entry point

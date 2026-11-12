@@ -1,7 +1,7 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v17 (2026-11-12): chunk 37 inserted (spec D465, the register's digest of `composition.yaml` without its `coherence:` key), wave 5 at ten chunks, its edges and order, G19.
-v16 (2026-11-12) wrote in D459–D464.
+Status: v18 (2026-11-12): before chunk 27, the chunks' open points settled (spec D466–D468): the clinic leaves s4 out (chunk 27, G13), the stubs' counters a known limit (O249, release gate item 12), the scenario document without the coherence result (G19).
+v17 (2026-11-12) wrote in D465 (chunk 37); v16 D459–D464.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -103,13 +103,13 @@ plan states only its deltas. Its conventions follow v0.4's
 | G11.3 | **Dependency preflight** on `grafana` 0.3.0's bundled Prometheus data-source plugin at 13.2.5 or later (brotli GO-2026-6888, spec D448): the first Grafana release bundling it (its other modules checked as at G9), else the catalogue plugin 13.2.5 (or later), sha256-pinned beside Grafana 13.3.0; the version label is O247's | `security-advisor`, called by the wave driver at wave 5's start | Chunk 34's branch | done (2026-11-12, wave log): CLEAR, Grafana 13.3.1 bundles the plugin at 13.2.5 (brotli 1.2.7), tarball sha256 `6acf8939…8531`; the catalogue route not needed |
 | G11.4 | **Dependency preflight** on Prometheus 3.16.x (its latest patch release at the build, the 3.13 LTS line left: GO-2026-6865, grpc GHSA-2v4p-qf9q-27wj; spec D446, D448), and the **post-change check** on chunk 34's resolved versions (both images, `.tech`, the SBOMs) before wave 5's gate | `security-advisor` | Chunk 34's branch; wave 5's gate | done (2026-11-12, wave log): preflight CLEAR, Prometheus 3.16.0; post-change check CLEAR on chunk 34 as merged, `.tech` at 982ebe0 |
 | G12 | **The VPS window** for G13, under the VPS rule (workflow deltas): the VPS's own documentation read first; `tailscale status` on both hosts; the VPS still a drained worker of armenelos' swarm; no game port published on it; free disk for its share (about 4.9G of volumes and 1.5G of images, [clinic-capacity.md](clinic-capacity.md)); filetstudio.com answering before the run | Hand check by the wave driver | G13 | open |
-| G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
+| G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, but s4, which the clinic leaves out (spec D466), each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
 | G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, its order settled (O224, spec D343): the exporters kept, pgwatch dropped | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
 | G15 | The owner's judgement at release close: the short tests as run, G13's run, the named known limits and what stays v1.0 gating | The owner | Release close | open |
 | G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 | G17 | [formats.md](../../formats.md) and master spec 5 carry chunk 29's format items as built (spec D401): a part's `data/keys.sql`, `composition.yaml`'s `left_out:`, a `history` on a purpose with no feeder and its `target` on the partners' database, a domain's `data/cron.sql` (spec D405), the purposes' DDL step in `load-data`'s order. Written from W3-f | `spec-writer`, after wave 3's gate | Release gate item 6 | done (2026-11-05, wave log) |
 | G18 | [formats.md](../../formats.md) and master spec 5, 6 and 12.1 carry wave 4's format items as built (spec D437): a purpose's `source_<w>` and `runner_<w>` parts, `pg_cron` jobs on a database part, the material layout, the `ops` block and the calendar-gated cadences ("Purpose definition"; master spec 6.6, 12.1); step (2c), `gm_check_read` ("Loading a composed domain"; spec D432); the register's form, its digests and the `fixture-` exemption (spec D434), the `credentials:` key and `partners.md`'s placeholders ("Scenario", "Partners"); the `cron.sql` database refusal ("Domain"; spec D433); the invariant ids, `data_moved.reads` in the scenario's key form, HTTP connections `<part>_<w>` and endpoint material's `api.yaml` ("Purpose definition"; spec D438), one end-to-end invariant per round trip (spec D440). Written from W4-a to W4-g | `spec-writer`, after wave 4's gate | Release gate item 6 | done (2026-11-10, formats.md v32, master spec 5, 6, 6.2, 6.6, 12.1) |
-| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`); and formats.md ("Scenario", the data register's `generated_from:` and its digests) and master spec 6.2 carry chunk 37's exclusion (spec D465): `composition.yaml` digested without its top-level `coherence:` key and the lines indented under it, every other input by its bytes. Written from W5-h and chunk 37's Record | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
+| G19 | [formats.md](../../formats.md) ("Fault definition", "Scenario") and master spec 6.3 and 6.4 carry chunk 36's forms as built (spec D459): a `state` script run on another node (`injection.scripts[]`'s `{script, on: <parameter>}`), `injection.kind: topology` with `option_absent`, a false alarm (an issue with `covers: []`, `expected_resolution: report`, the answer key's `false_alarms:`); and formats.md ("Scenario", the data register's `generated_from:` and its digests) and master spec 6.2 carry chunk 37's exclusion (spec D465): `composition.yaml` digested without its top-level `coherence:` key and the lines indented under it, every other input by its bytes; and formats.md ("Composing domains", where the result is recorded twice) states that the scenario document never shows the coherence result, setup state (spec D468). Written from W5-h, chunk 37's Record and W5-e | `spec-writer`, after wave 5's gate | Release gate item 6 | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -2208,7 +2208,8 @@ Architecture capture: none of its own; it reads W1 to W5.
   hosts, the monitoring breadth, `health` on the VPS by O226, `domains:`
   in the `regional-franchise` variant, `third_parties:` with the nine
   partners and the `owners` hostname, `options:`, the standby, the
-  purposes in use, the faults: the test selection, s1 to s10 and fa);
+  purposes in use, the faults: the test selection but s4, so s1 to s3,
+  s5 to s10 and fa, nine faults and the false alarm (spec D466));
   `gmctl compose` run, `merge.yaml` and `composition.yaml` written; the
   story, naming the centre, the off-site room and the partners by their
   in-world names; the data policy adapted from the domains' default
@@ -2226,7 +2227,16 @@ Architecture capture: none of its own; it reads W1 to W5.
   7 both in use, purpose 5's `clinic-reports` connection targets the
   standby as purpose 7's does (its `gm.md`); every brick pinned at the
   version chunk 34 leaves (`prometheus` 0.2.1); `bastion` 0.5.0 carries
-  `curl` (spec D443).
+  `curl` (spec D443). **From wave 5** (spec D466): s1's diff applied
+  alone to `compose/interfaces/scripts/lab_orders.py` (`patch -p1` from
+  `compose/interfaces/`, W5-a), `gmctl compose` rerun; no issue from
+  s4's complaint, s1's the only `backlog:` on the orders round trip;
+  s4's `gm.md` aging paragraph corrected: nothing standing answers a
+  post after the runner's timeout (`lab-api`'s five-second
+  `statement_timeout` turns a longer wait into a rolled-back 503), so a
+  scenario selects s4 only with that slowness planted and stated, else
+  its check reads too soon at the hand-over, a failure (`at_handover` 3
+  only when masked); the clinic leaves it out.
   - Out: the deployment and the smoke (G13, the release gate).
 - Files: `scenarios/aldermoor-centre/` (new): `scenario.yaml`,
   `composition.yaml`, `merge.yaml`, `brief.md`, `README.md`, `data/`,
@@ -2234,7 +2244,9 @@ Architecture capture: none of its own; it reads W1 to W5.
   `gm/{answer-key.yaml,data-register.yaml}`;
   `tools/tests/fixtures/fixture-clinic-load/` (built at wave 3's gate,
   spec D407; changed here); the root
-  `README.md`'s scenario table.
+  `README.md`'s scenario table; `faults/purpose-retry-without-key/gm.md`
+  (its aging paragraph) and the matching comment in its `fault.yaml`
+  (spec D466).
 - Spec sections: master spec 14, 17.1 to 17.4, 19 item 10, 20 items 3
   and 4; [clinic-capacity.md](clinic-capacity.md).
 - Done when: the scenario passes the format skill and the loader; the
@@ -2952,8 +2964,8 @@ exception. GM-side checks run from the host.
 5. **The whole clinic deployed once** on armenelos plus the VPS: G12,
    then G13, about 30 minutes, every fault read present only where it
    reads within the window (s2, s5, s6, s7, s8, s9 and s10 at once; s1
-   at the first urgent order, if one comes; s3 resting on its fixture),
-   no fault fixed; the VPS drained after and filetstudio.com answering.
+   at the first urgent order, if one comes; s3 resting on its fixture;
+   s4 left out of the clinic, spec D466), no fault fixed; the VPS drained after and filetstudio.com answering.
 6. **The format, the loader and the skills**: formats.md v28's items in
    the templates, the loader and the `scenario-format` skill, with
    wave 2's, chunk 29's, wave 4's and chunks 36's and 37's as-built items
@@ -2987,7 +2999,9 @@ exception. GM-side checks run from the host.
     stance check-list, the parts' long views); no hand-over snapshot for
     the whole clinic on these declarations; what a restore from the
     hand-over snapshot does not give back, the accumulated WAL and the
-    cumulative statistics (master spec 15, spec D397); the access
+    cumulative statistics (master spec 15, spec D397); the partner
+    stubs' references restarting at 0001 after the planted AMU and HO
+    series (spec D467, O249); the access
     model's known gaps that stand; the risks the owner accepted, with
    their end dates (`curl`, spec D443: 2027-02-01 or the next trixie
    upload; `.tech`'s ignores, spec D444: 2027-05-01); the security

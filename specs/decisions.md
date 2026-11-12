@@ -1541,3 +1541,29 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   `load-data`. Rejected: the result in `state.yaml` only (it changes the
   format and the GM's composition record). Now in:
   [build plan](versions/v0.5/build-plan.md) chunk 37 and G19.
+- **D466 (2026-11-12, chunk 22's finding, before chunk 27; spec-writer,
+  the GM's selection): `aldermoor-centre` leaves s4 out, nine faults and
+  the false alarm within the owner's budget (one dramatic, two on the
+  verge, six minor); s4 stays built, proven on the orders fixture, for a
+  scenario that plants the slowness.** Nothing in the clinic answers a
+  post after the runner's ten seconds while each `lab-api` statement
+  waits under its five, so s4's check reads too soon at the hand-over (a
+  failure, v0.4 12.2) and after any fix. Rejected: planted slowness (a
+  lock or sleep in the customer's own lab, itself a finding, no chunk
+  building it); 3 accepted at the hand-over (an owner's rule change, the
+  fix still never judged). Now in: [master spec](versions/v0.5/master-spec.md)
+  18.3, 18.4; [test selection](versions/v0.5/clinic-test-selection.md);
+  [build plan](versions/v0.5/build-plan.md) chunk 27, G13.
+- **D467 (2026-11-12, chunk 35's finding; spec-writer): the partner
+  stubs' references restarting at 0001 after the planted AMU and HO
+  series are accepted in v0.5, a known limit; seeding the stubs' counters
+  waits until the clinic is first played (O249).** No v0.5 run plays the
+  clinic, the stubs number a live post only on the 1st to 5th at 05:00
+  (HO) or on 15 January (AMU), and the fix spans two purposes' stubs and
+  their fixtures. Now in: [build plan](versions/v0.5/build-plan.md)
+  release gate item 12; [open questions](open-questions.md) O249.
+- **D468 (2026-11-12, chunk 26's choice, recorded by spec-writer): the
+  scenario document never shows the coherence result: setup state, as
+  for the register's digest (D465), so a setup never makes the README
+  stale.** Now in: [build plan](versions/v0.5/build-plan.md) G19
+  (formats.md, "Composing domains").

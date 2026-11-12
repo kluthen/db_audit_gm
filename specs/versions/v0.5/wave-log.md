@@ -7586,3 +7586,18 @@ regenerate fixture-send-outs' README (it has `domains:`,
 `third_parties:` and chunk 22's false alarm, so lacks the new sections).
 Risk: s9/s10's judging is written generically; chunk 25's as-built may
 add a line to Evaluation.
+
+### Plan v18: the open points before chunk 27 (D466–D468), 2026-11-12
+
+`spec-writer`: **s4** left out of `aldermoor-centre` (D466, the GM's
+selection): nothing in the clinic answers a post after the runner's ten
+seconds while each `lab-api` statement waits under five, so its check
+would fail the hand-over check; nine faults and fa, s4 proven on its
+fixture; chunk 27 applies s1's diff alone and corrects s4's `gm.md`;
+master spec 18.3, 18.4, the test selection, G13 and release gate item 5
+follow. **The stubs' counters** accepted in v0.5, a known limit
+(release gate item 12), the fix tracked as O249 for the clinic's first
+play (D467). **W5 item 1's "`-routine`" wording**: no spec text carries
+it (master spec 17.3 and chunk 22 already read "routine-posted"); W5-a's
+correction stands, nothing for G19. **The README without the coherence
+result** (D468) joins G19 for formats.md.

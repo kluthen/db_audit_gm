@@ -3574,7 +3574,9 @@ milestone only. Its checks:
 - the deployment and `fit`;
 - a short smoke, **about 30 minutes**, with every producer,
   partner and purpose running and each one's first run read;
-- **the test selection planted at once**, **each fault read present
+- **the test selection planted at once**, but s4, which the clinic
+  leaves out (nothing there answers a post after the runner's timeout;
+  proven on its fixture, D466), **each fault read present
   only**, where it reads within the window: s2, s5,
   s6, s7, s8, s9 and s10 at once (s5 as a planted former owner's visit,
   s6 the handout against the vault's page, s8 the delay in effect with
@@ -3589,8 +3591,9 @@ milestone only. Its checks:
 Moved to the major test before the v1.0 tag, and listed in the
 roadmap's v1.0 gating so none is lost:
 
-- **the clinic aged and played**: a full aging and a session, the ten
-  faults at once through their cycles; the classes as the hand-over
+- **the clinic aged and played**: a full aging and a session, the
+  clinic's nine faults (the test selection but s4, D466) at once through
+  their cycles; the classes as the hand-over
   finds them (s1 already noticed, s2 and s3 on the verge); s5's exposure
   over days; s9 found across a hand-over;
 - **the overnight and periodic cadences in scenario time**: the feeders
