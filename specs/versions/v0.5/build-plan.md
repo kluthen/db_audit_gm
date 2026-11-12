@@ -1981,7 +1981,7 @@ backlog entry for s1. As built: W5-a.
 
 ### Chunk 23 — The archive faults: s2 and s6
 
-Status: blocked (on chunk 37; WIP 009b864 on `v0.5-c23-archive-faults`)
+Status: in progress (resumed from WIP 009b864 after chunk 37)
 Wave: 5
 Depends on: chunks 11 and 17 (waves 2 and 4); chunk 37 (in wave: its
 fixture runs and merge; resumed from its WIP `009b864` once 37 has
@@ -2868,7 +2868,8 @@ Preflight corrections item 1, and spec D459; read by chunks 22 (fa),
 
 ### Chunk 37 — The register's digest of `composition.yaml` without its `coherence:` record
 
-Status: planned
+Status: merged (w5, cd660dd)
+Record: 0dca23f, merge cd660dd; `model.coherence_span` (the one span finder, `coherence.rewrite_record` uses it), `model.register_digest(rel, path)`; no deviation; a `composition.yaml` with no final newline reads stale once when the record is appended (all 16 end with one)
 Wave: 5
 Depends on: chunks 17 (wave 4: the register and its digests, W4 item
 1, spec D434) and 36 (in wave, merged: `model.py`'s last holder);

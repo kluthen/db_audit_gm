@@ -7484,3 +7484,19 @@ clinic (too-soon without planted slowness; `at_handover` allows 3 only
 when masked). Noted: `lis` again released no urgent test within 5
 minutes; the lock-slot slip at 12:36 (a waiter matched "done" in another
 reservation), no harm. Chunk 24 dispatched in the slot.
+
+### Chunk 37 merged (cd660dd); chunk 23 resumed, 2026-11-12
+
+`0dca23f`, merge `cd660dd`; unit suite 1258 OK (before 22's tests were
+counted together; 84 register and coherence tests OK on the merged
+branch). `model.coherence_span(lines)` is the one finder of the
+`coherence:` span (`coherence.rewrite_record` calls it);
+`model.register_digest(rel, path)` digests `composition.yaml` without
+it, every other input as `file_digest`. The `data-register` skill's
+step 3: "`sha256sum <file>`, except `composition.yaml`, digested
+without its top-level `coherence:` key …: `python3 -c 'from tools.gm
+import model; print(model.register_digest("composition.yaml",
+"<dir>/composition.yaml"))'`". Risk: a `composition.yaml` without a
+final newline reads stale once when the record is appended (none such
+in the repo). Chunk 23 resumed by a fresh `coding-leader` from WIP
+009b864, its branch taking `v0.5-w5` in first.
