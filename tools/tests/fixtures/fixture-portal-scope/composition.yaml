@@ -1,0 +1,32 @@
+# The portal-scope fixture's composition record (tools/tests, v0.5 chunk 25;
+# capture W5 item 4), as the portal fixture's (chunk 16b; spec D403, D404):
+# the core in records/clinic, its laboratory in records/lab and the owners'
+# portal in records/portal, loaded core first; the portal computes the core's
+# keys by the core's functions and its derivation copies the core's record
+# and the lab's released results into portal after both loads, reading them
+# through gm_src_vet_core and gm_src_vet_lab: sanctioned here (derive:). The
+# lab is composed for that derivation alone. Left out: every producer but the
+# portal's API, whose nodes the fixture does without (s5's short test writes
+# the sale itself, as pms and purpose 15 would); with no partners' database,
+# no partner's state is loaded.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-lab, at: records/lab}
+  - {id: vet-portal, at: records/portal}
+keys:
+  vet-lab: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner]
+  vet-portal: [core_owner, core_ownership]
+scale: {checked: true, note: "the core, its lab and the owners' portal at one centre's scale on one node: about 0.27, 0.33 and 0.20 million rows, 49, 54 and 78 MB"}
+order: [vet-core, vet-lab, vet-portal]
+derive:
+  - {domain: vet-portal, after: [vet-core, vet-lab], reason: "the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404)"}
+left_out:
+  - {domain: vet-core, producer: pms, reason: "no practice software: s5's short test writes the sale in clinic itself"}
+  - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node: the portal reads the core through its derivation"}
+  - {domain: vet-core, producer: partners/centres, reason: "no partners' nodes: the other centres' stub is fixture-exchanges' (spec D435)"}
+  - {domain: vet-lab, producer: lis, reason: "no laboratory information system node: the lab is composed for the portal's derivation alone"}
+  - {domain: vet-lab, producer: api/lab-api, reason: "no lab order API node"}
+  - {domain: vet-lab, producer: partners/xlab, reason: "no partners' nodes: the external lab's fragments composed in test_compose.py"}
+  - {domain: vet-lab, producer: partners/practices, reason: "no partners' nodes: the practices' fragments composed in test_compose.py"}
+  - {domain: vet-portal, producer: pms, reason: "no practice software: the desk's consent stream composed in test_compose.py"}
+  - {domain: vet-portal, producer: partners/owners, reason: "no partners' nodes: s5's short test makes the former owner's call itself (the owners' traffic is thin in a short watch, spec D423)"}

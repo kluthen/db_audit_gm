@@ -1,0 +1,14 @@
+# The scenario layer of node ward (v0.5 master spec 8.4), s9 planted
+# (scheduler-display-refresh-loop, unit 7): its intensity, no timeline;
+# 1.0: each display once a minute, 64 board reads a minute (vet-housing
+# docs/gm.md, "The producers"); and the faulty display's loop, about once a
+# second on the displays' connection (the fault's
+# inject/schedule.yaml.snippet, {RATE} 3600/h).
+intensity: 1.0
+streams:
+  - key: ward.board-loop
+    connection: ward-board
+    rate: 3600/h
+    arrivals: even
+    shape: flat
+    concurrency: 1

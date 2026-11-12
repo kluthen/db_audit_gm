@@ -1,0 +1,11 @@
+# The faulty display's loop (scheduler-display-refresh-loop), for the
+# scenario layer compose/ward/schedule.yaml, beside the layer's intensity:
+# one display, on the displays' connection. Replace {RATE} with the
+# instance's rate (3600/h: about once a second).
+streams:
+  - key: ward.board-loop
+    connection: ward-board
+    rate: {RATE}
+    arrivals: even
+    shape: flat
+    concurrency: 1

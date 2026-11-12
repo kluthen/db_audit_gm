@@ -1,0 +1,9 @@
+# The faulty display's key (scheduler-display-refresh-loop), for the
+# scenario layer compose/ward/queries.yaml: ward.board's SQL byte for byte
+# (vet-housing's producers/ward/queries.yaml), its unit fixed. Replace
+# {UNIT} with the instance's unit.
+queries:
+  ward.board-loop:
+    sql: SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s
+    params:
+      unit: {int: [{UNIT}, {UNIT}]}
