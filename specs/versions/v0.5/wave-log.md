@@ -7752,3 +7752,45 @@ limit. Build plan: release gate item 12's release notes name it, item 3
 points to it, chunks 27's and 38's "Out" cite D471 instead of O250; no
 chunk, gate or wave changes, the plan's Status line left to the next
 revision.
+
+### Chunk 27 merged (e0b753c), 2026-11-12
+
+Third owner, from WIP `9391eaf` after chunk 38: 27a `3b1965a` (the WIPs
+squashed), 27b `3b01321`, merge `e0b753c` (no conflict). Loader and
+format clean on `scenarios/aldermoor-centre` and `fixture-clinic-load`;
+`gmctl compose --check` up to date (11 composed nodes); register 22
+entries, 23 internal lines, 7 index locations, no `partners-db` (D469),
+coverage and digests current, regeneration identical; README 1534 lines
+by a deterministic renderer (scratchpad `c27/render_readme.py`), a fresh
+regeneration identical, no coherence result (D468). **`fit`: fits.**
+armenelos (17 nodes) CPU 2.75+0.4 = 3.15/4, memory 3.04G/4G, disk
+12.49G/20G; the VPS declared `shared` by its swarm name `vps-5718ad52`
+(8 nodes, images sized on the manager, nothing run there) CPU 1.3+0.2 =
+1.5/2, memory 1.9G/4G, disk 7.68G/10G; CPU 4.05 of 5.4 (75%) as
+clinic-capacity.md predicted: no trim, pgwatch stays, G14 not
+applicable. The hand-over snapshot fits neither host (warning, foreseen
+by the capacity document). **fixture-clinic-load** 28/28, 903 s
+(17:18–17:33, under the lock): coherence 27/27; `check-governance.sh`
+exit 0, "G1, G2, G3, G4 hold on 3 database nodes, 12 databases",
+`database_nodes` = records, lab, machines; G4 judged 38420 sent rows of
+`portal_outbox`. Unit 1277 OK.
+Deviations: the first unfaulted governance run (exit 1, 26/28) found
+the scenario's `governance:` wrong in two places, fixed in 27a: G2's
+unlisted readers `housing_app`, `housing_ward` (vet-housing),
+`mach_service` (vet-machinery, personal only); G4's payload keys
+`template, name, animal, due_on, link` (not `animal_name`). The
+register generator's two promoted entries (`vet-lab-notifications`,
+`vet-lab-billing`) gained their standby and cold-storage copies; s6's
+`register_diff` 40 → 44. `faults/purpose-retry-without-key/checks/probe.md`
+also took D466's correction. Fixture readers a subset of the scenario's
+(no purpose roles). `test_model`'s fixture-without-register test now
+asserts no `register` under `governance`. fixture-clinic-load's README
+refilled by section, not regenerated whole.
+**Gate fixes from it**: vet-housing's and vet-machinery's governance
+fragments omit those readers; vet-portal's `docs/policy.md` rule 7 omits
+the recipient's name and a reminder's due date; `fixture-register`
+carries the same wrong fields and readers; the scenario-document
+template has no slot for an issue's `backlog:` (s1's). For G13: read G2
+on the full clinic (transformers' and purposes' roles). All chunks of
+wave 5 merged (34, 36, 35, 22, 37, 23, 24, 26, 25, 38, 27). Next: the
+wave gate.

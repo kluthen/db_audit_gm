@@ -2211,7 +2211,8 @@ W5-e.
 
 ### Chunk 27 — The clinic scenario, `aldermoor-centre`
 
-Status: ready (resumes from WIP 9391eaf after chunk 38, merged)
+Status: merged (w5, e0b753c)
+Record: 27a 3b1965a (WIPs 4645537, 9391eaf squashed), 27b 3b01321, merge e0b753c; three owners (rotations, the D469 stop); `fit` fits: armenelos CPU 3.15/4, mem 3.04G/4G, disk 12.49G/20G; VPS (shared, `vps-5718ad52`) CPU 1.5/2, mem 1.9G/4G, disk 7.68G/10G; CPU 4.05 of 5.4 (75%), no trim (G14 not applicable), the hand-over snapshot fits neither host (warning, foreseen); fixture-clinic-load 28/28 (903 s): coherence 27/27, `check-governance.sh` G1-G4 hold on records, lab, machines (12 databases), partners-db not walked; register 22 entries, s6's `register_diff` 44 items; README 1534 lines, regeneration identical; unit 1277 OK; the governance run fixed the scenario's readers (`housing_app`, `housing_ward`, `mach_service`) and the messaging flow's fields
 Wave: 5
 Depends on: chunk 17 (wave 4); chunks 22 to 26 and 34 to 37, merged
 into `v0.5-w5` before this chunk's branch is cut; chunk 38, merged
