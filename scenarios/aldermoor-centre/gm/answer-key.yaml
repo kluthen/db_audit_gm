@@ -261,8 +261,9 @@ instances:
     evidence:
       - where: bastion
         source: the data register, ~/data-register.md (and the web front's "Data register")
-        how: grep -n -i 'cold storage' ~/data-register.md
-        shows: nothing; no entry's Shared with or Where names the vault
+        how: grep -n '\*\*Shared with\*\*\|\*\*Where\*\*' ~/data-register.md | grep -i 'cold storage'
+        shows: nothing; no entry's Shared with or Where names the vault (vet-machinery-monitoring's Kept
+          for line names it as where the raw vitals end, not as a recipient)
       - where: bastion
         source: records' archive settings and cold storage's manifests
         how: psql -h records -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source=records"

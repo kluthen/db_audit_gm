@@ -13,7 +13,7 @@ instances:
     evidence:
       - where: bastion
         source: the data register, ~/data-register.md (and the web front's "Data register")
-        how: grep -n -i 'cold storage' ~/data-register.md
+        how: grep -n '\*\*Shared with\*\*\|\*\*Where\*\*' ~/data-register.md | grep -i 'cold storage'
         shows: nothing; no entry's Shared with or Where names the vault
       - where: bastion
         source: records' archive settings and cold storage's manifests

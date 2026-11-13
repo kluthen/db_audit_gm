@@ -13,7 +13,9 @@ its planted test merges them."""
 
 import re
 import shutil
+import subprocess
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -346,6 +348,85 @@ class TestArchivePlanted(FixtureRendered):
             with self.subTest(entry=d["entry"], field=d["field"]):
                 self.assertNotIn("cold storage", str(d["handed_out"]).lower())
                 self.assertIn("cold storage", str(model.register_diff_true(d)).lower())
+
+
+S6_CHECK = REPO_ROOT / "faults" / "governance-register-flow-undeclared" / "checks" / "fixed.sh"
+S6_HANDOUT_LINE = "HANDOUT=/home/player/data-register.md\n"
+
+
+class TestS6SealedCheck(unittest.TestCase):
+    """s6's sealed check on a handout, run with the host's sh and awk (the
+    bastion's awk is mawk; both read the same): it matches the recipient on
+    an entry's Shared with and Where lines only, so a Kept for line naming
+    the vault leaves the fault present (G13's finding 2: the clinic's
+    vet-machinery-monitoring, "then the vault (cold storage, a game
+    value)")."""
+
+    ENTRY = ("### {id}: An activity\n\n"
+             "- **Purpose**: {purpose}\n"
+             "- **Where**: `records/clinic` (`owners`){copy}\n"
+             "- **Shared with**: {shared}\n"
+             "- **Kept for**: {kept}\n\n")
+
+    def run_check(self, handout, recipient=None):
+        script = S6_CHECK.read_text()
+        self.assertIn(S6_HANDOUT_LINE, script)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "data-register.md"
+            path.write_text(handout)
+            env = {"PATH": "/usr/bin:/bin"}
+            if recipient:
+                env["FAULT_RECIPIENT"] = recipient
+            run = subprocess.run(["sh", "-s"], input=script.replace(S6_HANDOUT_LINE, f"HANDOUT={path}\n"),
+                                 capture_output=True, text=True, env=env)
+        return run.returncode, run.stdout
+
+    def entry(self, id="a", purpose="Keeping the record", copy="", shared="no one", kept="5 years, then erased"):
+        return self.ENTRY.format(id=id, purpose=purpose, copy=copy, shared=shared, kept=kept)
+
+    def test_a_retention_line_naming_the_recipient_is_no_recipient(self):
+        handout = ("## The record\n\n"
+                   + self.entry("a", kept="today on site, then the vault (cold storage, a game value), then erased")
+                   + self.entry("b", purpose="Copies kept in Cold Storage's vault"))
+        rc, out = self.run_check(handout)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("names Cold Storage on none of its 2 entries", out)
+
+    def test_the_recipient_line_names_it(self):
+        handout = "## The record\n\n" + self.entry("a", shared="Cold Storage (the whole instance, archived), a processor")
+        rc, out = self.run_check(handout)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("names Cold Storage on 1 of its 1 entries", out)
+
+    def test_the_copy_line_names_it(self):
+        handout = ("## The record\n\n"
+                   + self.entry("a", copy="; cold storage (WAL archive, nightly base backup)")
+                   + self.entry("b"))
+        rc, out = self.run_check(handout)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("on 1 of its 2 entries", out)
+
+    def test_another_recipient(self):
+        handout = "## The portal\n\n" + self.entry("a", shared="the franchise's messaging service (`messaging`)")
+        self.assertEqual(self.run_check(handout)[0], 1)
+        self.assertEqual(self.run_check(handout, "franchise's messaging service")[0], 0)
+
+    def test_no_entry(self):
+        rc, out = self.run_check("# Data register\n\nNothing yet.\n")
+        self.assertEqual(rc, 2, out)
+
+    def test_the_handouts_as_served(self):
+        """The clinic's handout (s6 planted at its generation) and the archive
+        fixture's planted one read present; the archive fixture's unfaulted
+        one reads the vault on every entry."""
+        for path, want in ((REPO_ROOT / "scenarios" / "aldermoor-centre" / "player" / "data-register.md", (1, 22)),
+                           (FX_ARCHIVE / "planted" / "governance-register-flow-undeclared" / "player"
+                            / "data-register.md", (1, 6)),
+                           (FX_ARCHIVE / "player" / "data-register.md", (0, 6))):
+            with self.subTest(handout=str(path.relative_to(REPO_ROOT))):
+                rc, out = self.run_check(text(path))
+                self.assertEqual(rc, want[0], out)
+                self.assertIn(f"of its {want[1]} entries", out)
 
 
 # --- cold storage's page, its brick imports stood in --------------------------------

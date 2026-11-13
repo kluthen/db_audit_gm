@@ -1383,7 +1383,7 @@ Evidence, as the `player` user (and `dba` in psql):
 
 | Where | Source | How | Shows |
 |---|---|---|---|
-| `bastion` | the data register, ~/data-register.md (and the web front's "Data register") | `grep -n -i 'cold storage' ~/data-register.md` | nothing; no entry's Shared with or Where names the vault |
+| `bastion` | the data register, ~/data-register.md (and the web front's "Data register") | `grep -n '\*\*Shared with\*\*\\|\*\*Where\*\*' ~/data-register.md \| grep -i 'cold storage'` | nothing; no entry's Shared with or Where names the vault (vet-machinery-monitoring's Kept for line names it as where the raw vitals end, not as a recipient) |
 | `bastion` | records' archive settings and cold storage's manifests | `psql -h records -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source=records"` | records posts to the vault (vault-post), which lists records' nightly base backups and WAL segments |
 | `bastion` | cold storage's page (GET /) | `curl -s http://cold-storage:8000/ (the wal chart's columns and table)` | records' and lab's wal, and the three servers' basebackup shipments, day by day over five weeks |
 
