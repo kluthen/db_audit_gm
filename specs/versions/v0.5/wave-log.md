@@ -7901,3 +7901,16 @@ O251 (the loader's refusal for a bastion's `partners.md` mapping) is
 placed in v0.6's first chunk that touches `model.py`; spec-writer marks
 the entry at its next revision. D473 accepted (master spec 9.7 rule 7
 and 12.2 as built). Merge into main and push to origin.
+
+### Wave 5 merged into main, 2026-11-13
+
+On the owner's word ("merge and push"): `v0.5-w5` merged `--no-ff` as
+`e466247`; the wave's worktree and branches (v0.5-w5, v0.5-c22 to c27,
+c34 to c38) removed; main pushed to origin. Every v0.5 chunk is in; v0.5
+has no later wave. Next, in a fresh session: G12 (the VPS window), G13
+(the whole clinic on armenelos plus the VPS, the only time the VPS goes
+`active`; read G2 on the full clinic there), then the release gate
+(including item 6's backlog check, D472) and G15. Open for spec-writer:
+mark O251 placed in v0.6. Known limits: O249/D467 (stub counters), D471
+(standby and transformers' HTTP connections). The host lock protocol and
+driving from the top-level session still apply.
