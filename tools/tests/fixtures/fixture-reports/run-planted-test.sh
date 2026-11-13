@@ -446,12 +446,12 @@ if [ "$n" -gt 0 ]; then pass "present: the owner's name and phone in records' se
 else fail "present: neither the owner's name nor phone in records' log"; fi
 info "$(pglog records | grep -m 1 'Brennerkamp' | cut -c1-200)"
 # the evidence's own command (the fault's and the answer key's), as player:
-# the INSERT as a statement line, the UPDATE as an execute line with its
-# values on the DETAIL line after it
+# the INSERT as a statement line, its VALUES line (the name) the line after
+# it; the UPDATE as an execute line with its values on the DETAIL line
 ev=$(asplayer records "grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 10" 2>&1 || true)
 has() { printf '%s\n' "$ev" | grep -q -e "$1" && echo yes || echo no; }
-same "evidence as player: statement: INSERT with the name, execute <unnamed>: UPDATE, its Parameters with the new phone" \
-    "yes yes yes" "$(has 'statement: INSERT INTO owners.*Ottilie Brennerkamp') $(has 'execute <unnamed>: UPDATE owners') $(has 'DETAIL:  Parameters: .*5550102')"
+same "evidence as player: statement: INSERT, the name after it, execute <unnamed>: UPDATE, its Parameters with the new phone" \
+    "yes yes yes yes" "$(has 'statement: INSERT INTO owners') $(has 'Ottilie Brennerkamp') $(has 'execute <unnamed>: UPDATE owners') $(has 'DETAIL:  Parameters: .*5550102')"
 r=$(fcheck)
 same "gmctl check s7 at the planting: present: $(echo "$r" | cut -d' ' -f2- | cut -c1-220)" "1" "${r%% *}"
 
