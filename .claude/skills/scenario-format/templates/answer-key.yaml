@@ -9,7 +9,7 @@
 # check judging runs or triggers, its threshold) and v0.5 master spec 6.3
 # and 6.8 (a register fault's diff, a cascade's backlog, a third party's
 # evidence, a report-only fault outside the players' layers; capture W1 of
-# specs/versions/v0.5/wave-log.md). This file and
+# specs/versions/v0.5/wave-log.md) and 17.2 (a false alarm; spec D459). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -133,3 +133,19 @@ tooling_expectations:               # the GM's silent tooling expectations, apar
                                     # scraped by an exporter of its own, or its absence noted")
     acceptable: <what is acceptable, e.g. any of the top three tools for the need>
     notes: <for feedback>           # optional
+
+false_alarms:                       # optional: a scenario with an issue covering nothing (covers:
+                                    # [], expected_resolution report): one entry per such issue,
+                                    # each the issue of scenario.yaml it explains (v0.5 master spec
+                                    # 17.2, spec D459). A false alarm is no fault instance: it
+                                    # counts in no score and no fault cap, and has no visibility
+                                    # and no sealed check; judged at the final answer
+  - issue: <I3>                     # the issue's id in scenario.yaml, whose covers is []
+    why: <why there is no fault behind it, e.g. answered within the stated turnaround>
+    evidence:                       # as an instance's: where (bastion | node:<name> |
+                                    # ui:<name> | report:<tool>), source, how, shows
+      - where: <node:lab>
+        source: <file, view or command output>
+        how: <command run as player>
+        shows: <what in the output shows there is no fault>
+    acceptable: <what counts, e.g. the players report no fault behind it, citing the turnaround>

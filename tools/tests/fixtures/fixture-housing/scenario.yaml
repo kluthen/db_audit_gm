@@ -19,7 +19,9 @@
 # and care (T0 just before 17:00 local: the round's feedings, a nil-by-mouth
 # animal skipped, the care log's pace). One harmless seed-file fault (f1),
 # since a scenario needs at least one, copied from the core fixture.
-# Chunk 25 adds s9 (T150, the faulty display) and its answer key.
+# s9 (T150, the faulty display; chunk 25) is planted on a copy from the
+# overlay planted/scheduler-display-refresh-loop/ by run-planted-test.sh,
+# this folder staying unfaulted (capture W5 item 0).
 
 # --- Scenario information --------------------------------------------
 id: fixture-housing

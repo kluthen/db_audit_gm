@@ -1,0 +1,154 @@
+# Catalog fault: the antimicrobial feeder drops herd prescriptions, so the
+# cattle, the one species due, are under-reported every day and in last
+# year's report (v0.5 master spec 17.2 s3, 17.3; clinic-traps.md T69;
+# vet-antimicrobial-use, clinic-purposes.md 12, AM2; capture W5 items 0 and 3
+# of specs/versions/v0.5/wave-log.md; spec D459). A state fault with a seed
+# change (spec D254): the runner's amu.feed.read joins the prescriptions to
+# animals with an inner join, so a herd treatment (a herd's prescription, no
+# animal) falls out, from T0; its script, run on the node holding the
+# target, rewrites the planted past as that query would have written it,
+# last year's report short of the herd use. Its evidence shows at the
+# feeder's first run after a day with a herd treatment.
+
+# --- Identity ---------------------------------------------------------
+id: purpose-herd-use-dropped
+version: 0.1.0
+title: the antimicrobial feeder drops herd treatments, and last year's report is short of the cattle's use
+family: data-flow
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.3.0"]
+    - id: postgres
+      versions: ["0.5.0"]
+  purposes: [vet-antimicrobial-use]
+  preconditions:
+    - >-
+      the record holds herd treatments: antimicrobial dispensings on a
+      prescription to a herd with no animal (vet-core's herd visits,
+      Tuesdays and Thursdays), the herd's animals giving its species
+    - >-
+      the target holds the planted past (the purpose's history: the daily
+      rows and last year's report, acknowledged), the source and the target
+      on one node, where the script runs
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # counted from the feeder's first run after planting (02:00,
+                                    # spec D189) that follows a day with a herd treatment; the
+                                    # planted report is short from the planting
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (the record's primary; the feeder reads its standby)
+    default: records/clinic
+    required: false
+  target:
+    description: the purpose's target part, a node/database location (antimicrobial_use, amu_reports, runs)
+    default: records/office
+    required: false
+  job:
+    description: the runner's jobs.yaml job feeding the daily antimicrobial use
+    default: feed-antimicrobial-use
+    required: false
+  target_node:
+    description: >-
+      the node holding the target (and the source), where the planted past
+      is rewritten: the node part of target
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        amu.feed.read's dispensings joined to animals with an inner join
+        (JOIN animals an ON an.id = p.animal_id), so a herd prescription,
+        which has no animal, drops out of the day: its dispensings,
+        quantity and herd never counted. One line; the coalesce to the
+        herd's species left as it was, now dead. The edit alone, a unified
+        diff against the purpose's material/runner/queries.yaml
+      material: inject/queries.yaml.diff
+  scripts:
+    - {script: inject/20-planted-report.sh, "on": target_node}
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the feeder's query
+    how: grep -n -A20 'amu.feed.read:' /srv/scheduler/repository/queries.yaml
+    shows: the dispensings joined to animals with an inner JOIN, while the herd's species is looked up by a LEFT JOIN after it
+  - where: bastion
+    source: the daily use against the record's herd treatments
+    how: >-
+      psql -h {target node} -d office -c "SELECT day, species, sum(dispensings),
+      sum(herds_treated) FROM antimicrobial_use WHERE day > current_date - 14
+      GROUP BY 1, 2 ORDER BY 1, 2", then on the record the dispensings of
+      prescriptions with a herd and no animal on those days
+    shows: herds_treated 0 every day, the record's herd visits on Tuesdays and Thursdays not counted
+  - where: bastion
+    source: last year's report as sent and acknowledged
+    how: >-
+      psql -h {target node} -d office -c "SELECT year, species, reference,
+      payload->'lines' FROM amu_reports ORDER BY year DESC LIMIT 1"
+    shows: the cattle's lines without a herd treated, short of the record's herd use that year
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names amu.feed.read's inner join on animals as the cause: a herd
+    treatment's prescription has no animal, so its dispensings fall out of
+    the day before the herd's species is looked up; the cattle, the one
+    species due, under-reported every day and in last year's report, sent
+    and acknowledged short; the next report due in January.
+  proposal: >-
+    join animals with a LEFT JOIN (the herd's species then counts the
+    treatment); rerun the short days (their rows removed, the feeder moved);
+    and recommend correcting last year's report with the authority (a
+    corrected submission, its rerun): the planted report stays wrong until
+    then (spec D277).
+  fix: >-
+    the loaded query counts herd treatments: since the runner's reload, each
+    day the feeder wrote counts every herd treatment under its herd's
+    species (AM2's rule); last year's report stays wrong, its correction
+    recommended, never judged.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The veterinary authority's inspector says our cattle's antibiotic use
+  looks low for a practice with our herd visits, and the next report is
+  due in January. Can you check what we sent?

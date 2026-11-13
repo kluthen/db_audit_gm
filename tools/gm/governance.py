@@ -14,7 +14,8 @@ early and the hand-over checks pass through it too.
 `CHECK_GOVERNANCE` is one line of JSON, keys sorted: `classes`
 (`governance.classes` as written, a missing `internal` as `{"locations":
 "any"}`), `columns` (the classification's entries but `internal`),
-`database_nodes` and `transformer_nodes` (topology order), `own_roles`
+`database_nodes` and `transformer_nodes` (topology order, the customer's
+only: no node `model.third_party_nodes` counts, spec D469), `own_roles`
 (`model.RESERVED_DB_ROLES`: skipped as readers only, spec D230).
 
 `python3 -B -m tools.gm.governance env <scenario-dir>` prints the value;
@@ -80,12 +81,13 @@ def env_value(scenario):
     classes.setdefault(model.UNRESTRICTED_CLASS, {"locations": "any"})
     columns = {key: cls for key, cls in _classification(scenario).items()
                if cls != model.UNRESTRICTED_CLASS}
+    third = model.third_party_nodes(scenario.data, scenario.dir)
+    own = [n for n in scenario.nodes if n["name"] not in third]
     value = {
         "classes": classes,
         "columns": columns,
-        "database_nodes": [n["name"] for n in scenario.nodes if n.get("role") == "database"],
-        "transformer_nodes": [n["name"] for n in scenario.nodes
-                              if n.get("role") == "transformer"],
+        "database_nodes": [n["name"] for n in own if n.get("role") == "database"],
+        "transformer_nodes": [n["name"] for n in own if n.get("role") == "transformer"],
         "own_roles": list(model.RESERVED_DB_ROLES),
     }
     return json.dumps(value, sort_keys=True, separators=(",", ":"))

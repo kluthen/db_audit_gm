@@ -1,0 +1,7 @@
+--- a/scripts/lab_orders.py
++++ b/scripts/lab_orders.py
+@@ -100,3 +100,3 @@
+         ref = f"C-{cid}-{priority}"
+-        body = {"account": 1, "client_ref": ref, "priority": priority, "animal_id": animal,
++        body = {"account": 1, "client_ref": ref, "priority": {"stat": "urgent"}.get(priority, "routine"), "animal_id": animal,
+                 "consultation_id": cid, "requested_by": vet,

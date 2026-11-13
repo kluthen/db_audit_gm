@@ -64,7 +64,8 @@ choice, not the law. Sources: the GDPR (Arts 4(1), 5(1)(c), 7, 15, 17,
 
 7. **Messages.** Only through the franchise's messaging service, the
    centre's processor (GDPR Art 28). A message carries its address, its
-   template, the animal's name and a link; never a result, a diagnosis,
+   template, the recipient's name, the animal's name, a reminder's due
+   date and a link; never a result, a diagnosis,
    a natural identifier, a password or another owner's data. An
    invitation or a reset carries a one-time token. Reminders are sent
    08:00 to 20:00, never for an animal that has died, never to anyone

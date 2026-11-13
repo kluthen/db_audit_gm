@@ -1,0 +1,202 @@
+# Portal-scope fixture of v0.5 (build plan chunk 25; master spec 17.2, 17.3
+# s5; capture W5 items 0 and 4, W5-d, of specs/versions/v0.5/wave-log.md;
+# spec D463). Not a game: vet-core's record (records/clinic), vet-lab's
+# laboratory (records/lab) and vet-portal's owners' portal (records/portal),
+# loaded by gmctl load-data from the domains (the keys streamed ahead of
+# each part's load; the portal's derivation after the core's and the lab's
+# loads, as composition.yaml sanctions it, D322; vet-portal's data/cron.sql
+# on records; gm_check's read policies at step (2c); the coherence check
+# after); the portal's API, portal-api (api 0.1.0), as portal_api over TLS;
+# and the bastion: three nodes on one host. vet-lab is composed only
+# because the portal's derivation reads it (domains/vet-portal/domain.yaml,
+# derive: after [vet-core, vet-lab]); it lives on records, beside the
+# other two, so the fixture keeps W5's three nodes. Every producer but the
+# portal's API is left out (composition.yaml); no partners' node, so no
+# partner's state is loaded. gmctl compose writes nodes/portal-api/ from
+# vet-portal's producers/api/portal-api/. Built for its fault: the
+# instance s5 (security-policy-ownership-end-dropped, a state fault on
+# records, portal) is committed. No scheduler node, so no aging and no
+# shift: T0 is the host's time. Deployed by its short test,
+# run-short-test.sh.
+
+# --- Scenario information --------------------------------------------
+id: fixture-portal-scope
+version: 0.1.0
+title: Portal-scope fixture, vet-portal's owners' portal and its API beside vet-core's record, for the animals policy's scope
+date: 2026-11-12
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record, its laboratory's results
+  and its owners' portal in three PostgreSQL databases on one node,
+  records; the portal publishes each animal's records to its owners
+  through a small API, under row-level security.
+
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: records/lab
+  - id: vet-portal
+    at: records/portal
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the portal's API's SQL over TLS and its callers' HTTP
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.5G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+    data:
+      file: data/records.sql        # the database jobs and pg_cron in it; the domains make the rest
+      databases:
+        - name: jobs
+          owner: postgres
+          tables:
+            - name: cron.job
+              description: pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *), scheduled by load-data after the part's load, in portal, as portal_housekeeping.
+
+  - name: portal-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/portal-api/api.yaml
+      routes/: nodes/portal-api/routes/
+      db/: nodes/portal-api/db/
+    knobs: []
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: portal-api
+    what: players' SSH sessions; an owner's call needs an owner's login, which the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: portal-api
+    to: records
+    what: the portal's requests, as portal_api over TLS, each one transaction under the owner's row-level security
+    how: postgresql 5432 (hostssl)
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: s5
+    fault:
+      id: security-policy-ownership-end-dropped
+      version: 0.1.0
+    node: records
+    parameters:
+      database: portal
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    portal-api: laptop

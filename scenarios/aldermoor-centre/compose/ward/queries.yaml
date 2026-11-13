@@ -1,0 +1,9 @@
+# The ward service, ward: the scenario layer of aldermoor-centre (capture
+# W5-e). s9 planted (scheduler-display-refresh-loop): the faulty display's
+# key, ward.board's SQL byte for byte with its unit fixed (the fault's
+# inject/queries.yaml.snippet, {UNIT} 7, display 65, as fixture-housing).
+queries:
+  ward.board-loop:
+    sql: SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s
+    params:
+      unit: {int: [7, 7]}

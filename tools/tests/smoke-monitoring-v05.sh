@@ -25,7 +25,7 @@
 #   -> teardown, nothing labelled with the game id left.
 #
 # Needs: a swarm manager on the local engine, curl and python3 (PyYAML) on
-# the host, the images built (bastion, postgres 0.5.0, prometheus 0.2.0,
+# the host, the images built (bastion, postgres 0.5.0, prometheus 0.2.1,
 # grafana 0.3.0, pgwatch 0.1.0, health-check 0.1.0). Host ports 2222 and
 # 8080 free (the bastion's).
 # Usage: sh tools/tests/smoke-monitoring-v05.sh        (from anywhere)
@@ -37,7 +37,7 @@ GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke-monitoring-v05
 NODES="bastion records prometheus pgwatch grafana health"
 IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.0 127.0.0.1:5000/dbagm/bastion:0.5.0
-127.0.0.1:5000/dbagm/prometheus:0.2.0 127.0.0.1:5000/dbagm/grafana:0.3.0
+127.0.0.1:5000/dbagm/prometheus:0.2.1 127.0.0.1:5000/dbagm/grafana:0.3.0
 127.0.0.1:5000/dbagm/pgwatch:0.1.0 127.0.0.1:5000/dbagm/health-check:0.1.0"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"

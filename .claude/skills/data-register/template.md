@@ -14,8 +14,11 @@ handout, `player/data-register.md` (part 2), rendered from the same entries
 # hand: change an input and regenerate. It describes the system as designed and
 # composed, before any fault is planted.
 generated_from:                     # every input, its digest: sha256 of the file's bytes
+                                    # (composition.yaml's: below)
   scenario.yaml: sha256:<hex>
-  composition.yaml: sha256:<hex>    # with domains:
+  composition.yaml: sha256:<hex>    # with domains:; without its top-level coherence: key and the
+                                    # lines indented under it (load-data rewrites it; spec D465):
+                                    # model.register_digest("composition.yaml", <path>)
   <data/classification.yaml>: sha256:<hex>   # governance.classification
   <player/data-policy.md>: sha256:<hex>      # governance.policy
   <player/partners.md>: sha256:<hex>         # when the bastion maps partners.md

@@ -1,0 +1,12 @@
+# Overlay of the orders fixture for s4, purpose-retry-without-key (v0.5
+# master spec 17.2, 17.3; capture W5 items 0 and 1): appended to a copy of
+# the fixture's scenario.yaml by tools/tests/planted.py, never read by the
+# loader. Hidden, as in the clinic; the fixture's interfaces is no-access.
+fault_instances:
+  - id: s4
+    fault:
+      id: purpose-retry-without-key
+      version: 0.1.0
+    node: interfaces
+    parameters: {}
+    visibility: hidden

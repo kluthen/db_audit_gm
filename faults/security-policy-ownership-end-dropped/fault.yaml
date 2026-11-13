@@ -1,0 +1,123 @@
+# Catalog fault: the owners' portal's animals policy ignores an ownership's
+# end (v0.5 master spec 17.2, s5; vet-portal T270; capture W5 items 0 and 4
+# of specs/versions/v0.5/wave-log.md; spec D463). A state fault planted
+# after the data load: portal_animals_scope's owner branch loses its
+# `o.until_at IS NULL`, so an owner's ended ownership still admits them,
+# and a former owner logged into the portal still lists the animals they
+# sold or gave away. The keeper's branch is untouched (its withdrawal is
+# T274's, in portal_keeper_granted, spec D427). The portal copies every
+# ownership, so every past sale is exposed, not only the day's: planted a
+# few hours before T0, former owners have had hours, not days, to look.
+
+# --- Identity ---------------------------------------------------------
+id: security-policy-ownership-end-dropped
+version: 0.1.0
+title: the owners' portal's animals policy ignores an ownership's end, so former owners still see the animals they sold
+family: security
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.5.0"]
+  preconditions:
+    - >-
+      vet-portal is composed in the instance node's database `database`
+      (its schema: portal_animals under row-level security, the policy
+      portal_animals_scope for portal_api, the copies portal_ownerships),
+      and load-data's step (2c) has put gm_check_read on its tables
+      (spec D432)
+    - >-
+      the portal's API (vet-portal's producers/api/portal-api/, as
+      portal_api) lists an owner's animals through that policy
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the policy reads wrong at once; a former owner's listing
+                                    # shows it from the first sale or gift copied before or
+                                    # after planting (the load holds the year's)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the instance node's database holding vet-portal's tables (records/portal in the clinic)
+    default: portal
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-drop-ownership-end.sh
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the portal's policies on portal_animals
+    how: >-
+      psql -d portal -c '\d portal_animals', or SELECT polname,
+      pg_get_expr(polqual, polrelid) FROM pg_policy WHERE polrelid =
+      'portal_animals'::regclass
+    shows: >-
+      portal_animals_scope's owner branch (role = 'owner') with no
+      until_at IS NULL, while its keeper branch and portal_ownerships'
+      current-owner index both read until_at IS NULL
+  - where: bastion
+    source: an animal sold or given away, its two ownerships in the portal's copy
+    how: >-
+      psql -h {database node} -d portal -c "SELECT animal_id, owner_id,
+      role, from_at, until_at FROM portal_ownerships WHERE role = 'owner'
+      AND until_at IS NOT NULL ORDER BY until_at DESC LIMIT 5", then the
+      policy's text against those rows
+    shows: >-
+      the former owners' rows ended, which the owner branch matches all the
+      same: each former owner passes the policy for the animal
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names portal_animals_scope's owner branch as admitting any ownership,
+    ended or not: a former owner (a seller, a previous owner of a gift)
+    still lists the animal and reaches its record through the portal; every
+    past sale the copy holds is exposed, not only the day's.
+  proposal: >-
+    restore `o.until_at IS NULL` in the owner branch (ALTER POLICY
+    portal_animals_scope ... USING (...)), the keeper branch unchanged;
+    check that the buyer still sees the animal and the seller no longer
+    does; and say whether the former owners' access since the change must
+    be reviewed (the portal's views and sessions).
+  fix: >-
+    the live policies on portal_animals admit no former owner for an
+    animal they no longer own or keep, and the current owner still sees it.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  A customer who sold her horse last week says she can still see him in the
+  owners' portal. The new owner does not know. Can former owners see
+  animals that are no longer theirs?

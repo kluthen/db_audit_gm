@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take the next number from
+D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -1487,3 +1487,119 @@ D337, D341, D359, D371, D392, D429 and D430 were reserved and never used). Take 
   data correction chunks 24 and 27 read; v0.5 has no later wave. Now in:
   [build plan](versions/v0.5/build-plan.md) "Waves", chunks 34, 35.
 - **D458 (2026-11-10, owner; recorded by the wave driver): O247 closed: `grafana` 0.3.0 is rebuilt for the plugin update, not bumped to 0.3.1; the patch-bump rule (D445) binds released versions, as `bastion` 0.5.0 kept its tag for `curl` (D443). The owner also approved the advisor's 20 curl NVD false-positive ignores (Debian backports deb13u1-u7, one not affecting Debian) and CVE-2026-123158's (OpenSSH, musl libc without PAM only), until 2027-05-01.** Now in: [build plan](versions/v0.5/build-plan.md) "Settled with the owner", chunk 34; `.tech`.
+- **D459 (2026-11-12, wave 5's preflight correction 1, accepted by the
+  wave driver): chunk 36 builds three fault forms: a `state` script run
+  on another node (`{script, on: <parameter>}`), `injection.kind:
+  topology` with `option_absent`, and a false alarm (`covers: []`,
+  `report`, the answer key's `false_alarms:`, in no score or cap).** s3,
+  s10 and fa had no form in the loader. Rejected: the forms split into
+  chunks 22 and 24, serialising three chunks. Now in:
+  [build plan](versions/v0.5/build-plan.md) chunk 36, gate G19.
+- **D460 (2026-11-12, wave 5's preflight correction 1, accepted by the
+  wave driver): wave 5 holds nine chunks; 36 takes the first free slot,
+  and only 22's fa issue, 24's s3, 25's s10 and 26's false-alarm and
+  `inject` lines wait for its merge.** A fix-sized loader gap; v0.5 has
+  no later wave. Now in: [build plan](versions/v0.5/build-plan.md)
+  "Waves", workflow deltas.
+- **D461 (2026-11-12, wave 5's preflight correction 2, accepted by the
+  wave driver): s8's witness in a game is the 00:30 feeder; its short
+  test reads the delay in effect, WAL received and not replayed, and
+  late entries the test records after T0; the class unchanged.** The
+  01:30 feeder's day is complete under a one-hour delay, and the lag
+  reads an hour only after an hour. Now in:
+  [master spec](versions/v0.5/master-spec.md) 17.2, 17.3, 18.3;
+  [test selection](versions/v0.5/clinic-test-selection.md); build plan
+  chunk 24.
+- **D462 (2026-11-12, wave 5's preflight correction 3, accepted by the
+  wave driver): s10 is resolved by *report* or *propose*; fixed, the
+  option's role created on `lab` with the game's monitoring password,
+  the GM applying the accepted proposal.** Players read no service
+  credential, and the option chosen later creates nothing on an
+  existing `pgdata`. Now in: [master spec](versions/v0.5/master-spec.md)
+  17.3; [test selection](versions/v0.5/clinic-test-selection.md);
+  build plan chunk 25.
+- **D463 (2026-11-12, wave 5's preflight correction 4, accepted by the
+  wave driver): s5 is planted a few hours before T0, so former owners
+  have had hours, not days, to look; class M unchanged.** The portal
+  copies every ownership, so every past sale is exposed, not only the
+  day's. Now in: [master spec](versions/v0.5/master-spec.md) 17.2;
+  [test selection](versions/v0.5/clinic-test-selection.md);
+  [vet-portal](versions/v0.5/vet-portal-domain.md).
+- **D464 (2026-11-12, wave 5's preflight correction 5, accepted by the
+  wave driver): chunks 22 to 26 and the reports fixture's texts to the
+  code and capture W5: T0 about 00:10 any day; chunk 23's register on
+  the archive fixture; `fixture-lab` without a domain or Prometheus;
+  the `planted/<fault-id>/` overlays; chunk 26's false alarm and
+  `inject` rows.** Now in: [build plan](versions/v0.5/build-plan.md)
+  chunks 22 to 26; [master spec](versions/v0.5/master-spec.md) 17.3,
+  18.2; [test selection](versions/v0.5/clinic-test-selection.md).
+- **D465 (2026-11-12, a loader gap chunk 23 found, decided by the wave
+  driver): the true register digests `composition.yaml` without its
+  top-level `coherence:` key and the indented lines under it, the span
+  `load-data` rewrites; every other input's digest unchanged.** The
+  coherence result is setup state that never feeds the register, and
+  its rewrite left every scenario with a register stale after
+  `load-data`. Rejected: the result in `state.yaml` only (it changes the
+  format and the GM's composition record). Now in:
+  [build plan](versions/v0.5/build-plan.md) chunk 37 and G19.
+- **D466 (2026-11-12, chunk 22's finding, before chunk 27; spec-writer,
+  the GM's selection): `aldermoor-centre` leaves s4 out, nine faults and
+  the false alarm within the owner's budget (one dramatic, two on the
+  verge, six minor); s4 stays built, proven on the orders fixture, for a
+  scenario that plants the slowness.** Nothing in the clinic answers a
+  post after the runner's ten seconds while each `lab-api` statement
+  waits under its five, so s4's check reads too soon at the hand-over (a
+  failure, v0.4 12.2) and after any fix. Rejected: planted slowness (a
+  lock or sleep in the customer's own lab, itself a finding, no chunk
+  building it); 3 accepted at the hand-over (an owner's rule change, the
+  fix still never judged). Now in: [master spec](versions/v0.5/master-spec.md)
+  18.3, 18.4; [test selection](versions/v0.5/clinic-test-selection.md);
+  [build plan](versions/v0.5/build-plan.md) chunk 27, G13.
+- **D467 (2026-11-12, chunk 35's finding; spec-writer): the partner
+  stubs' references restarting at 0001 after the planted AMU and HO
+  series are accepted in v0.5, a known limit; seeding the stubs' counters
+  waits until the clinic is first played (O249).** No v0.5 run plays the
+  clinic, the stubs number a live post only on the 1st to 5th at 05:00
+  (HO) or on 15 January (AMU), and the fix spans two purposes' stubs and
+  their fixtures. Now in: [build plan](versions/v0.5/build-plan.md)
+  release gate item 12; [open questions](open-questions.md) O249.
+- **D468 (2026-11-12, chunk 26's choice, recorded by spec-writer): the
+  scenario document never shows the coherence result: setup state, as
+  for the register's digest (D465), so a setup never makes the README
+  stale.** Now in: [build plan](versions/v0.5/build-plan.md) G19
+  (formats.md, "Composing domains").
+- **D469 (2026-11-12, chunk 27's stop; spec-writer): the customer's
+  governance judges its own estate: no `governance:` location or outbox
+  on a third party's node (refused), no register `where` naming one, no
+  governance walk of one; data sent a partner is judged as a flow (G4,
+  `shared_with`).** 10.1 judges the customer's side, and `partners-db`
+  rejects `gm_check` from the network (D383): every walk there reads 2.
+  Rejected: dropping the location alone (still 2); exempting it from
+  coverage (a location the customer does not hold). Now in: [master spec](versions/v0.5/master-spec.md)
+  10.1, 10.2, 13.2; [build plan](versions/v0.5/build-plan.md) chunks 27, 38, G19.
+- **D471 (2026-11-12, the owner, on O250 as proposed): the governance
+  check set's gaps on the whole clinic are a v0.5 known limit, fixed
+  when a scenario first calls the set there: G1 reads a standby as a
+  location of its own, G3 stops at a transformer's HTTP connection
+  ("cannot judge").** No v0.5 gate run or clinic check in play reaches
+  either; release gate item 3 stays on chunk 27's load-only fixture
+  (D469). Rejected: a second small chunk in wave 5. Now in:
+  [master spec](versions/v0.5/master-spec.md) 18.4, 20.3;
+  [build plan](versions/v0.5/build-plan.md) release gate items 3, 12.
+- **D472 (2026-11-12, wave 5's gate finding; spec-writer): the scenario
+  document shows a round-trip fault instance's `backlog:` (`what`,
+  `cleanup`) with that instance's answer, as it shows every other
+  answer-key item.** The document renders the answer key for review and a
+  GM's restart (master spec 6.3: the backlog is in it, a creditable
+  consequence); the template had no slot, so `aldermoor-centre`'s s1 lost
+  it. Now in: [formats.md](formats.md) "Scenario";
+  [master spec](versions/v0.5/master-spec.md) 6.3, 15;
+  [build plan](versions/v0.5/build-plan.md) release gate item 6.
+- **D473 (2026-11-12, wave 5's gate fix `70e0e5d`, recorded by
+  spec-writer): the portal's messages carry the address, template, the
+  recipient's name, the animal's name, a reminder's due date and a link;
+  the flow `to: messaging` declares `address` and the payload keys
+  `template`, `name`, `animal`, `due_on`, `link`, not `animal_name`.**
+  The derivation and MS4 write them so (chunk 16); the approved text
+  named the animal only. Now in: [master spec](versions/v0.5/master-spec.md)
+  9.7 rule 7, 12.2; [vet-portal](versions/v0.5/vet-portal-domain.md).

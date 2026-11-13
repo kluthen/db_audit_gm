@@ -1,0 +1,161 @@
+# jobs.yaml of node interfaces, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: post-lab-orders
+    key: lab-orders.post
+    connections:
+      source: clinic
+      api: lab-api
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: fetch-lab-results
+    key: lab-orders.fetch
+    connections:
+      source: clinic
+      api: lab-api
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: deliver-practice-results
+    key: practice-results.deliver
+    connections:
+      source: lab-dispatch
+      partner: practices
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: send-outs
+    key: send-outs.send
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: 0 16 * * 1,2,3,4,5
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: chase-send-outs
+    key: send-outs.chase
+    connections:
+      source: lab-dispatch
+      partner: northfield-lab
+    at: '*/15 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: sync-exchanges
+    key: exchanges.sync
+    connections:
+      clinic: clinic
+      partner_central: centres-central
+      partner_south: centres-south
+      partner_abroad: centres-abroad
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: chase-exchanges
+    key: exchanges.chase
+    connections:
+      clinic: clinic
+      partner_central: centres-central
+      partner_south: centres-south
+      partner_abroad: centres-abroad
+    at: 0 9 * * 1,2,3,4,5
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: notify-vet
+    key: notify.vet
+    connections:
+      clinic: clinic
+      receiver: authority
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: notify-lab
+    key: notify.lab
+    connections:
+      lab: lab-dispatch
+      receiver: authority
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: escalate-notifications
+    key: notify.escalate
+    connections:
+      clinic: clinic
+      lab: lab-dispatch
+    at: '*/15 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: check-in
+    key: bookings.check-in
+    connections:
+      clinic: clinic
+      sched: sched
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: book-requests
+    key: bookings.book-requests
+    connections:
+      clinic: clinic
+      sched: sched
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: cancel-deceased
+    key: bookings.cancel-deceased
+    connections:
+      clinic: clinic
+      sched: sched
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: post-imaging-orders
+    key: imaging.post
+    connections:
+      clinic: clinic
+      pacs: pacs
+    at: '* * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: fetch-imaging-reports
+    key: imaging.fetch
+    connections:
+      clinic: clinic
+      pacs: pacs
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: ship-partitions
+    key: archive.ship
+    connections:
+      vitals: vitals
+      biomed: biomed
+      partner: cold-storage
+    at: 40 0-5 * * *
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: sync-portal-identity
+    key: portal.identity
+    connections:
+      clinic: portal-clinic
+      portal: portal-sync
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: publish-records
+    key: portal.records
+    connections:
+      clinic: portal-clinic
+      portal: portal-sync
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: publish-results
+    key: portal.results
+    connections:
+      clinic: portal-clinic
+      lab: portal-lab
+      portal: portal-sync
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: queue-notices
+    key: messages.notices
+    connections:
+      portal: portal-dispatch
+    at: '*/5 * * * *'
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: queue-reminders
+    key: messages.reminders
+    connections:
+      portal: portal-dispatch
+    at: 0 9 * * *
+  # from scenario: compose/interfaces/jobs.yaml
+  - name: send-messages
+    key: messages.send
+    connections:
+      portal: portal-dispatch
+      partner: messaging
+    at: '* * * * *'

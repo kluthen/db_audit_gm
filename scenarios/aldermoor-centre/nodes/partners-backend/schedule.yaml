@@ -1,0 +1,266 @@
+# schedule.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/partners-backend/schedule.yaml
+intensity: 1.0
+connections:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  centres-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: centres
+    pool:
+      size: 1
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  centres-central:
+    driver: http
+    target: aldermoor-central:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  centres-south:
+    driver: http
+    target: aldermoor-south:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  centres-abroad:
+    driver: http
+    target: aldermoor-abroad:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/schedule.yaml
+  practices-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: practices
+    pool:
+      size: 1
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/schedule.yaml
+  practices-tick:
+    driver: http
+    target: practices:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/schedule.yaml
+  xlab-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: xlab
+    pool:
+      size: 1
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/schedule.yaml
+  xlab-tick:
+    driver: http
+    target: northfield-lab:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  owners-tick:
+    driver: http
+    target: owners:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+  # from scenario: compose/partners-backend/schedule.yaml
+  coldstore-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: coldstore
+    pool:
+      size: 1
+  # from scenario: compose/partners-backend/schedule.yaml
+  authority-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: authority
+    pool:
+      size: 1
+  # from scenario: compose/partners-backend/schedule.yaml
+  headoffice-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: headoffice
+    pool:
+      size: 1
+  # from scenario: compose/partners-backend/schedule.yaml
+  messaging-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: messaging
+    pool:
+      size: 1
+streams:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.normal
+    connection: centres-db
+    rate: 1/min
+    arrivals: even
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.tick.central
+    connection: centres-central
+    rate: 12/h
+    arrivals: even
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.tick.south
+    connection: centres-south
+    rate: 12/h
+    arrivals: even
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.tick.abroad
+    connection: centres-abroad
+    rate: 12/h
+    arrivals: even
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.request.central
+    connection: centres-central
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.request.south
+    connection: centres-south
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  - key: centres.request.abroad
+    connection: centres-abroad
+    rate: 0.033/h
+    arrivals: poisson
+    shape: centres-office
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/schedule.yaml
+  - key: practices.normal
+    connection: practices-db
+    rate: 1/min
+    arrivals: even
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/schedule.yaml
+  - key: practices.order
+    connection: practices-tick
+    rate: 2.9/h
+    arrivals: poisson
+    shape: practice-hours
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/schedule.yaml
+  - key: xlab.normal
+    connection: xlab-db
+    rate: 1/min
+    arrivals: even
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/schedule.yaml
+  - key: xlab.answer
+    connection: xlab-tick
+    rate: 6/h
+    arrivals: even
+    shape: xlab-hours
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.visit
+    connection: owners-tick
+    rate: 9.3/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.activate
+    connection: owners-tick
+    rate: 4/h
+    arrivals: even
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.reset
+    connection: owners-tick
+    rate: 0.31/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.unsubscribe
+    connection: owners-tick
+    rate: 2/h
+    arrivals: even
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.keeper
+    connection: owners-tick
+    rate: 0.08/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.close
+    connection: owners-tick
+    rate: 0.015/h
+    arrivals: poisson
+    shape: owners-day
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: coldstore.normal
+    connection: coldstore-db
+    rate: 1/min
+    arrivals: even
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: authority.normal
+    connection: authority-db
+    rate: 1/min
+    arrivals: even
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: headoffice.normal
+    connection: headoffice-db
+    rate: 1/min
+    arrivals: even
+  # from scenario: compose/partners-backend/schedule.yaml
+  - key: messaging.normal
+    connection: messaging-db
+    rate: 1/min
+    arrivals: even
+shapes:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/schedule.yaml
+  centres-office:
+    days:
+      mon-fri:
+        hours:
+          00-07: 0
+          08-17: 1.0
+          18-23: 0
+      sat:
+        hours:
+          00-23: 0
+      sun:
+        hours:
+          00-23: 0
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/schedule.yaml
+  practice-hours:
+    days:
+      mon-fri:
+        hours:
+          00-07: 0
+          08-11: 1.0
+          12-13: 0.3
+          14-18: 1.0
+          19-23: 0
+      sat:
+        hours:
+          00-07: 0
+          08-11: 1.0
+          12-23: 0
+      sun:
+        hours:
+          00-23: 0
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/schedule.yaml
+  xlab-hours:
+    days:
+      mon-sat:
+        hours:
+          00-07: 0
+          08-19: 1.0
+          20-23: 0
+      sun:
+        hours:
+          00-23: 0
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  owners-day:
+    hours:
+      00-06: 0.1
+      07-08: 0.5
+      09-17: 0.8
+      18-21: 1.6
+      '22': 0.8
+      '23': 0.1

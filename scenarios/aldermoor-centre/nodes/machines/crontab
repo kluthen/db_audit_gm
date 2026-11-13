@@ -1,0 +1,5 @@
+# Seed crontab of machines in aldermoor-centre: the nightly base backup to
+# the vault (master spec 11.2: machines sends the base backup only, no WAL).
+# 04:00 UTC.
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+0 4 * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "machines-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1

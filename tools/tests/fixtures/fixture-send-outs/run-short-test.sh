@@ -126,7 +126,7 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cp -R "$HERE" "$SCN"
-rm -f "$SCN/run-short-test.sh"
+rm -f "$SCN"/run-*.sh
 
 ctr() { docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_$1" | head -n 1; }
 dbsql() { docker exec -u postgres "$(ctr "$1")" psql -XAtq -v ON_ERROR_STOP=1 -d "$2" -c "$3"; }

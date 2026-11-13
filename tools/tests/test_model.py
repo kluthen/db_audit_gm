@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from tools.gm import fit, localimpl, model, render
+from tools.gm import coherence, fit, localimpl, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
 from tools.tests.test_compose import OwnersAloneCase
 
@@ -322,7 +322,7 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
             "bastion": ("bastion", "0.5.0", "catalog"),
             "db": ("postgres", "0.5.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.1", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
@@ -392,7 +392,7 @@ class TestLoadFixture(ScenarioCopyTest):
             "pooler": ("pgbouncer", "0.1.1", "catalog"),
             "producer": ("scheduler", "0.3.0", "catalog"),
             "consumer": ("scheduler", "0.3.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.1", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertTrue(model.has_scheduler_nodes(sc.data))
@@ -725,8 +725,8 @@ class TestParameterFaultRefusals(MountedCopyTest):
 
     def test_unknown_kind(self):
         self.fault(lambda d: d["injection"].update(kind="script"))
-        self.assertRefused("fault.yaml: injection.kind: script is not seed-file, state or "
-                           "parameter")
+        self.assertRefused("fault.yaml: injection.kind: script is not seed-file, state, "
+                           "parameter or topology")
 
     def test_changes_required(self):
         self.fault(lambda d: d["injection"].pop("parameter_changes"))
@@ -1508,7 +1508,7 @@ class TestRetentionRefusals(RefusalAsserts, ScenarioCopyTest):
 
         def fault(d):
             d.update(id="fixture-short-retention", family="retention")
-            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.0"]}]
+            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.1"]}]
             d["injection"]["seed_changes"] = [{"file": "prometheus.yml",
                                                "change": "retention.time: 2h"}]
         self.edit_yaml("faults/fixture-short-retention/fault.yaml", fault)
@@ -2986,7 +2986,7 @@ class TestCampaignFixture(ScenarioCopyTest):
             "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.3.0"),
             "consumer": ("scheduler", "0.3.0"), "reporting": ("postgres", "0.5.0"),
             "bi": ("scheduler", "0.3.0"), "crm": ("scheduler", "0.3.0"),
-            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.0"),
+            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.1"),
             "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.3.0")})
         self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
         self.assertEqual({n["name"]: n["role"] for n in sc.nodes
@@ -4709,7 +4709,7 @@ class RegisterCopyTest(RefusalAsserts, ScenarioCopyTest):
         sc = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
         inputs = model.register_inputs(sc, self.scenario)
         self.write_register(lambda r: r.update(generated_from={
-            rel: model.file_digest(path) for rel, path in inputs.items()}))
+            rel: model.register_digest(rel, path) for rel, path in inputs.items()}))
 
     def entry(self, reg, eid):
         return next(e for e in reg["entries"] if e["id"] == eid)
@@ -4891,6 +4891,126 @@ class TestRegisterRefusals(RegisterCopyTest):
         self.assertFalse([m for m in missing if "stale" in m], missing)
 
 
+class TestGovernanceOnThirdParties(RegisterCopyTest):
+    """No governance: location or outbox on a third party's node (master
+    spec 10.2, spec D469): the customer's governance judges its own estate;
+    what it sends a partner is an outbound flow."""
+
+    P = "scenario.yaml: governance.classes.personal"
+    WHY = ("partners-db is a third party's node: the customer's governance holds no location "
+           "there; what it sends the partner is an outbound flow (master spec 10.2, spec D469)")
+
+    def classes(self, change):
+        self.edit_yaml("scenario.yaml", lambda d: change(d["governance"]["classes"]))
+
+    def test_a_location_refused(self):
+        self.classes(lambda c: c["personal"]["locations"].append("partners-db/partners"))
+        self.assertRefused(f"{self.P}.locations: partners-db/partners: {self.WHY}")
+
+    def test_an_outbox_refused(self):
+        self.classes(lambda c: c["personal"]["outbound"][0].update(
+            outbox="partners-db/partners/portal_outbox"))
+        self.assertRefused(f"{self.P}.outbound[messaging].outbox: "
+                           f"partners-db/partners/portal_outbox: {self.WHY}")
+
+    def test_the_helper_counts_the_owners_shared_nodes(self):
+        data = yaml.safe_load((self.scenario / "scenario.yaml").read_text())
+        self.assertEqual(model.third_party_nodes(data, self.scenario), {"partners-db"})
+        data["nodes"] += [
+            {"name": "partners-backend", "brick": {"id": "scheduler", "version": "0.1.0"},
+             "write_policy": "no-access"},
+            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.0"},
+             "write_policy": "no-access"}]
+        self.assertEqual(model.third_party_nodes(data),     # no left_out: the owners' route
+                         {"partners-db", "partners-backend", "partners-api"})
+        self.assertEqual(model.third_party_nodes({}), set())
+
+
+class TestRegisterCoherenceRecord(RegisterCopyTest):
+    """The register's digest of composition.yaml leaves out its top-level
+    `coherence:` key and the lines indented under it, the record load-data
+    rewrites; any other byte still makes it stale (build plan chunk 37;
+    spec D465)."""
+
+    STALE = ("generated_from: composition.yaml changed since the register was generated "
+             "(its digest differs): stale register: regenerate with the data-register skill")
+    BLOCK = "coherence:\n  run_at: '2026-11-04T09:30:00Z'\n  result: pass\n"
+
+    def composition(self):
+        return self.scenario / "composition.yaml"
+
+    def edit(self, change):
+        path = self.composition()
+        path.write_text(change(path.read_text()))
+
+    def test_the_record_added_keeps_it_current(self):
+        original = self.composition().read_text()
+        self.edit(lambda t: t + self.BLOCK)
+        self.load()
+        self.edit(lambda t: self.BLOCK + original)          # anywhere at the top level
+        self.load()
+        self.edit(lambda t: original.replace(
+            "order:", "coherence: {run_at: 't', result: fail}\norder:"))
+        self.load()
+
+    def test_the_record_rewritten_by_load_data_keeps_it_current(self):
+        coherence.record_composition(self.composition(), "2026-11-04T09:30:00Z", "pass")
+        self.assertEqual(model.strict_load(self.composition().read_text())["coherence"],
+                         {"run_at": "2026-11-04T09:30:00Z", "result": "pass"})
+        self.load()
+        coherence.record_composition(self.composition(), "2026-11-05T00:10:00Z", "fail")
+        self.load()
+
+    def test_any_other_byte_changed_makes_it_stale(self):
+        coherence.record_composition(self.composition(), "t", "pass")
+        for change in (lambda t: t.replace("records/portal}", "records/portal }", 1),
+                       lambda t: t + "# edited after the record\n",
+                       lambda t: t.replace("coherence:", "# a comment\ncoherence:"),
+                       lambda t: t.replace("\n", "\n\n", 1)):
+            with self.subTest(change=change):
+                before = self.composition().read_text()
+                self.edit(change)
+                self.assertRefused(self.STALE)
+                self.composition().write_text(before)
+                self.load()
+
+    def test_without_the_key_the_digest_is_the_files_bytes(self):
+        path = self.composition()
+        self.assertEqual(model.register_digest("composition.yaml", path),
+                         model.file_digest(path))
+        reg = self.register()
+        self.assertEqual(reg["generated_from"]["composition.yaml"], model.file_digest(path))
+        self.edit(lambda t: t + self.BLOCK)
+        self.assertEqual(model.register_digest("composition.yaml", path),
+                         reg["generated_from"]["composition.yaml"])
+        self.assertNotEqual(model.file_digest(path), reg["generated_from"]["composition.yaml"])
+        scenario = self.scenario / "scenario.yaml"        # any other input: its bytes
+        scenario.write_text(scenario.read_text() + self.BLOCK)
+        self.assertEqual(model.register_digest("scenario.yaml", scenario),
+                         model.file_digest(scenario))
+        self.assertIsNone(model.register_digest("composition.yaml", self.tmp / "none.yaml"))
+
+
+class TestCoherenceSpan(unittest.TestCase):
+    """The one finder of composition.yaml's `coherence:` record, shared by
+    coherence.rewrite_record and the register's digest (spec D465)."""
+
+    def span(self, text):
+        return model.coherence_span(text.splitlines(keepends=True))
+
+    def test_block_flow_and_absent(self):
+        self.assertEqual(self.span("a: 1\ncoherence:\n  run_at: t\n\tresult: pass\nb: 2\n"),
+                         (1, 4))
+        self.assertEqual(self.span("coherence: {run_at: t, result: pass}\nb: 2\n"), (0, 1))
+        self.assertEqual(self.span("coherence :\n  result: pass"), (0, 2))
+        self.assertIsNone(self.span("a: 1\n  coherence: x\ncoherences: y\n# coherence: z\n"))
+        self.assertIsNone(self.span(""))
+
+    def test_ends_at_a_blank_line_or_a_top_level_line(self):
+        self.assertEqual(self.span("coherence:\n  result: pass\n\n  x: 1\n"), (0, 2))
+        self.assertEqual(self.span("coherence:\n  result: pass\n# c\n  x: 1\n"), (0, 2))
+
+
 class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
     """A played scenario listing domains: has a register; a fixture- one is
     exempt (spec D434)."""
@@ -4901,7 +5021,8 @@ class TestRegisterRequired(RefusalAsserts, ScenarioCopyTest):
         shutil.copytree(FIXTURE_CLINIC_LOAD, self.scenario)
 
     def test_a_fixture_without_a_register_accepted(self):
-        self.assertNotIn("governance", self.load().data)
+        # governance: since chunk 27 (the clinic's), without its register
+        self.assertNotIn("register", self.load().data["governance"])
 
     def test_a_played_scenario_without_one_refused(self):
         self.edit_yaml("scenario.yaml", lambda d: d.update(id="clinic-load"))
@@ -4931,6 +5052,193 @@ class TestPartsNodeCreates(V05ComposedTest):
         partners = model.node_creates(self.scenario, sc.data, "partners-db", self.catalog_root)
         self.assertIn("domains/fx-clinic/producers/partners/xlab/data.sql", partners.sources)
         self.assertIn("xlab", partners.roles)
+
+
+
+class TestFaultForms(V05CopyTest):
+    """The three fault forms of chunk 36 (capture W5, Preflight corrections
+    item 1; spec D459): a state script run on another node, a topology
+    fault, a false alarm."""
+
+    def elsewhere_fault(self, fid="fx-elsewhere", item=None, required=True, declared=True):
+        """A state fault fid: inject/10-here.sh on the instance's node, then
+        inject/20-there.sh on the node its parameter `feeder` names."""
+        def change(d):
+            d["injection"] = {"kind": "state", "stage": "after-data-load",
+                              "scripts": ["inject/10-here.sh",
+                                          item or {"script": "inject/20-there.sh",
+                                                   "on": "feeder"}],
+                              "run_as": "root"}
+            if declared:
+                d["parameters"] = {"feeder": {"description": "the node the report is rewritten on",
+                                              "default": None, "required": required}}
+        self.local_fault(fid, change)
+        for name in ("10-here.sh", "20-there.sh"):
+            path = self.scenario / "faults" / fid / "inject" / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("#!/bin/sh\nexit 0\n")
+
+    def plant_elsewhere(self, feeder, fid="fx-elsewhere"):
+        self.instance("f9", fid, "db")
+        self.scenario_yaml(lambda d: d["fault_instances"][-1].update(
+            parameters={"feeder": feeder}))
+
+    def fault_problems(self, fid):
+        return "\n".join(model.check_fault_dir(self.scenario / "faults" / fid,
+                                                catalog_root=model.REPO_ROOT))
+
+    # (a) a state script run on another node
+
+    def test_script_on_another_node_accepted(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("producer")
+        self.assertEqual(self.fault_problems("fx-elsewhere"), "")
+        sc = self.load()
+        item = sc.faults["f9"].data["injection"]["scripts"][1]
+        inst = next(i for i in sc.data["fault_instances"] if i["id"] == "f9")
+        self.assertEqual(model.script_node(item, inst, sc.faults["f9"]), "producer")
+        self.assertEqual(model.script_node("inject/10-here.sh", inst, sc.faults["f9"]), "db")
+
+    def test_script_on_a_parameter_not_declared_refused(self):
+        self.elsewhere_fault(declared=False)
+        self.plant_elsewhere("producer")
+        self.assertIn("injection.scripts[1].on: feeder is not a parameter of the fault",
+                      self.fault_problems("fx-elsewhere"))
+        self.assertRefused("injection.scripts[1].on: feeder is not a parameter of the fault")
+
+    def test_script_on_a_parameter_not_required_refused(self):
+        self.elsewhere_fault(required=False)
+        self.plant_elsewhere("producer")
+        self.assertRefused("injection.scripts[1].on: parameter feeder is not required "
+                           "(required: true)")
+
+    def test_script_on_a_value_naming_no_node_refused(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("nowhere")
+        self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: nowhere is not a "
+                           "node of the topology (fault fx-elsewhere runs inject/20-there.sh on "
+                           "it)")
+
+    def test_script_on_a_node_whose_brick_applies_to_omits_refused(self):
+        self.elsewhere_fault()
+        self.plant_elsewhere("lab-api")
+        self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: lab-api runs api "
+                           "0.1.0, which fault fx-elsewhere does not apply to")
+
+    def test_script_item_malformed_refused(self):
+        self.elsewhere_fault(item={"on": "feeder", "as": "postgres"})
+        problems = self.fault_problems("fx-elsewhere")
+        self.assertIn("injection.scripts[1]: as: not a key of a script item", problems)
+        self.assertIn("injection.scripts[1].script: missing", problems)
+
+    def test_a_missing_script_file_on_another_node_refused(self):
+        self.elsewhere_fault(item={"script": "inject/30-gone.sh", "on": "feeder"})
+        self.assertIn("faults/fx-elsewhere/inject/30-gone.sh: missing file",
+                      self.fault_problems("fx-elsewhere"))
+
+    # (b) a topology fault
+
+    def topology_fault(self, fid="fx-absent", **extra):
+        def change(d):
+            d["option_absent"] = "monitoring"
+            d["injection"] = {"kind": "topology", "stage": "seed", "run_as": "root"}
+            d["injection"].update(extra)
+        self.local_fault(fid, change)
+
+    def test_topology_fault_with_option_absent_accepted(self):
+        self.topology_fault()
+        self.on_node("db", lambda n: n.pop("options"))
+        self.instance("f9", "fx-absent", "db")
+        self.assertEqual(self.fault_problems("fx-absent"), "")
+        self.assertEqual(self.load().faults["f9"].data["injection"]["kind"], "topology")
+
+    def test_topology_fault_without_option_absent_refused(self):
+        self.topology_fault()
+        self.edit_yaml("faults/fx-absent/fault.yaml", lambda d: d.pop("option_absent"))
+        self.assertIn("injection.kind: topology, but the fault has no option_absent",
+                      self.fault_problems("fx-absent"))
+
+    def test_topology_fault_with_material_or_a_late_stage_refused(self):
+        self.topology_fault(stage="after-data-load", scripts=["inject/10-plant.sh"],
+                            seed_changes=[{"file": "postgresql.conf", "change": "x"}],
+                            parameter_changes=[])
+        problems = self.fault_problems("fx-absent")
+        self.assertIn("injection.stage: after-data-load, but a topology fault is planted at "
+                      "render (seed)", problems)
+        for key in ("seed_changes", "scripts", "parameter_changes"):
+            self.assertIn(f"injection.{key}: a topology fault has none", problems)
+
+    def test_topology_fault_on_a_node_choosing_the_option_refused(self):
+        self.topology_fault()
+        self.instance("f9", "fx-absent", "db")
+        self.assertRefused("fault fx-absent plants the absence of option monitoring, which node "
+                           "db chooses")
+
+    # (c) a false alarm
+
+    K = "gm/answer-key.yaml"
+
+    def false_alarm(self, resolution="report", entry=True, issue="I9"):
+        self.scenario_yaml(lambda d: d["issues"].append(
+            {"id": "I9", "complaint": "The external lab is slow.",
+             "expected_resolution": resolution, "covers": []}))
+        if entry:
+            self.edit_yaml(self.K, lambda k: k.update(false_alarms=[{
+                "issue": issue,
+                "why": "each send-out was answered within its one-to-five-day turnaround",
+                "evidence": [{"where": "node:db", "source": "lab_send_outs",
+                              "how": "SELECT due_by, answered_at FROM lab_send_outs",
+                              "shows": "every answer before its due_by"}],
+                "acceptable": "the players report no fault behind it, citing the turnaround"}]))
+
+    def test_false_alarm_accepted(self):
+        self.false_alarm()
+        sc = self.load()
+        self.assertEqual(sc.answer_key["false_alarms"][0]["issue"], "I9")
+        self.assertEqual(sc.data["difficulty"]["score"], len(sc.data["fault_instances"]))
+        self.assertEqual(model.false_alarm_ids(sc.answer_key), {"I9"})
+
+    def test_covers_nothing_without_a_false_alarms_entry_refused(self):
+        self.false_alarm(entry=False)
+        self.assertRefused(f"{self.S}: issues[I9].covers: [], but gm/answer-key.yaml's "
+                           "false_alarms: has no entry for it")
+
+    def test_covers_nothing_with_another_resolution_refused(self):
+        self.false_alarm(resolution="fix")
+        self.assertRefused(f"{self.S}: issues[I9].expected_resolution: fix, but the issue covers "
+                           "nothing (covers: []), a false alarm, which expects report")
+
+    def test_false_alarms_entry_for_an_issue_covering_a_fault_refused(self):
+        self.false_alarm(issue="I1")
+        self.assertRefused(f"{self.K}: false_alarms[I1].issue: issue I1 covers ['f1']: a false "
+                           "alarm covers nothing",
+                           f"{self.S}: issues[I9].covers: [], but gm/answer-key.yaml's "
+                           "false_alarms: has no entry for it")
+
+    def test_false_alarms_entry_for_no_issue_refused(self):
+        self.false_alarm(issue="I8")
+        self.assertRefused(f"{self.K}: false_alarms[I8].issue: I8 is not an issue of "
+                           "scenario.yaml")
+
+    def test_false_alarms_entry_twice_refused(self):
+        self.false_alarm()
+        self.edit_yaml(self.K, lambda k: k["false_alarms"].append(dict(k["false_alarms"][0])))
+        self.assertRefused(f"{self.K}: false_alarms[I9]: more than one entry for issue I9")
+
+    def test_false_alarms_entry_items_checked(self):
+        self.false_alarm()
+        def change(k):
+            entry = k["false_alarms"][0]
+            entry.pop("why")
+            entry["evidence"][0]["where"] = "node:nowhere"
+        self.edit_yaml(self.K, change)
+        self.assertRefused(f"{self.K}: false_alarms[I9].why: missing",
+                           f"{self.K}: false_alarms[I9].evidence[0].where: node:nowhere: nowhere "
+                           "is not a node of the topology")
+
+    def test_false_alarms_empty_refused(self):
+        self.edit_yaml(self.K, lambda k: k.update(false_alarms=[]))
+        self.assertRefused(f"{self.K}: false_alarms: empty")
 
 
 if __name__ == "__main__":

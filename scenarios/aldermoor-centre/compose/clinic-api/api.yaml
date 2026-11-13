@@ -1,0 +1,9 @@
+# clinic-api: the scenario layer of aldermoor-centre (game-master, "Domains,
+# composed", step 2; capture W5-e): the endpoints of purposes/vet-centre-exchanges/material/api/clinic-api,
+# copied as written.
+endpoints:
+  exchanges:
+    hosts: [clinic-api]
+    credentials: [clinic_centres]
+connections:
+  clinic-exchanges: {driver: sql/postgresql, target: records:5432/clinic, role: vet_exchange, pool: {size: 2}}

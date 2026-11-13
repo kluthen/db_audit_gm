@@ -1,0 +1,273 @@
+# The classification copy of fixture-archive (v0.5 master spec 6.1, 13.3;
+# template classification.yaml; capture W5 item 2): vet-core's
+# classification (domains/vet-core/data/classification.yaml), every column
+# and its class kept, each key prefixed with clinic, the database the
+# composition places the core in (records/clinic). Every table is in schema
+# public, so no key carries a schema. The domain classifies; governance: in
+# scenario.yaml states each class's rules. An input of the data register:
+# any change makes it stale.
+columns:
+  # business_settings
+  clinic.business_settings.timezone: internal
+  clinic.business_settings.utc_offset_hours: internal
+  clinic.business_settings.company: internal
+  clinic.business_settings.retention_years: internal
+
+  # sites
+  clinic.sites.id: internal
+  clinic.sites.code: internal
+  clinic.sites.name: internal
+  clinic.sites.country: internal
+  clinic.sites.kind: internal
+
+  # sections
+  clinic.sections.id: internal
+  clinic.sections.site_id: internal
+  clinic.sections.kind: internal
+
+  # staff
+  clinic.staff.id: personal
+  clinic.staff.name: personal
+  clinic.staff.email: personal
+  clinic.staff.kind: internal
+  clinic.staff.section_id: internal
+  clinic.staff.specialty: internal
+  clinic.staff.started_on: internal
+  clinic.staff.left_on: internal
+
+  # owners
+  clinic.owners.id: personal
+  clinic.owners.kind: internal
+  clinic.owners.name: personal
+  clinic.owners.email: personal
+  clinic.owners.phone: personal
+  clinic.owners.address: personal
+  clinic.owners.country: personal
+  clinic.owners.registered_at: internal
+
+  # herds
+  clinic.herds.id: personal
+  clinic.herds.keeper_owner_id: customer-linked
+  clinic.herds.holding_number: personal
+  clinic.herds.site_id: internal
+
+  # animals
+  clinic.animals.id: personal
+  clinic.animals.species: internal
+  clinic.animals.breed: internal
+  clinic.animals.sex: internal
+  clinic.animals.born_on: internal
+  clinic.animals.name: internal
+  clinic.animals.food_chain: internal
+  clinic.animals.food_chain_excluded_on: internal
+  clinic.animals.food_chain_excluded_by: internal
+  clinic.animals.herd_id: internal
+  clinic.animals.microchip: personal
+  clinic.animals.ueln: personal
+  clinic.animals.passport_number: personal
+  clinic.animals.ear_tag: personal
+  clinic.animals.registered_at: internal
+  clinic.animals.status: internal
+  clinic.animals.died_at: internal
+  clinic.animals.death_kind: internal
+
+  # ownerships
+  clinic.ownerships.animal_id: customer-linked
+  clinic.ownerships.owner_id: customer-linked
+  clinic.ownerships.role: internal
+  clinic.ownerships.from_at: internal
+  clinic.ownerships.until_at: internal
+
+  # referring_practices
+  clinic.referring_practices.id: internal
+  clinic.referring_practices.name: internal
+  clinic.referring_practices.address: internal
+  clinic.referring_practices.country: internal
+  clinic.referring_practices.email: internal
+
+  # referring_vets
+  clinic.referring_vets.id: personal
+  clinic.referring_vets.practice_id: internal
+  clinic.referring_vets.name: personal
+  clinic.referring_vets.email: personal
+
+  # referrals
+  clinic.referrals.id: internal
+  clinic.referrals.animal_id: customer-linked
+  clinic.referrals.referring_vet_id: internal
+  clinic.referrals.site_id: internal
+  clinic.referrals.received_at: internal
+  clinic.referrals.reason: internal
+  clinic.referrals.state: internal
+  clinic.referrals.decided_at: internal
+  clinic.referrals.report_sent_at: internal
+
+  # stays
+  clinic.stays.id: internal
+  clinic.stays.animal_id: customer-linked
+  clinic.stays.site_id: internal
+  clinic.stays.section_id: internal
+  clinic.stays.admitting_vet_id: internal
+  clinic.stays.reason: internal
+  clinic.stays.admitted_at: internal
+  clinic.stays.discharged_at: internal
+  clinic.stays.outcome: internal
+  clinic.stays.transferred_to_site_id: internal
+
+  # consultations
+  clinic.consultations.id: internal
+  clinic.consultations.animal_id: customer-linked
+  clinic.consultations.herd_id: customer-linked
+  clinic.consultations.site_id: internal
+  clinic.consultations.section_id: internal
+  clinic.consultations.vet_id: internal
+  clinic.consultations.kind: internal
+  clinic.consultations.referral_id: internal
+  clinic.consultations.stay_id: internal
+  clinic.consultations.booking_id: internal
+  clinic.consultations.started_at: internal
+  clinic.consultations.ended_at: internal
+  clinic.consultations.findings: internal
+  clinic.consultations.state: internal
+  clinic.consultations.signed_at: internal
+
+  # diagnosis_codes
+  clinic.diagnosis_codes.code: internal
+  clinic.diagnosis_codes.label: internal
+  clinic.diagnosis_codes.species_group: internal
+  clinic.diagnosis_codes.notifiable: internal
+
+  # diagnoses
+  clinic.diagnoses.id: internal
+  clinic.diagnoses.consultation_id: internal
+  clinic.diagnoses.code: internal
+  clinic.diagnoses.confirmed: internal
+  clinic.diagnoses.recorded_at: internal
+
+  # procedures
+  clinic.procedures.id: internal
+  clinic.procedures.consultation_id: internal
+  clinic.procedures.stay_id: internal
+  clinic.procedures.code: internal
+  clinic.procedures.lead_staff_id: internal
+  clinic.procedures.anaesthesia: internal
+  clinic.procedures.performed_at: internal
+
+  # requests
+  clinic.requests.id: internal
+  clinic.requests.consultation_id: internal
+  clinic.requests.animal_id: customer-linked
+  clinic.requests.kind: internal
+  clinic.requests.code: internal
+  clinic.requests.requested_by: internal
+  clinic.requests.priority: internal
+  clinic.requests.requested_at: internal
+  clinic.requests.state: internal
+  clinic.requests.sent_at: internal
+  clinic.requests.resulted_at: internal
+  clinic.requests.cancelled_at: internal
+
+  # alerts
+  clinic.alerts.id: internal
+  clinic.alerts.animal_id: customer-linked
+  clinic.alerts.kind: internal
+  clinic.alerts.text: internal
+  clinic.alerts.from_at: internal
+  clinic.alerts.until_at: internal
+
+  # exchanges
+  clinic.exchanges.id: internal
+  clinic.exchanges.direction: internal
+  clinic.exchanges.kind: internal
+  clinic.exchanges.partner_site_id: internal
+  clinic.exchanges.animal_id: customer-linked
+  clinic.exchanges.partner_patient: personal
+  clinic.exchanges.stay_id: internal
+  clinic.exchanges.reason: internal
+  clinic.exchanges.exchange_key: internal
+  clinic.exchanges.requested_at: internal
+  clinic.exchanges.sent_at: internal
+  clinic.exchanges.state: internal
+  clinic.exchanges.accepted_for: internal
+  clinic.exchanges.answered_at: internal
+  clinic.exchanges.report: internal
+  clinic.exchanges.reported_at: internal
+
+  # medicines
+  clinic.medicines.id: internal
+  clinic.medicines.name: internal
+  clinic.medicines.authorisation_number: internal
+  clinic.medicines.atcvet_code: internal
+  clinic.medicines.form: internal
+  clinic.medicines.antimicrobial: internal
+  clinic.medicines.controlled: internal
+  clinic.medicines.meat_withdrawal_days: internal
+  clinic.medicines.milk_withdrawal_days: internal
+  clinic.medicines.food_chain_horse_allowed: internal
+
+  # medicine_batches
+  clinic.medicine_batches.id: internal
+  clinic.medicine_batches.medicine_id: internal
+  clinic.medicine_batches.batch_number: internal
+  clinic.medicine_batches.site_id: internal
+  clinic.medicine_batches.expires_on: internal
+  clinic.medicine_batches.quantity_received: internal
+
+  # prescriptions
+  clinic.prescriptions.id: internal
+  clinic.prescriptions.consultation_id: internal
+  clinic.prescriptions.animal_id: customer-linked
+  clinic.prescriptions.herd_id: customer-linked
+  clinic.prescriptions.vet_id: internal
+  clinic.prescriptions.issued_at: internal
+  clinic.prescriptions.valid_until: internal
+  clinic.prescriptions.state: internal
+
+  # prescription_lines
+  clinic.prescription_lines.id: internal
+  clinic.prescription_lines.prescription_id: internal
+  clinic.prescription_lines.medicine_id: internal
+  clinic.prescription_lines.dose: internal
+  clinic.prescription_lines.unit: internal
+  clinic.prescription_lines.frequency_hours: internal
+  clinic.prescription_lines.days: internal
+  clinic.prescription_lines.cascade: internal
+  clinic.prescription_lines.meat_withdrawal_days: internal
+  clinic.prescription_lines.milk_withdrawal_days: internal
+  clinic.prescription_lines.withdrawal_ends_on: internal
+
+  # administrations
+  clinic.administrations.id: internal
+  clinic.administrations.animal_id: customer-linked
+  clinic.administrations.stay_id: internal
+  clinic.administrations.prescription_line_id: internal
+  clinic.administrations.medicine_id: internal
+  clinic.administrations.batch_id: internal
+  clinic.administrations.quantity: internal
+  clinic.administrations.scheduled_at: internal
+  clinic.administrations.given_at: internal
+  clinic.administrations.given_by: internal
+  clinic.administrations.state: internal
+
+  # dispensings
+  clinic.dispensings.id: internal
+  clinic.dispensings.prescription_line_id: internal
+  clinic.dispensings.batch_id: internal
+  clinic.dispensings.quantity: internal
+  clinic.dispensings.owner_id: customer-linked
+  clinic.dispensings.dispensed_by: internal
+  clinic.dispensings.dispensed_at: internal
+
+  # animal_board (view)
+  clinic.animal_board.animal_id: customer-linked
+  clinic.animal_board.name: internal
+  clinic.animal_board.species: internal
+  clinic.animal_board.breed: internal
+  clinic.animal_board.sex: internal
+  clinic.animal_board.stay_id: internal
+  clinic.animal_board.section_id: internal
+  clinic.animal_board.admitted_at: internal
+  clinic.animal_board.alerts: internal
+  clinic.animal_board.doses_today: internal
+  clinic.animal_board.doses_given_today: internal
+  clinic.animal_board.next_dose_at: internal

@@ -528,16 +528,22 @@ snapshot: a restart's re-render brings the new game's seed.
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `scheduler` `0.3.0`, and no other; all also name `0.2.0`. The `scheduler-*` faults are
+names `scheduler` `0.3.0`, and no other; all but v0.5's also name `0.2.0`. The `scheduler-*` faults are
 those of v0.3 master spec 15.3 that live in a scheduler node's files
 (capture W4), and also name `0.1.0`; the `purpose-*` faults are v0.4's
 purpose faults planted on a purpose's runner (v0.4 master spec 16.2),
-`0.3.0` and `0.2.0` only, the transformer role and scripts being theirs. A scenario's
+`0.3.0` and `0.2.0` only, the transformer role and scripts being theirs;
+v0.5's (master spec 17.2, the clinic's) name `0.3.0` alone, their
+purposes and the HTTP driver being v0.5's. A scenario's
 own `faults/` folder may define more for itself (`fixture-load`'s
 `fixture-job-every-minute`); those are not listed here.
 
-All are `seed-file` faults planted at render: the scenario writes the
-planted form into `nodes/<node>/` and nothing runs at injection. Every
+All are `seed-file` faults planted at render, the scenario writing the
+planted form into `nodes/<node>/` (a composed node's through its layer
+`compose/<node>/`), and nothing runs here at injection; one,
+`purpose-herd-use-dropped`, is a `state` fault with that seed change, its
+script run at injection on the database node holding its purpose's
+target, never here (spec D459). Every
 seed file also stays on the node as rendered, at `/opt/gm/seed/<file>`
 (root, `0444`; `schedule.yaml` `0400`), which the sealed checks read as
 the planted form. The checks run as root on the node; they judge what the
@@ -561,6 +567,10 @@ write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
 | `purpose-mail-outside-hours` | `queries.yaml`: `mail.campaign`'s hours read in the company's zone | `check-runs` and `check-sql` (`judges: runs`, M3); its aging minimum counts from the campaign's first run (spec D189) |
 | `purpose-watermark-misses-updates` | `scripts/`: `rollup.py` reading the orders placed past the watermark, not updated (material `inject/rollup.py`) | a transformer script (`scripts/`), `check-runs` and `check-sql` to both instances (`judges: runs`, R1); on a report-only runner, a *propose* |
 | `purpose-receiver-down-unnoticed` | `queries.yaml`: `escalate.customs` escalating rejections only; with the receiver's two-hour outage, a timeline change the scenario writes in the gateway stub's `schedule.yaml` (and its key in its `queries.yaml`) | `check-sql` and `check-runs since` (`judges: triggers`, E4); the timeline's key switch on the receiver |
+| `purpose-urgent-priority-dropped` | `scripts/`: `lab_orders.py`'s `post()` sending every centre order `routine` (material `inject/lab_orders.py.diff`, the one line; it applies beside `purpose-retry-without-key`'s in one file) | a transformer script with an `http` connection (the lab's order API), `check-runs` and `check-sql` to the record and the lab (`judges: runs`, the urgent priority and LO4 end to end on completed orders); its aging minimum counts from the first urgent order (spec D189); its `backlog:` the urgent orders posted routine |
+| `purpose-retry-without-key` | `scripts/`: `lab_orders.py`'s `post()` retrying a timed-out post under a new `client_ref` (material `inject/lab_orders.py.diff`) | the `http` driver's timeout (`HttpError` `timeout`, ten seconds by default), `check-runs` and `check-sql` to the record and the lab (`judges: runs`, LO2 with a retry as witness); its evidence needs an answer slower than the timeout (unbounded aging minimum, its `gm.md`) |
+| `purpose-herd-use-dropped` | `queries.yaml`: `amu.feed.read` joining the dispensings to `animals` with an inner join, so a herd treatment drops out (material `inject/queries.yaml.diff`, the one line); its script rewrites the planted past on the target's node | a transformer script reading its SQL from the repository (`vet-antimicrobial-use`'s `amu.feed`), `check-runs` and `check-sql` to the record and `office` (`judges: runs`, AM2's rule on the herd treatments); its aging minimum counts from the feeder's first run after a herd-visit day (spec D189) |
+| `scheduler-display-refresh-loop` | `queries.yaml` and `schedule.yaml`, on vet-housing's ward service: a key `ward.board-loop`, `ward.board`'s SQL byte for byte with parameter `unit` fixed, and a stream on `ward-board` at `rate` (`3600/h`) (materials `inject/queries.yaml.snippet`, `inject/schedule.yaml.snippet`; in a composed scenario in `compose/ward/`) | `check-sql` to the record's node (parameters `db_node`, `database`): its behavioural check reads the board statement's calls in `pg_stat_statements` twice, `window` apart; *report* only, never cleared in play (v0.5 master spec 6.3), `schedule.yaml` being never fixable |
 
 Their evidence is read on the node (the files, the log, the metrics
 endpoint) and from the bastion (`pg_stat_statements`,

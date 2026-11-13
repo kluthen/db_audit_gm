@@ -1,0 +1,106 @@
+# Catalog fault: a flow to a processor declared nowhere in the data register
+# (v0.5 master spec 13.4, 17.2, s6; data-register-handout.md 4, T307 and
+# T308; capture W5 items 0 and 2 of specs/versions/v0.5/wave-log.md). A
+# register fault: a seed-file change of the bastion's data-register.md, the
+# players' handout, written by the data-register skill; nothing in the
+# system changes. The processor (by default cold storage, the vault holding
+# the WAL archive and the nightly base backups) is dropped from every
+# entry's recipients and, for the vault, from every entry's copies, so the
+# handout names it nowhere. Resolved by propose: the players cannot edit the
+# customer's register; the corrected entries are judged at the final answer
+# against the answer key's register_diff.
+
+# --- Identity ---------------------------------------------------------
+id: governance-register-flow-undeclared
+version: 0.1.0
+title: A processor the data reaches is declared nowhere in the data register
+family: security
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: bastion
+      versions: ["0.5.0"]
+  preconditions:
+    - a scenario with a data register (governance.register), its bastion mapping data-register.md
+    - the recipient a processor the true register names on at least one entry (cold storage when a node archives to it; the franchise's messaging service when the portal's outbound flow reaches it)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the handout and the system's witness show at once (the
+                                    # vault's planted history, the archive_command line)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  recipient:
+    description: the processor the handout drops, by its partners.md name (Cold Storage; the franchise's messaging service for T308)
+    default: Cold Storage
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: data-register.md
+      change: >-
+        the handout (the scenario's player/data-register.md), written by the
+        data-register skill, names the recipient nowhere: it is dropped from
+        every entry's shared_with and, for cold storage, its copy item "cold
+        storage (WAL archive, nightly base backup)" is dropped from every
+        entry's where; the true register (gm/data-register.yaml) unchanged,
+        the instance's register_diff one item per entry and field changed
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: bastion
+    source: the data register, ~/data-register.md (and the web front's "Data register")
+    how: grep -n -i '{RECIPIENT}' ~/data-register.md; grep -n 'Shared with\|Where' ~/data-register.md
+    shows: no entry names the processor, neither among its recipients nor its copies
+  - where: bastion
+    source: ~/partners.md, the database nodes' archive settings, the vault's manifests
+    how: grep -n -i -A3 '{RECIPIENT}' ~/partners.md; psql -h {database node} -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source={database node}"
+    shows: the processor exists and receives the node's data (its WAL and nightly base backups, every personal and customer-linked column of the instance), though the register names it nowhere
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names the processor as a recipient the register leaves out: the data
+    reaches it (cold storage receives the archived node's WAL and its
+    nightly base backups, so every entry held on that instance, personal
+    data included), it processes on the customer's behalf, and a record of
+    processing must name it (GDPR Art 30(1)(d)); the evidence is the
+    system (the archive_command, the base-backup job, the vault's
+    manifests and page) and partners.md, read against the handout.
+  proposal: >-
+    the corrected entries: each entry held on the archiving instance names
+    the processor among its recipients (the whole instance, archived; a
+    processor) and the vault among its copies (WAL archive, nightly base
+    backup), as the answer key's register_diff states; the customer's
+    register updated by whoever keeps it.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  An owner asked us who holds their data, and we answered from our
+  register of processing. We are not sure it is complete.

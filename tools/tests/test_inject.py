@@ -356,6 +356,77 @@ class TestInject(DeployedGame):
         self.assertEqual(self.fake.runs, [])
 
 
+class TestInjectFaultForms(DeployedGame):
+    """Chunk 36's forms at inject (capture W5, Preflight corrections item 1;
+    spec D459): a state script run on another node, a topology fault."""
+
+    DROPPED = "faults/fixture-dropped-index/fault.yaml"
+
+    def setUp(self):
+        super().setUp()
+        self.load_data()
+        self.fake.runs.clear()
+
+    def script_elsewhere(self, node="bastion"):
+        """f2's second script run on the node its parameter `elsewhere` names."""
+        def fault(d):
+            d["applies_to"]["bricks"].append({"id": "bastion", "versions": ["0.5.0"]})
+            d["parameters"]["elsewhere"] = {"description": "where 20-analyze runs",
+                                            "default": None, "required": True}
+            d["injection"]["scripts"] = [F2_SCRIPTS[0],
+                                         {"script": F2_SCRIPTS[1], "on": "elsewhere"}]
+        self.edit_yaml(self.DROPPED, fault)
+        self.edit_yaml("scenario.yaml", lambda d: next(
+            i for i in d["fault_instances"] if i["id"] == "f2")["parameters"].update(
+                elsewhere=node))
+
+    def test_plan_sends_the_script_to_the_named_node(self):
+        self.script_elsewhere()
+        scenario = model.load_scenario(self.scenario)
+        plan = {p[0]: p for p in inject.inject_plan(scenario, self.impl)}
+        self.assertEqual(plan["f2"][2], "db")
+        self.assertEqual([(script, node) for script, _, node in plan["f2"][5]],
+                         [(F2_SCRIPTS[0], "db"), (F2_SCRIPTS[1], "bastion")])
+
+    def test_inject_runs_it_there_under_the_same_contract(self):
+        self.script_elsewhere()
+        result = self.inject()
+        self.assertEqual([script_name(r) for r in self.fake.runs],
+                         ["10-drop-index", "20-analyze"])
+        self.assertEqual([r["container"] for r in self.fake.runs],
+                         [f"{self.gid}_db.1.ctr", f"{self.gid}_bastion.1.ctr"])
+        env = dict(F2_ENV, FAULT_ELSEWHERE="bastion")
+        for run in self.fake.runs:
+            self.assertEqual((run["argv"], run["user"], run["env"]), (["sh", "-s"], "root", env))
+        self.assertEqual(result.scripts, [("f2", s) for s in F2_SCRIPTS])
+        self.assertIn("f2 inject/20-analyze.sh (bastion, as root): ok", self.printed)
+
+    def test_a_node_the_game_lacks_refused_before_running(self):
+        self.script_elsewhere()
+        scenario = model.load_scenario(self.scenario)
+        impl = dict(self.impl, nodes={k: v for k, v in self.impl["nodes"].items()
+                                      if k != "bastion"})
+        with self.assertRaisesRegex(GmError, "runs on parameter elsewhere's node 'bastion', "
+                                             "which is not a node of game"):
+            inject.inject_plan(scenario, impl)
+
+    def test_topology_fault_runs_nothing(self):
+        def fault(d):
+            d["option_absent"] = "monitoring"
+            d["injection"] = {"kind": "topology", "stage": "seed", "run_as": "root"}
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", fault)
+        scenario = model.load_scenario(self.scenario)
+        plan = {p[0]: p for p in inject.inject_plan(scenario, self.impl)}
+        self.assertEqual(plan["f1"][5], [])
+        result = self.inject()
+        self.assertEqual([script_name(r) for r in self.fake.runs],
+                         ["10-drop-index", "20-analyze"])
+        self.assertEqual(result.topology, ["f1"])
+        self.assertEqual(result.seeded, [])
+        self.assertIn("f1: topology fault, planted at rendering by the topology; nothing to run",
+                      result.text())
+
+
 class TestBeforeDataLoad(DeployedGame):
 
     def test_inject_refused_at_deployed(self):

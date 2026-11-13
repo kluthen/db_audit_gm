@@ -20,7 +20,8 @@
 # nodes/partners-backend/ from the domains' producers and the scenario
 # layers. Deployed by its short test, run-short-test.sh (T0 a weekday about
 # 15:50 local, before the 16:00 send-out). One harmless seed-file fault
-# (f1), as the core fixture's.
+# (f1), as the core fixture's; the false alarm fa (chunk 22) as its one
+# issue, read by run-false-alarm-test.sh.
 
 # --- Scenario information --------------------------------------------
 id: fixture-send-outs
@@ -114,6 +115,7 @@ nodes:
       README.md: player/README.md
       story.md: player/story.md
       issues.md: player/issues.md
+      partners.md: player/partners.md
     knobs: []
 
 
@@ -418,7 +420,17 @@ fault_instances:
     parameters: {}
     visibility: hidden
 
-issues: []
+# fa, the false alarm (v0.5 master spec 17.2, 17.3; capture W5 item 1, W5-h
+# (c); spec D459): an issue with no fault behind it, explained by
+# gm/answer-key.yaml's false_alarms: entry; counted in no score.
+issues:
+  - id: I1
+    complaint: >-
+      The external lab is slow: the small-animal PCR panel we sent out
+      came back only on its fourth day. Is something wrong with the
+      send-outs?
+    expected_resolution: report
+    covers: []
 
 # --- Host topology it was designed for -------------------------------
 designed_for:

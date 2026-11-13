@@ -43,7 +43,7 @@ activities:
       then: erased
   - id: vet-portal-outbox
     name: Messages to the owners
-    purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging service, each with its key, its address, its template, the animal's name and a link, the reminders on consent (rules 6, 7)
+    purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging service, each with its key, its address, its template, the recipient's name, the animal's name, a reminder's due date and a link, the reminders on consent (rules 6, 7)
     people: [owners, keepers]
     tables: [portal_outbox]
     retention:

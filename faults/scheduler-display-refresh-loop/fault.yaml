@@ -1,0 +1,152 @@
+# Catalog fault: a faulty ward display reading its board in a loop (v0.5
+# master spec 17.2, s9; vet-housing T150; capture W3 item 3, W5 items 0 and
+# 4 of specs/versions/v0.5/wave-log.md). A seed-file fault planted at
+# render on the ward service's node: in the scenario layer compose/ward/, a
+# queries.yaml key whose SQL is ward.board's byte for byte with its unit
+# fixed, and a stream reading it on the displays' connection about once a
+# second, below what saturates the ward's pool. Many small consumers behind
+# one service: one statement, one queryid, its calls a minute far above the
+# 64 displays' one read a minute each. A display's firmware is no layer of
+# the players': the fault is reported, never fixed, judged at the final
+# answer on the report alone (master spec 6.3); the GM never clears it in
+# play.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-display-refresh-loop
+version: 0.1.0
+title: a faulty ward display reads its board in a loop, about once a second
+family: performance
+severity: low
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.3.0"]
+  preconditions:
+    - >-
+      the node is vet-housing's ward service (producers/ward/: the query
+      ward.board and the connection ward-board, as vet_display, to the
+      record's database), composed by gmctl compose
+    - >-
+      the unit has a display (housing_displays, a row with no removed_on)
+      and pg_stat_statements is loaded on the record's node, its extension
+      in database postgres
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the loop reads from the first minute after the start; its
+                                    # excess shows over any minute of pg_stat_statements' calls
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  unit:
+    description: >-
+      the unit whose display is faulty (housing_units.id, 1 to 64 in the
+      clinic's wards), one with a display and, for the chain to an animal,
+      occupied at T0
+    default: null
+    required: true
+  rate:
+    description: the faulty display's reads, as a schedule.yaml rate (about once a second)
+    default: 3600/h
+    required: false
+  db_node:
+    description: the record's database node the ward service reads (its check connects there as gm_check)
+    default: records
+    required: false
+  database:
+    description: the record's database, whose board ward.board reads
+    default: clinic
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        a key ward.board-loop whose sql is ward.board's byte for byte
+        (SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s), its
+        parameter unit fixed to the instance's unit ({int: [u, u]}), so
+        pg_stat_statements counts its calls under ward.board's one
+        queryid. In a composed scenario, in the scenario layer
+        compose/ward/queries.yaml, never in nodes/ward/ (capture W5 item 0)
+      material: inject/queries.yaml.snippet
+    - file: schedule.yaml
+      change: >-
+        a stream ward.board-loop on the displays' connection ward-board,
+        at the instance's rate (3600/h, about once a second), arrivals
+        even, shape flat, concurrency 1: one display's loop. In
+        compose/ward/schedule.yaml beside the layer's intensity
+      material: inject/schedule.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: bastion
+    source: the record's statement statistics
+    how: >-
+      psql -h {db_node} -d postgres -c "SELECT queryid, calls, query FROM
+      pg_stat_statements WHERE query LIKE '%housing_unit_board%' ORDER BY
+      calls DESC", twice a minute apart
+    shows: >-
+      the board statement, one queryid, about 124 calls a minute where the
+      wards' 64 displays make 64; run by vet_display from ward
+      (pg_stat_activity's application_name), never from the practice
+      software
+  - where: bastion
+    source: the statement's parameter, logged for the displays' role alone
+    how: >-
+      as dba, ALTER ROLE vet_display SET log_min_duration_statement = 0,
+      the ward's pooled vet_display sessions terminated
+      (pg_terminate_backend) so the pool reconnects with it, then the
+      server log on {db_node} (/var/log/postgresql/) for "Parameters: $1 =",
+      the setting reset afterwards
+    shows: one unit's parameter about once a second, every other unit's about once a minute on average
+  - where: bastion
+    source: the chain from the unit to the animal
+    how: >-
+      psql -h {db_node} -d {database}: housing_displays (the unit's row
+      with no removed_on, its serial), housing_placements (the unit's open
+      placement), stays, animals
+    shows: the faulty display's serial, the stay and the animal it shows
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable, no-access]
+acceptance:
+  diagnosis: >-
+    names one display reading its board about once a second: the board
+    statement's calls a minute well above the displays' one each, from
+    ward as vet_display; the unit from its parameter, logged for
+    vet_display alone (never instance-wide: the practice software's
+    statements carry owners' names and phones, T1), the setting reset
+    afterwards; the chain unit, display serial, stay, animal; and that the
+    display's firmware is the vendor's to replace, no layer of the
+    players'.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  behavioural: true
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The ward's database seems busier than it should be; nobody has changed
+  anything on the wards. Is something reading the boards more often than
+  the displays should?

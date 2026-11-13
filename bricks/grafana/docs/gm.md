@@ -7,7 +7,7 @@ version 0.3.0, expected to evolve as games are played.
 
 ## Purpose
 
-Grafana OSS 13.3.0 on Debian 13 (trixie), with an SSH server for the
+Grafana OSS 13.3.1 on Debian 13 (trixie), with an SSH server for the
 players, in the image `127.0.0.1:5000/dbagm/grafana:0.3.0`. It fills the
 role `monitoring`: the customer's dashboards and alerting, built on the
 game's Prometheus, which the players audit and read through its UI. There
@@ -21,16 +21,17 @@ The image:
 
 - Debian 13 (`debian:13-slim`), `openssh-server`, `sudo`, `curl`, `jq`,
   `nano`, `vim-tiny`, `less`, `procps`.
-- Grafana OSS 13.3.0 (linux-amd64) from the upstream release archive on
+- Grafana OSS 13.3.1 (linux-amd64) from the upstream release archive on
   `dl.grafana.com`
-  (`grafana/release/13.3.0/grafana_13.3.0_40412481033_linux_amd64.tar.gz`),
+  (`grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz`),
   verified by SHA-256 at build
-  (`cec8f98cc59bc1a1945833b652371a073be678c5c159a9b1695ad63c04fae5a7`, the
+  (`6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531`, the
   value of the archive's `.sha256` and of grafana.com's package list),
   in `/usr/share/grafana`. Unpacked in a build stage of its own so the
   archive (about 460MB) never reaches the image, and trimmed there: of the
   plugins bundled with the release only the Prometheus data source is kept
-  (`data/plugins-bundled/prometheus`, plugin version 13.2.4); the front
+  (`data/plugins-bundled/prometheus`, plugin version 13.2.5, whose
+  brotli 1.2.7 fixes GO-2026-6888); the front
   end's source maps, the Swagger UI, the documentation and the packaging
   samples are dropped. The binary is upstream's, unmodified.
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
@@ -175,10 +176,10 @@ authentication settings. Everything else keeps Grafana's defaults.
   sub-path Grafana only redirects (`/` and `/login` answer 301 to
   `http://localhost:3000/grafana/...`, built from `root_url`), except
   `/api/health`, which also answers there.
-- *`$__file{}`*: works as capture W3 states in 13.3.0; the value is
+- *`$__file{}`*: works as capture W3 states in 13.3.1; the value is
   trimmed, so a password file with or without a final newline gives the
   same password.
-- *Time zone*: Grafana 13.3.0 refuses the lowercase `utc` that capture W3
+- *Time zone*: Grafana 13.3.1 refuses the lowercase `utc` that capture W3
   wrote (warning "Unknown timezone as default_timezone", and the browser's
   zone stays in effect); it takes the zone name `UTC`. The setting in
   effect is in `/api/frontend/settings` (`dateFormats.defaultTimezone`:
@@ -456,7 +457,7 @@ Not re-checked by dropping each one in turn for this brick.
 `gmctl exec --node <node> --user root` running the helper; `gmctl
 validate` runs the validator as `grafana`; `gmctl logs --node <node>`
 shows Grafana's log. Never a credential in `--env` or on a command line.
-The endpoints, as capture W3 lists them, all answer in 13.3.0 as stated:
+The endpoints, as capture W3 lists them, all answer in 13.3.1 as stated:
 
 | Endpoint | Gives |
 |---|---|
@@ -664,7 +665,7 @@ answering at `/grafana/` through the bastion's web front.
 
 `sh bricks/grafana/tests/run-stack-test.sh` deploys the brick as stack
 `gmtest-grafana` (`tests/stack.test.yml`, no published port) with its six
-seed files copied from `companion/` and a `prometheus` 0.2.0 node seeded
+seed files copied from `companion/` and a `prometheus` 0.2.1 node seeded
 with that brick's test fixture, checks the chunk's Done-when and removes
 everything it created, volumes included. It reads the API with the helper,
 the UI from a client container on the stack's network (this image, entry
@@ -696,7 +697,7 @@ images built.
   the password back. Each refused login counts towards the brute-force
   lockout (5 in 5 minutes), which a restart does not clear: after a
   lockout, wait 5 minutes.
-- **Contact point** (ruling 3 of capture W3): Grafana 13.3.0's default
+- **Contact point** (ruling 3 of capture W3): Grafana 13.3.1's default
   alerting configuration routes to a receiver `empty` with no integration
   and lists no contact point, so nothing tries to deliver and nothing is
   logged for it; with SMTP off, a contact point a player adds in the UI

@@ -846,8 +846,8 @@ def inject_at(scenario_dir, playground, at, instance, timeout=None, docker=None,
     started = now or now_utc()
     attempt = {"at": iso(started), "by": "timer" if by_timer else "gmctl", "outcome": "ok"}
     try:
-        for iid, _, node, run_as, env, scripts in plan:
-            for script, text in scripts:
+        for iid, _, _, run_as, env, scripts in plan:
+            for script, text, node in scripts:     # each on its node (spec D459)
                 run = exec_node(ldir, node, run_as, stdin=text, env=env, timeout=timeout,
                                 docker=docker)
                 _print_run(out, f"{iid} {script} ({node}, as {run_as})", run)

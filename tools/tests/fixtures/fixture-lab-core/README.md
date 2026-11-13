@@ -82,7 +82,8 @@ both round-trip, their state on `partners-db`).
 - **Published ports**: 22 (default host port 2222), 8080 (default host
   port 8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+  `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` →
+  `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface:
 the web front serves the starter-pack page alone, and the tools password

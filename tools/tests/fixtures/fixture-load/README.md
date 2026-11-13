@@ -65,7 +65,7 @@ The story as the players read it: `player/story.md`.
 | `pooler` | `pgbouncer` 0.1.1 | pooler | yes | backend | fixable |
 | `producer` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
 | `consumer` | `scheduler` 0.3.0 | consumer | yes | backend | report-only |
-| `prometheus` | `prometheus` 0.2.0 | monitoring | yes | backend | report-only |
+| `prometheus` | `prometheus` 0.2.1 | monitoring | yes | backend | report-only |
 | `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
 | `grafana` | `grafana` 0.3.0 | monitoring | yes | backend | fixable |
 
@@ -218,7 +218,7 @@ No knobs.
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.2.0 (pinned).
+- **Brick**: `prometheus`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.

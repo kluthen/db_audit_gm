@@ -61,7 +61,8 @@ requires_option: <monitoring>       # optional: the fault needs its target node 
 option_absent: <monitoring>         # optional: the fault plants the option's absence: a
                                     # monitoring node scraping a node that does not choose it
                                     # (v0.5 master spec 6.4, s10); never with requires_option
-                                    # naming the same option
+                                    # naming the same option. Required by injection.kind
+                                    # topology (spec D459)
 
 # --- How long its evidence takes -----------------------------------------
 aging:                              # v0.3 master spec 6.3 (D114)
@@ -95,7 +96,13 @@ injection:
                                     # state: the GM streams inject/ scripts into the node;
                                     # parameter: a change to a parameter of the target node,
                                     #   applied by the renderer when it writes the local
-                                    #   implementation (seed-file | state | parameter).
+                                    #   implementation;
+                                    # topology (v0.5, spec D459): planted at render by the
+                                    #   scenario's topology itself, its node not choosing the
+                                    #   option the fault's option_absent names; no seed_changes,
+                                    #   scripts or parameter_changes, stage seed; gmctl inject
+                                    #   and inject --at run nothing for it
+                                    #   (seed-file | state | parameter | topology).
                                     # A purpose fault is planted the same ways (v0.4 master spec
                                     #   6.3): a seed-file change (a runner's queries.yaml,
                                     #   scripts/ or jobs.yaml; a database node's data file,
@@ -103,7 +110,8 @@ injection:
                                     #   aging, or a timeline change of a schedule for an outside
                                     #   party's behaviour, which the definition states and the
                                     #   scenario writes
-  stage: <seed>                     # seed (present from first start: seed-file, parameter)
+  stage: <seed>                     # seed (present from first start: seed-file, parameter,
+                                    # topology)
                                     # | after-data-load (state faults, before hand-over)
   seed_changes:                     # optional: kinds seed-file and state; a state fault's are
                                     # in the scenario's copies from T0 as a seed-file fault's,
@@ -123,8 +131,16 @@ injection:
                                     # load, before T0 (v0.4 master spec 6.3, spec D226)
       change: <what the scenario's copy of the file must contain>
       material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
-  scripts:                          # optional: kind state only; run in this order
+  scripts:                          # optional: kind state only; run in this order, each on the
+                                    # instance's node, as run_as, with the FAULT_<NAME> variables
     - <inject/10-plant.sh>
+    # From v0.5 (spec D459) an item may run on another node:
+    #   - {script: inject/20-elsewhere.sh, on: <parameter>}
+    # <parameter> a required parameter of the fault (required: true) whose
+    # value in the scenario's instance names a node of the topology whose
+    # brick applies_to names; the script runs there under the same contract,
+    # in this order (a planted report rewritten on the database node while
+    # the instance's node is the runner reading it)
   parameter_changes:                # optional: kind parameter only; applied in this order
     - parameter: <node_health>      # a parameter of the target node's brick
       op: <remove-entry>            # set | remove-entry | remove-from-entry

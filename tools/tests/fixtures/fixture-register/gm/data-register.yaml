@@ -3,10 +3,10 @@
 # hand: change an input and regenerate. It describes the system as designed and
 # composed, before any fault is planted.
 generated_from:
-  scenario.yaml: sha256:cd3fb5854434ec2f30deb932085871f041d90579b284133fa0fa087f6d08a8ac
+  scenario.yaml: sha256:c30e773d54399ec81d85a87a36ad9820353de9fb129eac4475247086d7980caa
   composition.yaml: sha256:20b056d5b29d252fb317a207f5eecfa0f31d9974e97b76fccea5083d980deed5
   data/classification.yaml: sha256:c13255d98b30e0aded3477e9d09c9a7975fd1623558e76bfd3046272acc7ca7d
-  player/data-policy.md: sha256:f9d9f2b0d9fe95b56d83ef73d2f47f0411ab3674f2f9585bf559df1f467c0c43
+  player/data-policy.md: sha256:3628ce3e1a95cce3f0ae30b1a930e5b244f35408aed4842aaab28b0800c536ab
   player/partners.md: sha256:241d2b78b1b1ee7c14e9f355140861391f94af868b6a59212778a201a8429465
   gm/answer-key.yaml: sha256:ed9654948b6a91101148a00611f039db552a75833b4af825f7ac5c740aa0a695
   catalog/domains/vet-core/data/register.yaml: sha256:73b8280acdc88031b1493c04d3dbd1e144e1a54bc93d8550eec7c06100498bc2
@@ -14,7 +14,7 @@ generated_from:
   catalog/domains/vet-scheduling/data/register.yaml: sha256:c4521268cc3d211e17e75565bdebce365e32156e21c969f34b160957b2829546
   catalog/domains/vet-lab/data/register.yaml: sha256:0b07ec2dc264d04960f262756985684d8e1ff5c8390965b9b4e057f23e0e31bd
   catalog/domains/vet-machinery/data/register.yaml: sha256:cba9ab9753e2a1569d8fb14ec2d0b0dfb7b0144eb61d1cf39080df4528436774
-  catalog/domains/vet-portal/data/register.yaml: sha256:e2c1a00d7e0714aad6894593471b0dfee329ac3ba6e575f4390542ac633ff355
+  catalog/domains/vet-portal/data/register.yaml: sha256:cc02c6728c770548cfc216b6071a9263e14c26942ac6ad6e2f2049e486457242
 controller: Aldermoor Veterinary Hospitals' centre
 contact: the franchise's data-protection officer
 policy: player/data-policy.md
@@ -377,8 +377,8 @@ entries:
     department: The owners' portal
     name: Messages to the owners
     purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging
-      service, each with its key, its address, its template, the animal's name and a link, the reminders
-      on consent (rules 6, 7)
+      service, each with its key, its address, its template, the recipient's name, the animal's name,
+      a reminder's due date and a link, the reminders on consent (rules 6, 7)
     people: [owners, keepers]
     data:
       personal: [portal.portal_outbox.account_id, portal.portal_outbox.owner_id, portal.portal_outbox.address,
@@ -389,7 +389,7 @@ entries:
         tables: [portal_outbox]
     shared_with:
       - recipient: the franchise's messaging service
-        fields: [address, template, animal_name, link]
+        fields: [address, template, name, animal, due_on, link]
         flow: messaging
         processor: true
     kept_for:

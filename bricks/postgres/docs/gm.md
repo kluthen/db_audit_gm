@@ -1321,7 +1321,11 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.5.0`, and no other; all also name `0.4.0`. The v0.4 database-node faults
+`postgres` `0.5.0`, and no other. The v0.5 faults (master spec 17.2, the clinic's:
+`pg-archive-command-silent`, `governance-statement-log-personal`,
+`pg-standby-apply-delay`, `purpose-herd-use-dropped`,
+`security-policy-ownership-end-dropped`, `pg-monitoring-option-absent`) name
+`0.5.0` only; all others also name `0.4.0`. The v0.4 database-node faults
 (`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
 `governance-personal-copied`, `purpose-etl-role-expired`,
 `purpose-heavy-job-on-database-node`) name `0.5.0` and `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
@@ -1344,6 +1348,12 @@ scenario's, not the brick's, and are not listed here.
 | `governance-personal-copied` | seed file (`data`, spec D226) | the node's data file creating `pg_cron` (preloaded by the seed `postgresql.conf`), then the snippet `inject/customer_activity.sql.snippet`: a second foreign server, its user mapping (password from the remote role's secret, set by `load-data`), a foreign table, the copy and a `pg_cron` job; the scenario's `governance:`; the sealed check calls the governance check set (G1, G3) and reads `cron.job` through `gm_check_read` |
 | `purpose-etl-role-expired` | state, during the aging | parameter `role`: the purpose's source role, a login role the data file creates, given `VALID UNTIL` the planting moment and its sessions ended; its check reads `pg_roles`, this node's server log (`postgresql-*.log`, the seed's `log_line_prefix` and UTC, English messages) and the run ledger `rpt.etl_runs` on the purpose's target instance with `check-psql --node` (`judges: runs`, R4), so that instance's `pg_hba.conf` admits `gm_check` from the game network |
 | `purpose-heavy-job-on-database-node` | seed files (`data`, spec D226; `crontab`), then state during the aging | the node's data file holding the sales reporting purpose's target part, then `inject/sales_detail_rollup.sql.snippet` (the roll-up's foreign table, request and document tables, `rpt.sales_detail_rollup()`); the cron daemon (a seeded `crontab` with the entry of `inject/crontab.snippet`, the loader in `crontab_roles`); the backends' raised OOM score (`PG_OOM_ADJUST_VALUE`, "The out-of-memory victim" above), so the kernel kills the roll-up's backend and the postmaster recovers; parameters `database`, `days` (the backfill request's window, inserted by `inject/10-backfill-request.sh`); a memory limit the window exceeds twice over; `needs_unshared_host`; the sealed check (an incident check, 1 or an error, never 0 or 3) reads the request through `check-psql` and this node's server log (the seed's `%t` prefix in UTC, English messages) |
+| `pg-archive-command-silent` | seed file | an archiving seed (`archive_mode = on`, `vault_target` on cold storage's hostname; "WAL archiving and the nightly base backup" below), its `archive_command` changed to `'vault-post wal %p %f || true'` (material `inject/postgresql.conf.snippet`): `vault-post` refuses the name `pg_wal/...` (exit 2, its reason in the server log) and `\|\| true` makes the archiver count every segment archived; the sealed check reads `pg_stat_archiver` through `check-psql` and cold storage's public `GET /manifests` with Perl `HTTP::Tiny` (the node's latest `wal` manifest by `received_at`, never by name: spec D382) |
+| `governance-statement-log-personal` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`): `log_statement = 'all'` in the logging block above, no other `log_statement` line; the log on its volume, readable by the players' group; writes on personal data by an application role (vet-core's `vet_app`); `gm-reload-db` for the fix; the sealed check reads `pg_settings` and `pg_db_role_setting` through `check-psql` (live state). With `pg-archive-command-silent` both lines go in the one file |
+| `pg-standby-apply-delay` | seed file | a standby (`standby_of`, cloned by `load-data`), its seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) setting `recovery_min_apply_delay = '1h'` after `hot_standby_feedback`; PostgreSQL applies no delay before the clone is consistent, so `load-data`'s standby wait (the slot's sender `streaming`) passes; `gm-reload-db` for the fix; the sealed check reads the delay in effect and the received and replayed positions through `check-psql` (live state) |
+| `purpose-herd-use-dropped` | state, after the data load (its script on this node, spec D459) | the node holding `vet-antimicrobial-use`'s source and target (`clinic`, `office`): parameter `target_node` names it; the script `inject/20-planted-report.sh` rewrites the planted daily use and last year's report as the faulty feeder query (the instance's seed change, on the runner) would have written them, as `postgres` over the local socket, unseen; the fault's sealed check runs on the runner |
+| `security-policy-ownership-end-dropped` | state, after the data load | vet-portal composed in parameter `database` (`portal`): the policy `portal_animals_scope` on `portal_animals`, rewritten by `inject/10-drop-ownership-end.sh` as `postgres` over the local socket, unseen, its owner branch without `o.until_at IS NULL`; load-data's step (2c) `gm_check_read` on the portal's tables, which the sealed check finds first (spec D432); the check evaluates the live policies through `check-psql` as `gm_check` with `portal.owner_id` set to a former owner, `portal_keeper_granted` read through a session-local function (`gm_check` may not execute it) |
+| `pg-monitoring-option-absent` | topology (`option_absent: monitoring`, spec D459) | the option `monitoring` not chosen on the node while a monitoring node logs in as `monitoring` ("Option `monitoring`"): the cluster initialised without the role; nothing runs at injection; resolved by *report* or *propose* (spec D462), the GM creating the role as the initdb step does with the game's `monitoring_password`, which `postgres-exporter` declares; the sealed check reads `pg_roles` through `check-psql` |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
@@ -1378,8 +1388,9 @@ Known interactions:
   `pg-hba-trust-remote` must keep that line, or the exporter disconnects. pgBadger shows only what
   the logging settings let through.
 
-Faults it cannot host: anything needing a standby or a replication peer
-(the brick has the single role `database` and consumes nothing), and
+Faults it cannot host: before 0.5.0, anything needing a standby or a
+replication peer (from 0.5.0 a node may be a standby, `standby_of`:
+`pg-standby-apply-delay`); and
 anything visible only under load (the brick has no load generator): those
 live in the nodes that make the load, below.
 

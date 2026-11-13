@@ -1,0 +1,57 @@
+# Answer key of the v0.5 portal-scope fixture (tools/tests, v0.5 chunk 25;
+# capture W5 item 4; spec D463).
+scenario:
+  id: fixture-portal-scope
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: s5
+    what: >-
+      portal_animals_scope's owner branch reads any ownership of the asker's,
+      ended or not (its o.until_at IS NULL left out), so a former owner
+      logged into the portal still lists the animals they sold or gave away.
+    why: >-
+      the portal copies every ownership, so every past sale is exposed, not
+      only the day's: a seller reads the new owner's animal and its records
+      since their own ownership began.
+    evidence:
+      - where: node:records
+        source: the portal's policies on portal_animals
+        how: >-
+          psql -d portal -c "SELECT polname, pg_get_expr(polqual, polrelid)
+          FROM pg_policy WHERE polrelid = 'portal_animals'::regclass"
+        shows: the owner branch without until_at IS NULL, the keeper branch with it
+      - where: bastion
+        source: the sales in the portal's copy
+        how: >-
+          psql -h records -d portal -c "SELECT animal_id, owner_id, until_at
+          FROM portal_ownerships WHERE role = 'owner' AND until_at IS NOT NULL
+          ORDER BY until_at DESC LIMIT 5"
+        shows: the former owners' ended rows, each passing the owner branch
+      - where: node:portal-api
+        source: the former owner's listing
+        how: as the former owner, POST /login then GET /animals with the session cookie
+        shows: the animal they sold, listed
+    acceptable:
+      diagnosis: >-
+        names the owner branch of portal_animals_scope as admitting ended
+        ownerships: former owners still see the animals they no longer own.
+      proposal: >-
+        restore o.until_at IS NULL in the owner branch, the keeper branch
+        unchanged; check that the buyer still sees the animal and the seller
+        no longer does; review what former owners read since the change.
+      fix: >-
+        the former owner's GET /animals no longer lists the animal and the
+        buyer's still does.
+    sealed_check:
+      script: faults/security-policy-ownership-end-dropped/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        reads the live policies as gm_check through gm_check_read, with the
+        most recent sale's former owner and buyer as witnesses; in the short
+        test, the sale the test records two hours back.
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this fixture

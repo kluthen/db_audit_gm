@@ -1,0 +1,34 @@
+# Overlay of the reports fixture's answer key for s7 (capture W5 items 0, 3):
+# appended to a copy's gm/answer-key.yaml by tools/tests/planted.py.
+instances:
+  - instance: s7
+    what: records' postgresql.conf sets log_statement = 'all'.
+    why: >-
+      every write of the practice software, its values included, goes into
+      the server log: owners' names, phone numbers and addresses outside the
+      record, against "none in the logs" (vet-core's core rule 10).
+    evidence:
+      - where: node:records
+        source: the server log
+        how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
+        shows: vet_app's writes on owners with names and phone numbers in clear
+      - where: node:records
+        source: /etc/postgresql/postgresql.conf
+        how: grep -n log_statement /etc/postgresql/postgresql.conf
+        shows: log_statement = 'all'
+    acceptable:
+      diagnosis: >-
+        names log_statement = 'all' as writing personal data into the server
+        log, against the business's rule.
+      proposal: >-
+        log_statement none (or ddl) and a reload; the audit need met without
+        values; the files already written purged or kept under the record's
+        rules.
+      fix: log_statement none or ddl in effect, on no role or database writing the record, after a reload.
+    sealed_check:
+      script: faults/governance-statement-log-personal/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        live state: present while log_statement all is in effect on records; fixed after the line is removed and the server reloaded (the files already written stay a finding).
+    interactions: []
+    validators_left_red: []

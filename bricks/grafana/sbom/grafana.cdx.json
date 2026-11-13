@@ -15,11 +15,11 @@
       "type": "application",
       "bom-ref": "grafana/grafana",
       "name": "grafana",
-      "version": "13.3.0",
+      "version": "13.3.1",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "583239678e5a59a0f11f8af8d4680556cb5ddfc6ee5756dc0fec2e4a993a7a44"
+          "content": "f62d1816778c94324c42480eaba4ef58629efd2066ce61c8ecfd66c2d40bc0fe"
         }
       ],
       "properties": [
@@ -33,19 +33,19 @@
         },
         {
           "name": "dbagm:release-arg",
-          "value": "GRAFANA_VERSION=13.3.0"
+          "value": "GRAFANA_VERSION=13.3.1"
         },
         {
           "name": "dbagm:archive",
-          "value": "https://dl.grafana.com/grafana/release/13.3.0/grafana_13.3.0_40412481033_linux_amd64.tar.gz"
+          "value": "https://dl.grafana.com/grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz"
         },
         {
           "name": "dbagm:archive-sha256",
-          "value": "cec8f98cc59bc1a1945833b652371a073be678c5c159a9b1695ad63c04fae5a7"
+          "value": "6acf8939dd2f73332cbcafc27a33973fb1115b8867e7ffa3223c6e2ecbed8531"
         },
         {
           "name": "dbagm:archive-member",
-          "value": "grafana-13.3.0/bin/grafana"
+          "value": "grafana-13.3.1/bin/grafana"
         },
         {
           "name": "dbagm:go-package",
@@ -3389,10 +3389,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/net@v0.61.0",
+      "bom-ref": "pkg:golang/golang.org/x/net@v0.62.0",
       "name": "golang.org/x/net",
-      "version": "v0.61.0",
-      "purl": "pkg:golang/golang.org/x/net@v0.61.0"
+      "version": "v0.62.0",
+      "purl": "pkg:golang/golang.org/x/net@v0.62.0"
     },
     {
       "type": "library",

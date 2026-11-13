@@ -1,0 +1,17 @@
+# Seed crontab of the health node in aldermoor-centre (master spec 7.4, O226):
+# the checks over health.yaml's four instances, the IT's disk alarm on the
+# three primaries, and last night's base backups in cold storage, after the
+# nightly jobs (records 03:30, lab 03:45, machines 04:00 UTC). Each line's
+# results land on the page (/health/).
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+# the checks (check_postgres over health.yaml), every five minutes
+*/5 * * * * health-run checks
+# the IT's disk alarm on the databases' size: warning at 2 GB, critical at 4 GB
+*/5 * * * * health-run script disk-alarm 2048 4096 records
+*/5 * * * * health-run script disk-alarm 2048 4096 lab
+*/5 * * * * health-run script disk-alarm 2048 4096 machines
+# is last night's base backup in cold storage? after the nightly jobs
+30 6 * * * health-run script backup-there http://cold-storage:8000 records
+30 6 * * * health-run script backup-there http://cold-storage:8000 lab
+30 6 * * * health-run script backup-there http://cold-storage:8000 machines

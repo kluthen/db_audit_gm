@@ -89,7 +89,14 @@ later edit to an input makes the register stale (W4 item 1).
    true entries (see "Register faults") and write its instance's
    `register_diff:` into `gm/answer-key.yaml`. The answer key is then
    final.
-3. **The digests.** For each input, `sha256sum <file>`; record it as
+3. **The digests.** For each input, `sha256sum <file>`, except
+   `composition.yaml`, digested without its top-level `coherence:` key and
+   the indented lines under it (the record `load-data` rewrites, spec D465;
+   a file without the key digests as its bytes):
+   `python3 -c 'from tools.gm import model;
+   print(model.register_digest("composition.yaml", "<dir>/composition.yaml"))'`
+   from the repository root (it gives any input's digest, its label
+   first). Record each as
    `sha256:<hex>` under its path: scenario-relative
    (`scenario.yaml`, `data/classification.yaml`, `gm/answer-key.yaml`), or
    `catalog/<path>` for a catalogue file
@@ -140,7 +147,12 @@ where, kept for).
   then the copies, each `{copy: <text>}`: a standby of that node
   (`standby_of`), "the standby `<node>`, a streaming replica"; an
   archiving node (`vault_target` on cold storage's hostname), "cold
-  storage (WAL archive, nightly base backup)".
+  storage (WAL archive, nightly base backup)". Copies go on entries
+  only: an internal line's `where` holds its locations. A third party's
+  node (each `third_parties:` entry's `nodes`, and the partners' shared
+  nodes serving the owners alone) is never in a `where` or the index:
+  the loader refuses its name in the handout (master spec 10.2, spec
+  D469), and the customer's governance holds no location there.
 - **shared_with** (`shared_with:`), each recipient `{recipient, fields}`
   with `flow`, `processor`, `outside_eu` when they hold:
   - a `governance:` outbound flow of a class the entry holds whose
@@ -157,8 +169,10 @@ where, kept for).
   - a third party reached by a purpose or a domain's producer with the
     entry's data (the external lab, the centres abroad, the messaging
     service), by its `partners.md` name, with the fields;
-  - cold storage when the entry's node archives to it: "cold storage, a
-    processor (the whole instance, archived)", `processor: true`;
+  - cold storage when the entry's node archives to it: `recipient` its
+    `partners.md` name, `fields: [the whole instance, archived]`,
+    `processor: true` (the handout: "Cold Storage (the whole instance,
+    archived), a processor");
   - `processor: true` for a party processing on the customer's behalf
     (cold storage, the franchise's messaging service); `outside_eu: true`
     for a transfer outside the EU (the story says where a partner is).
@@ -172,10 +186,13 @@ where, kept for).
   under `where`, the entry of the activity whose tables its `data_moved`
   reads those columns from, its columns under that entry's `data`; one
   holding only `internal` columns goes in the internal table, one line per
-  purpose (`id`: the purpose id).
+  purpose (`id`: the purpose id). A purpose's table on the partners'
+  database (its `target` there, as purposes 14 and 16's) stays out of
+  its line, which lists the customer's side; what the customer sends
+  there is a recipient in `shared_with`, on an entry.
 - **The index** (`index:`): each `node/database` of any `where`, with the
   ids of the entries held there, then of the internal lines, each in file
-  order.
+  order; never a third party's node.
 - **The header**: `controller` (the centre, as the story names it),
   `contact` (a data-protection contact the story gives, or the centre's
   data-protection officer by role), `policy` (`governance.policy`).
@@ -196,12 +213,14 @@ fault's `seed_changes` is the bastion's `data-register.md`, the scenario's
 handout carries the change, and regenerating without the fault clears it.
 The fault definition's parameters say the change; the skill applies it to
 the entries and computes `register_diff:` against the true register, **one
-item per entry changed**: `{entry: <id>, field: <field>, true: <value>,
-handed_out: <value>}`, `field` one of `purpose`, `people`, `data`,
-`where`, `shared_with`, `kept_for`, the values as the handout writes that
-field (a list stays a list). The resolution is *propose*, judged at the
-final answer against the diff; the sealed check reads only that the
-change is present in the bastion's copy.
+item per entry and field changed**: `{entry: <id>, field: <field>, true:
+<value>, handed_out: <value>}`, `field` one of `purpose`, `people`,
+`data`, `where`, `shared_with`, `kept_for`, the values as the handout
+writes that field (a list stays a list; a field the change leaves empty as
+the handout words it, `shared_with` "no one", since the loader refuses an
+empty value). The resolution is *propose*, judged at the final answer
+against the diff; the sealed check reads only that the change is present
+in the bastion's copy.
 
 | Trap | Change to the handout | `register_diff` |
 |---|---|---|
@@ -212,8 +231,8 @@ change is present in the bastion's copy.
 | T304 a wrong retention | the entry's `kept_for` (controlled drugs "five years") | that entry's `kept_for` |
 | T305 the register absent | no handout file; the bastion maps no `data-register.md`; the policy still says the register exists | `[{absent: true}]` |
 | T306 the register vague | each `purpose` "our activities", `where` "our systems", `kept_for` "as long as necessary", `shared_with` none | each entry's four fields |
-| T307 a flow not declared (cold storage) | the recipient dropped from every entry's `shared_with` (`governance-register-flow-undeclared`, its parameter `recipient`, default cold storage's `partners.md` name) | each entry's `shared_with` that named it |
-| T308 a flow not declared (the messaging service) | as T307, `recipient` the messaging service | likewise |
+| T307 a flow not declared (cold storage) | the recipient dropped from every entry's `shared_with`, and its `{copy: cold storage (WAL archive, nightly base backup)}` item from every entry's `where`, so the vault is named nowhere (`governance-register-flow-undeclared`, its parameter `recipient`, default cold storage's `partners.md` name) | each entry's `shared_with` that named it, and each entry's `where` that held the copy |
+| T308 a flow not declared (the messaging service) | as T307, `recipient` the messaging service (no copy to drop) | each entry's `shared_with` that named it |
 
 A register fault counts as a minor friction (M) by default. The test
 selection's s6 is T307 (chunk 23); a GM may plant any of them (fault

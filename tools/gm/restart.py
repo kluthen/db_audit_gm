@@ -378,8 +378,8 @@ def plant_everything(ldir, scenario, impl, docker, timeout=None, out=print):
     moment (master spec 12, "Otherwise, no history"). Returns
     `[(instance, script)]` run."""
     ran = []
-    for iid, fault, node, run_as, env, scripts in inject.inject_plan(scenario, impl):
-        for script, text in scripts:
+    for iid, fault, _, run_as, env, scripts in inject.inject_plan(scenario, impl):
+        for script, text, node in scripts:     # each on its node (spec D459)
             run = exec_node(ldir, node, run_as, stdin=text, env=env, timeout=timeout,
                             docker=docker)
             inject._print_run(out, f"{iid} {script} ({node}, as {run_as})", run)

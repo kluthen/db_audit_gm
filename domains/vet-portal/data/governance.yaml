@@ -7,8 +7,10 @@
 # portal, renamed as the scenario does; the purposes add their readers
 # (portal_sync, portal_dispatch, and vet_portal_sync and lab_release on the
 # sources) and their outbound flow: the messages to the franchise's messaging
-# service (to: messaging, a processor), carrying address, template,
-# animal_name and link only (rule 7, D191), with its purpose. portal_api reads
+# service (to: messaging, a processor), carrying address, template, name,
+# animal, due_on and link only (the outbox payload's keys: the recipient's
+# name, the animal's name, a reminder's due date; rule 7, D191), with its
+# purpose. portal_api reads
 # the personal columns of the asker's own account only, never the hashes;
 # portal_housekeeping reads the sessions, for their purge.
 classes:

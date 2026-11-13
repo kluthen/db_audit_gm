@@ -1,0 +1,37 @@
+# api.yaml of node portal-api, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+endpoints:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  session:
+    hosts:
+    - portal-api
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  me:
+    hosts:
+    - portal-api
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  animals:
+    hosts:
+    - portal-api
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  documents:
+    hosts:
+    - portal-api
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  accounts:
+    hosts:
+    - portal-api
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  desk:
+    hosts:
+    - portal-api
+    credentials:
+    - portal_desk
+connections:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/api/portal-api/api.yaml
+  portal:
+    driver: sql/postgresql
+    target: records:5432/portal
+    role: portal_api
+    pool:
+      size: 4

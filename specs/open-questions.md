@@ -228,7 +228,9 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
 (D422, D423), closed by the driver as recommended (D424–D427), are kept
 likewise, and so is O243, raised by the same pass and closed by capture
 W4 (D432). O247, raised by placing the owner's security rulings of
-2026-11-10, is open:
+2026-11-10, closed by the owner (D458), and O250, raised by chunk 27's
+stop (D469) and closed by the owner as proposed (D471), are kept
+likewise; O249 and O251 (raised at wave 5's gate) are open:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -353,6 +355,46 @@ W4 (D432). O247, raised by placing the owner's security rulings of
   binding released versions; chunk 34 is written so, 0.3.1 adding the
   re-pins to its commit. Refs: [build plan](versions/v0.5/build-plan.md)
   chunk 34; [master spec](versions/v0.5/master-spec.md) 6.7.
+- **O249** (later, before the clinic is first played, v1.0 gating;
+  raised by D467) — The partner stubs' reference counters: the
+  authority's `AMU<year>-NNNN` and the head office's `HO<YYYYMM>-NNNN`
+  count the stub's own rows (`count(*) + 1`), empty at the load, so the
+  first live reference restarts at 0001 after the series the purposes'
+  histories plant on the customer's side (chunk 35, D451). No repeat
+  (the year or month is in the reference), but a player may read the
+  count not continuing as a fault. Proposed: each stub's `data.sql`
+  seeds its rows (or an offset) to continue the planted series, from the
+  history's own `load_epoch` derivation, a test reading the first live
+  reference. Refs: `purposes/vet-antimicrobial-use/` and
+  `purposes/vet-head-office-figures/` (`material/receiver/`);
+  [build plan](versions/v0.5/build-plan.md) release gate item 12.
+- **O250** (v0.5 release; **closed** by D471, 2026-11-12: a v0.5 known limit, as proposed; raised by D469) — The governance
+  check set on the whole clinic: G1 walks the standby as a location of
+  its own (a standby is no location, so its every classed column would
+  read a breach), and G3's transformer path stops at the first job with
+  an HTTP connection ("not a database node's database"), so
+  `check-governance.sh` on `interfaces` and `backoffice` reads 2. Neither
+  touches a v0.5 gate run (the load-only fixture has no standby and no
+  transformer) nor a clinic check in play (none calls the set).
+  Proposed: name it a v0.5 known limit (master spec 18.4, release gate
+  item 6), fixed when a scenario first calls the set there (the walk
+  judging a standby's databases at its primary's location, a non-SQL
+  connection no database path). Refs: `tools/gm/governance.sh`;
+  [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
+- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12) — The
+  loader does not enforce the format rule that a bastion maps
+  `partners.md: player/partners.md` exactly when the scenario's
+  `third_parties:` carry a `player_doc` (formats.md "Partners"). It
+  catches the omission only through `credentials:` (a listed credential
+  the unmapped page cannot name), so five fixtures whose partners list
+  none passed without the page until gate fix `026e023` mapped it by
+  hand. No v0.5 scenario or fixture breaks the rule now, and the players'
+  page is the only loss (no check reads it). Proposed: a loader refusal
+  in v0.6's first chunk touching `tools/gm/model.py` ("third parties
+  carry a `player_doc`, but the bastion maps no `partners.md`", and the
+  converse), with a unit test; no v0.5 chunk. Refs: `tools/gm/model.py`
+  (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
+  (third parties); [formats.md](formats.md) "Partners".
 
 
 ## v0.6: the setup's entry point

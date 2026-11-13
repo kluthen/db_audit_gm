@@ -1,0 +1,53 @@
+# Overlay of the housing fixture's answer key for s9 (capture W5 items 0, 4):
+# appended to a copy's gm/answer-key.yaml by tools/tests/planted.py.
+instances:
+  - instance: s9
+    what: >-
+      unit 7's display (display 65) reads its board about once a second
+      through the ward service, ward.board's statement with its unit fixed,
+      beside the 64 displays' one read a minute each.
+    why: >-
+      the board statement's calls double (about 124 a minute where 64 are
+      due): one faulty box loads the record for nothing, below what
+      saturates the ward's pool, so nothing fails and nobody notices.
+    evidence:
+      - where: bastion
+        source: the record's statement statistics
+        how: >-
+          psql -h records -d postgres -c "SELECT queryid, calls FROM
+          pg_stat_statements WHERE query = 'SELECT * FROM housing_unit_board
+          WHERE unit_id = \$1'", twice a minute apart
+        shows: one queryid, about 124 calls a minute, from ward as vet_display
+      - where: node:records
+        source: the server log, the parameter logged for vet_display alone
+        how: >-
+          as dba, ALTER ROLE vet_display SET log_min_duration_statement = 0,
+          the vet_display sessions terminated, then grep 'Parameters: \$1 ='
+          /var/log/postgresql/postgresql-*.log; the setting reset after
+        shows: "$1 = '7' about once a second, every other unit about once a minute on average"
+      - where: bastion
+        source: the chain unit, display, placement, stay, animal
+        how: >-
+          psql -h records -d clinic: housing_displays WHERE unit_id = 7 AND
+          removed_on IS NULL, housing_placements WHERE unit_id = 7 AND
+          until_at IS NULL, stays, animals
+        shows: display 65's serial, the horse in box H-07
+    acceptable:
+      diagnosis: >-
+        names unit 7's display (its serial, display 65's) reading its board
+        about once a second, the horse it shows, the excess shown against the
+        displays' one read a minute; the parameter logged for vet_display
+        alone and the setting reset; the display's replacement asked of the
+        technician, the firmware being no layer of the players'.
+    sealed_check:
+      script: faults/scheduler-display-refresh-loop/checks/fixed.sh
+      at_handover: 1
+      window: 1m
+      threshold: 80
+      notes: >-
+        reads the board statement's calls twice a minute apart: about 124 a
+        minute while the loop runs, about 64 once the display is replaced
+        (the short test removes the stream itself). Report only: never
+        cleared in play.
+    interactions: []
+    validators_left_red: []

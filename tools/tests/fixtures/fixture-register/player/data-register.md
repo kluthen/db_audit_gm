@@ -193,11 +193,11 @@ measures are stated there, not here.
 
 ### vet-portal-outbox: Messages to the owners
 
-- **Purpose**: Handing account messages, document notices and vaccination reminders to the franchise's messaging service, each with its key, its address, its template, the animal's name and a link, the reminders on consent (rules 6, 7)
+- **Purpose**: Handing account messages, document notices and vaccination reminders to the franchise's messaging service, each with its key, its address, its template, the recipient's name, the animal's name, a reminder's due date and a link, the reminders on consent (rules 6, 7)
 - **People concerned**: owners, keepers
 - **Data held**: personal: `portal_outbox.account_id`, `owner_id`, `address`, `animal_id`, `payload`
 - **Where**: `records/portal` (`portal_outbox`)
-- **Shared with**: the franchise's messaging service (address, template, animal_name, link), a processor
+- **Shared with**: the franchise's messaging service (address, template, name, animal, due_on, link), a processor
 - **Kept for**: 2 years (rule 11, a game value), then erased
 
 ## Internal data

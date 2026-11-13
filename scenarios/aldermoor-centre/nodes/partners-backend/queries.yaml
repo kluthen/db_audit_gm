@@ -1,0 +1,98 @@
+# queries.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.normal:
+    sql: INSERT INTO centres.state (hostname, name, value) SELECT h, 'delay_ms', '0' FROM unnest(ARRAY['aldermoor-central',
+      'aldermoor-south', 'aldermoor-abroad']) AS h ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value,
+      set_at = now()
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.central:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.south:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.tick.abroad:
+    call: POST /tick
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.central:
+    call: POST /request
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.south:
+    call: POST /request
+  # from vet-core@regional-franchise: domains/vet-core/producers/partners/centres/queries.yaml
+  centres.request.abroad:
+    call: POST /request
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/queries.yaml
+  practices.normal:
+    sql: INSERT INTO practices.state (hostname, name, value) VALUES ('practices', 'delay_ms', '0') ON CONFLICT
+      (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/practices/queries.yaml
+  practices.order:
+    call: POST /tick
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/queries.yaml
+  xlab.normal:
+    sql: INSERT INTO xlab.state (hostname, name, value) VALUES ('northfield-lab', 'delay_ms', '0') ON CONFLICT
+      (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/partners/xlab/queries.yaml
+  xlab.answer:
+    call: POST /tick
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.visit:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - visit
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.activate:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - activate
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.reset:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - reset
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.unsubscribe:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - unsubscribe
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.keeper:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - keeper
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.close:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - close
+  # from scenario: compose/partners-backend/queries.yaml
+  coldstore.normal:
+    sql: INSERT INTO coldstore.state (hostname, name, value) VALUES ('cold-storage', 'delay_ms', '0'), ('cold-storage',
+      'uploads', 'accept') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from scenario: compose/partners-backend/queries.yaml
+  authority.normal:
+    sql: INSERT INTO authority.state (hostname, name, value) VALUES ('authority', 'delay_ms', '0'), ('authority',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from scenario: compose/partners-backend/queries.yaml
+  headoffice.normal:
+    sql: INSERT INTO headoffice.state (hostname, name, value) VALUES ('head-office', 'delay_ms', '0'), ('head-office',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  # from scenario: compose/partners-backend/queries.yaml
+  messaging.normal:
+    sql: INSERT INTO messaging.state (hostname, name, value) VALUES ('messaging', 'delay_ms', '0'), ('messaging',
+      'fail_one_in', '50') ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

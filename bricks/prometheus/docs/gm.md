@@ -2,12 +2,12 @@
 
 GM documentation of the `prometheus` brick (`brick.yaml`, v0.2 master
 spec 7 and 7.2; required sections: v0.2 master spec 6.2). Never shipped
-to players. Brick version 0.2.0, expected to evolve as games are played.
+to players. Brick version 0.2.1, expected to evolve as games are played.
 
 ## Purpose
 
-Prometheus 3.13.5 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.0`. It fills
+Prometheus 3.16.0 on Debian 13 (trixie), with an SSH server for the
+players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.1`. It fills
 the role `monitoring`: the node that scrapes and keeps the game's
 metrics, which the players audit as the customer's monitoring and read
 through its UI, and which a Grafana node queries. The GM picks it for
@@ -20,7 +20,7 @@ The image:
 
 - Debian 13 (`debian:13-slim`), `openssh-server`, `sudo`, `curl`, `nano`,
   `vim-tiny`, `less`, `procps`.
-- Prometheus 3.13.5 (`prometheus` and `promtool`, linux-amd64) from the
+- Prometheus 3.16.0 (`prometheus` and `promtool`, linux-amd64) from the
   upstream release archive, verified by SHA-256 at build against the
   release's `sha256sums.txt`.
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
@@ -42,7 +42,7 @@ The image:
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
   `bastion` 0.4.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
   do.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches its scrape targets by node
@@ -531,7 +531,7 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `prometheus` `0.2.0`, and no other.
+names `prometheus` `0.2.1`, and no other; all also name `0.1.0` and `0.2.0`.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

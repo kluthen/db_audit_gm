@@ -513,15 +513,34 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59), and no catalog fault (`faults/`) names `bastion` there (the code
-accepts a fault instance on a node only when it does:
-`tools/gm/model.py`). The bastion hosts no fault, and none should be
-written for it: nothing on it is part of the game (master spec 9.2), its
-write policy is `report-only`, and a fault there would cut the players off
-from the system they audit.
+(D59): a fault instance is accepted on a node when the fault's
+`applies_to` names the node's brick and version (`tools/gm/model.py`).
+This list is every catalog fault (`faults/`) whose `applies_to` names
+`bastion` `0.5.0`, and no other.
 
-Faults it lends itself to with no definition yet: none, for the same
-reason.
+Nothing on the bastion is part of the game (master spec 9.2), its write
+policy is `report-only`, and a fault in its configuration would cut the
+players off from the system they audit: none is written. The one kind it
+hosts, from v0.5, is a **register fault** (master spec 6.4, 13.4): a
+change to the starter pack's data register, the optional seed file
+`data-register.md`, planted in the handout only. The `data-register`
+skill writes the scenario's `player/data-register.md` with the change
+applied and the answer key's `register_diff:`; the bastion copies and
+shows it as any seed file, and nothing else on it, or in the system,
+changes. Its fault id is `governance-register-*` (family `security`),
+its resolution *propose*, judged at the final answer against
+`register_diff:`; its sealed check reads only that the change is present
+in the served handout.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `governance-register-flow-undeclared` | seed file (`data-register.md`) | the optional seed file `data-register.md` mapped to the scenario's `governance.register` (a scenario with a data register), copied into `/home/player` and shown on the page's "Data register" section; parameter `recipient` (default `Cold Storage`), the processor the handout names nowhere (dropped from every entry's recipients and, for cold storage, its copies); the sealed check reads `/home/player/data-register.md` as root with `awk` |
+
+Faults it lends itself to with no definition yet: the other register
+traps (an entry out of date, a column or a store missing, a wrong class,
+a wrong retention, the register absent, the register vague; the
+`data-register` skill's table), each a change to `data-register.md`; and,
+for the same reasons as above, none in the bastion's own configuration.
 
 Known interactions: the bastion is where the players gather the evidence
 of faults elsewhere, so what it sets up shapes what they see. Its

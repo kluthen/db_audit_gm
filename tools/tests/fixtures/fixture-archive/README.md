@@ -32,6 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
+| Domains | `vet-core` (variant `regional-franchise`); see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -42,7 +43,7 @@ for, not any one playground.
 
 ## 2. Background
 
-A clinic archives its database's WAL and a nightly base backup to an off-site vault, cold storage, whose console shows what it has received.
+A centre of a veterinary franchise keeps its medical record on one PostgreSQL instance, records, and archives its WAL and a nightly base backup to an off-site vault, cold storage, whose console shows what it has received.
 
 The story as the players read it: `player/story.md`.
 
@@ -72,7 +73,7 @@ The story as the players read it: `player/story.md`.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: README.md → `player/README.md`; story.md → `player/story.md`; issues.md → `player/issues.md`.
+- **Seed files**: README.md → `player/README.md`; story.md → `player/story.md`; issues.md → `player/issues.md`; data-policy.md → `player/data-policy.md`; data-register.md → `player/data-register.md`; partners.md → `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface: the
 web front serves the starter-pack page alone, and the tools password is
@@ -126,11 +127,13 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 
 Data, restored from `data/records.sql`:
 
-- Database `clinic`, owner `postgres`:
+- Database `fill`, owner `postgres`:
 
   | Table | Holds |
   |---|---|
-  | `visits` | 2 000 visits (id, animal_id, seen_at), written by the short test to fill the segments it switches |
+  | `fill_rows` | 2 000 rows (id, n, written_at), the short tests' filler, no business data |
+
+The domain `vet-core` is loaded into the database `clinic` (see section 1).
 
 #### Node `partners-api`
 
@@ -221,6 +224,89 @@ Data, restored from `data/partners-db.sql`:
 | `partners-backend` | `partners-db` | cold storage's misbehaviour key, its stream coldstore.normal, as coldstore | postgresql 5432 | 1 a minute |
 | `partners-api` | `partners-db` | cold storage's manifests and state, as coldstore | postgresql 5432 | per request |
 
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM. `gmctl compose` writes no node's
+files: no producer of a composed domain has a node here.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+
+- **Load order**: `vet-core`.
+- **Derivations**: none.
+- **Scale**: checked: the core alone at one centre's scale: about 0.27
+  million rows, 49 MB.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: load only: no practice software node; the
+    fixture's load is the vault's (capture W5 item 2);
+  - `vet-core`'s `api/clinic-api`: load only: no lookup API node (capture
+    W5 item 2);
+  - `vet-core`'s `partners/centres`: load only: the partners' nodes run
+    cold storage alone, no other centres' stub (spec D435; capture W5
+    item 2).
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: none.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `cold-storage` | Cold Storage | an off-site archive service, the vault | round-trip | partners-api, partners-backend, partners-db | `cold-storage` | `player/partners.md#cold-storage` | none | none |
+
+The partners' hidden schedule: `nodes/partners-backend/schedule.yaml`.
+
+### Data governance
+
+The company's data policy, handed to the players: `player/data-policy.md`
+(written from the rules below; on the bastion as `data-policy.md`). Column
+classes: `data/classification.yaml`.
+
+| Class | Locations | Separation | Readers | Outbound |
+|---|---|---|---|---|
+| `personal` | records/clinic | — | vet_app, vet_lookup, vet_reports | none |
+| `customer-linked` | records/clinic | — | vet_app, vet_lookup, vet_display, vet_reports | none |
+| `internal` | any | — | — | — |
+
+The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
+`pgbouncer_lookup`) are skipped as readers and may not be listed as one;
+a path acting as one of them (a user mapping's remote role, a
+transformer connection's role, a `SECURITY DEFINER` procedure's owner, a
+`pg_cron` job's `username`) is judged all the same, a superuser reaching
+every classed column of its database. The game's own schemas
+(`gm_check`, `gm_pgbouncer`) and extensions' objects are outside every
+rule.
+
+### Data register
+
+Generated by the data-register skill; never edited by hand. The handout,
+`player/data-register.md`, is on the bastion as `data-register.md`; the
+true register, `gm/data-register.yaml` (sealed): controller Aldermoor
+Veterinary Hospitals' centre, contact the franchise's data-protection
+officer, 6 entries, 1 internal line, 1 location in its index.
+
+| Department | Entries |
+|---|---|
+| The medical record | vet-core-owners, vet-core-staff, vet-core-referrals, vet-core-record, vet-core-medicines, vet-core-exchanges |
+
+No register fault: the answer key has no `register_diff:`.
+
 ## 4. Host topology it was designed for
 
 Platform: swarm.
@@ -289,16 +375,24 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, `player/issues.md`, and the data policy
+  `player/data-policy.md`, the partners `player/partners.md`; the data
+  register `player/data-register.md`, generated by the data-register skill.
+  It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`, `nodes/records/crontab`
   - `partners-api`: `nodes/partners-api/api.yaml`, `nodes/partners-api/routes/`, `nodes/partners-api/db/`
   - `partners-backend`: `nodes/partners-backend/queries.yaml`, `nodes/partners-backend/jobs.yaml`, `nodes/partners-backend/schedule.yaml`
   - `partners-db`: `nodes/partners-db/postgresql.conf`, `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
-  - `records`: `data/records.sql`
-  - `partners-db`: `data/partners-db.sql`
+  - `records`: `data/records.sql` (the database `fill` and its filler);
+    `partners-db`: `data/partners-db.sql`; first;
+  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
+    `data/load.sql`, into `records/clinic`, in `composition.yaml`'s order.
+- **Column classification**: `data/classification.yaml`, the scenario's
+  copy of `domains/vet-core/data/classification.yaml`, each key prefixed
+  with its table's database.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
-  `gm/notes.md`.
+  `gm/notes.md`, the true register `gm/data-register.yaml`.
+- **Composition** (GM side, never shipped): `composition.yaml`.
 - **Scenario-only bricks and faults**: `faults/fixture-basebackup-log-unread/`
