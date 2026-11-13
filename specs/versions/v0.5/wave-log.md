@@ -8136,3 +8136,266 @@ at its first urgent order; s3 on its fixture); nothing fixed, no aging,
 no snapshot; the VPS drained after; filetstudio.com up throughout.
 G14 not applicable. Next: the release gate (items 4 and 5 take these
 figures), G15 with finding 2 for the owner's judgement.
+
+### Release gate — results, 2026-11-13
+
+Driven by one `coding-leader` from the top-level session, the owner's
+"run the remaining tests of v0.5". **Deviation from the plan**: the
+gate's text says it runs "on `v0.5-w5` before it merges"; wave 5 was
+merged and pushed on the owner's word before G12/G13 (entry "Wave 5
+merged into main"), so the gate ran on `v0.5-g13` (main `090ea1f`, G13's
+fix `0118c90` and log `7d22661`, then tonight's commits below). Nothing
+merged or pushed; the VPS stayed `Drain` and was not used; armenelos
+alone, every docker job under `flock /tmp/dbagm-docker.lock`, the reruns
+inside one `systemd-inhibit --what=sleep:idle:handle-lid-switch`; single
+fixtures only, each under 30 minutes (D314). Queue files in the gate
+owner's scratchpad `rgate/` (`items.txt`, `summary.txt`, `logs/`), its
+helpers copied from `gate-w5/` with the worktree's path.
+
+**Commits** (each its own gate fix; `d53a12d` corrects `2ea21f8`'s test):
+- `2e34f44` — s6, G13's finding 2: `governance-register-flow-undeclared`'s
+  sealed check matched the recipient on any line of an entry; its header
+  names the recipient and copy lines. The `awk` now reads only an entry's
+  `- **Shared with**:` and `- **Where**:` lines (mawk on the bastion, gawk
+  on the host, both checked); the probe's step 1 and the evidence's first
+  grep filter those lines the same way; the GM notes say so. What the
+  fault is does not change (the handout drops the recipient from every
+  entry's recipients and copies). The clinic's served handout,
+  `player/data-register.md`, now reads **present** ("names Cold Storage on
+  none of its 22 entries", exit 1; the old check read fixed, 1 of 22, on
+  vet-machinery-monitoring's **Kept for** line). New unit tests
+  (`test_partners.TestS6SealedCheck`, 6): a retention line naming the
+  vault leaves it present, Shared with or Where names it fixed, another
+  recipient, no entry (2), and the three committed handouts (clinic
+  present on 22, fixture-archive's planted present on 6, its unfaulted
+  one fixed on 6 of 6). The clinic's and fixture-archive's s6 answer-key
+  entries carry the new evidence command; both registers regenerated
+  (the answer key's digest only, entries, handouts and `register_diff`
+  identical); the clinic's README regenerated (one evidence row).
+- `2ea21f8` — s7, G13's finding 3: `governance-statement-log-personal`'s
+  evidence (fault.yaml, the clinic's and fixture-reports' answer-key
+  entries) and probe step 2 now read both log forms:
+  `grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' … | tail -n 10`,
+  the extended protocol's values being on the `DETAIL:  Parameters:` line
+  after its `execute` line. The sealed check (the setting in effect) is
+  unchanged. fixture-reports' s7 test now sends the phone change with the
+  extended protocol (psql `\bind`, as the clinic's producers do) and runs
+  the evidence's own command as `player`. The clinic's register (digest
+  only) and README (one row) regenerated. (The loader refuses a `<word>`
+  in a `shows:` as a template placeholder, so the text says "an `execute`
+  line of an unnamed statement".)
+- `d53a12d` — the s7 test's new evidence assertion read the INSERT's
+  name on its `statement:` line; the test's INSERT spans three lines and
+  its VALUES follow on the next, which the evidence's `-A1` prints. The
+  assertion now asks for each of the four parts (item 1).
+- `9dfaa45` — docs: `pgwatch`'s and `health-check`'s `docs/gm.md` said
+  their reservations keep master spec 14's row "until the clinic's
+  measurements (fit at the release gate) replace it"; the plan's
+  measurements say G13's figures are smoke readings and the aging's are
+  v1.0's. Each now says so and quotes its G13 reading.
+After each: format check loads, `compose --check` up to date, register
+and README second regenerations identical (`c27/gen_register_clinic.py`,
+`c27/render_readme.py`, which reproduced the committed README byte for
+byte before any change, D472's backlog slot included).
+
+**The gate, item by item**:
+1. **Short tests**: green at wave 5's gate (entry "Wave gate — results,
+   2026-11-12": 55 items, all rc=0 after smoke-governance's harness
+   rerun; queue `gate-w5/summary.txt`), on code identical to tonight's
+   but G13's two seed files and tonight's commits. Rerun tonight on what
+   those touch (`rgate/summary.txt`): `fx-archive-planted` (s2+s6, the
+   archive fixture's planted test) **30/30, 165 s** (20:48–20:51; "s6:
+   sealed check present (1) … on none of its 6 entries", still present
+   after s2's fix); s6's sealed check on the clinic's handout in
+   `bastion:0.5.0` (mawk, the file mounted where the bastion serves it)
+   **present, exit 1, "none of its 22 entries"**; `fx-reports-s7` first
+   run 23 passed, 1 failed (678 s, 20:51–21:02): the one failure the new
+   evidence assertion's own regex (the INSERT's name sits on the line
+   after its `statement:` line, which `-A1` prints), fixed in `d53a12d`;
+   rerun **24/24, 805 s** (21:03–21:16, under 30 minutes), "evidence as
+   player: statement: INSERT, the name after it, execute <unnamed>:
+   UPDATE, its Parameters with the new phone", s7 present, then fixed
+   after the line removed and the reload. `fx-archive-short` not rerun:
+   it plants no fault (s6 is the planted test's). After the queue: the
+   lock free, no game service, container or volume left.
+2. **Existing scenarios' smokes**: cited from wave 5's gate (bookshop 19
+   in 22 s, fernway 18 in 30 s, campaign 33 in 308 s, shop 26 in 798 s);
+   nothing they deploy changed since (no brick, no catalog fault they
+   use; s6 and s7 are the clinic's and two fixtures').
+3. **The unfaulted clinic's governance and coherence**: cited, wave 5's
+   gate `fx-clinic-load` 28/28 (908 s; coherence 27/27, G1–G4 hold on
+   records, lab, machines, 12 databases, `partners-db` not walked,
+   D469); its register's coverage: the format check, rerun tonight
+   (`alder`).
+4. **`fit`**: G13's figures (entry "G13", the clinic as built: armenelos
+   CPU 3.15/4, memory 3.04G/4G, disk 12.49G/20G; the VPS CPU 1.5/2,
+   memory 1.9G/4G, disk 7.68G/10G; G14 not applicable); rerun tonight
+   placement only (`alder`, playground `rgate-fit`, nothing contacted):
+   the same figures, fits; the hand-over snapshot fits neither host, as
+   foreseen.
+5. **The whole clinic once**: G13, passed (run 2, `aldermoor-pqewl7`),
+   cited. Its findings 2 and 3 fixed above; 1 and 4 below.
+6. **Format, loader, skills**: G16 and G17 (their entries, after waves 2
+   and 3), G18 (`e2381be`, formats.md v32), G19 (`42d9d09`, v33) done;
+   the templates and the loader by the unit suite (rerun tonight); the `data-register`
+   skill, the GM skill's Setup step 2 (`game-master/SKILL.md` 507–512),
+   the scenario document's sections, D472's backlog slot (the template's
+   section 6, its SKILL.md check, the clinic's README with s1's backlog,
+   `07a5bed`). Every catalogue domain and purpose passes
+   `model.check_domain_dir` / `check_purpose_dir` (7 domains, 20
+   purposes, 0 missing items).
+7. **Bricks**: `test_brick_docs` (the nine headings, the supported faults
+   against `applies_to`) in the unit suite; each v0.5 brick's Footprint
+   section read against its `brick.yaml` (limits, reservations, growth):
+   they agree; measured first figures at rest for `postgres` 0.5.0,
+   `scheduler` 0.3.0, `api` 0.1.0 (one hostname and nine), `pgwatch`,
+   `health-check` (list below). G5–G10, G11.1–G11.4 cleared (G11.4's
+   post-change check CLEAR, `.tech` `982ebe0`); no dependency changed
+   since; wave 5's gate rebuilt or checked all ten images, every
+   `dpkg-query` list identical to its tag's (D445).
+8. **Domains and purposes**: the six clinic domains and the shop pass
+   the domain check; each clinic domain with `data/register.yaml`,
+   `variants/`, `docs/gm.md` (core keys, growth, traps, a Loading section
+   with its time and size); the sixteen clinic purposes (fifteen `vet-*` and
+   `cold-storage-archive`) pass the purpose check; `partners/shared/`,
+   `partners/coldstore/` as the catalogue (`test_partners`).
+9. **Quality command**: cited, wave 5's gate (`sh -n`/`perl -c`,
+   `py_compile`, the unit suites, `test_go_sbom`, the scheduler's and
+   api's own suites, untouched since); rerun tonight at `2ea21f8`:
+   `sh -n` 324 and `perl -c` 13, 0 failed (4 s); `py_compile` 456, 0
+   failed; the full unit suite **1283 OK, 2 skipped** (251 s; 1277 at
+   wave 5's gate plus the six s6 tests); `alder` (format check loads,
+   `compose --check` up to date, register and README regenerations
+   identical, `fit` fits) 17 s.
+10. **"Left for the build"**: each row recorded. Footprints and domain
+    loads in the bricks' and domains' `docs/gm.md` (above); vet-core's id
+    functions (`core_*`, `docs/gm.md` "Core keys") and
+    `core_referring_practice(v)`; the HTTP call's repository form
+    (`scheduler` `docs/gm.md` "The HTTP driver (0.3.0)"); a purpose's
+    `material/history.sql` (formats.md, the format skill); the owners'
+    traffic in `domains/vet-portal/producers/partners/owners/` (G16);
+    the `api` brick's `db/` layout (its `docs/gm.md`); the partners'
+    `pg_hba.conf` form (`postgres` `docs/gm.md`, "samenet", measured on
+    fixture-partners); the outbox's id order (vet-portal `docs/gm.md`,
+    `portal_outbox.id`); the booking horizon (vet-scheduling, 42 days,
+    W3 item 2); each fault's timeline moments (chunks 22–25's Record and
+    W5-a to W5-d); the contrib extensions (`btree_gist`,
+    vet-scheduling; `pgcrypto`, vet-portal) loaded as `postgres`; cold
+    storage's stub in `partners/coldstore/`.
+11. G15: the owner's.
+12. Release notes: spec-writer's, from the inputs below.
+
+**Gaps found, left open** (none blocks the gate):
+- formats.md's status line still opens "Status: draft v32" while its
+  last sentence records v33 (G19): spec-writer's file.
+- access model 13 says the partners' database admitting only their own
+  nodes "is the build's to verify"; chunk 11 measured the `samenet` form
+  (roles listed, every other role refused; `postgres` `docs/gm.md`). On
+  one Swarm network the line admits the subnet, not addresses, so the
+  guarantee still rests on the roles' passwords mounted on the partners'
+  nodes only: the gap stands as worded but is now verified; spec-writer
+  may reword it.
+- `grafana` 0.3.0's and `prometheus` 0.2.1's Footprint sections quote
+  only earlier versions' figures (v0.2, v0.3) and say nothing of the new
+  versions (image updates, `brick.yaml` unchanged). G13 read grafana at
+  220M mean / 223M peak and prometheus at 96M / 102M, under 384M limits.
+  A sentence each, at v0.6's first touch of those bricks.
+- `SECURITY_TODO.md` (main's working tree, untracked): 74 items open, of
+  which 19 `accept-risk?` proposals with the owner and GO-2026-6859
+  (Go stdlib < 1.27.4, grafana and its plugin, prometheus) untriaged.
+
+**Inputs for the release notes** (spec-writer writes README.md's notes;
+no D- or O-number assigned here: only D474–D479 are free for v0.5).
+
+*Footprints at rest* (each brick's `docs/gm.md`, its stack test; the
+declared limits / reservations / growth an hour in `brick.yaml`):
+- `postgres` 0.5.0 (1 CPU, 1G / 0.5, 512M, 2.25G / 8M): 2026-11-03, a
+  primary with TLS, pgaudit, the `monitoring` option, archiving to the
+  vault, a base-backup job and a streaming standby 32.4 MiB, no
+  measurable CPU; the standby 36.2 MiB; a `no-access` node 30.8 MiB.
+- `scheduler` 0.3.0 (0.25, 128M / 0.1, 64M, 64M / 1M): 2026-11-03, idle
+  19M (RSS 27M), two streams 26M; a caller node on HTTP idle 18M,
+  running 20M; `no-access` with an HTTP script job 28M.
+- `api` 0.1.0 (0.25, 128M / 0.1, 96M, 64M / 2M provisional): 2026-11-03,
+  one hostname 47M (RSS 53M), nine hostnames `no-access` 43M (RSS 55M),
+  0.2 % CPU each.
+- `pgwatch` 0.1.0 (0.245, 122M / 0.095, 90M, 64M / 1M): 2026-11-04, 12M,
+  peak 21M, CPU 0.00.
+- `health-check` 0.1.0 (0.245, 122M / 0.095, 58M, 64M / 1M):
+  2026-11-04, 5M at rest, peak 33M with a check run.
+- `bastion` 0.5.0 (`curl` added, no process): v0.4's figure stands (5.1
+  MiB with routes); `grafana` 0.3.0 and `prometheus` 0.2.1: earlier
+  versions' figures (grafana 195M at rest, v0.2; prometheus 66M at most,
+  v0.3 rehearsal).
+
+*Each domain's load* (its `docs/gm.md`, a throwaway `postgres:0.5.0`
+container; non-zero shift, then shift 0):
+- vet-core: 122–131 s, 134–137 s; 49 MB; 269 397 / 270 260 rows (the
+  wave 5 gate's run through `load-data`: 116.2 s at shift 2, 117.9 s at
+  0).
+- vet-lab: 71 s, 64–70 s; 54 MB; 330 077 / 329 916 rows; the two stubs'
+  `data.sql` 61 s and 59 s.
+- vet-scheduling: 99 s, 92 s after the core's; 20 MB; 103 500 / 103 538.
+- vet-housing: 7.4 s, 7.6 s; 17 MB; 138 752 / 138 863.
+- vet-machinery: 50.8 s, 50.3 s (`pacs` 40 s); 75.4 / 76.3 MB; 282 020 /
+  291 087.
+- vet-portal: the load 18 s, 17 s, then the derivation 121 s at both;
+  77 MB; 21 792 loaded, 199 735 with the derivation.
+- The six composed: fixture-clinic-load's short test 903–908 s whole;
+  the whole clinic's `load-data` 1671 s and 1652 s (G13).
+
+*G13's per-node readings* (smoke readings, not footprints; run 2, 36
+samples over about 70 minutes from T0; mean / peak): the entry "G13",
+"Smoke readings, run 2", per node. Host sums: armenelos memory 1 048M
+mean, 1 112M peak against 2.64G reserved, CPU 12 % of a core mean, 34 %
+peak against 2.75 reserved; the VPS 506M / 538M against 1.5G, CPU 16 % /
+55 % against 1.3. Largest nodes: records 297/322M, grafana 220/223M,
+machines 163/170M, lab 122/144M.
+
+*Known limits* (item 12, master spec 18.4, as the plan lists them):
+v1.0 gating (the clinic aged and played; the overnight and periodic
+cadences in scenario time; growth and footprints over an aging; the
+clinic's rehearsal; the stance check-list; the parts' long views); the
+governance checks on the whole clinic (G1 reads the standby as a
+location, G3 stops at a transformer's HTTP connection, "cannot judge";
+D471; G13 saw exactly that: exit 2, no G2 breach); no hand-over snapshot
+for the whole clinic on these declarations (21.67G of 20G on armenelos);
+a restore from the hand-over snapshot does not give back the
+accumulated WAL nor the cumulative statistics (master spec 15, D397);
+the partner stubs' references restart at 0001 after the planted AMU and
+HO series (D467, O249); the access model's known gaps that stand (13:
+the partners out of reach by rule, not network; `dba` over every
+fictional rule; the standby promotable; no hand-over snapshot; the
+stubs' refusals code only; the health page's no login; the customer's
+own partner credentials, O231); the accepted risks with their end
+dates (`curl`, D443: 2027-02-01 or the next trixie curl security
+upload; `.tech`'s ignores, D444: 2027-05-01); the security advisor's
+items with the owner (above).
+
+*Proposed for spec-writer, from G13* (no number assigned):
+- **Finding 1, a known limit or a v0.6 loader item**: the loader does not
+  check that a `seed-file` fault instance's `seed_changes` appear in the
+  scenario's copies (how s2, s7 and s8 went unplanted in the clinic
+  through chunk 27, its fixture and wave 5's gate; fixed in the scenario
+  by `0118c90`). Proposed: a loader refusal or a format-skill item in
+  v0.6; for v0.5 a known limit ("a seed-file fault's line in the
+  scenario's copy is the GM's to check; the loader does not").
+- **Finding 4, a known limit and an open question**: `load-data` on the
+  whole clinic takes about 28 minutes (1671 s, 1652 s), about 17 of them
+  `partners-db` at its 0.5 CPU limit building vet-lab's partners' orders
+  (`pg_temp.lab_order_tests(...)`); meanwhile cold storage answered 503
+  to lab's `vault-post` 66 times before T0 (lab's archiver 66 failed,
+  then recovering, 8 archived after T0), a vault outage no fault
+  explains. Proposed: a known limit (setup time, and the failed
+  archives `pg_stat_archiver` shows on lab at hand-over); open question
+  for v1.0 gating's setup and the GM's notes: raise `partners-db`'s CPU
+  during the load, compute the orders once, or have cold storage answer
+  during the load.
+- G13's finding 5 (the window ran 75 minutes, not 30; s1's only urgent
+  order at T0 + 51 min) is a reading of that run, not a limit.
+
+**For G15 (the owner)**: the gate's result above; the three gate fixes
+(s6 and s7 within settled intent: the check's own header, the fault's
+own evidence; no fault changed); finding 1's and 4's placement
+(spec-writer proposes, the owner rules); the 19 security risk
+proposals; then the merge of `v0.5-g13` into main and the release notes.
