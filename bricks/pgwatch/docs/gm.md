@@ -217,7 +217,11 @@ without the node-health script), at rest about a minute after a restart:
 the container 12M of memory (`docker stats`), `memory.peak` 21M since its
 start, pgwatch's RSS 27M, CPU 0.00 over the sample; far under the 128M
 limit and the 90M reservation, which keep master spec 14's starting row
-until the clinic's measurements (fit at the release gate) replace it.
+until an aging measures the node (v1.0 gating). The whole clinic's first
+deployment (G13, 2026-11-13, `aldermoor-centre` on armenelos plus the VPS,
+four sources, about 70 minutes from T0, `docker stats` every 2 minutes)
+read it at 28M mean and 30M peak, 0.4 % of a CPU mean and 3.2 % peak: a
+smoke reading, not a footprint.
 
 What makes it grow: the number of sources and the preset (each metric's
 interval is a query on the source); Prometheus' own series grow by about
