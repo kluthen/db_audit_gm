@@ -7914,3 +7914,225 @@ has no later wave. Next, in a fresh session: G12 (the VPS window), G13
 mark O251 placed in v0.6. Known limits: O249/D467 (stub counters), D471
 (standby and transformers' HTTP connections). The host lock protocol and
 driving from the top-level session still apply.
+
+### G12 — the VPS window, 2026-11-13
+
+Hand check, branch `v0.5-g13` (worktree
+`/home/bastien/work/db_audit_gm-wt/v0.5-g13`, cut from `main` at
+090ea1f), 08:39–08:43 UTC, before anything ran on the VPS:
+- **The VPS's own documentation read**: `~/README_SHARED_CADDY.md`
+  (one site file per tenant; reload, never restart; DOCKER-USER drops TCP
+  8080 and 3000; never prune), `~/README_FILET_STUDIO.md` (cohabitation
+  rules, §1–2), and the cohabitation rules of `~/infinite-flow/` and
+  `~/lol-mobile-watch/` and `~/UPSILON_README.md`. The game touches none
+  of their files, ports or containers.
+- **`tailscale status` on both hosts**: each sees the other `active;
+  direct` (armenelos 100.78.85.1, `vps-5718ad52` 100.126.172.117).
+- **Swarm**: armenelos `Ready Active Leader` (29.9.3), `vps-5718ad52`
+  `Ready Drain` worker (29.9.2), membership unchanged.
+- **No game port on the VPS**: listening there 22, 80, 443, 5355 and its
+  own Tailscale-bound ports only; no 2222 or 8080; no container, volume
+  or network of a game. The bastion's ports publish in `host` mode on
+  the manager alone (`render.py`).
+- **Disk and memory**: the VPS 21G free on `/` (its share: about 4.9G of
+  volumes and 1.5G of images), 6.3G available, 4 CPUs; armenelos 9.4G
+  free, 4.1G available.
+- **filetstudio.com**: 200 three times (0.11–0.15 s).
+**G12 done.**
+
+### G13 — the whole clinic on armenelos plus the VPS, 2026-11-13
+
+Driven by one `coding-leader` from the top-level session. Each run held
+the host lock and a sleep inhibitor
+(`flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch`)
+around one holder script (driver's scratchpad `g13/holder.sh`): the VPS
+`active`, `deploy`, `load-data`, `inject`, `start-load`, s5 by `inject
+--at now`, then the reads by hand, and in its `trap` (pass or fail)
+`teardown`, then `docker node update --availability drain
+vps-5718ad52`, then a check for leftovers on both hosts. filetstudio.com
+was polled every 30 s throughout, and each host's `docker stats` and
+`MemAvailable` sampled every 2 min. The playground `duo`: `--host
+armenelos,manager,cpu=4,memory=4G,disk=20G --host
+vps-5718ad52,shared,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G
+--map armenelos=armenelos --map vps=vps-5718ad52`, overlay 10.20.0.0/24
+(the default range).
+
+**`fit` (release gate item 4's figures, the clinic as built)**: fits.
+armenelos (17 nodes): CPU 2.75 + 0.4 = 3.15 of 4, memory 2.64G + 410M =
+3.04G of 4G, disk 12.49G of 20G; the VPS (`shared`, 8 nodes: standby,
+backoffice, grafana, exporter-standby, health, partners-api,
+partners-backend, partners-db): CPU 1.3 + 0.2 = 1.5 of 2, memory 1.5G +
+410M = 1.9G of 4G, disk 7.68G of 10G. The hand-over snapshot fits neither
+host (21.67G of 20G on armenelos), as foreseen. No trim: **G14 not
+applicable**.
+
+**Run 1** (game `aldermoor-cfdt1n`, hand-over 2026-11-14T09:00Z, shift
+0): VPS `active` 08:43:22–09:20:38. `deploy` 112 s (6 images copied to
+the VPS: postgres 0.5.0, scheduler 0.3.0, grafana 0.3.0,
+postgres-exporter 0.2.0, health-check 0.1.0, api 0.1.0; 25 services
+healthy, placement as designed); `load-data` 1671 s (coherence 27/27);
+`inject` 5 s; `start-load` T0 09:13:15Z; s5 planted at 09:13:48Z. **s2,
+s7 and s8 read `fixed`**: the clinic's seed `postgresql.conf` copies
+(records, standby) lacked the three seed-file faults' lines. formats.md
+(fault "Injection") says the scenario's copies carry them, and the
+scenario's notes say "planted at render". Nothing in the loader, the
+format check, chunk 27's runs or the wave gate checks for that line, so
+the gap went unseen; the clinic had never been deployed with its faults.
+The other readings matched run 2's, so the run was ended early (teardown
+09:20:38, nothing left, VPS `Drain`).
+**Gate fix `0118c90`** (within settled intent: formats.md and the
+scenario's notes): `nodes/records/postgresql.conf` carries s2's
+`archive_command` line and s7's `log_statement = 'all'` line, and
+`nodes/standby/postgresql.conf` carries s8's `recovery_min_apply_delay =
+'1h'`, each its fault's `inject/postgresql.conf.snippet` line. Format load
+OK, `compose --check` up to date, `test_repo_scenarios_load` and
+`test_planted` OK. No register or README input changes.
+
+**Run 2** (game `aldermoor-pqewl7`, hand-over 2026-11-14T10:00Z, shift
+-1, customer's time UTC-1, so T0 falls before the 09:00 jobs): VPS
+`active` 09:23:41–11:07:43. `deploy` 29 s (images already on the VPS);
+`load-data` 1652 s (coherence 27/27, standby cloned and streaming);
+`inject` 5 s (s3's planted report: 85 rows rewritten, 260 removed, the
+2025 report's cattle at 0 herds); `start-load` 27 s, **T0 09:51:51Z**
+(08:51 customer's time); s5 planted at 09:52:17Z. The smoke ran 75 min,
+not 30: the driver's session stopped on an API login error between T0
+and the reads. The reads were taken at T0 + 70 min (11:01–11:06), with
+nothing done to the game meanwhile. Teardown 11:07:00–11:07:43 (25
+services, 1 network, 163 configs, 64 secrets, 143 volumes; host timers
+removed), drain 11:07:43.
+- **Producers** (7 schedulers): each wrote a `summary` line every minute
+  since T0 (69 or 70, no outage minute), with **0 `error` lines**. Keys
+  with calls: pms 32 of 46, lis 13 of 16, ward 6 of 6, equipment 22 of
+  26, interfaces 23 of 23, partners-backend 15 of 21. The rest are slow
+  or shape-closed keys at that hour (owners.register, alerts.record,
+  herd visits, the owners' close/keeper/reset, the centres' requests,
+  lab add-ons and amendments, the PACS cancels and addenda).
+- **Purposes**, each one's first run: lab-centre-orders (post 09:53,
+  fetch 09:55), practice-results 09:53, send-outs (chase 10:00),
+  centre-exchanges (sync 09:55, chase 10:00), notifiable-diseases
+  (notify-vet and notify-lab 09:55, escalate 10:00), lab-critical-calls
+  (lab's `pg_cron`, 7 runs succeeded from 10:00), working-time (feed
+  10:30, its 09:30 local), bookings-sync 09:53, imaging-orders (post
+  09:53, fetch 09:55), portal-release 09:55, portal-messages (send 09:53,
+  notices 09:55, reminders 10:00). Every run `ok`. Not run in the window,
+  all nightly (00:30–05:00 local), each loaded with its next run:
+  medicines-registers, antimicrobial-use, head-office-figures,
+  lab-statements and cold-storage-archive (ship-partitions 00:40–05:40).
+  The 16:00 send-out was also not reached. Also run: pms'
+  administrations-round 11:00, equipment's three jobs.
+- **Partners** (`partners-api`, ten hostnames): aldermoor-abroad,
+  -central and -south 14 calls each, messaging 43 × 202, owners 15,
+  northfield-lab 7, practices 6, cold-storage 11 (200/201). authority
+  and head-office got none: only the back office's nightly jobs call
+  them. partners-backend's ticks ran for every partner. Internal APIs:
+  clinic-api 28, lab-api 25 (10 orders posted, 201), portal-api 49; no
+  5xx after T0.
+- **G2 on the full clinic** (`check-governance.sh`, wave 5's note): **no
+  G2 breach** on records, lab, machines or the standby, with the
+  transformers' and purposes' roles in place (both runs). G1 broke on
+  the standby (20+ lines, `standby/clinic` read as a location of its
+  own), G3 broke on `standby/portal`'s pg_cron purge, and G3 could not
+  judge `interfaces` and `backoffice` (an HTTP connection is no database
+  path). That is D471's known limit, exactly as stated; exit 2.
+
+**Each fault's reading, run 2** (present only, none fixed; `gmctl check
+--instance`, then by hand as the probe says):
+- **s1** present at the first urgent order: request 17007 (urgent)
+  reached the lab as routine order 14008 (`C-25007-urgent`), ordered
+  10:43:00Z (T0 + 51 min, past the ~30 min window: the only urgent order
+  since T0).
+- **s2** present: a segment switched by the test (11:01:38),
+  `pg_stat_archiver` 29 archived, 0 failed; the vault has no manifest
+  for it; records' latest wal manifest is the planted
+  `00000001000000440000002B` (2026-11-12T23:35Z).
+- **s3** resting on its fixture as ruled: `too-soon`, feeder next at
+  02:00 local (15h57m). Its planted report was written by `inject`.
+- **s5** present as a former owner's visit: the policies still admit
+  former owner 5470 for animal 3766, owned by 5093 since its sale.
+- **s6** present **by hand**: the served handout has 22 entries, and
+  none names Cold Storage in its "Shared with" line. The vault's page
+  lists records' `wal` and `basebackup` manifests. **Its sealed check
+  reads `fixed`** ("names Cold Storage on 1 of its 22 entries"): the
+  vet-machinery-monitoring entry's **Kept for** line says "then the vault
+  (cold storage, a game value)", and the check matches any line of an
+  entry, though its header says it matches the recipient and copy
+  lines. The probe's step 1 grep fails the same way. Both runs read this
+  (finding below).
+- **s7** present: `log_statement` is `all` server-wide. Records' log held
+  13 912 `execute <unnamed>:` statements, each with its `DETAIL:
+  Parameters:` line (one `INSERT INTO owners`).
+- **s8** present: `recovery_min_apply_delay` 1h in effect, received
+  `0/1D088D58`, replayed `0/1B397198` (29 MB not replayed), last replay
+  one hour old; `pg_stat_replication` streaming, replay lag 00:59:53 (the
+  window passed the hour).
+- **s9** present: the board statement at 124 calls a minute (check), 126
+  between 11:03:58 and 11:05:00 by hand; 2 `vet_display` sessions from
+  `ward`.
+- **s10** present: role `monitoring` absent on lab, and the exporter's
+  log shows "pq: password authentication failed" each scrape.
+
+**Smoke readings, run 2** (`docker stats`, 36 samples, T0 to 11:05;
+mean / peak; readings, not footprints). armenelos: records 2.2/8.7 % CPU,
+297/322M; machines 1.4/5.0 %, 163/170M; lab 1.2/13.2 %, 122/144M;
+prometheus 1.2/4.0 %, 96/102M; portal-api 0.4/4.7 %, 41/44M; pms
+0.4/3.1 %, 38/40M; interfaces 0.9/11.8 %, 37/38M; ward 0.6/3.4 %, 35/36M;
+clinic-api 0.5/2.4 %, 33/36M; lab-api 0.3/2.4 %, 33/35M; equipment
+0.6/3.2 %, 30/31M; lis 0.5/3.1 %, 30/30M; pgwatch 0.4/3.2 %, 28/30M;
+exporter-lab 0.5/4.0 %, 20/22M; exporter-records 0.2/2.5 %, 19/21M;
+exporter-machines 0.3/3.0 %, 18/19M; bastion 0.4/3.2 %, 8/11M. **Host
+sum**: memory 1 048M mean, 1 112M peak (reserved 2.64G); CPU 12 % of a
+core mean, 34 % peak (reserved 2.75). The VPS: grafana 2.6/14.4 %,
+220/223M; partners-db 1.5/15.4 %, 74/77M; standby 2.0/17.8 %, 62/69M;
+partners-api 1.2/9.9 %, 52/54M; partners-backend 1.3/12.5 %, 31/37M;
+backoffice 1.4/12.4 %, 28/36M; exporter-standby 0.8/9.4 %, 25/27M; health
+4.7/26.5 %, 13/30M. **Host sum**: memory 506M mean, 538M peak (reserved
+1.5G); CPU 16 % mean, 55 % peak (reserved 1.3). `MemAvailable`:
+armenelos 4.5G at T0, 2.6–4.0G late in the run as the owner's other work
+grew; the VPS 5.7–5.9G throughout.
+
+**The VPS and filetstudio.com**: 200 three times before (08:40); run 1
+77 of 77 polls 200 (08:43–09:21), run 2 209 of 209 (09:23:40–11:08:15);
+200 after each drain and at 11:09. The VPS's own containers were never
+touched (caddy, crochethub-filetstudio and crochethub-mongodb up 2
+weeks, infinite-flow-web up 7 days). Final state: `vps-5718ad52`
+**`Drain`**; on both hosts, no game service, container, volume, network,
+config, secret or `dbagm-*` unit; the lock free. The VPS keeps the six
+v0.5 game images (about 1.36G; 19G free), and nothing was removed there.
+
+**Findings, for spec-writer and the owner**:
+1. **The loader does not check that a `seed-file` instance's
+   `seed_changes` appear in the scenario's copies.** That is how s2, s7
+   and s8 went unplanted in `aldermoor-centre` through chunk 27, its
+   fixture and the wave gate. Fixed in the scenario (`0118c90`); the
+   check itself is a spec call (a loader refusal or a format-skill item).
+2. **s6's sealed check (and probe step 1) read the fault `fixed` while it
+   is present** in the clinic: a retention line (vet-machinery-monitoring,
+   "then the vault (cold storage, …)") names the recipient. The check's
+   header says it matches recipient and copy lines, but its `awk`
+   matches any line. Spec call: match only the "Shared with" (and copy)
+   lines, or plant the fault without the retention mention, or reword
+   that retention. The fixture-archive proof never saw it (no machinery
+   there). Not changed here.
+3. **s7's evidence path** (`grep 'statement: (INSERT|UPDATE).*owners'`)
+   finds nothing in play: the clinic's producers use the extended
+   protocol, logged as `execute <unnamed>: …` with `DETAIL: Parameters:`.
+   The sealed check reads the setting, so it stands. The evidence and the
+   probe should read `execute` too.
+4. **`load-data` takes about 28 min** (1671 s, 1652 s). About 17 min of
+   it is `partners-db` at its 0.5 CPU limit building vet-lab's partners'
+   orders (`pg_temp.lab_order_tests(...)` into a temp table). Meanwhile
+   cold storage answered 503 to lab's `vault-post` 66 times (09:30–09:51,
+   run 2). lab's archiver counts 66 failed, then recovered (8 archived
+   after T0); records' archive is s2's. This is setup time for a game,
+   and a vault outage before T0 that no fault explains, for v1.0
+   gating's setup and the GM's notes.
+5. The window ran 75 min, not about 30, as said above. s1's only urgent
+   order fell at T0 + 51 min.
+**G13: passed** on its second deployment, after `0118c90`: `fit` and
+the deployment; every producer, partner and purpose running, each first
+run read where it falls by day; the selection but s4 planted at once,
+each fault read present (s6 by hand, its sealed check per finding 2; s1
+at its first urgent order; s3 on its fixture); nothing fixed, no aging,
+no snapshot; the VPS drained after; filetstudio.com up throughout.
+G14 not applicable. Next: the release gate (items 4 and 5 take these
+figures), G15 with finding 2 for the owner's judgement.
