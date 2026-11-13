@@ -1603,3 +1603,48 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   The derivation and MS4 write them so (chunk 16); the approved text
   named the animal only. Now in: [master spec](versions/v0.5/master-spec.md)
   9.7 rule 7, 12.2; [vet-portal](versions/v0.5/vet-portal-domain.md).
+- **D480 (2026-11-13, owner ruling, relayed by the coordinator): The
+  entry point is the bastion's web front of one game, for the players:
+  a simple home page linking every site of the game; nginx kept; no
+  front above several games.** Grafana, Prometheus, health and the
+  handouts now, later the fictional provider's console and others. "Nor
+  is it expected any time soon": the common Caddy, the setup's homepage,
+  its placement, per-game passwords behind it and its teardown are
+  dropped; D224's "common caddy to handle multiple front" meant one
+  game's sites, and had been over-read. Closes O135. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#the-games-home-page-d480).
+- **D481 (2026-11-13, owner ruling, same relay): No reporting tool.**
+  "They could just write their report outside the bastion. it's their
+  problem." D333's corrected register file loses its target: a register
+  fault stays resolved by *propose*, the corrected entry in the report.
+  The v0.5 master spec (2, 24) and its data register page (3, 4)
+  still name the tool; this entry supersedes them. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#the-rulings-of-2026-11-13),
+  [versions/README.md](versions/README.md).
+- **D482 (2026-11-13, owner ruling, same relay): No network map or
+  diagram for now.** The game is one private network, third parties
+  aside. A dedicated map becomes mandatory with the fictional provider
+  (several networks, security groups). Now in:
+  [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
+- **D483 (2026-11-13, owner ruling, same relay): A network overview
+  page, extracted from the player README and linked from the home
+  page.** Nodes go by their Docker name, never an IP; each links to
+  Grafana's Node health dashboard, which reads the customer's
+  Prometheus, so the customer's monitoring faults show through. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md).
+- **D484 (2026-11-13, owner ruling, same relay): The network overview
+  is customer documentation, a player handout that may be incomplete or
+  wrong, like the data register (D330).** Answers O21 for this page;
+  O21 narrowed to the other starter files. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#the-rulings-d483d485).
+- **D485 (2026-11-13, owner ruling, same relay): What a node's entry
+  holds, ideally:** its Docker name, system, role, description, sizing,
+  the players' access (read-only, write, none), its main applications
+  with versions, its known users (applications mostly, people possible),
+  third parties, background tasks and backup strategy. The node-centric
+  view of the data register's facts. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#the-rulings-d483d485).
+- **D486 (2026-11-13, the owner, agreeing with the coordinator): O251's
+  loader refusal is built in v0.6's first chunk that touches
+  `tools/gm/model.py`.** O251 stays open until built. Now in:
+  [open-questions.md](open-questions.md) O251.

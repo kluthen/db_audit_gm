@@ -52,6 +52,11 @@ corrections, settled as D431–D437). O248 was reserved and never used
 (wave 4's gate G18 and the owner's rulings of 2026-11-10, settled as
 D443–D457 with O247).
 
+v0.6's drafting opened on 2026-11-13 (branch `v0.6-spec`): O135
+resolved by the owner's rulings of that day (D480, D481), O21 narrowed
+(D484), O251 placed (D486); O260–O268 raised by the network overview's
+draft.
+
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
 **later** = can wait for v1.0 or beyond.
@@ -114,8 +119,9 @@ for the next version (v0.1 until it closed, with none left open);
 - **O21** (later, v0.6) — Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario? Due with v0.6's
   documentation website; no longer v0.5's (D233). Narrowed by D330: the
-  data register may carry one from v0.5 (T300–T308); still open for the
-  other starter files.
+  data register may carry one from v0.5 (T300–T308); and by D484: v0.6's
+  network overview may too. Still open for the other starter files (the
+  README, story, issues, data policy, `partners.md`).
 - **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
@@ -381,7 +387,8 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   judging a standby's databases at its primary's location, a non-SQL
   connection no database path). Refs: `tools/gm/governance.sh`;
   [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
-- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12) — The
+- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12; **placed**,
+  D486: v0.6's first chunk touching `tools/gm/model.py`) — The
   loader does not enforce the format rule that a bastion maps
   `partners.md: player/partners.md` exactly when the scenario's
   `third_parties:` carry a `player_doc` (formats.md "Partners"). It
@@ -397,28 +404,41 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   (third parties); [formats.md](formats.md) "Partners".
 
 
-## v0.6: the setup's entry point
+## v0.6: the network overview
 
-Raised by the owner's ruling on the web front (D224): every game has a
-web front from v0.4, and he expects more around it, "Expect it to
-evolve both with v0.5 and v1.0+". Moved from v0.5 to v0.6 (D233,
-D248).
+Raised by the network overview's first draft (D483–D485), each with a
+recommendation; the question's full text is on
+[versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#questions-for-the-owner).
+O135, the setup's entry point, closed by D480 (one game's front, no
+front above several games) and D481 (no reporting tool).
 
-- **O135** (later, v0.6) — A common entry point for the whole setup: one
-  Caddy in front of several games' web fronts, and a homepage for the
-  setup dispatching the viewer to each game's rules (READMEs, game
-  information, data policies, issues), tools and dashboards; and a
-  reporting tool joining a game's starter-pack page (D221). To settle:
-  where the Caddy runs (the build host, a VPS whose own Caddy is shared
-  with other sites, platform.md) and who may reach the homepage; how it
-  keeps the bastion-only rule (it may proxy only to each game's
-  published web front, never to a node); what a game publishes to it
-  and when it leaves at teardown; the tools password per game behind a
-  shared front; how it relates to v0.6's landing page and documentation
-  website on the bastion; what the reporting tool is (the players
-  writing their report, or reports generated in the stack, v0.6).
-  Refs: [versions/v0.6/README.md](versions/v0.6/README.md#the-setups-entry-point-d224),
-  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 22.
+- **O260** (soon, v0.6) — Is the page's "Your access" column the game's
+  rule, always exact and never a planted deviation? Recommended: yes,
+  marked as such on the page, the README pointing to it.
+- **O261** (soon, v0.6) — The bastion on the page: a node entry, or a
+  fixed note? Recommended: a fixed note at the top (the players' kit,
+  D65, D87), never a deviation, with its Node health link.
+- **O262** (soon, v0.6) — Third parties on the page. Recommended: a
+  closing table, one row per partner with a `player_doc`, by its
+  hostname, access none; the partners' shared nodes never named (D469).
+- **O263** (soon, v0.6) — The format additions for the fields with no
+  source today (a node's `description`, `site`, `users`; a brick's
+  `base`; a domain's `data/overview.yaml`; the crontab comment rule).
+  Recommended: accept, into v0.6's master spec.
+- **O264** (soon, v0.6) — A `node` variable on the Node health
+  dashboard, each entry linking its own node. Recommended: yes.
+- **O265** (soon, v0.6) — The overview and the data register planted
+  independently, so one may give away a fault of the other.
+  Recommended: independent; the answer key notes the interaction.
+- **O266** (soon, v0.6) — Resolving and classing an overview fault.
+  Recommended: *propose*, M by default, family `documentation`, ids
+  `docs-overview-*`, as the register's.
+- **O267** (soon, v0.6) — The home page's shape and what leaves the
+  README. Recommended: two lists (sites, documents), one page per
+  handout; the node table and the network paragraph leave the README.
+- **O268** (soon, v0.6) — The true overview read from seed files a
+  system fault may have changed. Recommended: the skill states the
+  design, the value before the fault's change.
 
 ## v0.5: scope, the domain procedure, post-mortems
 
@@ -449,8 +469,8 @@ no AWS-style IAM.
   on its host, proposed, against the players' `dba` today); which
   capacity actions players get and what a resize does mid-game (a
   service update restarts the node); the console's relation to v0.6's
-  bastion; its own entry point beside the setup's homepage (O135,
-  D224); the in-world name. Refs:
+  bastion, a site on the game's home page (D480); the network map it
+  makes mandatory (D482); the in-world name. Refs:
   [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
 
 ## Roadmap: gaps and cross-version risks

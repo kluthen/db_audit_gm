@@ -27,7 +27,7 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Producer, consumer | [v0.3](../v0.3/README.md) |
 | Transformation, second database; the shop domain, data governance's first cut | [v0.4](../v0.4/README.md) |
 | Domain definition, the veterinary clinic's domains, and the faults, topology, monitoring and brick options it needs (D233) | [v0.5](../v0.5/README.md) |
-| The bastion as the players' main activity point; the setup's entry point (D233) | [v0.6](../v0.6/README.md) |
+| The bastion as the players' main activity point; the game's home page (D233, D480) | [v0.6](../v0.6/README.md) |
 
 Which technology fills each role is decided version by version (O11).
 

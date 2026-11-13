@@ -1,7 +1,8 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft. No master spec. Bastion-related items moved in from
-v0.5 on 2026-10-31 (D233).
+Status: draft v2. No master spec. Bastion-related items moved in from
+v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
+owner's rulings of that day (D480–D486).
 
 ## Goal
 
@@ -11,60 +12,101 @@ website, and provides general-use tooling (`psql`, `pg_dump`, ...).
 
 v0.2 already makes the bastion publish the monitoring web interfaces
 (D68); v0.6 turns it from an entry point into the place the players work
-from.
+from. Everything stays within **one game**: its web front, for its
+players (D480).
 
 ## In scope
 
-- **One entry point for every web interface** of the stack: dashboards
-  and monitoring tools, published by the bastion as in v0.2, with a
-  landing page listing them (proposed).
+- **The game's home page** (D480): the bastion's web front links every
+  site of the game (below).
 - **A documentation website** hosted on the bastion. What it carries is
-  (proposed): the starter pack (topology, node names, rules and DO NOT
-  TAMPER list, the story, the issues) and the player documentation of
-  every brick in the topology (`docs/player.md`), rendered as pages.
+  (proposed): the starter pack (the README, the story, the issues and
+  the rules), the customer's handouts (the data policy, `partners.md`,
+  the data register, the network overview), each a page of its own
+  (O267), and the player documentation of every brick in the topology
+  (`docs/player.md`), rendered as pages.
+- **The network overview** (D483–D485), a player handout: one entry per
+  node of the customer's estate, generated from the authoritative
+  files, customer documentation that may be incomplete or wrong, each
+  node linked to Grafana's Node health dashboard. Its design is
+  [network-overview.md](network-overview.md) (draft v1; O260–O268).
 - **General-use tooling** on the bastion: the PostgreSQL client tools
   (`psql`, `pg_dump` and the rest; the v0.1 bastion already carries the
   PostgreSQL 18 client tools) and other everyday tools, to be chosen.
 - **Reports published on the bastion** (proposed, moved here from v0.2):
   reports generated in the stack, such as pgBadger's HTML, readable
   through the bastion's web front rather than copied out with `scp` and
-  `sftp`, which is how they leave in v0.2.
+  `sftp`, which is how they leave in v0.2. These are the stack's own
+  reports, not the players' (D481).
 - **A status page for each third party**, showing only the incidents
   the partner admits, beside its `partners.md` description (D274;
   [v0.5's third parties](../v0.5/third-parties.md)).
+- **O251's loader refusal** (a bastion mapping `partners.md` exactly
+  when the third parties carry a `player_doc`), in v0.6's first chunk
+  that touches `tools/gm/model.py` (D486).
+
+## The game's home page (D480)
+
+The owner, on 2026-11-13: the entry point is the bastion's web front of
+**one game**, and its audience is the players. A simple home page links
+to every site in the game: Grafana, Prometheus, health, the handouts,
+and later the fictional provider's console and others. **nginx is
+kept**; no Caddy. There is **no front above several games**, "nor is it
+expected any time soon".
+
+From v0.4 the front's home is the starter-pack page: the starter pack's
+files rendered one after the other, then the web interfaces' links
+(D221, D224; the bastion's `gm-entrypoint`, step 7). v0.6 replaces it
+with a home page of links (proposed, O267):
+
+- **Sites**: each web route of the bastion's `web_routes` (Grafana,
+  Prometheus, health in the clinic); later the fictional provider's
+  console (after v1.0) and the partners' status pages (D274).
+- **Documents**: each handout the scenario provides, each a page of its
+  own (`/docs/<id>`): the README, the story, the issues, the data
+  policy, the partners, the data register, the network overview. An
+  absent one leaves no link (D221's rule). A web route named `docs` is
+  refused.
+
+The tools password and the basic authentication stay as they are (user
+`player`), and so does the bastion-only rule: the front proxies only to
+the game's own web interfaces.
 
 ## The setup's entry point (D224)
 
-Moved here from v0.5 (D233, D248).
+Moved here from v0.5 (D233, D248) as O135: a common Caddy in front of
+several games, a homepage for the whole setup, a reporting tool on the
+starter-pack page. Superseded on 2026-11-13: one game's front and its
+home page (D480, above), no reporting tool (D481). O135 is closed; this
+heading stays for the links to it.
 
-From v0.4 every game has a web front, its home the starter-pack page.
-The owner, ruling on it on 2026-10-30: "i expect a front at every game,
-we may have a common caddy to handle multiple front and a homepage
-dedicated to the whole setup to dispatch the viewer toward the game
-rules(readmes, game informations, data policies, issues), tools and
-dashboards available. Keep it simple for now. Expect it to evolve both
-with v0.5 and v1.0+ (with the fake aws, which will have its own
-entrypoint there)."
+## The rulings of 2026-11-13
 
-None of it built in v0.4:
-
-- **a common Caddy** in front of several games' web fronts;
-- **a homepage for the whole setup**, dispatching the viewer to each
-  game's rules (READMEs, game information, data policies, issues), its
-  tools and its dashboards: the out-of-game side of the
-  landing page above;
-- **a reporting tool** joining a game's starter-pack page, which v0.4
-  builds as a list of elements for it (D221), served by the bastion's web
-  front.
-
-After v1.0 the fictional provider's console has its own entry point
-there ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
-Open: O135.
+- **D480**: one game's front, a home page linking every site, nginx
+  kept, no front above several games. D224's "common caddy to handle
+  multiple front" meant the sites of one game and had been over-read.
+  Dropped with it: the common Caddy, the setup-wide homepage, the
+  Caddy's placement, per-game passwords behind a shared front, the
+  shared front's teardown. Closes O135.
+- **D481**: no reporting tool. "They could just write their report
+  outside the bastion. it's their problem." A register fault stays
+  resolved by *propose* (D333), with no corrected file handed back.
+- **D482**: no network map or diagram for now; one private network,
+  third parties aside. A map becomes mandatory with the fictional
+  provider ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
+- **D483–D485**: the network overview, a player handout that may be
+  wrong, its fields per node ([network-overview.md](network-overview.md)).
+- **D486**: O251 placed in v0.6's first chunk touching
+  `tools/gm/model.py`.
 
 ## Out of scope
 
 - Any other way in: the bastion stays the only one (bastion-only rule,
   [planes-and-access.md](../../planes-and-access.md)).
+- A front, homepage or proxy above several games (D480).
+- A reporting tool: the players write their report where they like
+  (D481).
+- A network map or diagram (D482).
 - The bastion's tooling as the customer's: it is the players' kit, and
   does not count when judging whether the customer's tooling is
   proportionate (D65, D87).
@@ -72,15 +114,17 @@ Open: O135.
 ## Depends on
 
 - v0.2: the bastion publishing the UIs (D68) through its web front (D77),
-  which the documentation website and the published reports build on.
-- v0.4: the web front in every game, its home the starter-pack page
-  (D224), which the reporting tool joins.
+  which the home page and the documentation website build on.
+- v0.4: the web front in every game (D224), its page built from a list
+  of elements (D221), which the home page replaces.
+- v0.5: the data register handout and its skill (D330, D331), the model
+  for the network overview; the third parties (D274); the node-health
+  dashboard and the clinic's monitoring breadth (D340).
 
 ## Questions due in this version
 
-- O21: whether the starter documentation, now a website, may itself carry
-  faults.
+- O21: whether the other starter files may carry faults (narrowed by
+  D330 and D484: the data register and the network overview may).
 - O32: the language of player-facing material, the website included.
-- O135: the setup's entry point (a common Caddy, the setup's homepage,
-  a reporting tool on the starter-pack page), moved from v0.5 (D233,
-  D248).
+- O260–O268: the network overview's open points
+  ([network-overview.md](network-overview.md#questions-for-the-owner)).
