@@ -1,8 +1,10 @@
 # v0.6 — the network overview, a player handout
 
-Status: draft v1. The rulings are settled (D480–D485); everything else
-on this page is proposed, and the open points are O260–O268
-([questions](#questions-for-the-owner)). It follows the
+Status: draft v2. The rulings are settled (D480–D485), and the owner
+accepted O260–O268 as recommended on 2026-11-13 (D487, D488;
+[questions](#questions-for-the-owner)), so every point they cover
+stands as written. Details still tagged (proposed) await his
+confirmation. It follows the
 [data register handout](../v0.5/data-register-handout.md) and its
 `data-register` skill wherever it can.
 
@@ -96,7 +98,7 @@ in UTC, `pg_cron` in `cron.timezone` (the customer's zone,
 `{{customer_timezone}}` filled at render as the README's is). The README
 already says the machines' clocks are in UTC.
 
-**The system as designed** (O268). Several sources are seed files a
+**The system as designed** (D488). Several sources are seed files a
 system fault may change in the scenario's copy: `postgresql.conf` (s2's
 silent `archive_command`), a `crontab`, a composed `jobs.yaml` (a job at
 the wrong hour). The true overview describes the system **as designed,
@@ -106,6 +108,25 @@ value before the change; the fault's `change:` text says what changed.
 A system fault then shows as the system disagreeing with a true page,
 which is the players' work; it never makes the page agree with the
 fault.
+
+**A static snapshot** (D488). The owner: "these documents are static
+(well... except for what's provided by grafana and the like, so
+changing prometheus configuration will be reflected by itself). they
+are what the customer provided the dba at mission start, so some fixes
+may render them inaccurate, but that's okay." The rule holds for
+**every handout**, the data register included:
+
+- a handout is what the customer gave the DBA at the start of the
+  mission: generated once at setup, never re-rendered while the game
+  runs (a restart from a snapshot keeps it as handed over);
+- it describes the design, the value before a planted fault changed it
+  (above);
+- only the live tools it links to (Grafana, Prometheus, health) follow
+  the system's changes, on their own: a fixed scrape target shows in
+  Node health without the page changing;
+- a player's fix that leaves a handout out of date is expected: neither
+  a fault nor something the GM checks, and the players are not asked to
+  update it.
 
 ## 3. One set of facts, three views
 
@@ -448,6 +469,11 @@ are the kind `scenario.yaml`'s new keys would carry (O263).
    test, and the clinic's overview generated.
 
 ## Questions for the owner
+
+**Ruled on 2026-11-13** (D487, D488): the owner, "ok with proposed",
+so each is closed as recommended; O268 with his clarification, the
+handouts as static snapshots (section 2). Kept as the record of what was
+asked.
 
 - **O260**: Is **Your access** the game's rule, always exact and never a
   planted deviation? The page is otherwise customer documentation that

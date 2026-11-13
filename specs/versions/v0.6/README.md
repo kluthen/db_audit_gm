@@ -1,6 +1,6 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v2. No master spec. Bastion-related items moved in from
+Status: draft v3. No master spec. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486).
 
@@ -29,7 +29,13 @@ players (D480).
   node of the customer's estate, generated from the authoritative
   files, customer documentation that may be incomplete or wrong, each
   node linked to Grafana's Node health dashboard. Its design is
-  [network-overview.md](network-overview.md) (draft v1; O260–O268).
+  [network-overview.md](network-overview.md) (draft v2; O260–O268
+  closed as recommended, D487, D488).
+- **Handouts are static snapshots** (D488): what the customer gave the
+  DBA at the mission's start, generated once at setup and never
+  re-rendered in play; only the live tools they link to follow the
+  system. A fix that leaves one out of date is expected, never a fault
+  ([network-overview.md](network-overview.md#2-one-entry-its-fields-and-their-sources)).
 - **General-use tooling** on the bastion: the PostgreSQL client tools
   (`psql`, `pg_dump` and the rest; the v0.1 bastion already carries the
   PostgreSQL 18 client tools) and other everyday tools, to be chosen.
@@ -98,6 +104,9 @@ heading stays for the links to it.
   wrong, its fields per node ([network-overview.md](network-overview.md)).
 - **D486**: O251 placed in v0.6's first chunk touching
   `tools/gm/model.py`.
+- **D487, D488**: the network overview's questions O260–O268 accepted
+  as recommended; every handout a static snapshot of the mission's
+  start.
 
 ## Out of scope
 
@@ -126,5 +135,5 @@ heading stays for the links to it.
 - O21: whether the other starter files may carry faults (narrowed by
   D330 and D484: the data register and the network overview may).
 - O32: the language of player-facing material, the website included.
-- O260–O268: the network overview's open points
-  ([network-overview.md](network-overview.md#questions-for-the-owner)).
+- O260–O268, the network overview's: closed as recommended (D487,
+  D488).

@@ -1648,3 +1648,19 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   loader refusal is built in v0.6's first chunk that touches
   `tools/gm/model.py`.** O251 stays open until built. Now in:
   [open-questions.md](open-questions.md) O251.
+- **D487 (2026-11-13, owner ruling, "ok with proposed", relayed by the
+  coordinator): O260–O267 closed as recommended.** "Your access" is the
+  game's rule, never a deviation; the bastion a fixed note; third
+  parties a closing table by hostname; the format additions; a `node`
+  variable on Node health; the overview and the register planted
+  independently; *propose*, M, `docs-overview-*`; the home page's two
+  lists, the node table leaving the README. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#questions-for-the-owner).
+- **D488 (2026-11-13, same ruling, with the owner's clarification):
+  O268 closed as recommended: a handout describes the design, the value
+  before a planted fault changed it; every handout is a static snapshot
+  of the mission's start.** Generated once at setup, never re-rendered
+  in play; only the live tools it links to follow the system; a fix
+  leaving it out of date is expected, never a fault or a GM check. Holds
+  for the data register too. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#2-one-entry-its-fields-and-their-sources).

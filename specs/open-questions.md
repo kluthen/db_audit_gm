@@ -55,7 +55,7 @@ D443–D457 with O247).
 v0.6's drafting opened on 2026-11-13 (branch `v0.6-spec`): O135
 resolved by the owner's rulings of that day (D480, D481), O21 narrowed
 (D484), O251 placed (D486); O260–O268 raised by the network overview's
-draft.
+draft and closed the same day as recommended (D487, D488).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -406,37 +406,39 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
 
 ## v0.6: the network overview
 
-Raised by the network overview's first draft (D483–D485), each with a
-recommendation; the question's full text is on
+O260–O268, raised by the network overview's first draft (D483–D485),
+closed on 2026-11-13 as recommended (D487, D488); each question's text
+is on
 [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#questions-for-the-owner).
 O135, the setup's entry point, closed by D480 (one game's front, no
-front above several games) and D481 (no reporting tool).
+front above several games) and D481 (no reporting tool). None open;
+the closed entries are kept here until v0.6's archive moves them:
 
-- **O260** (soon, v0.6) — Is the page's "Your access" column the game's
+- **O260** (v0.6; **closed**, D487, as recommended) — Is the page's "Your access" column the game's
   rule, always exact and never a planted deviation? Recommended: yes,
   marked as such on the page, the README pointing to it.
-- **O261** (soon, v0.6) — The bastion on the page: a node entry, or a
+- **O261** (v0.6; **closed**, D487, as recommended) — The bastion on the page: a node entry, or a
   fixed note? Recommended: a fixed note at the top (the players' kit,
   D65, D87), never a deviation, with its Node health link.
-- **O262** (soon, v0.6) — Third parties on the page. Recommended: a
+- **O262** (v0.6; **closed**, D487, as recommended) — Third parties on the page. Recommended: a
   closing table, one row per partner with a `player_doc`, by its
   hostname, access none; the partners' shared nodes never named (D469).
-- **O263** (soon, v0.6) — The format additions for the fields with no
+- **O263** (v0.6; **closed**, D487, as recommended) — The format additions for the fields with no
   source today (a node's `description`, `site`, `users`; a brick's
   `base`; a domain's `data/overview.yaml`; the crontab comment rule).
   Recommended: accept, into v0.6's master spec.
-- **O264** (soon, v0.6) — A `node` variable on the Node health
+- **O264** (v0.6; **closed**, D487, as recommended) — A `node` variable on the Node health
   dashboard, each entry linking its own node. Recommended: yes.
-- **O265** (soon, v0.6) — The overview and the data register planted
+- **O265** (v0.6; **closed**, D487, as recommended) — The overview and the data register planted
   independently, so one may give away a fault of the other.
   Recommended: independent; the answer key notes the interaction.
-- **O266** (soon, v0.6) — Resolving and classing an overview fault.
+- **O266** (v0.6; **closed**, D487, as recommended) — Resolving and classing an overview fault.
   Recommended: *propose*, M by default, family `documentation`, ids
   `docs-overview-*`, as the register's.
-- **O267** (soon, v0.6) — The home page's shape and what leaves the
+- **O267** (v0.6; **closed**, D487, as recommended) — The home page's shape and what leaves the
   README. Recommended: two lists (sites, documents), one page per
   handout; the node table and the network paragraph leave the README.
-- **O268** (soon, v0.6) — The true overview read from seed files a
+- **O268** (v0.6; **closed**, D488, as recommended, with the owner's clarification) — The true overview read from seed files a
   system fault may have changed. Recommended: the skill states the
   design, the value before the fault's change.
 
