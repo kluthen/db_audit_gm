@@ -7893,3 +7893,11 @@ Chunks merged: 34, 36, 35, 22, 37, 23, 24, 26, 25, 38, 27 (inserted:
 Owner sign-off asked: O251's placement in v0.6; D473 (the approved
 master spec's rule 7 brought to the build). Merge into main on the
 owner's word; then G12/G13 and the release gate in a fresh session.
+
+### Owner's rulings, 2026-11-13
+
+On the report: "O251 in v0.6 is fine, D473 accepted, merge and push".
+O251 (the loader's refusal for a bastion's `partners.md` mapping) is
+placed in v0.6's first chunk that touches `model.py`; spec-writer marks
+the entry at its next revision. D473 accepted (master spec 9.7 rule 7
+and 12.2 as built). Merge into main and push to origin.
