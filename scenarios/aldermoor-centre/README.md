@@ -1411,7 +1411,7 @@ Evidence, as the `player` user (and `dba` in psql):
 
 | Where | Source | How | Shows |
 |---|---|---|---|
-| `node:records` | the server log | `grep -h -E 'statement: (INSERT\|UPDATE).*owners' /var/log/postgresql/postgresql-*.log \| tail -n 5` | vet_app's writes on owners with names and phone numbers in clear |
+| `node:records` | the server log | `grep -h -E -A1 '(statement\|execute [^:]+): (INSERT\|UPDATE).*owners' /var/log/postgresql/postgresql-*.log \| tail -n 10` | vet_app's writes on owners as `execute` lines of unnamed statements (the producers use the extended protocol), names and phone numbers in clear on the `DETAIL:  Parameters:` line after each |
 | `node:records` | /etc/postgresql/postgresql.conf | `grep -n log_statement /etc/postgresql/postgresql.conf` | log_statement = 'all' |
 
 Acceptable answers:

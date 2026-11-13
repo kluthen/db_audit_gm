@@ -552,8 +552,11 @@ instances:
     evidence:
       - where: node:records
         source: the server log
-        how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
-        shows: vet_app's writes on owners with names and phone numbers in clear
+        how: "grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 10"
+        shows: >-
+          vet_app's writes on owners as `execute` lines of unnamed statements (the producers use the
+          extended protocol), names and phone numbers in clear on the `DETAIL:  Parameters:` line after
+          each
       - where: node:records
         source: /etc/postgresql/postgresql.conf
         how: grep -n log_statement /etc/postgresql/postgresql.conf

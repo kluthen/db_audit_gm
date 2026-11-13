@@ -37,9 +37,10 @@
 #
 #   governance-statement-log-personal (s7, about 10 minutes after the load):
 #   - log_statement all in effect on records; a practice software's writes as
-#     vet_app (a new owner, its phone changed; vet_app given a password by the
-#     test, unseen, pms being left out): the owner's name and phone in
-#     records' server log; gmctl check s7 present;
+#     vet_app (a new owner, its phone changed with the extended protocol;
+#     vet_app given a password by the test, unseen, pms being left out): the
+#     owner's name and phone in records' server log, the evidence's grep
+#     reading both forms as player; gmctl check s7 present;
 #   - the players' fix: the line removed (sed -i), sudo gm-reload-db;
 #   - fixed: the same writes for another owner leave neither name nor phone
 #     in the log; gmctl check s7 fixed.
@@ -425,13 +426,15 @@ s7)
 PW=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')
 unseen records postgres "ALTER ROLE vet_app PASSWORD '$PW';" >/dev/null
 # write <name> <phone> <new phone>: a new owner as pms registers one, then
-# its phone changed, as vet_app over the local socket
+# its phone changed, as vet_app over the local socket; the change sent with
+# the extended protocol (psql's \bind), as the clinic's producers send theirs,
+# so the log holds both forms (G13's finding 3)
 write() {
     printf '%s\n' "SELECT set_config('application_name', 'pms', false);
       INSERT INTO owners (kind, name, email, phone, address, country, registered_at)
       VALUES ('person', '$1', lower(replace('$1', ' ', '.')) || '@example.org', '$2', '4 Lindenweg, 50667 Koeln', 'DE', now())
       RETURNING id \\gset
-      UPDATE owners SET phone = '$3' WHERE id = :id;" |
+      UPDATE owners SET phone = \$1 WHERE id = \$2 \\bind '$3' :id \\g" |
         docker exec -i -e PGPASSWORD="$PW" "$(ctr records)" psql -XAtq -v ON_ERROR_STOP=1 -h /run/postgresql -U vet_app -d clinic >/dev/null
 }
 inlog() { pglog records | grep -c -e "$1" -e "$2" || true; }
@@ -442,6 +445,13 @@ n=$(inlog 'Ottilie Brennerkamp' '5550102')
 if [ "$n" -gt 0 ]; then pass "present: the owner's name and phone in records' server log ($n lines)"
 else fail "present: neither the owner's name nor phone in records' log"; fi
 info "$(pglog records | grep -m 1 'Brennerkamp' | cut -c1-200)"
+# the evidence's own command (the fault's and the answer key's), as player:
+# the INSERT as a statement line, the UPDATE as an execute line with its
+# values on the DETAIL line after it
+ev=$(asplayer records "grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 10" 2>&1 || true)
+has() { printf '%s\n' "$ev" | grep -q -e "$1" && echo yes || echo no; }
+same "evidence as player: statement: INSERT with the name, execute <unnamed>: UPDATE, its Parameters with the new phone" \
+    "yes yes yes" "$(has 'statement: INSERT INTO owners.*Ottilie Brennerkamp') $(has 'execute <unnamed>: UPDATE owners') $(has 'DETAIL:  Parameters: .*5550102')"
 r=$(fcheck)
 same "gmctl check s7 at the planting: present: $(echo "$r" | cut -d' ' -f2- | cut -c1-220)" "1" "${r%% *}"
 
