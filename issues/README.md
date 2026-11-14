@@ -7,7 +7,7 @@ Tracked problems in db_audit_gm. Filed and kept with the
 
 | Ref | File | Severity | Status | Summary |
 |---|---|---|---|---|
-| ISS-005 | [ISS-005_20261114_grafana_prometheus_footprints_old.md](ISS-005_20261114_grafana_prometheus_footprints_old.md) | Low | Open | grafana 0.3.0's and prometheus 0.2.1's footprints quote only older versions' figures |
+| ISS-005 | [ISS-005_20261114_grafana_prometheus_footprints_old.md](ISS-005_20261114_grafana_prometheus_footprints_old.md) | Low | Resolved | grafana 0.3.0's and prometheus 0.2.1's footprints quote only older versions' figures |
 | ISS-004 | [ISS-004_20261114_partners_pg_hba_admits_by_password.md](ISS-004_20261114_partners_pg_hba_admits_by_password.md) | Low | Open | partners' database admits by role and password, access model still calls it unverified |
 | ISS-003 | [ISS-003_20261114_formats_status_line_stale.md](ISS-003_20261114_formats_status_line_stale.md) | Low | Open | formats.md's status line says draft v32, its text is at v33 |
 | ISS-002 | [ISS-002_20261114_clinic_load_slow_vault_503.md](ISS-002_20261114_clinic_load_slow_vault_503.md) | Medium | Open | clinic load-data ~28 min; cold storage 503s leave lab's archiver 66 failures before T0 |

@@ -4,7 +4,7 @@
 **Ref:** `ISS-005`
 **Date:** 2026-11-14
 **Severity:** Low
-**Status:** Open
+**Status:** Resolved
 **Component:** `bricks/grafana/docs/gm.md`
 **Affects:** `bricks/prometheus/docs/gm.md`, `fit`'s inputs for scenarios using them
 **Seen on:** main a56e5ac; grafana 0.3.0 (Grafana 13.3.1), prometheus 0.2.1 (Prometheus 3.16.0)
@@ -94,3 +94,4 @@ quoted in the footprint with `brick.yaml`.
 ## Change log
 
 - **2026-11-14**: filed.
+- **2026-11-14**: resolved by the short-term fix. Each footprint section now says its figures come from earlier versions, that they stand until an aging measures the node, and quotes G13's reading as a smoke reading. Covered by `tools/tests/test_brick_docs` (shape only); a measurement at rest is left for the brick's next touch.

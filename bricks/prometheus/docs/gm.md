@@ -475,6 +475,14 @@ bound: `tarnbeck-outdoor-shop`'s 384MB holds its 16-hour aging plus four
 hours (about 80M at 4M an hour), and `fernway-clinics-monitoring`'s 256MB
 its four-hour game (six targets, about 1 900 series, under 16M).
 
+These figures were measured on earlier versions. 0.2.1 (Prometheus
+3.16.0) has not been measured at rest, and they stand until an aging
+measures the node (v1.0 gating). The whole clinic's first deployment
+(G13, 2026-11-13, `aldermoor-centre` on armenelos plus the VPS, about 70
+minutes from T0, `docker stats` every 2 minutes) read it at 96M mean and
+102M peak, 1.2 % of a CPU mean and 4.0 % peak: a smoke reading, not a
+footprint.
+
 What makes it grow:
 
 - **Memory**: the number of active series (targets times the series each
