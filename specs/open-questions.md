@@ -230,7 +230,9 @@ likewise, and so is O243, raised by the same pass and closed by capture
 W4 (D432). O247, raised by placing the owner's security rulings of
 2026-11-10, closed by the owner (D458), and O250, raised by chunk 27's
 stop (D469) and closed by the owner as proposed (D471), are kept
-likewise; O249 and O251 (raised at wave 5's gate) are open:
+likewise; O249 and O251 (raised at wave 5's gate) are open, O251 placed
+in v0.6; O269 and O270, raised by G13 and placed at v0.5's close
+(D476), are open:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -381,7 +383,9 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   judging a standby's databases at its primary's location, a non-SQL
   connection no database path). Refs: `tools/gm/governance.sh`;
   [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
-- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12) — The
+- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12; **placed**
+  in v0.6 by the owner, 2026-11-13: v0.6's first chunk touching
+  `tools/gm/model.py`) — The
   loader does not enforce the format rule that a bastion maps
   `partners.md: player/partners.md` exactly when the scenario's
   `third_parties:` carry a `player_doc` (formats.md "Partners"). It
@@ -395,6 +399,32 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   converse), with a unit test; no v0.5 chunk. Refs: `tools/gm/model.py`
   (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
   (third parties); [formats.md](formats.md) "Partners".
+- **O269** (soon, v0.6; raised by G13's finding 1, filed as ISS-001;
+  D476) — The loader does not check that a `seed-file` fault instance's
+  `seed_changes` lines appear in the scenario's copies of the seed
+  files, where formats.md (fault "Injection") puts them. In
+  `aldermoor-centre` the lines of s2, s7 and s8 were missing; the format
+  check, `compose --check`, chunk 27's runs and wave 5's gate all
+  passed, and only the whole-clinic run saw it (fixed in the scenario,
+  `0118c90`). A v0.5 known limit: the line in the scenario's copy is
+  the GM's to check. To settle in v0.6: a loader refusal (each selected
+  instance's lines found in its node's copy, with a unit test) or a
+  check item of the `scenario-format` skill. Proposed: the loader
+  refusal, since the skill's check is the GM reading by hand. Refs:
+  `issues/ISS-001_20261114_loader_misses_unplanted_seed_faults.md`;
+  `tools/gm/model.py`; [formats.md](formats.md) "Fault definition".
+- **O270** (later, v1.0 gating's setup; raised by G13's finding 4,
+  filed as ISS-002; D476) — The whole clinic's `load-data` takes about
+  28 minutes (1671 s and 1652 s at G13), about 17 of them `partners-db`
+  at its 0.5 CPU limit building vet-lab's partners' orders; meanwhile
+  cold storage answered 503 to lab's `vault-post` 66 times before T0,
+  so lab's `pg_stat_archiver` shows failures at the hand-over that no
+  fault explains. A v0.5 known limit. To settle before the clinic is
+  first played: raise `partners-db`'s CPU during the load, compute the
+  orders once, or have cold storage answer during the load; and what
+  the GM's notes say until then. Refs:
+  `issues/ISS-002_20261114_clinic_load_slow_vault_503.md`;
+  [versions/README.md](versions/README.md#v10-gating).
 
 
 ## v0.6: the setup's entry point

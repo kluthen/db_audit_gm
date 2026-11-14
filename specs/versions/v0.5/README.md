@@ -1,9 +1,18 @@
 # v0.5 — domain definition: the veterinary clinic
 
-Status: **master spec and access model approved by the owner on
-2026-11-03** (D339, D340); the [build plan](build-plan.md) v1
-**approved** the same day, κ = 3 and O223–O227 as recommended (D342,
-D343), `v0.5-domains` merged into `main`; wave 1 next. Business domains added on 2026-10-28
+Status: **released 2026-11-14**: release gate passed on 2026-11-13, run
+on `v0.5-g13` once wave 5 had merged into `main` (`e466247`), and merged
+into `main` (`a56e5ac`); G15 cleared by the owner on 2026-11-14 ("ok"),
+the gate accepted as run and its fixes within settled intent (D475);
+G13's findings 1 and 4 v0.5 known limits (D476)
+([release notes](#release-notes)). Master spec and access model
+approved by the owner on 2026-11-03 (D339, D340); built from the
+[build plan](build-plan.md), v1 **approved** the same day, κ = 3 and
+O223–O227 as recommended (D342, D343), in five waves and 38 chunks
+(v21 at the close); the access model's partners' admission made exact
+at the close (D474). Page v2.
+
+History: business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
@@ -87,7 +96,8 @@ corrected to the spec (R16).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs (its owner review R1–R20 removed at approval) | **approved** (2026-11-03, D339); the monitoring breadth written in (7.4, 14; D340, O220 closed) |
 | [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | **approved** with the master spec (D339); the monitoring breadth's rows (D340) |
-| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), **approved** (D342; G1 cleared, κ = 3), O223–O227 answered as recommended (D343); v15 (2026-11-10): 35 chunks, wave 4 gated, G18 done, chunks 34 and 35 in wave 5 (D443–D457); v20 (2026-11-12): 38 chunks, wave 5 gated, G19 done (D472, D473; O251 open) |
+| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), **approved** (D342; G1 cleared, κ = 3), O223–O227 answered as recommended (D343); v15 (2026-11-10): 35 chunks, wave 4 gated, G18 done, chunks 34 and 35 in wave 5 (D443–D457); v20 (2026-11-12): 38 chunks, wave 5 gated, G19 done (D472, D473); v21 (2026-11-14): **released**, G15 done (D475) |
+| [wave-log.md](wave-log.md) | The execution record: each wave's captures, preflight corrections, chunks, gates and the owner's rulings; G12, G13 and the release gate's results | complete (2026-11-13) |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
@@ -551,9 +561,31 @@ The items moved later are listed in the roadmap
   options, and v0.2's declare/choose/check pattern for mounted material
   and `receives` (D97), which the options model is akin to.
 
+## Release gate
+
+v0.5's definition of done is its
+[master spec](master-spec.md#19-definition-of-done), section 19, its
+release gate section 20, carried by the
+[build plan](build-plan.md#release-gate)'s release gate, items 1 to 12.
+Short tests only (D314): every item runs under 30 minutes on its least
+environment, but the one exception, the whole clinic deployed once on
+armenelos plus the VPS (gates G12 and G13). What no v0.5 gate shows is
+named in the release notes' known limits, everything of master spec
+18.4 among them, and its long-running checks are
+[v1.0 gating](../README.md#v10-gating).
+
 ## Questions due in this version
 
-None open. O223–O227, raised with the
+At the close (2026-11-14), still open and carried forward: O249, the
+partner stubs' reference counters (D467; before the clinic is first
+played), O251, the loader's `partners.md` mapping check (placed in
+v0.6 by the owner on 2026-11-13), O269, the loader's check of a
+`seed-file` fault's lines (ISS-001; v0.6) and O270, the clinic's
+setup time and the vault's refusals before T0 (ISS-002; v1.0 gating's
+setup), both raised by G13 and placed by D476; O231, the partner
+credentials handed over (D395), version not set.
+
+During the build none was open at approval. O223–O227, raised with the
 [build plan](build-plan.md#settled-with-the-owner), closed at its
 approval as recommended (D343): `grafana` 0.3.0 re-pinned (O223), the
 exporters kept and pgwatch dropped if CPU is short (O224), pgCluu's
@@ -575,40 +607,338 @@ O217 (D333), O218 (D334), O219 (D335). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.
 
-## Next steps
+## Release notes
 
-Left on 2026-11-03, after the build plan's approval (D342, D343):
+v0.5, release gate run on 2026-11-13 on `v0.5-g13`, cut from `main` at
+`090ea1f` once wave 5 had merged (`e466247`): G12 and G13 on armenelos
+plus the VPS, the VPS `active` for G13's runs only and drained after;
+every other item on armenelos alone, every Docker run under the host
+lock and a sleep inhibitor, each under 30 minutes but G13 (D314). The
+plan's text ran the gate "on `v0.5-w5` before it merges"; wave 5 had
+merged on the owner's word, so it ran on the branch cut after it, as
+the owner accepted (G15, D475). Items 1 to 10 passed, run or cited as
+below; item 11, G15, cleared by the owner on 2026-11-14 ("ok"); item
+12, these notes. Four fixes at the gate, each within settled intent
+(below). Released on 2026-11-14, `v0.5-g13` merged into `main`
+(`a56e5ac`): `postgres` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0, `bastion`
+0.5.0, `pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0 and
+`prometheus` 0.2.1; `pgbouncer` 0.1.1 and `postgres-exporter` 0.2.0
+unchanged.
 
-- **Done**: `main` merged in (fc823ea); O111's format text in
-  [formats.md](../../formats.md) v28 (D338); the
-  [master spec](master-spec.md) and its [access model](access-model.md)
-  consolidated, then **approved** by the owner ("agreed"), R1–R20 as
-  recommended (D339) and the monitoring breadth designed (D340, O220
-  closed); the six domain documents approved with them (procedure step
-  9) and corrected to the spec (R16, R13, R15). The `scenario-format`
-  skill is unchanged: its templates and checks follow formats.md v28 in
-  the build's domain-format chunk, with the loader, as in v0.4.
-- **Done, 2026-11-03: [build plan](build-plan.md) v1**, from the master
-  spec's section 21 and the data register's chunks: 27 chunks in five
-  waves (κ = 3 proposed), the dependency checks as gates (G5 to G11:
-  pgaudit, FastAPI and uvicorn, the scheduler's HTTP client if it takes
-  a package, the monitoring breadth's packages, each joining `.tech`),
-  the VPS window and the whole-clinic two-host run at the release gate
-  (G12, G13), **no data preflight** (D329). Five small points put to the
-  owner and planned on their recommendations (O223–O227).
-- **Done, 2026-11-03: build plan v1 approved** by the owner ("agreed.
-  merge. i'll clean after and start wave 1"): κ = 3 and the plan's four
-  choices (chunk 1 the bumps and re-pins, `bastion` 0.5.0 whole in
-  chunk 17, each partner stub in its domain's or purpose's chunk, the
-  standby tooling in chunk 3) (D342, G1 cleared); O223–O227 as
-  recommended (D343). `v0.5-domains` merged into `main` by the
-  coordinator.
-- **Next: wave 1**, started by the owner: the wave driver loads the
-  `wave-execution` skill and reads [build-plan.md](build-plan.md);
-  wave 1 cut from `main` as `v0.5-w1`, **chunk 1 first**, alone (the
-  bumps and re-pins); once it has merged, chunks 2 to 5, three at a
-  time (chunk 3 after G5, chunk 5 after G6, chunk 4 after G7 if it adds
-  a package).
-- **Tests stay short** (D314): every check under 30 minutes on a minimal
-  fixture; the whole clinic deployed once, on armenelos plus the VPS,
-  at the release gate (D339).
+### What v0.5 delivers
+
+- **Domain definition**: the [procedure](domain-procedure.md); the
+  domain format, composition, the data register and the purpose
+  format's extensions in [formats.md](../../formats.md) (v28, then the
+  build's items as built, v29 to v33); `gmctl compose`, the composition
+  record, the coherence check and the loader's checks; the shop's
+  folder in the new format.
+- **The clinic's six domains** in `domains/`: `vet-core`, `vet-lab`,
+  `vet-scheduling`, `vet-housing`, `vet-machinery` and `vet-portal`,
+  each with its register fragment, its variant manifest and its GM
+  notes (core keys, growth, traps, loading).
+- **Sixteen purposes** in `purposes/`: fifteen `vet-*` and
+  `cold-storage-archive`; round trips a purpose kind of their own, a
+  cascade's fix judged end to end, its backlog shown in the scenario
+  document (D472).
+- **Third parties**: the partners' three shared nodes (`partners-api`
+  serving ten hostnames, `partners-backend`, `partners-db`) out of the
+  players' reach, cold storage and the vault, `partners.md`.
+- **Replication and the back office**: a readable standby off site, WAL
+  archiving and nightly base backups to the vault, the back-office
+  database `office`; a restart from the hand-over snapshot gives the
+  standby back streaming (D397).
+- **Governance and the data register**: the clinic's classification
+  and governance, the `data-register` skill, the register as a player
+  handout, a register fault resolved by *propose*.
+- **The bricks**: `postgres` 0.5.0 (TLS and pgaudit always available,
+  the `monitoring` option, the standby mode, archiving to the vault,
+  pgCluu), `scheduler` 0.3.0 (the HTTP driver), `api` 0.1.0 (FastAPI
+  endpoints, its `db/` side the players' only), `bastion` 0.5.0 (`curl`,
+  cold storage's page routed), `pgwatch` 0.1.0, `health-check` 0.1.0,
+  `grafana` 0.3.0 (the pgwatch dashboard, its data-source plugin at
+  13.2.5) and `prometheus` 0.2.1 (Prometheus 3.16).
+- **The scenario `aldermoor-centre`**: one centre of a veterinary
+  franchise, 25 nodes on two hosts (17 on armenelos, 8 on the VPS), the
+  six domains, the sixteen purposes, nine partners, a 10-hour aging and
+  240 minutes of play; nine fault instances, the test selection but s4
+  (D466), and a false alarm; its data policy, `partners.md` and data
+  register.
+- **The test selection's ten faults** and the false alarm's material,
+  each with its injection, sealed check, probe and short fixture; the
+  existing scenarios re-pinned, every existing fault's `applies_to`
+  carrying the new versions.
+- **Tests**: the unit suite (1283), each brick's stack test, the
+  fixtures of master spec 18.2, each under 30 minutes.
+- **The post-mortem collection**, begun in `post_mortem/`, not bound to
+  faults yet (D234, D251; O138).
+
+### Release gate results
+
+1. **Short tests: PASS.** Green at wave 5's gate (55 items, each under
+   30 minutes); rerun on what G13's and the gate's fixes touch: the
+   archive fixture's planted test 30/30 (165 s); s6's sealed check on
+   the clinic's handout in `bastion` 0.5.0, present, "none of its 22
+   entries"; the reports fixture's s7 test 24/24 (805 s) after
+   `d53a12d`.
+2. **Existing scenarios' smokes: PASS**, cited from wave 5's gate
+   (bookshop 19 in 22 s, fernway 18 in 30 s, campaign 33 in 308 s, shop
+   26 in 798 s); nothing they deploy changed since.
+3. **The unfaulted clinic: PASS**, cited from wave 5's gate:
+   `fixture-clinic-load` 28/28 (908 s), coherence 27/27, G1 to G4
+   holding on records, lab and machines, `partners-db` not walked
+   (D469); its register's coverage by the format check, rerun.
+4. **`fit`: PASS**, G13's figures (below), placement rerun at the gate
+   with the same result; G14 not applicable.
+5. **The whole clinic once: PASS**, G13 on its second deployment
+   (game `aldermoor-pqewl7`), after `0118c90`: `fit` and the deployment
+   (25 services healthy, placement as designed); every producer,
+   partner and purpose running, each first run read where it falls by
+   day (the nightly purposes not reached, each loaded with its next
+   run); the selection but s4 planted at once, each fault read present
+   (s1 at the first urgent order, T0 + 51 minutes; s3 resting on its
+   fixture; s6 by hand, its sealed check misreading it, corrected by
+   `2e34f44`);
+   nothing fixed, no aging, no snapshot; G2 not breached on the full
+   clinic; the VPS drained after, filetstudio.com answering throughout.
+   The smoke ran 75 minutes, not about 30, the driver's session having
+   stopped between T0 and the reads; nothing was done to the game
+   meanwhile.
+6. **Format, loader, skills: PASS.** G16 to G19 done (formats.md v29 to
+   v33); the templates and the loader by the unit suite; the
+   `data-register` skill, the GM skill's Setup step 2, the scenario
+   document's sections and D472's backlog slot; every catalogue domain
+   and purpose passing its check (7 domains, 20 purposes).
+7. **Bricks: PASS.** `test_brick_docs` in the unit suite; each v0.5
+   brick's Footprint section read against its `brick.yaml`; G5 to G10
+   and G11.1 to G11.4 cleared, `.tech` current (`982ebe0`); every
+   rebuilt image's `dpkg-query` list identical to its tag's (D445).
+8. **Domains and purposes: PASS.** The six clinic domains and the shop
+   pass the domain check; the sixteen clinic purposes the purpose
+   check; `partners/shared/` and `partners/coldstore/` as the
+   catalogue.
+9. **Quality command: PASS**, rerun at `2ea21f8`: `sh -n` 324 and
+   `perl -c` 13, `py_compile` 456, 0 failed; the unit suite 1283 OK, 2
+   skipped; the scheduler's and `api`'s own suites cited from wave 5's
+   gate.
+10. **Left for the build: PASS**, every row recorded (below).
+11. **G15: cleared** by the owner on 2026-11-14 (D475).
+12. **Release notes**: these.
+
+### Measured figures
+
+On armenelos (AMD Ryzen 5 PRO 8640HS, 11.3 GiB, Debian 13, Docker
+29.9.3) and, for G13, the VPS `vps-5718ad52` (4 CPUs, Docker 29.9.2), in
+v0.5's chunks and gates, 2026-11-03 to 2026-11-13.
+
+- **Footprints at rest**, each brick's first figure from its stack
+  test, in its `docs/gm.md` (limits / reservations / growth an hour as
+  `brick.yaml` declares them):
+  - `postgres` 0.5.0 (1 CPU, 1G / 0.5, 512M / 2.25G, 8M): a primary
+    with TLS, pgaudit, the `monitoring` option, archiving to the vault,
+    a base-backup job and a streaming standby 32.4 MiB, no measurable
+    CPU; the standby 36.2 MiB; a `no-access` node 30.8 MiB.
+  - `scheduler` 0.3.0 (0.25, 128M / 0.1, 64M / 64M, 1M): idle 19M (RSS
+    27M), two streams 26M; a caller on HTTP idle 18M, running 20M;
+    `no-access` with an HTTP script job 28M.
+  - `api` 0.1.0 (0.25, 128M / 0.1, 96M / 64M, 2M provisional): one
+    hostname 47M (RSS 53M), nine hostnames `no-access` 43M (RSS 55M),
+    0.2 % CPU each.
+  - `pgwatch` 0.1.0 (0.245, 122M / 0.095, 90M / 64M, 1M): 12M, peak
+    21M, CPU 0.00.
+  - `health-check` 0.1.0 (0.245, 122M / 0.095, 58M / 64M, 1M): 5M at
+    rest, peak 33M with a check run.
+  - `bastion` 0.5.0 (`curl` added, no process): v0.4's figure stands,
+    5.1 MiB with its routes. `grafana` 0.3.0 and `prometheus` 0.2.1:
+    the earlier versions' footprints (grafana 195M at rest, v0.2;
+    prometheus 66M at most, v0.3), G13's readings beside them in their
+    `docs/gm.md` (ISS-005).
+- **Each domain's load** (its `docs/gm.md`, a throwaway `postgres`
+  0.5.0 container; a non-zero shift, then shift 0):
+  - `vet-core`: 122–131 s, 134–137 s; 49 MB; 269 397 / 270 260 rows
+    (wave 5's gate through `load-data`: 116.2 s at shift 2, 117.9 s at
+    0);
+  - `vet-lab`: 71 s, 64–70 s; 54 MB; 330 077 / 329 916 rows; the two
+    stubs' `data.sql` 61 s and 59 s;
+  - `vet-scheduling`: 99 s, 92 s after the core's; 20 MB; 103 500 /
+    103 538;
+  - `vet-housing`: 7.4 s, 7.6 s; 17 MB; 138 752 / 138 863;
+  - `vet-machinery`: 50.8 s, 50.3 s (`pacs` 40 s); 75.4 / 76.3 MB;
+    282 020 / 291 087;
+  - `vet-portal`: the load 18 s, 17 s, then the derivation 121 s at
+    both; 77 MB; 21 792 loaded, 199 735 with the derivation;
+  - the six composed: `fixture-clinic-load`'s short test 903–908 s
+    whole; the whole clinic's `load-data` 1671 s and 1652 s (G13; a
+    known limit below).
+- **`fit`** on the clinic as built (the playground `duo`): armenelos,
+  17 nodes, CPU 2.75 + 0.4 = 3.15 of 4, memory 2.64G + 410M = 3.04G of
+  4G, disk 12.49G of 20G; the VPS, `shared`, 8 nodes (standby,
+  backoffice, grafana, exporter-standby, health, partners-api,
+  partners-backend, partners-db), CPU 1.3 + 0.2 = 1.5 of 2, memory 1.5G
+  + 410M = 1.9G of 4G, disk 7.68G of 10G. The hand-over snapshot fits
+  neither host (21.67G of 20G on armenelos), as foreseen.
+- **G13's per-node readings: smoke readings, not footprints.** Run 2,
+  `docker stats`, 36 samples from T0 over about 70 minutes, no aging;
+  mean / peak:
+  - armenelos: records 2.2/8.7 % CPU, 297/322M; machines 1.4/5.0 %,
+    163/170M; lab 1.2/13.2 %, 122/144M; prometheus 1.2/4.0 %, 96/102M;
+    portal-api 0.4/4.7 %, 41/44M; pms 0.4/3.1 %, 38/40M; interfaces
+    0.9/11.8 %, 37/38M; ward 0.6/3.4 %, 35/36M; clinic-api 0.5/2.4 %,
+    33/36M; lab-api 0.3/2.4 %, 33/35M; equipment 0.6/3.2 %, 30/31M; lis
+    0.5/3.1 %, 30/30M; pgwatch 0.4/3.2 %, 28/30M; exporter-lab
+    0.5/4.0 %, 20/22M; exporter-records 0.2/2.5 %, 19/21M;
+    exporter-machines 0.3/3.0 %, 18/19M; bastion 0.4/3.2 %, 8/11M. Host
+    sum: memory 1 048M mean, 1 112M peak against 2.64G reserved; CPU
+    12 % of a core mean, 34 % peak against 2.75 reserved.
+  - the VPS: grafana 2.6/14.4 %, 220/223M; partners-db 1.5/15.4 %,
+    74/77M; standby 2.0/17.8 %, 62/69M; partners-api 1.2/9.9 %, 52/54M;
+    partners-backend 1.3/12.5 %, 31/37M; backoffice 1.4/12.4 %, 28/36M;
+    exporter-standby 0.8/9.4 %, 25/27M; health 4.7/26.5 %, 13/30M. Host
+    sum: memory 506M mean, 538M peak against 1.5G reserved; CPU 16 %
+    mean, 55 % peak against 1.3 reserved.
+  - The scenario's `resources` and the bricks' footprints stand as
+    declared; the figures over an aging are v1.0 gating's.
+
+### Left for the build (master spec 24), as found
+
+Each in its chunk's Record line and, for a brick or a domain, its
+`docs/gm.md`: the footprints and each domain's load (above); `vet-core`'s
+id functions (`core_*`, "Core keys") and `core_referring_practice(v)`;
+the HTTP call's repository form (`scheduler` `docs/gm.md`, "The HTTP
+driver (0.3.0)"); a purpose's `material/history.sql` (formats.md, the
+format skill); the owners' traffic in
+`domains/vet-portal/producers/partners/owners/`; the `api` brick's
+`db/` layout; the partners' `pg_hba.conf` form (`postgres` `docs/gm.md`,
+the `samenet` line, measured; access model 13, D474); the portal
+outbox's id order (`portal_outbox.id`); the booking horizon (42 days);
+each fault's timeline moments; the contrib extensions (`btree_gist`,
+`pgcrypto`) loaded as `postgres`; cold storage's stub in
+`partners/coldstore/`.
+
+### Known limits
+
+Named by master spec 18.4 and the release gate's item 12:
+
+- **v1.0 gating** ([roadmap](../README.md#v10-gating)): the clinic aged
+  and played (a full aging and a session, its nine faults at once
+  through their cycles, the classes as the hand-over finds them); the
+  overnight and periodic cadences in scenario time (the feeders at
+  night, the base backups, the 16:00 send-outs, the pathologist's
+  rounds, a periodic-data fault's witness within the aging); growth and
+  footprints over an aging (every node's memory, the trace's growth,
+  `pg_wal` growing when archiving fails, `fit` re-run, whether a
+  hand-over snapshot is needed and fits); the clinic's rehearsal; the
+  stance check-list with v0.5's items; the parts' long views (the
+  rota's weekly cycle and a month's close, the agenda turning over, a
+  session's certificates, the care log and the board over days, the
+  night checks over a night).
+- **The governance checks on the whole clinic** (D471): G1 reads the
+  standby as a location of its own, and G3's transformer path stops at
+  a job's HTTP connection ("cannot judge"), so the set run on
+  `interfaces` and `backoffice` fails. G13 read exactly that (exit 2, no
+  G2 breach). No clinic check in play calls the set; fixed when a
+  scenario first calls it there.
+- **No hand-over snapshot for the whole clinic** on these declarations
+  (21.67G against 20G on armenelos): a whole-clinic game restarted
+  starts from nothing (access model 13).
+- **What a restore from the hand-over snapshot does not give back**
+  (master spec 15, D397): the accumulated WAL and the cumulative
+  statistics. The rest comes back as it was meant to run, the standby
+  streaming, the planted slots and the archive in step.
+- **The partner stubs' reference counters** (D467, O249): the
+  authority's `AMU<year>-NNNN` and the head office's `HO<YYYYMM>-NNNN`
+  restart at 0001 after the series the purposes' histories plant; no
+  repeat, but a player may read the count not continuing as a fault.
+  To settle before the clinic is first played.
+- **A `seed-file` fault's lines in the scenario's copies are the GM's
+  to check** (D476; [ISS-001](../../../issues/ISS-001_20261114_loader_misses_unplanted_seed_faults.md),
+  O269): the loader does not check that a selected instance's
+  `seed_changes` are in its node's seed copy. That is how s2, s7 and s8
+  went unplanted in `aldermoor-centre` until G13 (fixed, `0118c90`). The
+  loader's check is v0.6's.
+- **The clinic's setup time and the vault's refusals before T0** (D476;
+  [ISS-002](../../../issues/ISS-002_20261114_clinic_load_slow_vault_503.md),
+  O270): `load-data` takes about 28 minutes, about 17 of them
+  `partners-db` at its 0.5 CPU limit building vet-lab's partners'
+  orders; meanwhile cold storage answered 503 to lab's `vault-post` 66
+  times, so lab's `pg_stat_archiver` shows failures at the hand-over
+  that no fault explains. An open question for v1.0 gating's setup.
+
+### Known gaps of the access model
+
+All stand as [access-model.md](access-model.md) section 13 states them.
+v0.4's: solo play on owned hosts rests on trust; a player in the GM
+session can see the setup's spoilers; credentials are shared and not
+rotated; customer roles' passwords and the GM's reserve within `dba`'s
+reach; Grafana's write policy and administration not enforced;
+Prometheus without a login; a fixable script is code; the traffic can be
+inferred; the web front on plain HTTP. v0.5's:
+
+- the partners are out of reach by `no-access` and their own access
+  rules, not by a network: from a node a player could forge a partner's
+  traffic or post to cold storage, forbidden by the rules and named in
+  the feedback;
+- the partners' database admits by role and password, not by address,
+  as chunk 11 measured; the guarantee is the partners' passwords
+  mounted on their nodes only (D474; admission by address, if wanted,
+  is v0.6's question);
+- the partners' stubs are in the repository;
+- `dba` bypasses every fictional rule, the portal's row-level security
+  included;
+- the standby can be promoted by `dba`, forbidden, not prevented;
+- a whole-clinic game has no hand-over snapshot;
+- the portal's answers beyond login's and the partners' refusals are
+  the stubs' and endpoints' own code only;
+- the health node's status page has no login beyond the tools
+  password;
+- the starter pack hands over the customer's own partner credentials,
+  kept and tracked (D395, O231); a player reporting it as odd makes a
+  plausible finding.
+
+### Fixes made at the release gate
+
+Each within settled intent, accepted by the owner with the gate (G15,
+D475); no fault changed what it is:
+
+- **`0118c90`** (G13, its finding 1): the clinic's seed copies carry s2's
+  `archive_command` and s7's `log_statement = 'all'` lines
+  (`nodes/records/postgresql.conf`) and s8's `recovery_min_apply_delay =
+  '1h'` (`nodes/standby/postgresql.conf`), as formats.md and the
+  scenario's notes say.
+- **`2e34f44`** (G13's finding 2): s6's sealed check, its probe's first
+  step and its evidence read only an entry's "Shared with" and "Where"
+  lines, as the check's header says; a retention line naming the vault
+  no longer reads it fixed. Six unit tests added; the clinic's and the
+  archive fixture's answer keys, registers (digest only) and the
+  clinic's README regenerated.
+- **`2ea21f8`, corrected by `d53a12d`** (G13's finding 3): s7's evidence
+  and probe read the extended protocol's `execute <unnamed>:` lines and
+  their parameters as well as `statement:` lines; the sealed check (the
+  setting in effect) unchanged; the reports fixture's test sends the
+  change as the clinic's producers do.
+- **`9dfaa45`**: `pgwatch`'s and `health-check`'s `docs/gm.md` quote
+  G13's readings as smoke readings, the aging's figures being v1.0's.
+
+Found at the gate and fixed after it, documentation only:
+formats.md's status line at v33 (`146429e`, ISS-003); access model 13's
+partners' admission a verified gap (`a9c2a2c`, D474, ISS-004);
+`grafana`'s and `prometheus`'s Footprint sections with G13's readings
+(`25c4417`, ISS-005).
+
+### Accepted risks and items with the owner
+
+- **Accepted risks, with their end dates**: Debian `curl` in `bastion`
+  0.5.0, its trixie-unfixed client-side issues and those of the seven
+  images carrying the same build, until 2027-02-01 or the next trixie
+  `curl` security upload (D443); `.tech`'s ignores until 2027-05-01
+  (D444, D458).
+- **The security advisor's items still with the owner** (its
+  `SECURITY_TODO.md`, kept outside the spec tree): about 74 open, 19 of
+  them proposals to accept a risk, and GO-2026-6859 (Go's standard
+  library before 1.27.4, in `grafana`, its plugin and `prometheus`)
+  untriaged. A clean-up of the list is in progress on its own branch,
+  apart from this release.
+- **The `api` image's source** (G6): the project's first PyPI set and
+  lockfile, `bricks/api/requirements.txt`, taken as the security
+  advisor recommended; a policy of Debian packages only would be a
+  ruling, and the image reworked to G6's Debian route.

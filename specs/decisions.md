@@ -1610,3 +1610,16 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   partners' passwords mounted on their nodes only. Admission by address
   is v0.6's question if wanted. Now in: [access model](versions/v0.5/access-model.md)
   13; [master spec](versions/v0.5/master-spec.md) 10.2.
+- **D475 (2026-11-14, the owner, "ok" to the release gate's report;
+  relayed by the top-level session): G15 cleared; v0.5 released.** The
+  gate stands as run on `v0.5-g13`, not `v0.5-w5`, wave 5 having merged
+  on his word; its fixes (`0118c90`, `2e34f44`, `2ea21f8` with
+  `d53a12d`) are within settled intent. Now in:
+  [versions/v0.5/README.md](versions/v0.5/README.md#release-notes).
+- **D476 (2026-11-14, the owner's direction, relayed by the top-level
+  session): G13's findings 1 and 4 are v0.5 known limits, filed as
+  ISS-001 and ISS-002.** The loader's check of a `seed-file` fault's
+  lines is v0.6's (O269); the clinic's setup time and the vault's
+  refusals before T0 are v1.0 gating's setup (O270). Now in:
+  [versions/v0.5/README.md](versions/v0.5/README.md#known-limits);
+  [versions/README.md](versions/README.md#v10-gating).
