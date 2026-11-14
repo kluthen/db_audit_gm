@@ -4,7 +4,7 @@
 **Ref:** `ISS-004`
 **Date:** 2026-11-14
 **Severity:** Low
-**Status:** Open
+**Status:** Resolved
 **Component:** `specs/versions/v0.5/access-model.md`
 **Affects:** the partners' seed `pg_hba.conf` (`samenet` line), `bricks/postgres/docs/gm.md` (the partners' `pg_hba` form), the access model's known gaps
 **Seen on:** main a56e5ac; the access model at lines 528-531
@@ -90,10 +90,11 @@ is refused by `partners-db`.
 
 - `specs/versions/v0.5/access-model.md:528-531`
 - `bricks/postgres/docs/gm.md` (the partners' `pg_hba` form)
-- `specs/versions/v0.5/build-plan.md`, chunk 11
+- `specs/archive/v0.5/build-plan.md`, chunk 11
 
 ---
 
 ## Change log
 
 - **2026-11-14**: filed.
+- **2026-11-14**: resolved in a9c2a2c (spec D474). Access model 13 and master spec 10.2 now state the measured admission as a verified known gap, and v0.5's release notes name it. Admission by address remains v0.6's question, if wanted. The test stays v0.6's network fixture.

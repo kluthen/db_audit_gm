@@ -4,7 +4,7 @@
 **Ref:** `ISS-003`
 **Date:** 2026-11-14
 **Severity:** Low
-**Status:** Open
+**Status:** Resolved
 **Component:** `specs/formats.md`
 **Affects:** readers judging which format version a scenario follows; G19's record
 **Seen on:** main a56e5ac, line 3
@@ -81,3 +81,4 @@ release notes.
 ## Change log
 
 - **2026-11-14**: filed.
+- **2026-11-14**: resolved in 146429e (spec-writer, at v0.5's close): the status line reads draft v33. No test; checked by reading at the next release gate's item 6.
