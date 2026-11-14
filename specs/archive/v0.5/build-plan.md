@@ -1,3 +1,5 @@
+> **Archived 2026-11-14.** v0.5 was released: its release gate passed on 2026-11-13 and G15 was cleared by the owner on 2026-11-14 ("ok"; spec D475); every chunk of this plan is built and merged into `main` (`a56e5ac`), and what it leaves is v1.0 gating's (v21). Live summary: [v0.5 README](../../versions/v0.5/README.md), "Release notes". Relative links were written from `specs/versions/v0.5/`: `README.md`, `master-spec.md`, `access-model.md`, `wave-log.md` and the domain and draft documents are in `../../versions/v0.5/`, `../README.md` is `../../versions/README.md`; the links starting `../../` still resolve.
+
 # db_audit_gm v0.5 — Build plan
 
 Status: **released** (v21, 2026-11-14): the release gate passed on 2026-11-13, run on `v0.5-g13` after wave 5 had merged into `main` (`e466247`), and merged into `main` (`a56e5ac`); G15 done, the owner accepting the gate as run and its fixes within settled intent (spec D475); G13's findings 1 and 4 v0.5 known limits (spec D476; O269 for v0.6, O270 for v1.0 gating's setup); O251 placed in v0.6 by the owner (2026-11-13); [release notes](README.md#release-notes). Fully executed; what it leaves is v1.0 gating's.

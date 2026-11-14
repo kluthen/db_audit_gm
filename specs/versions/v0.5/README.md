@@ -7,10 +7,14 @@ the gate accepted as run and its fixes within settled intent (D475);
 G13's findings 1 and 4 v0.5 known limits (D476)
 ([release notes](#release-notes)). Master spec and access model
 approved by the owner on 2026-11-03 (D339, D340); built from the
-[build plan](build-plan.md), v1 **approved** the same day, κ = 3 and
+[build plan](../../archive/v0.5/build-plan.md), v1 **approved** the same day, κ = 3 and
 O223–O227 as recommended (D342, D343), in five waves and 38 chunks
 (v21 at the close); the access model's partners' admission made exact
-at the close (D474). Page v2.
+at the close (D474). At the close (2026-11-14) the build plan, the
+decisions and the resolved questions were archived in
+[archive/v0.5/](../../archive/v0.5/README.md); the drafts, the domain
+documents and the wave log stay here. Where a draft and the master
+spec disagree, the master spec is current. Page v2.
 
 History: business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
@@ -96,7 +100,7 @@ corrected to the spec (R16).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs (its owner review R1–R20 removed at approval) | **approved** (2026-11-03, D339); the monitoring breadth written in (7.4, 14; D340, O220 closed) |
 | [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | **approved** with the master spec (D339); the monitoring breadth's rows (D340) |
-| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), **approved** (D342; G1 cleared, κ = 3), O223–O227 answered as recommended (D343); v15 (2026-11-10): 35 chunks, wave 4 gated, G18 done, chunks 34 and 35 in wave 5 (D443–D457); v20 (2026-11-12): 38 chunks, wave 5 gated, G19 done (D472, D473); v21 (2026-11-14): **released**, G15 done (D475) |
+| [build-plan.md](../../archive/v0.5/build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), **approved** (D342; G1 cleared, κ = 3), O223–O227 answered as recommended (D343); v15 (2026-11-10): 35 chunks, wave 4 gated, G18 done, chunks 34 and 35 in wave 5 (D443–D457); v20 (2026-11-12): 38 chunks, wave 5 gated, G19 done (D472, D473); v21 (2026-11-14): **released**, G15 done (D475); archived 2026-11-14 |
 | [wave-log.md](wave-log.md) | The execution record: each wave's captures, preflight corrections, chunks, gates and the owner's rulings; G12, G13 and the release gate's results | complete (2026-11-13) |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
@@ -566,7 +570,7 @@ The items moved later are listed in the roadmap
 v0.5's definition of done is its
 [master spec](master-spec.md#19-definition-of-done), section 19, its
 release gate section 20, carried by the
-[build plan](build-plan.md#release-gate)'s release gate, items 1 to 12.
+[build plan](../../archive/v0.5/build-plan.md#release-gate)'s release gate, items 1 to 12.
 Short tests only (D314): every item runs under 30 minutes on its least
 environment, but the one exception, the whole clinic deployed once on
 armenelos plus the VPS (gates G12 and G13). What no v0.5 gate shows is
@@ -585,8 +589,8 @@ setup time and the vault's refusals before T0 (ISS-002; v1.0 gating's
 setup), both raised by G13 and placed by D476; O231, the partner
 credentials handed over (D395), version not set.
 
-During the build none was open at approval. O223–O227, raised with the
-[build plan](build-plan.md#settled-with-the-owner), closed at its
+At the build plan's approval none was left open: O223–O227, raised with the
+[build plan](../../archive/v0.5/build-plan.md#settled-with-the-owner), closed at its
 approval as recommended (D343): `grafana` 0.3.0 re-pinned (O223), the
 exporters kept and pgwatch dropped if CPU is short (O224), pgCluu's
 report in the player's home, read with `scp` (O225), the health node on
