@@ -49,9 +49,12 @@ the instance removed): the change is reversible.
 
 **Sealed check.** On the bastion as root: the served handout,
 `/home/player/data-register.md`, names the recipient (`FAULT_RECIPIENT`,
-matched without regard to case) on no `### <id>: <name>` entry: *present*
-(1); on at least one: the handout without the fault (0); no handout or no
-entry: an error (2). It reads only that the change is present: the true
+matched without regard to case) on no `### <id>: <name>` entry's
+**Shared with** or **Where** line: *present* (1); on at least one: the
+handout without the fault (0); no handout or no entry: an error (2). Only
+those two lines count: an entry's **Kept for** line may name the vault as
+where its data ends (the clinic's vet-machinery-monitoring), which declares
+no recipient. It reads only that the change is present: the true
 register is sealed and never on a node. A player who writes into their
 own copy (the home is writable) changes its reading, so its result at the
 final answer is not the verdict; `register_diff:` is.

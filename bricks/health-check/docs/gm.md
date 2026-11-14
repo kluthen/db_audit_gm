@@ -189,7 +189,12 @@ stack test (armenelos, Docker 29.9.1, 2026-11-04; two instances, without
 the node-health script): 5M of memory at rest (`docker stats`), CPU 0.00
 over the sample, `memory.peak` 33M with a check run (13 checks, the
 scripts); far under the 128M limit and the 58M reservation, which keep
-master spec 14's starting row until the clinic's measurements.
+master spec 14's starting row until an aging measures the node (v1.0
+gating). The whole clinic's first deployment (G13, 2026-11-13,
+`aldermoor-centre`, the node on the VPS, four instances, about 70 minutes from T0,
+`docker stats` every 2 minutes) read it at 13M mean and 30M peak, 4.7 %
+of a CPU mean and 26.5 % peak (a check run): a smoke reading, not a
+footprint.
 
 ### Snapshot
 

@@ -9,8 +9,11 @@
 # against the answer key's register_diff, never here.
 #
 # An entry is a "### <id>: <name>" section of the handout, up to the next
-# heading; the recipient is matched without regard to case (its recipient
-# line and, for cold storage, its copy line).
+# heading; the recipient is matched without regard to case on its recipient
+# line ("- **Shared with**:") and, for cold storage, its copy line
+# ("- **Where**:"), and on no other: a retention line ("- **Kept for**:")
+# naming the vault as where data ends is not the entry declaring the
+# processor (G13's finding 2, the clinic's vet-machinery-monitoring).
 # Exit 1: no entry names the recipient (the fault present; never cleared in
 # play, the resolution being propose). Exit 0: at least one entry names it
 # (the handout regenerated without the fault). Exit 2: no handout, or no
@@ -26,7 +29,7 @@ counts=$(awk -v who="$RECIPIENT" '
     BEGIN { who = tolower(who) }
     /^### / { close_entry(); open = 1; named = 0; entries++ }
     /^## / { close_entry() }
-    open && index(tolower($0), who) { named = 1 }
+    open && /^- \*\*(Shared with|Where)\*\*:/ && index(tolower($0), who) { named = 1 }
     function close_entry() { if (open && named) hits++; open = 0; named = 0 }
     END { close_entry(); printf "%d|%d\n", hits, entries }' "$HANDOUT")
 hits=${counts%|*}

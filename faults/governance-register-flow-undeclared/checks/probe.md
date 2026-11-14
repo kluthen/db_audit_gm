@@ -2,8 +2,11 @@
 
 Descriptive only. As `player`, on the bastion:
 
-1. `grep -n -i '{RECIPIENT}' ~/data-register.md` prints nothing; the web
-   front's "Data register" section names it nowhere either.
+1. `grep -n '\*\*Shared with\*\*\|\*\*Where\*\*' ~/data-register.md | grep -i '{RECIPIENT}'`
+   prints nothing: no entry's recipients or copies name it (an entry's
+   **Kept for** line may still name the vault as where its data ends);
+   the web front's "Data register" section names it among no entry's
+   recipients either.
 2. `grep -n -i -A3 '{RECIPIENT}' ~/partners.md` describes the processor
    (cold storage: an off-site archive service, what is shipped there
    leaves the site).
