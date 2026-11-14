@@ -13,10 +13,11 @@ they are allowed to fix, and write an audit report.
 
 ## Status
 
-**v0.4 released** (2026-11-03). **v0.5** (domain definition, with the
-veterinary clinic franchise as the worked example) has an approved master
-spec, access model and build plan: 27 chunks in five waves, with wave 1
-next. v0.6 and v1.0 are still being drafted.
+**v0.5 released** (2026-11-14): domain definition, with the veterinary
+clinic franchise as the worked example; its known limits and the checks
+left to v1.0 gating are in its
+[release notes](specs/versions/v0.5/README.md#release-notes). v0.6 and
+v1.0 are still being drafted.
 
 | Version | Theme | Released | Scenario |
 |---|---|---|---|
@@ -24,7 +25,7 @@ next. v0.6 and v1.0 are still being drafted.
 | [v0.2](specs/versions/v0.2/README.md) | Monitoring and the usual tooling: node health, PostgreSQL metrics, dashboards, alerting, logs | 2026-10-22 | `fernway-clinics-monitoring` |
 | [v0.3](specs/versions/v0.3/README.md) | Producers and consumers: a scheduler driving load, ingestion, load spikes, misbehaving requests; aging under real time | 2026-10-30 | `tarnbeck-outdoor-shop` |
 | [v0.4](specs/versions/v0.4/README.md) | Purposes: the side uses of the data (reporting, leads, mailing, export declarations), several PostgreSQL instances, jobs on a database node, the shop as the first business domain, a first cut of data governance | 2026-11-03 | `tarnbeck-outdoor-campaign` |
-| [v0.5](specs/versions/v0.5/README.md) | Domain definition: a procedure for defining a domain, the clinic's domains, purposes and round trips, `postgres` brick options, a post-mortem collection | spec approved 2026-11-03, build next | `aldermoor-centre` |
+| [v0.5](specs/versions/v0.5/README.md) | Domain definition: a procedure for defining a domain, the clinic's domains, purposes and round trips, `postgres` brick options, a post-mortem collection | 2026-11-14 | `aldermoor-centre` |
 | [v0.6](specs/versions/v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation site, general tooling, a reporting tool | draft | — |
 | [v1.0](specs/versions/v1.0/README.md) | First release: the full pipeline scenario | draft | — |
 
