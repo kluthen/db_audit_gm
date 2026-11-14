@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v32; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v33; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -23,7 +23,7 @@ script run on another node, the `topology` injection, a false alarm; the
 register's digest of `composition.yaml` without its `coherence:` record;
 the scenario document without the coherence result and with a cascade's
 backlog; the customer's governance holding no location on a third
-party's node and walking none
+party's node and walking none.
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
