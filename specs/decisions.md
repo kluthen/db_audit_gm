@@ -1603,3 +1603,10 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   The derivation and MS4 write them so (chunk 16); the approved text
   named the animal only. Now in: [master spec](versions/v0.5/master-spec.md)
   9.7 rule 7, 12.2; [vet-portal](versions/v0.5/vet-portal-domain.md).
+- **D474 (2026-11-14, spec-writer, the release gate's gap; ISS-004): The
+  partners' database admits by role and password, not by address; the
+  access model's gap is verified, no longer "the build's to verify".**
+  Chunk 11 measured the `samenet` form; the guarantee rests on the
+  partners' passwords mounted on their nodes only. Admission by address
+  is v0.6's question if wanted. Now in: [access model](versions/v0.5/access-model.md)
+  13; [master spec](versions/v0.5/master-spec.md) 10.2.
