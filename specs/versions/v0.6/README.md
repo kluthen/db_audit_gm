@@ -1,8 +1,9 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v3. No master spec. Bastion-related items moved in from
+Status: draft v4. No master spec. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
-owner's rulings of that day (D480–D486).
+owner's rulings of that day (D480–D486); fake aging joined on
+2026-11-15 (D489–D493).
 
 ## Goal
 
@@ -50,6 +51,12 @@ players (D480).
 - **O251's loader refusal** (a bastion mapping `partners.md` exactly
   when the third parties carry a `player_doc`), in v0.6's first chunk
   that touches `tools/gm/model.py` (D486).
+- **Fake aging** (D489–D493), a second aging mode beside real aging:
+  a quick game filled in minutes on a virtual clock, a maintenance
+  restart, a real tail, forged Prometheus history; its faults curated
+  to what it can fake, its fixable caveats fixed, the rest documented.
+  Its design is [fake-aging.md](fake-aging.md) (draft v1; O271, O272
+  open).
 
 ## The game's home page (D480)
 
@@ -137,3 +144,5 @@ heading stays for the links to it.
 - O32: the language of player-facing material, the website included.
 - O260–O268, the network overview's: closed as recommended (D487,
   D488).
+- O271, O272, fake aging's: whether the players are told, and which
+  scenarios v0.6 covers ([fake-aging.md](fake-aging.md#questions-for-the-owner)).

@@ -40,15 +40,17 @@ be needed for v1.0, is put to the owner:
   between hosts, no registry, D149). v0.1 runs on one host and
   deferred both. A full pipeline with monitoring may not fit one laptop,
   and classroom swarms were a hosting target from the start. v0.3 brings
-  multi-host (D128); classroom swarms of student laptops wait for aged
-  volumes to be copied to them (D125, O22).
+  multi-host (D128). Classroom swarms of student laptops get fake
+  aging from v0.6: a quick game ages on the class's own hosts (D489,
+  D493). The copy of aged volumes D125 waited for is no longer planned.
 - **Generating scenarios** (O47). The GM designing a scenario from a
   partial or empty brief and filling the blanks is settled as a capability
   (D16), placed in v1.0 on 2026-10-31 (D248, closing O47); v0.5 prepares
   for it (domains, the clinic's topology).
 - **Aging and the solvability probe** (O48). Both were deferred from v0.1;
   load (v0.3) and generated scenarios need them. Aging enters in v0.3, in
-  real time (D114); the probe as a gate is still unplaced.
+  real time (D114); v0.6 adds fake aging for quick games beside it
+  (D489); the probe as a gate is still unplaced.
 - **Backup tooling** (O49). Backup tools and the backup-tooling fault
   families (D17) are in no version, although backups were a founding
   example of the project and the v0.1 goal speaks of "investigating a

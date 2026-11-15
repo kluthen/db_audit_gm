@@ -55,7 +55,9 @@ D443–D457 with O247).
 v0.6's drafting opened on 2026-11-13 (branch `v0.6-spec`): O135
 resolved by the owner's rulings of that day (D480, D481), O21 narrowed
 (D484), O251 placed (D486); O260–O268 raised by the network overview's
-draft and closed the same day as recommended (D487, D488).
+draft and closed the same day as recommended (D487, D488). On
+2026-11-15 the owner's direction on fake aging closed O22 (D489–D493);
+O271 and O272 raised with its draft.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -122,7 +124,11 @@ for the next version (v0.1 until it closed, with none left open);
   data register may carry one from v0.5 (T300–T308); and by D484: v0.6's
   network overview may too. Still open for the other starter files (the
   README, story, issues, data policy, `partners.md`).
-- **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
+- **O22** (**closed**, D489–D493: fake aging joins real aging as a
+  second mode from v0.6, forged history and a compressed fill, never
+  fake time; the volume copy no longer planned, its use O232's;
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md); kept here
+  until v0.6's archive) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
   copies aged volumes to a class's hosts (D125), and whether a later
@@ -442,6 +448,22 @@ the closed entries are kept here until v0.6's archive moves them:
   system fault may have changed. Recommended: the skill states the
   design, the value before the fault's change.
 
+## v0.6: fake aging
+
+Raised by the fake aging draft (D489–D493), each with its
+recommendation; the full text is on
+[versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#questions-for-the-owner).
+
+- **O271** (v0.6) — Are the players ever told their game was
+  fake-aged? Recommended: not during the game; the feedback says so
+  after the final answer, and a report naming a documented limit with
+  its evidence is acknowledged as a sound observation, neither a fault
+  found nor a mistake.
+- **O272** (v0.6) — Which scenarios does v0.6 make fake-ageable?
+  Recommended: the shop and the campaign (its f10 `real-only`); the
+  clinic later (standby, archive vault, round trips with timeouts, two
+  hosts). A fault left unassessed is refused in a fake game.
+
 ## v0.5: scope, the domain procedure, post-mortems
 
 Raised on 2026-10-31, when the owner centred v0.5 on domain definition
@@ -486,7 +508,9 @@ the question concerns.
   (D114). Where does the solvability probe as a gate (O20) enter the
   roadmap? With an aging of eight hours or more (D150), a probe failing at
   hand-over costs the class; v0.3's master spec has an early check during
-  aging and a hand-over check. Refs:
+  aging and a hand-over check. A fake-aged game (D489) reaches its
+  hand-over about one real tail after setup, so there a failing probe
+  costs a tail, not a day. Refs:
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the

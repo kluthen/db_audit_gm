@@ -119,6 +119,12 @@ v0.3 games run on always-on hosts, which stay up for the whole aging
 (D125); the schedule is shifted by whole hours so the game window gets
 the load it was designed for (D129).
 
+**From v0.6, a second mode, fake aging, for quick games** (D489–D493):
+the past filled in minutes on a virtual clock, a maintenance restart,
+a real tail, forged Prometheus history; its faults curated to what it
+can fake. Real aging stays for extended games. Its design, being
+drafted, is [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md).
+
 Each fault instance states how long its evidence takes to appear: its
 aging minimum ([formats.md](formats.md)). v0.1 and v0.2 have no aging:
 with no load, history builds during the game (D83). From v0.3 the same

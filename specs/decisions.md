@@ -1664,3 +1664,32 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   leaving it out of date is expected, never a fault or a GM check. Holds
   for the data register too. Now in:
   [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#2-one-entry-its-fields-and-their-sources).
+- **D489 (2026-11-15, owner direction after the fake aging test,
+  relayed by the coordinator): Two aging modes: real aging stays for
+  extended games, fake aging joins it for quick games.** "a quick game
+  can still be started, and extended one remains available with true
+  aging." The GM chooses the mode per game. Drafted for v0.6. Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#1-the-two-modes).
+- **D490 (2026-11-15, same direction): Every fixable caveat of fake
+  aging is fixed; every one that can't be is documented.** "your few
+  caveat about fake aging that can be fixed must be, those that can't
+  must be documented." Now in:
+  [fix list](versions/v0.6/fake-aging.md#3-the-fix-list-d490),
+  [limits](versions/v0.6/fake-aging.md#4-documented-limits).
+- **D491 (2026-11-15, same direction): A fake-aged game curates its
+  faults so that none relies on a known limit of fake aging.** Each
+  fault declares its support for fake aging; `gmctl` refuses a
+  `real-only` or unassessed one in a fake game. Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#2-fault-eligibility).
+- **D492 (2026-11-15, spec-writer, reading D489–D491): The bar is "a
+  student doing the audit doesn't stumble on the fake", not "a hunting
+  DBA can't prove it".** The latter needs fake time, ruled out, and the
+  direction accepts documented limits that remain; D490 already sets
+  the fixes, so the bar sets only what the verification checks. The
+  owner may reopen it. Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#6-the-bar-d492).
+- **D493 (2026-11-15, follows D489): O22 closed.** Fake aging is forged
+  Prometheus history and a compressed fill before the game, never a
+  sped-up or fake clock; D114 and D132 stand for the real mode and for
+  play. D125's volume copy is no longer planned, its use O232's. Now
+  in: [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#8-impact-on-earlier-rulings-and-documents).
