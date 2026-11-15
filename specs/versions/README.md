@@ -265,6 +265,6 @@ aged run is decided then (D193).
     one (v0.5 master spec 18.4: whether one is needed and fits).
 - **v0.6's additions** (proposed): fake aging's full selections with
   their real tails, the shop's 3 h tail with f4, f5 and f7 among them,
-  on each scenario v0.6 makes fake-ageable (O272); v0.6's gate runs
+  on the shop and the campaign (D495); v0.6's gate runs
   only the short-tail check
   ([fake aging](v0.6/fake-aging.md#7-verification)).

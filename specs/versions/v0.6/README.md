@@ -55,8 +55,9 @@ players (D480).
   a quick game filled in minutes on a virtual clock, a maintenance
   restart, a real tail, forged Prometheus history; its faults curated
   to what it can fake, its fixable caveats fixed, the rest documented.
-  Its design is [fake-aging.md](fake-aging.md) (draft v1; O271, O272
-  open).
+  Its design is [fake-aging.md](fake-aging.md) (draft v2): the players
+  never told about the aging process (D494); the shop and the campaign
+  covered, the clinic later (D495).
 
 ## The game's home page (D480)
 
@@ -144,5 +145,6 @@ heading stays for the links to it.
 - O32: the language of player-facing material, the website included.
 - O260–O268, the network overview's: closed as recommended (D487,
   D488).
-- O271, O272, fake aging's: whether the players are told, and which
-  scenarios v0.6 covers ([fake-aging.md](fake-aging.md#questions-for-the-owner)).
+- O271, O272, fake aging's: closed (D494, players never told; D495,
+  the shop and the campaign)
+  ([fake-aging.md](fake-aging.md#questions-for-the-owner)).

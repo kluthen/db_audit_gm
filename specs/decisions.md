@@ -1693,3 +1693,14 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   sped-up or fake clock; D114 and D132 stand for the real mode and for
   play. D125's volume copy is no longer planned, its use O232's. Now
   in: [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#8-impact-on-earlier-rulings-and-documents).
+- **D494 (2026-11-15, owner ruling, relayed by the coordinator): The
+  players are never told about the aging process**: not during the
+  game, not in the feedback, not after the final answer. "players are
+  never meant to be told about aging process." Against the
+  recommendation (feedback after the final answer). A report naming a
+  tell is answered in-world only. Closes O271. Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#41-the-players-are-never-told-d494).
+- **D495 (2026-11-15, same ruling, "agreed for O272"): v0.6 makes the
+  shop and the campaign fake-ageable, the campaign's f10 `real-only`;
+  the clinic later.** Closes O272. Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#24-starting-estimate-to-be-measured).

@@ -57,7 +57,8 @@ resolved by the owner's rulings of that day (D480, D481), O21 narrowed
 (D484), O251 placed (D486); O260–O268 raised by the network overview's
 draft and closed the same day as recommended (D487, D488). On
 2026-11-15 the owner's direction on fake aging closed O22 (D489–D493);
-O271 and O272 raised with its draft.
+O271 and O272 raised with its draft and closed the same day by the
+owner (D494, D495).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -450,19 +451,18 @@ the closed entries are kept here until v0.6's archive moves them:
 
 ## v0.6: fake aging
 
-Raised by the fake aging draft (D489–D493), each with its
-recommendation; the full text is on
+Raised by the fake aging draft (D489–D493) and closed by the owner on
+2026-11-15; none open; the closed entries are kept here until v0.6's
+archive moves them. Text on
 [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#questions-for-the-owner).
 
-- **O271** (v0.6) — Are the players ever told their game was
-  fake-aged? Recommended: not during the game; the feedback says so
-  after the final answer, and a report naming a documented limit with
-  its evidence is acknowledged as a sound observation, neither a fault
-  found nor a mistake.
-- **O272** (v0.6) — Which scenarios does v0.6 make fake-ageable?
-  Recommended: the shop and the campaign (its f10 `real-only`); the
-  clinic later (standby, archive vault, round trips with timeouts, two
-  hosts). A fault left unassessed is refused in a fake game.
+- **O271** (v0.6; **closed**, D494, against the recommendation) — Are
+  the players ever told their game was fake-aged? Never: not during
+  the game, not in the feedback, not after the final answer.
+  Recommended had been: the feedback says so after the final answer.
+- **O272** (v0.6; **closed**, D495, as recommended) — Which scenarios
+  does v0.6 make fake-ageable? The shop and the campaign (its f10
+  `real-only`); the clinic later.
 
 ## v0.5: scope, the domain procedure, post-mortems
 

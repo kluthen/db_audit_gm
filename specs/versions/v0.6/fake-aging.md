@@ -1,9 +1,11 @@
 # Fake aging: a second aging mode
 
-Status: draft v1, 2026-11-15. The owner's direction of 2026-11-15
+Status: draft v2, 2026-11-15. The owner's direction of 2026-11-15
 (D489–D491) and spec-writer's reading of it on the bar (D492); O22
-closed (D493). Open: O271, O272. Items not yet ruled are tagged
-(proposed).
+closed (D493); the owner's rulings of the same day: the players are
+never told about the aging process (D494, O271 closed), v0.6 covers
+the shop and the campaign (D495, O272 closed). Items not yet ruled are
+tagged (proposed).
 
 Inputs, on branch `research/fake-aging` (10d1bc6), worktree
 `~/work/db_audit_gm-wt/research-fake-aging`:
@@ -40,6 +42,11 @@ Then: "lets work on integrating fake aging into the game".
   it" (section 6).
 - **D493**: O22 closed: fake aging is forged history plus a compressed
   fill before the game, never fake time (section 8).
+- **D494**: the players are never told about the aging process: not
+  during the game, not in the feedback, not after the final answer
+  (4.1).
+- **D495**: v0.6 makes the shop and the campaign fake-ageable, the
+  campaign without its f10; the clinic later (2.4).
 
 Unchanged and not re-proposed: no fake time, no NTP, no container
 clock. Every handout is a static snapshot of the mission's start
@@ -214,8 +221,10 @@ history:                        # mandatory unless support is real-only
   item. The loader's checks (`tools/gm/model.py`) gain the refusals
   above. The scenario format is unchanged: the mode is the game's.
 - The answer key gains one item in a fake game (proposed): the
-  maintenance restart, as context a team may notice and ask about; not
-  a fault, never counted.
+  maintenance restart, an in-world event of the customer's system, with
+  what it explains (statistics since the restart, older logs archived,
+  services started at that time). Not a fault, never counted; the
+  feedback uses it as 4.1 says.
 
 ### 2.2 The tail's length
 
@@ -307,8 +316,10 @@ partners):
 | s10 | pg-monitoring-option-absent | supported | `remove` of the lab's `pg_*` series, `pg_up` 0 |
 
 The clinic also needs things the shop didn't: a standby and a base
-backup built after the fill, the vault's gap, two hosts. Whether v0.6
-covers it is O272.
+backup built after the fill, the vault's gap, two hosts. **v0.6 covers
+the shop and the campaign, the campaign's f10 `real-only`; the clinic
+comes later** (D495). A fault no covered scenario uses stays not
+assessed, so refused in a fake game.
 
 ## 3. The fix list (D490)
 
@@ -353,7 +364,7 @@ hunting with superuser access can.
 | Last-use times: `last_seq_scan`, `last_idx_scan`, `last_autovacuum`, `last_analyze` of what only the fill touched fall in the minutes before the restart (a 01:30 roll-up's index last used at 10:4x) | `pg_stat_user_tables`, `pg_stat_user_indexes` | no | none: kept so `n_dead_tup` holds (3) |
 | The LSN and WAL volume, if fix 4's padding doesn't hold | `pg_current_wal_lsn()`, the WAL segments' names | partly, with the reset | none |
 | Time-driven behaviour in the fill is emulated in outcome only: a held snapshot, a timeout, a lock wait, an OOM kill | the logs and views of the fill's span | no | a fault that needs it genuine is `tail-only` or `real-only` |
-| The archive vault and the standby date from the clean-up (archiving off in the fill, the standby cloned after it) | the vault, `pg_stat_replication`, the slot's age | partly | the clinic's s2 and s8 (2.4, O272) |
+| The archive vault and the standby date from the clean-up (archiving off in the fill, the standby cloned after it) | the vault, `pg_stat_replication`, the slot's age | partly | the clinic's s2 and s8 (2.4; the clinic is later, D495) |
 | Prometheus' imported blocks carry their creation time (block ids), and Prometheus' start is the restart | the TSDB's files on its node; `/api/v1/status/runtimeinfo` | the start, yes | none; the players have no shell on the Prometheus node (to verify) |
 | Fine shape of the forged past: series appearing over the day (R gains about 50, the forged past is flat), rarely called statements | Prometheus | no | none |
 
@@ -374,7 +385,36 @@ of the players' reach: they have the bastion only.
 - Per game: the local implementation records the mode, the tail and
   the refused instances; `gmctl status` shows them.
 
-**Whether the players are told** is O271.
+All of these are GM-facing: the scenario document opens with its "do
+not read" warning, and nothing above reaches the bastion, the starter
+pack or a handout.
+
+### 4.1 The players are never told (D494)
+
+The owner, 2026-11-15: "players are never meant to be told about aging
+process." Not during the game, not in the feedback, not after the
+final answer. Only the in-world facts are ever spoken of: the
+customer's system was restarted for maintenance this morning, and its
+older logs are archived. That restart really happened in the game.
+
+**A report naming a fake-aging tell** (proposed):
+- **It is judged in-world, as any finding that matches no fault.** The
+  feedback answers the facts the observation rests on, never their
+  cause: statistics counted since this morning's maintenance restart,
+  logs before it archived, services started then. When the observation
+  is a sound reading of the restart's consequences, the feedback
+  acknowledges it as such, from the answer key's restart item (2.1).
+- **A claim that the history is forged, fabricated or simulated is
+  neither confirmed nor denied, and neither credited nor penalised.**
+  The feedback says it matches none of the issues found on the system
+  and turns to the in-world facts above where they apply; it never
+  explains why the system looks as it does beyond them. It is not
+  marked a mistake, so the GM never asserts something untrue about the
+  game.
+- **The same in a real game**: a report there claiming a forged history
+  gets the same treatment, so the feedback never differs by mode.
+- The GM never uses the words aging, fill, forged, virtual clock or
+  fake in anything a player reads, the feedback file included (O38).
 
 ## 5. Where it belongs
 
@@ -416,8 +456,8 @@ Consistent with: aged runs are one-off, never a standing gate item
 (D193); milestone tests are short, on the least environment (D314); any
 test over 30 minutes runs once, before v1.0 (D314).
 
-**v0.6's gate: a short fake-only check, per scenario v0.6 covers
-(O272), under 30 minutes each** (proposed):
+**v0.6's gate: a short fake-only check, on the shop and on the
+campaign (D495), under 30 minutes each** (proposed):
 - a fake game with a selection whose tail fits a capped floor of
   15 minutes: for the shop f1, f2, f3, f6, f8, f9, f10 (no f4, f5,
   f7); for the campaign f1–f4 and f7–f9 (no f5, f6, f10);
@@ -441,7 +481,8 @@ audit the shop (not to find a fake), then asked at the end whether
 anything about the system's history looked wrong. The game is the
 gate's short shop game, kept up for the read. It passes under D492 if
 the reader doesn't come to suspect the history. A second blind read,
-on the campaign, joins it if the campaign is covered (O272).
+on the campaign's short game, joins it (D495). The reader is a test
+agent, not a player: D494 doesn't apply to it.
 
 **Before v1.0, once** ([v1.0 gating](../README.md#v10-gating)): the
 full selections with their real tails (the shop's 3 h, f4, f5 and f7
@@ -505,15 +546,11 @@ Technical unknowns; none is the owner's.
 
 ## Questions for the owner
 
-- **O271**: are the players ever told that their game was fake-aged?
-  Recommended: not during the game (the GM doesn't converse mid-game,
-  and reveals nothing before the final answer); the feedback says so
-  after the final answer. A report that names a limit from section 4
-  with its evidence is acknowledged as a sound observation, neither a
-  fault found nor a mistake.
-- **O272**: which scenarios does v0.6 make fake-ageable, assessing and
-  calibrating their faults? Recommended: the shop (measured) and the
-  campaign (f10 `real-only`), which exercises P0. The clinic later: it
-  adds a standby, the archive vault, partner round trips with timeouts
-  and two hosts, each needing its own work (2.4). A fault no scenario
-  covered stays not assessed, so refused in a fake game.
+None open. Closed on 2026-11-15:
+- **O271** (closed, D494, against the recommendation): are the players
+  ever told that their game was fake-aged? The owner: never, not even
+  after the final answer; the recommendation had been to say so in the
+  feedback. Now 4.1.
+- **O272** (closed, D495, as recommended): which scenarios does v0.6
+  make fake-ageable? The shop and the campaign (f10 `real-only`); the
+  clinic later. Now 2.4.
