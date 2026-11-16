@@ -19,7 +19,7 @@ version: "3.8"
 
 services:
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: db
     read_only: true
     environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring}
@@ -58,7 +58,7 @@ services:
         limits: {cpus: "0.5", memory: 512M}
 
   db2:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: db2
     read_only: true
     environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: ""}
@@ -97,7 +97,7 @@ services:
         limits: {cpus: "0.5", memory: 512M}
 
   rec:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: rec
     read_only: true
     environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring,
@@ -139,7 +139,7 @@ services:
         limits: {cpus: "0.5", memory: 512M}
 
   standby:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: standby
     read_only: true
     environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring,
@@ -179,7 +179,7 @@ services:
         limits: {cpus: "0.5", memory: 512M}
 
   vault:                            # a stand-in for cold storage's POST /shipments (test only)
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: vault
     entrypoint: ["perl", "/opt/standin/vault.pl"]
     configs:
@@ -193,7 +193,7 @@ services:
         limits: {cpus: "0.25", memory: 128M}
 
   pdb:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: pdb
     read_only: true
     environment: {TZ: UTC, GM_WRITE_POLICY: no-access, GM_WRITE_OVERRIDES: "", GM_OPTIONS: ""}

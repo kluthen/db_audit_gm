@@ -1,6 +1,10 @@
 # brick.yaml: bastion node (master spec 7, 9.2 and 14).
 #
-# Version 0.5.0 (unreleased until the v0.5 release gate, D100). Roles, growth
+# Version 0.6.0 (unreleased until the v0.6 release gate, D100): 0.5.0,
+# released with v0.5, plus `base:` and the seventh optional seed file,
+# network-overview.md (v0.6 master spec 6.1, 6.4 and 6.8; capture W1 items 1
+# and 2 of specs/versions/v0.6/wave-log.md); 6.8's other changes come with
+# their chunks. Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
@@ -22,13 +26,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.5.0
+version: 0.6.0
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 18 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.5.0
+image: 127.0.0.1:5000/dbagm/bastion:0.6.0
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # v0.1's figures as reservations, limits twice CPU and memory;
@@ -140,8 +146,10 @@ seed:                               # the starter pack: copied once into /home/p
                                     # {{credential:<name>}} replaced by http_<name> (v0.5)
     - data-register.md              # data-register.md: player/data-register.md, with
                                     # governance.register (v0.5, master spec 13.2)
-  optional: [data-policy.md, partners.md, data-register.md]   # each mapped only when the
-                                    # scenario has it (master spec 7.3)
+    - network-overview.md           # network-overview.md: player/network-overview.md, with a
+                                    # network overview (v0.6)
+  optional: [data-policy.md, partners.md, data-register.md, network-overview.md]   # each mapped
+                                    # only when the scenario has it (master spec 7.3)
   paths:                            # seed file -> its live in-container path
     README.md: /home/player/README.md
     story.md: /home/player/story.md
@@ -149,6 +157,7 @@ seed:                               # the starter pack: copied once into /home/p
     data-policy.md: /home/player/data-policy.md
     partners.md: /home/player/partners.md
     data-register.md: /home/player/data-register.md
+    network-overview.md: /home/player/network-overview.md
 protected_configs: []
 volumes:
   - name: home

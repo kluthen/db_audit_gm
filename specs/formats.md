@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v34; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v35; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -31,7 +31,9 @@ the GM's crontab comments), a partner's admitted incidents
 (`admitted:`), the front's reserved route names, fake aging's fault
 fields (`aging.fake`, `history:`) and the game's restart record, and
 two loader refusals carried from v0.5 (the partners' page mapping, a
-seed-file instance's lines; D486, D510).
+seed-file instance's lines; D486, D510). Draft v35, in v0.6's wave 1
+(capture W1): a `seed_changes` item's declared `lines:`, which that
+refusal reads (D521).
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -759,12 +761,24 @@ faults/<fault-id>/
   without one; the scenario's copy carries the change, in place from the
   data load, before T0 (D226). A `state` fault may also carry
   `seed_changes`, in the scenario's copies from T0 as a `seed-file`
-  fault's, its scripts planting the rest later (D254). From v0.6 the
-  loader checks it (O269, D510): for each selected instance whose
-  definition carries `seed_changes`, the changed lines are found in its
-  node's copy of each seed file named, and an instance whose lines are
-  missing is refused, naming the file (v0.5's clinic lacked s2's, s7's
-  and s8's and every check passed until the whole-clinic run).
+  fault's, its scripts planting the rest later (D254). From v0.6 a
+  `seed_changes` item may carry **`lines:`**, optional: the literal
+  lines the change puts in the scenario's copy of its `file`, `{NAME}`
+  parameter placeholders allowed (as in `parameter_changes`), refused
+  on `data-register.md` and `network-overview.md`, whose changes the
+  answer key's diffs carry (D521). The loader checks them (O269, D510,
+  D521): for each selected instance whose definition's item carries
+  `lines:`, each line, its placeholders replaced from the instance's
+  parameters (else their defaults), is found in the node's copy of the
+  item's `file` (a folder entry: any file of the folder; `data`: the
+  node's data file), a line of the copy matching when, both stripped
+  and their runs of blanks made one, it equals the line or continues it
+  with a comment (`#` or `--` after a blank), anywhere in the file; an
+  instance whose line is missing is refused, naming the instance, the
+  line and the file (v0.5's clinic lacked s2's, s7's and s8's and every
+  check passed until the whole-clinic run). A change without `lines:`
+  stays the GM's to read: a `change:` is prose, a `material:` an
+  example, a diff or a whole file.
   From v0.5's build (chunk 36, D459), two more forms:
   - **A script run on another node**: an item of a `state` fault's
     `injection.scripts[]` is a bare path, run on the instance's node, or

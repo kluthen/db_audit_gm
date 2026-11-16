@@ -8,7 +8,7 @@ version: "3.8"
 
 services:
   pooler:
-    image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.1
+    image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.2
     hostname: pooler
     read_only: true
     cap_drop: [ALL]
@@ -41,7 +41,7 @@ services:
         limits: {cpus: "0.25", memory: 64M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: db
     read_only: true
     cap_drop: [ALL]

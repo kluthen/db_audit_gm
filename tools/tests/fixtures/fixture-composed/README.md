@@ -41,4 +41,4 @@ under the host lock:
         python3 -m unittest tools.tests.test_coherence.TestComposedLoad -v
 
 `GM_TEST_PG_IMAGE` names another image (default
-`127.0.0.1:5000/dbagm/postgres:0.5.0`).
+`127.0.0.1:5000/dbagm/postgres:0.5.1`).

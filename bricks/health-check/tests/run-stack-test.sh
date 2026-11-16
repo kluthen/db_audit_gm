@@ -37,16 +37,16 @@
 #
 # Needs: a swarm manager, the images built locally (the postgres image is
 # the databases, the stand-in and the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.0 bricks/health-check
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.1 bricks/health-check
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Usage: sh bricks/health-check/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../.." && pwd)
 STACK=gmtest-health
-IMAGE=127.0.0.1:5000/dbagm/health-check:0.1.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/health-check:0.1.1
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 SERVICE=${STACK}_health
 DB_SERVICE=${STACK}_db
 SB_SERVICE=${STACK}_standby
@@ -117,6 +117,8 @@ trap 'exit 130' INT TERM
 for i in "$IMAGE" "$CLIENT_IMAGE"; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "image $i not built" >&2; exit 2; }
 done
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
     echo "stack $STACK already exists; remove it first" >&2
     exit 2
@@ -420,6 +422,11 @@ out=$(pssh sudo -n gm-crontab crontab.good 2>&1); rc=$?
 [ "$rc" -eq 1 ] && [ "$out" = "gm-crontab: this node is report-only: its crontab cannot be replaced; nothing installed." ] \
     && pass "report-only: gm-crontab refuses a replacement (exit 1)" || fail "report-only gm-crontab: exit $rc: $out"
 check "report-only: gm-crontab -l still lists" pssh sudo -n gm-crontab -l
+# healthy does not cover cron: wait, bounded, for the daemon before the validator looks (ISS-006)
+i=0
+while [ "$i" -lt 90 ] && [ -z "$(gm ps -C cron -o pid= 2>/dev/null)" ]; do sleep 2; i=$((i + 2)); done
+[ -n "$(gm ps -C cron -o pid= 2>/dev/null)" ] && pass "report-only: the cron daemon runs (waited ${i}s)" \
+    || fail "report-only: no cron daemon 90 s after the container was healthy"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "report-only: gm-validate green" || fail "validate report-only: exit $rc: $out"
 

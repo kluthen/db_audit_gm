@@ -15,6 +15,7 @@ Python 3, standard library plus PyYAML. Modules:
 - `inject`     `load-data` and `inject`, the setup steps after deployment;
 - `aging`      `start-load`, `inject --at`, the host timers, the outages, the
                early and hand-over checks, `status`'s aging lines (v0.3);
+- `fill`       `fill`, a fake game's past run in minutes on one virtual clock (v0.6);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
 - `snapshot`   the hand-over snapshot, each volume by its brick's method (v0.3);
 - `restart`    the whole-game restart, from the snapshot or with no history (v0.3);
@@ -115,6 +116,13 @@ def _cmd_start_load(args):
     from . import aging
     result = aging.start_load(args.scenario_dir, args.playground,
                               test_aging_minimum=args.test_aging_minimum)
+    print(result.text())
+    return 0 if result.ok else 1
+
+
+def _cmd_fill(args):
+    from . import fill
+    result = fill.fill(args.scenario_dir, args.playground)
     print(result.text())
     return 0 if result.ok else 1
 
@@ -284,6 +292,13 @@ def build_parser():
     # item 10): passed only by the harness scripts, never shown in help.
     p.add_argument("--test-aging-minimum", metavar="<duration>", help=argparse.SUPPRESS)
     p.set_defaults(func=_cmd_start_load)
+
+    p = sub.add_parser("fill", help="a fake game's past run in minutes: every scheduler node "
+                                    "on one virtual clock from the virtual T0 to the anchor, "
+                                    "the state faults planted at their virtual instants (needs "
+                                    "stage injected and the restart record)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_fill)
 
     p = sub.add_parser("validate", help="the official run of every node's public validator; "
                                         "exit 0 green, 1 red, 2 error")

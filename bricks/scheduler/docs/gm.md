@@ -7,14 +7,14 @@ weighted `choice` and `no-access`; runtime interface: capture W1 item 7
 and W1-y in `specs/versions/v0.3/wave-log.md`, extended by W1 item 7 and
 W1-y in `specs/versions/v0.4/wave-log.md` and by W1 items 3 and 4 and
 W1-y in `specs/versions/v0.5/wave-log.md`). Never shipped to players.
-Brick version 0.3.0, expected to evolve as games are played.
+Brick version 0.4.0, expected to evolve as games are played.
 
 ## Purpose
 
 The producers and consumers of a game: a small Python 3.13 program on
 Debian 13 (`program/gm_scheduler`, asyncio, Debian's `psycopg` 3 and
 PyYAML), with an SSH server for the players, in the image
-`127.0.0.1:5000/dbagm/scheduler:0.3.0`. It runs one rendered schedule
+`127.0.0.1:5000/dbagm/scheduler:0.4.0`. It runs one rendered schedule
 against one query repository and the fixed-time operations of
 `jobs.yaml`, as the customer's applications would, over SQL and, from
 0.3.0, HTTP (the driver `http`, below); a fixed-time operation
@@ -47,7 +47,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image,
   which must be on the engine that runs the game (deployment never pulls
   it).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler`.
 - **How many**: one per application the story needs (a shop front, a
   reporting job, a batch consumer); each node has its own schedule,
   repository and jobs, and the same game seed (the program mixes in its
@@ -345,6 +345,68 @@ whose moment has passed applied, each job at its next time; nothing it
 missed is replayed. After a kill, a container restart or a host restart
 it comes back running the same way.
 
+### The fill mode (0.4.0)
+
+v0.6 master spec 9.4 step 5 and 9.12; capture W1 items 7, 8 and 9 and
+W1-x in `specs/versions/v0.6/wave-log.md`. A fake-aged game's past run in
+minutes: `python3 -I -m gm_scheduler fill`, a separate entry point the
+program's real mode never reaches (`gm_scheduler/fill.py`), started by
+`gmctl fill` as root in one scheduler node's container. One process runs
+every scheduler node of the game on one virtual clock from the virtual T0
+to the anchor, as fast as the database allows: each node's streams (their
+arrivals, timeline changes and concurrency), its jobs (times, skips,
+refusals) and its transformer scripts, through the program's own
+repository, builders, generators, random draws (the node's hostname, its
+schedule's seed, started at the virtual T0 plus one second), log format
+and minute summaries. The real mode is untouched: `tests/unit/test_replay.py`
+replays it byte for byte against a corpus recorded from 0.3.0's code, and
+every change to `program/` keeps it green.
+
+- **Input**: one JSON line on standard input (it holds the role
+  passwords, so it is never a file), then `GO` lines; `FillConfig` in
+  `fill.py` lists its fields: the virtual T0, the anchor, the seed of the
+  queue model, the pauses, each node's program input (the run script's
+  framing), repository, `jobs.yaml`, log and metrics paths and its
+  connections' overrides (`target`, the pooler's database the fill goes
+  to directly; `pool`, the pooler's server connections the queue model
+  shares), the service times, the selection's `queue` entries and the
+  visits (sessions another client opens at a fixed rate, the exporter's).
+- **Output**: `PAUSE <instant>` at each pause (the fill waits for `GO`,
+  then loads every node's repository and `jobs.yaml` again), then `DONE
+  <json>` (exit 0) or `FAILED <reason>` (exit 1); progress on standard
+  error every virtual hour. Per node, the log's lines at virtual times in
+  time order (the restart's `state stopping` at the virtual T0 and `state
+  running t0=<virtual T0>` a second later, the calls' `error` lines, the
+  jobs' and scripts' lines, each minute's `summary` and `key` lines up to
+  the anchor, no `reload` line), and the metrics record, one JSON object a
+  virtual minute (W1-x).
+- **The database's clock (P0)**: in the SQL the fill sends, `now()`,
+  `current_timestamp` and `current_date` become bound parameters holding
+  the virtual instant; in the server-side functions it calls, the schema
+  `gm_vclock` (`gm_scheduler fill-sql`, created by `gmctl fill` as
+  postgres, dropped with `fill-sql --drop`) shadows `now()`,
+  `transaction_timestamp()`, `statement_timestamp()` and
+  `clock_timestamp()` on the fill's own `search_path`, from the session
+  setting `gm.vclock` set at each transaction's start. A database without
+  the schema fails the fill. Out of its reach: `current_date`,
+  `current_timestamp` and `localtimestamp` written in a function's body, a
+  function with its own `SET search_path`, a `BEGIN ATOMIC` body and a
+  column's `DEFAULT now()`, which keep the real clock (`test_fill.py`,
+  `TestP0`).
+- **The queue model** (`gm_scheduler/queue.py`): every latency the fill
+  logs and records is the model's, never its own timing: the key's service
+  time (`service-times.yaml` beside the scenario's `queries.yaml`,
+  lognormal), its transaction hold, the pooler's FIFO queue of server
+  connections shared by every node using it, and the selection's `queue`
+  entries from their planting (`service`, `lock`); a call that fails ends
+  at once. A key a stream or job runs without a service time is refused,
+  naming the node and the key.
+- **Holds**: a transaction's hold is never slept; a `repeatable read` or
+  `serializable` snapshot that wrote nothing stays open on its own
+  session for its hold in virtual time (vacuum held back as in a real
+  day); one that wrote commits at once.
+- HTTP connections are refused (the clinic's fake aging is later).
+
 ## Connections
 
 Container ports 9120 and 22; nothing is published.
@@ -528,12 +590,12 @@ snapshot: a restart's re-render brings the new game's seed.
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `scheduler` `0.3.0`, and no other; all but v0.5's also name `0.2.0`. The `scheduler-*` faults are
+names `scheduler` `0.4.0`, and no other; all also name `0.3.0`, and all but v0.5's `0.2.0`. The `scheduler-*` faults are
 those of v0.3 master spec 15.3 that live in a scheduler node's files
 (capture W4), and also name `0.1.0`; the `purpose-*` faults are v0.4's
 purpose faults planted on a purpose's runner (v0.4 master spec 16.2),
-`0.3.0` and `0.2.0` only, the transformer role and scripts being theirs;
-v0.5's (master spec 17.2, the clinic's) name `0.3.0` alone, their
+`0.4.0`, `0.3.0` and `0.2.0` only, the transformer role and scripts being theirs;
+v0.5's (master spec 17.2, the clinic's) name `0.4.0` and `0.3.0` alone, their
 purposes and the HTTP driver being v0.5's. A scenario's
 own `faults/` folder may define more for itself (`fixture-load`'s
 `fixture-job-every-minute`); those are not listed here.
@@ -680,6 +742,8 @@ must provide, its timeline needs and aging minimum included.
 - `check-runs` reads the whole log at each call (the log is never
   rotated in a game: a few megabytes over a long aging).
 - The validator cannot see the schedule (above).
+- The fill (0.4.0) runs SQL keys and scripts only, and reaches the
+  database's clock in the forms the P0 entry above lists, no others.
 - Error lines are not rate-limited: a target down for long fills the log
   at the streams' rates.
 - An HTTP call's `timeout` bounds the connection and the answer's head

@@ -83,35 +83,35 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `records` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `standby` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `lab` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `machines` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `pms` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `lis` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `ward` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `equipment` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `interfaces` | `scheduler` 0.3.0 | transformer | yes | backend | fixable |
-| `backoffice` | `scheduler` 0.3.0 | transformer | yes | backend | fixable |
-| `clinic-api` | `api` 0.1.0 | api | yes | backend | report-only |
-| `lab-api` | `api` 0.1.0 | api | yes | backend | fixable |
-| `portal-api` | `api` 0.1.0 | api | yes | backend | fixable |
-| `prometheus` | `prometheus` 0.2.1 | monitoring | yes | backend | report-only |
-| `grafana` | `grafana` 0.3.0 | monitoring | yes | backend | fixable |
-| `exporter-records` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `exporter-standby` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `exporter-lab` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `exporter-machines` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `pgwatch` | `pgwatch` 0.1.0 | monitoring | yes | backend | fixable |
-| `health` | `health-check` 0.1.0 | monitoring | yes | backend | fixable |
-| `partners-api` | `api` 0.1.0 | api | yes | backend | no-access |
-| `partners-backend` | `scheduler` 0.3.0 | producer | yes | backend | no-access |
-| `partners-db` | `postgres` 0.5.0 | database | yes | backend | no-access |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `records` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `standby` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `lab` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `machines` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `pms` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `lis` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `ward` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `equipment` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `interfaces` | `scheduler` 0.4.0 | transformer | yes | backend | fixable |
+| `backoffice` | `scheduler` 0.4.0 | transformer | yes | backend | fixable |
+| `clinic-api` | `api` 0.1.1 | api | yes | backend | report-only |
+| `lab-api` | `api` 0.1.1 | api | yes | backend | fixable |
+| `portal-api` | `api` 0.1.1 | api | yes | backend | fixable |
+| `prometheus` | `prometheus` 0.2.2 | monitoring | yes | backend | report-only |
+| `grafana` | `grafana` 0.4.0 | monitoring | yes | backend | fixable |
+| `exporter-records` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `exporter-standby` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `exporter-lab` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `exporter-machines` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `pgwatch` | `pgwatch` 0.1.1 | monitoring | yes | backend | fixable |
+| `health` | `health-check` 0.1.1 | monitoring | yes | backend | fixable |
+| `partners-api` | `api` 0.1.1 | api | yes | backend | no-access |
+| `partners-backend` | `scheduler` 0.4.0 | producer | yes | backend | no-access |
+| `partners-db` | `postgres` 0.5.1 | database | yes | backend | no-access |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -144,7 +144,7 @@ No knobs.
 
 #### Node `records`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Options**: `monitoring`.
@@ -212,7 +212,7 @@ The domains loaded here by `load-data`, after the data file: `vet-core`, `vet-ho
 
 #### Node `standby`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Options**: `monitoring`.
@@ -242,7 +242,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 
 #### Node `lab`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -280,7 +280,7 @@ Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the da
 
 #### Node `machines`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Options**: `monitoring`.
@@ -329,7 +329,7 @@ The domain loaded here by `load-data`, after the data file: `vet-machinery` into
 
 #### Node `pms`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -350,7 +350,7 @@ No knobs.
 
 #### Node `lis`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -371,7 +371,7 @@ No knobs.
 
 #### Node `ward`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -392,7 +392,7 @@ No knobs.
 
 #### Node `equipment`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -413,7 +413,7 @@ No knobs.
 
 #### Node `interfaces`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -434,7 +434,7 @@ No knobs.
 
 #### Node `backoffice`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -455,7 +455,7 @@ No knobs.
 
 #### Node `clinic-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -476,7 +476,7 @@ No knobs.
 
 #### Node `lab-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -497,7 +497,7 @@ No knobs.
 
 #### Node `portal-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -518,7 +518,7 @@ No knobs.
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.2.1 (pinned).
+- **Brick**: `prometheus`, version 0.2.2 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -571,7 +571,7 @@ No knobs.
 
 #### Node `grafana`
 
-- **Brick**: `grafana`, version 0.3.0 (pinned).
+- **Brick**: `grafana`, version 0.4.0 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -592,7 +592,7 @@ No knobs.
 
 #### Node `exporter-records`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -613,7 +613,7 @@ No knobs.
 
 #### Node `exporter-standby`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -634,7 +634,7 @@ No knobs.
 
 #### Node `exporter-lab`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -655,7 +655,7 @@ No knobs.
 
 #### Node `exporter-machines`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -676,7 +676,7 @@ No knobs.
 
 #### Node `pgwatch`
 
-- **Brick**: `pgwatch`, version 0.1.0 (pinned).
+- **Brick**: `pgwatch`, version 0.1.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -697,7 +697,7 @@ No knobs.
 
 #### Node `health`
 
-- **Brick**: `health-check`, version 0.1.0 (pinned).
+- **Brick**: `health-check`, version 0.1.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -719,7 +719,7 @@ No knobs.
 
 #### Node `partners-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -740,7 +740,7 @@ No knobs.
 
 #### Node `partners-backend`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -761,7 +761,7 @@ No knobs.
 
 #### Node `partners-db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

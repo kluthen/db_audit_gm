@@ -18,9 +18,9 @@
 # on the judged day (herd visits fall on Tuesdays and Thursdays): when
 # yesterday holds none, the test records one, as the left-out pms would.
 #
-# On a copy of tools/tests/fixtures/fixture-reports (bastion 0.5.0; records,
-# standby, lab, partners-db: postgres 0.5.0; backoffice, partners-backend:
-# scheduler 0.3.0; partners-api: api 0.1.0):
+# On a copy of tools/tests/fixtures/fixture-reports (bastion 0.6.0; records,
+# standby, lab, partners-db: postgres 0.5.1; backoffice, partners-backend:
+# scheduler 0.4.0; partners-api: api 0.1.1):
 #   gmctl compose --check -> fit (2 CPU / 4G / 8G) -> render -> deploy ->
 #   load-data, then:
 #   - load-data: office's tables, the planted periods (the last planted
@@ -48,10 +48,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-reports/run-short-test.sh   (from anywhere)
@@ -61,8 +61,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=reports-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1 127.0.0.1:5000/dbagm/postgres:0.5.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
 JOBS=/srv/scheduler/jobs/jobs.yaml
 QUERIES=/srv/scheduler/repository/queries.yaml

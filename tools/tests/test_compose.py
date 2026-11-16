@@ -148,9 +148,9 @@ class TestMerge(ComposeCopyTest):
         for node in ("core-api", "partners-api"):
             self.assertIn("endpoints", self.output(node, "api.yaml"))
         self.assertEqual(compose._target_nodes({"nodes": [
-            {"name": "a", "brick": {"id": "api", "version": "0.1.0"}},
-            {"name": "s", "brick": {"id": model.SCHEDULER_BRICK, "version": "0.3.0"}},
-            {"name": "p", "brick": {"id": "postgres", "version": "0.5.0"}},
+            {"name": "a", "brick": {"id": "api", "version": "0.1.1"}},
+            {"name": "s", "brick": {"id": model.SCHEDULER_BRICK, "version": "0.4.0"}},
+            {"name": "p", "brick": {"id": "postgres", "version": "0.5.1"}},
             {"name": "x", "brick": {"version": "0.1.0"}}, {"name": "y"}]}),
             {"a": "api", "s": "scheduler"})
 
@@ -497,7 +497,7 @@ class TestPortalDesk(unittest.TestCase):
         path = self.scenario / "scenario.yaml"
         data = yaml.safe_load(path.read_text())
         data["nodes"].append({
-            "name": "pms", "brick": {"id": "scheduler", "version": "0.3.0"}, "role": "producer",
+            "name": "pms", "brick": {"id": "scheduler", "version": "0.4.0"}, "role": "producer",
             "stateful": True, "networks": ["backend"], "write_policy": "no-access", "parameters": {},
             "resources": {"limits": {"cpu": 0.25, "memory": "128M"},
                           "reservations": {"cpu": 0.1, "memory": "64M", "disk": "128M"}},
@@ -687,7 +687,7 @@ class TestOwnersAlone(OwnersAloneCase):
 
     def test_a_node_of_another_brick(self):
         self.scenario_yaml(lambda d: self.node(d, "partners-backend").update(
-            brick={"id": "api", "version": "0.1.0"}))
+            brick={"id": "api", "version": "0.1.1"}))
         self.assertIn("scenario.yaml: nodes[partners-backend]: brick api, not scheduler: the "
                       f"owners' route ({OWNERS_ROUTE}) goes onto the partners' shared nodes",
                       self.refused())

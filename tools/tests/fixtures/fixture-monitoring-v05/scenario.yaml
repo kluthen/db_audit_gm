@@ -42,7 +42,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.5.0
+      version: 0.6.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -67,7 +67,7 @@ nodes:
   - name: records
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     options: [monitoring]           # pgwatch's and the health node's target (master spec 7.1)
     role: database
     stateful: true
@@ -121,7 +121,7 @@ nodes:
   - name: prometheus
     brick:
       id: prometheus
-      version: 0.2.1
+      version: 0.2.2
     role: monitoring
     stateful: true
     networks: [backend]
@@ -145,7 +145,7 @@ nodes:
   - name: pgwatch
     brick:
       id: pgwatch
-      version: 0.1.0
+      version: 0.1.1
     role: monitoring
     stateful: true
     networks: [backend]
@@ -167,7 +167,7 @@ nodes:
   - name: grafana
     brick:
       id: grafana
-      version: 0.3.0
+      version: 0.4.0
     role: monitoring
     stateful: true
     networks: [backend]
@@ -194,7 +194,7 @@ nodes:
   - name: health
     brick:
       id: health-check
-      version: 0.1.0
+      version: 0.1.1
     role: monitoring
     stateful: true
     networks: [backend]

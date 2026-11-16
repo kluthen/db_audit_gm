@@ -9,6 +9,13 @@ version page, the network overview, fake aging) and the owner's
 rulings of 2026-11-13 to 2026-11-16, after an independent review of the
 drafting whose findings were all closed before consolidation. Every
 point is stated here as fact. Companion: [access-model.md](access-model.md).
+Amended in wave 1, from capture W1's preflight corrections: a
+`seed_changes` item's declared `lines:` (6.3, 6.9, 6.10; spec D521);
+`admitted.from` in hours only (6.9; spec D522). Amended after chunk 8:
+the fill's cover for a routine that pins its own `search_path`, its
+catalog tell a documented limit (9.4, 9.8, 9.10; spec D523); the seed
+and the plantings at T0 dated from the virtual T0 (9.4, fix 11; spec
+D525).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -87,8 +94,9 @@ customer-side assessment then a teaching moment (section 10), and
   0.4.0) (section 8).
 - Two loader refusals carried from v0.5: the bastion maps the partners'
   page exactly when the third parties carry a player document; each
-  selected seed-file fault instance's changed lines are found in its
-  node's copy of the seed file (section 6.10).
+  selected seed-file fault instance's declared lines
+  (`seed_changes[].lines`) are found in its node's copy of the seed
+  file (section 6.10).
 - Fake aging: the mode and its choice, the initiator who also plays, the
   timeline and the GM's steps, the fault format's eligibility and
   history signature, the tail, calibration, the ten fixes, the
@@ -203,7 +211,7 @@ copied as is (section 9.12).
 
 ## 6. Format changes
 
-[formats.md](../../formats.md) v34 carries every rule below.
+[formats.md](../../formats.md) v35 carries every rule below.
 
 ### 6.1 Scenario (`scenario.yaml` and the folder)
 
@@ -264,6 +272,13 @@ in 6.9; rules in 9.5.
   `gauge_before`, `daily_spike`, `remove`; `suppressed_by:` drops an
   entry while a hiding fault is selected. Every number in it is
   measured.
+- **`seed_changes[].lines`**, optional: the literal lines the change
+  puts in the scenario's copy of the item's `file`, `{NAME}` parameter
+  placeholders allowed, so a program can find them (a `change:` is
+  prose, a `material:` an example, a diff or a whole file). Refused on
+  `data-register.md` and `network-overview.md`, generated handouts
+  whose changes the answer key's diffs carry. The loader checks them
+  (6.10); a change without `lines:` stays the GM's to read.
 - **`gm.md`** gains a "Fake aging" note when the support is `tail-only`
   or `real-only`.
 - **Family `documentation`**, ids `docs-overview-*`: a `seed-file` fault
@@ -356,13 +371,22 @@ scenarios, domains and purposes never bump.
     text: >-
       Results are being delivered with delays of up to two hours. Our
       engineers are working on it.
-    from: handover-6h              # T0 or handover-<N>h|m, not before the instance's planting
+    from: handover-6h              # T0 or handover-<N>h, not before the instance's planting
     until: handover-4h             # optional; absent: still ongoing at hand-over
 
 # answer-key.yaml, an overview fault instance
 overview_diff:
   - {node: machines, field: backups, true: "a base backup nightly to Cold Storage",
      handed_out: "WAL archived to Cold Storage, base backup nightly"}
+
+# fault.yaml (pg-archive-command-silent), a seed-file change's declared lines
+injection:
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        archive_command = 'vault-post wal %p %f || true': ...
+      lines:                       # optional: literal lines in the scenario's copy; {NAME} allowed
+        - "archive_command = 'vault-post wal %p %f || true'"
 
 # fault.yaml
 aging:
@@ -439,11 +463,19 @@ history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
   converse. With a unit test. (v0.5 caught the omission only through a
   listed credential.)
 - **A seed-file fault's lines**: for each selected instance whose
-  definition carries `seed_changes`, its changed lines are found in its
-  node's copy of each seed file named; the loader refuses an instance
-  whose lines are missing, naming the file. With a unit test. (In v0.5
-  the clinic's s2, s7 and s8 lines were missing from the scenario's
-  copies and every check passed until the whole-clinic run.)
+  definition's `seed_changes` item carries `lines:`, each line, its
+  placeholders replaced from the instance's parameters (else their
+  defaults), is found in the node's copy of the item's `file` (a folder
+  entry: any file of the folder; `data`: the node's data file). A line
+  is found when a line of the copy, both stripped and their runs of
+  blanks made one, equals it or continues it with a comment (`#` or
+  `--` after a blank), anywhere in the file. The loader refuses an
+  instance whose line is missing, naming the instance, the line and the
+  file. With a unit test. The clinic's `pg-archive-command-silent`,
+  `governance-statement-log-personal` and `pg-standby-apply-delay`
+  carry `lines:`. (In v0.5 the clinic's s2, s7 and s8 lines were
+  missing from the scenario's copies and every check passed until the
+  whole-clinic run.)
 - `base:` present in every `brick.yaml`.
 - A domain's `data/overview.yaml` declared and covering every login role
   and job.
@@ -874,15 +906,17 @@ Steps 1 to 4 are today's setup.
    morning at 11:00 for maintenance; older logs archived".
 2. `gmctl deploy`, the monitoring (Prometheus, Grafana, the exporters,
    pgwatch) kept scaled to zero until the restart.
-3. `gmctl load-data`, unseen as today: no statement log, no pgaudit, no
-   `pg_stat_statements`.
-4. `gmctl inject`: the faults planted at T0.
+3. `gmctl load-data`, on the virtual T0's clock (fix 11), and unseen as
+   today: no statement log, no pgaudit, no `pg_stat_statements`.
+4. `gmctl inject`: the faults planted at the virtual T0, on its clock
+   (fix 11).
 5. **`gmctl fill`**: the scheduler program's fill mode on every
    scheduler node, one virtual clock, from the virtual T0 to the anchor.
    It runs the producers' streams, the consumers' keys and the jobs as
    fast as the database allows, the database's time-of-day functions
    bound to the virtual instant in the SQL the fill runs and in the
-   server-side functions it calls. It writes the scheduler logs at
+   server-side functions it calls, those that pin their own
+   `search_path` through the cover below. It writes the scheduler logs at
    virtual times, their latencies from the shared queue model. It
    pauses at each `state` fault's virtual planting, runs that fault's
    inject unchanged, records the instant, and goes on. Statistics stay
@@ -921,6 +955,25 @@ Steps 1 to 4 are today's setup.
 the anchor is planted by the fill; one planted in the tail by a host
 timer, as today; a fault with `plant_in: tail` must be planted in the
 tail.
+
+**Routines that pin their own `search_path`** (the cover). A function or
+procedure with its own `SET search_path` never sees the fill's session
+path, so the fill covers it for its span. At its start, in each database
+it writes, it finds every function and procedure outside the system
+schemas and the bricks' own `gm_*` schemas whose own settings
+(`proconfig`) set `search_path`, and alters that setting to `gm_vclock`
+followed by the routine's own path, with `pg_catalog` right after
+`gm_vclock` when the path doesn't name it (where PostgreSQL searched it
+implicitly); the routine's other settings stay as they are. Each cover
+is listed in `fill.quiet` with the routine, its database and its
+original setting, and restored to exactly that at the fill's end, on a
+failure too. After each planting at a pause the fill looks again: a
+routine an inject replaced or added takes its new setting as its
+original and is covered. `clean-restart` restores a cover still listed
+unrestored before its statistics reset, as it drops a leftover
+`gm_vclock`. A session without the fill's setting that calls a covered
+routine reads the real clock. The routine's catalog row ends identical,
+with a new row version (9.10).
 
 **As in a real game**: the hand-over, the issues, the GM's stance
 during the game, the final answer, the checks, restarts and the
@@ -985,9 +1038,12 @@ them; the scheduler brick ships the model's code.
 ### 9.8 The scenarios covered, and the starting estimates
 
 "P0" below is the virtual clock in the SQL the fill runs, the
-server-side functions it calls included: unproven; if it fails, the
-faults marked P0 drop to `tail-only`. The estimates are measured during
-the build.
+server-side functions it calls included, through the cover for one that
+pins its own `search_path` (9.4). Measured: it reaches the campaign's
+f1 to f3 directly, and f4 and f7 (`rpt.close_day()` pins its own path)
+through the cover, which their calibration confirms; a fault P0 doesn't
+reach drops to `tail-only`. The estimates are measured during the
+build.
 
 **The shop** (`tarnbeck-outdoor-shop`, measured):
 
@@ -1014,10 +1070,10 @@ inside).
 | f1 | purpose-mail-overlapping-window | supported (P0) | a job every five minutes, virtual |
 | f2 | purpose-leads-stale-consent | supported (P0) | the release at virtual T0, jobs virtual |
 | f3 | purpose-mail-outside-hours | supported (P0) | the campaign job, virtual |
-| f4 | purpose-watermark-misses-updates | supported (P0) | the roll-up and the 12:00 close, virtual; whether its check needs the close in the tail is to verify |
+| f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; whether its check needs the close in the tail is to verify |
 | f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting |
 | f6 | security-crontab-superuser | tail-only, 1 h | the cron daemon is off in the fill |
-| f7 | purpose-day-boundary-wrong-zone | supported (P0) | the 01:30 close, virtual |
+| f7 | purpose-day-boundary-wrong-zone | supported (P0, the cover) | the 01:30 close, virtual |
 | f8 | purpose-receiver-down-unnoticed | supported | the gateway's outage at virtual 08:00–10:00 |
 | f9 | governance-personal-copied | supported | its definitions are state; the `pg_cron` copy's run history holds the tail only |
 | f10 | purpose-heavy-job-on-database-node | **real-only** | a real out-of-memory kill and crash recovery at 03:00, read from the PostgreSQL log; a redesign moving it into the tail is possible later |
@@ -1026,11 +1082,11 @@ f5 hides f4, f7 and f10. With f10 out and f5 planted in the tail, the
 GM checks f5's order against f4's and f7's runs when it composes the
 selection.
 
-**If P0 fails**: f1–f4 and f7 drop to `tail-only`, each with the tail
-its job's runs need. v0.6's short campaign check then keeps f8 and f9,
-which need no P0, and f1, whose job runs every five minutes and fits a
-15-minute tail; f2, f3, f4 and f7 wait for the full selection's run in
-v1.0 gating.
+**If P0 fails for a fault** (f4 or f7, should the cover not hold): it
+drops to `tail-only`, with the tail its job's runs need, and leaves
+v0.6's short campaign check for the full selection's run in v1.0
+gating. f8 and f9 need no P0; f1's job runs every five minutes and fits
+a 15-minute tail in any case.
 
 **The clinic** is later: it needs a standby and a base backup built
 after the fill, the vault's gap for the fill's span, two hosts; its s8
@@ -1054,6 +1110,7 @@ Every fixable caveat is fixed.
 | 8 | Data files' modification times | each data file set to its last virtual write before the restart (file times, not the clock) |
 | 9 | Monitoring's footprint in the database | the fill opens the exporter's and pgwatch's sessions at the scrape rate in virtual time |
 | 10 | Fault parameters, not constants | the queue model and the overlays read the instance's parameters and the keys' measured service times |
+| 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means (the time-of-day functions and keywords in their SQL bound to the virtual T0, `gm_vclock` for the functions they call), so the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The real mode is unchanged |
 
 **Not done, on purpose**: resetting the table and index statistics at
 the clean-up. It would hide the last-use times, but it zeroes the dead
@@ -1078,6 +1135,7 @@ isn't expected to find these; a DBA hunting with superuser access can.
 | The archive vault and a standby date from the restart | the vault, `pg_stat_replication`, a slot's age | partly | the clinic, later |
 | Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start, yes | none; the players have no shell on the Prometheus node (to verify) |
 | The forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | no | none |
+| Each routine the fill covered (one pinning its own `search_path`, 9.4) has a new catalog row version from the fill's minutes, its definition and settings identical | `pg_proc`'s `xmin` against the other routines'; two updates on `pg_proc` in `pg_stat_sys_tables` | partly: a change in the maintenance before the restart, not named | none; only routines pinning their own path are covered |
 
 The host's uptime and Docker's task history are out of the players'
 reach: they have the bastion only.
@@ -1479,9 +1537,11 @@ spec:
 
 - P0: binding `now()`, `current_date` and `current_timestamp` to the
   virtual instant inside the server-side functions the fill's SQL calls,
-  not only in the scheduler's own SQL. If it can't be done, the P0
-  faults drop to `tail-only` and the campaign's short check takes its
-  fallback.
+  not only in the scheduler's own SQL. Measured partial in the build: a
+  routine pinning its own `search_path` is out of the fill's session
+  path, so the cover (9.4) reaches it, f4's and f7's calibration
+  confirming it; a fault P0 doesn't reach drops to `tail-only` and
+  leaves the campaign's short check (9.8).
 - The WAL padding: its time and the WAL left after the checkpoints.
 - A short autovacuum naptime: the autovacuum counts in range without
   slowing the fill.

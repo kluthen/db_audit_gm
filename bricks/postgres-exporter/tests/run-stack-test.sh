@@ -34,15 +34,15 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.1 bricks/postgres-exporter
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Usage: sh bricks/postgres-exporter/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgexp
-IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.2.1
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 SERVICE=${STACK}_exporter
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -105,6 +105,8 @@ trap 'exit 130' INT TERM
 for i in "$IMAGE" "$CLIENT_IMAGE"; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "image $i not built" >&2; exit 2; }
 done
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
     echo "stack $STACK already exists; remove it first" >&2
     exit 2

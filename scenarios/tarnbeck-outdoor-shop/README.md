@@ -88,18 +88,18 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `pooler` | `pgbouncer` 0.1.1 | pooler | yes | backend | fixable |
-| `producer` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `consumer` | `scheduler` 0.3.0 | consumer | yes | backend | report-only |
-| `prometheus` | `prometheus` 0.2.1 | monitoring | yes | backend | report-only |
-| `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `grafana` | `grafana` 0.3.0 | monitoring | yes | backend | fixable |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `pooler` | `pgbouncer` 0.1.2 | pooler | yes | backend | fixable |
+| `producer` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `consumer` | `scheduler` 0.4.0 | consumer | yes | backend | report-only |
+| `prometheus` | `prometheus` 0.2.2 | monitoring | yes | backend | report-only |
+| `exporter` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `grafana` | `grafana` 0.4.0 | monitoring | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -131,7 +131,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -173,7 +173,7 @@ Data, restored from `data/db.sql`:
 
 #### Node `pooler`
 
-- **Brick**: `pgbouncer`, version 0.1.1 (pinned).
+- **Brick**: `pgbouncer`, version 0.1.2 (pinned).
 - **Role**: pooler. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -200,7 +200,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 
 #### Node `producer`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Write overrides**: `/srv/scheduler/repository`, `/srv/scheduler/jobs`:
@@ -224,7 +224,7 @@ No knobs.
 
 #### Node `consumer`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: consumer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Write overrides**: `/srv/scheduler/jobs`:
@@ -247,7 +247,7 @@ No knobs.
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.2.1 (pinned).
+- **Brick**: `prometheus`, version 0.2.2 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -281,7 +281,7 @@ No knobs.
 
 #### Node `exporter`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -300,7 +300,7 @@ No knobs.
 
 #### Node `grafana`
 
-- **Brick**: `grafana`, version 0.3.0 (pinned).
+- **Brick**: `grafana`, version 0.4.0 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.

@@ -5,7 +5,7 @@
 # Generic image: no scenario content. The seed files (the instances, the
 # crontab, the scripts) and the secrets arrive at run time at the fixed
 # paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.0 bricks/health-check
+# Build:  docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.1 bricks/health-check
 # Architecture: x86_64 only (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------

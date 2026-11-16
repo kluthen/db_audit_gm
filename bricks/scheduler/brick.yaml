@@ -3,7 +3,10 @@
 # v0.5 master spec 7.2: the HTTP driver, the scripts' HTTP client, the
 # weighted choice, no-access).
 #
-# Version 0.3.0 (unreleased until the v0.5 release gate).
+# Version 0.4.0 (unreleased until the v0.6 release gate): 0.3.0, released
+# with v0.5, plus `base:` (v0.6 master spec 6.4 and 6.8; capture W1 item 1
+# of specs/versions/v0.6/wave-log.md); 6.8's other changes, the fill mode and
+# the queue model, come with their chunk.
 # Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
 # snapshot) and the runtime interface: capture W1 items 3, 5, 6 and 7
 # (specs/versions/v0.3/wave-log.md) and v0.4's W1 item 7
@@ -12,15 +15,17 @@
 
 # --- Identity ---------------------------------------------------------
 id: scheduler
-version: 0.3.0
+version: 0.4.0
 roles:
   - producer
   - consumer
   - transformer                     # a script key's job moving rows between instances (v0.4)
 technology:
   name: gm-scheduler                # the program in program/gm_scheduler, Python 3.13, psycopg 3
-  version: "0.3.0"
-image: 127.0.0.1:5000/dbagm/scheduler:0.3.0
+  version: "0.4.0"                  # gm_scheduler.VERSION, the same
+image: 127.0.0.1:5000/dbagm/scheduler:0.4.0
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.1's figures; at rest measured within them

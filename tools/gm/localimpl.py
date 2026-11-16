@@ -97,6 +97,11 @@ SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
 RENDERED_DIR = "rendered"
 TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
+# A fake game's restart record (v0.6 master spec 6.7, 6.9; capture W1 item
+# 7): `mode`, `virtual_t0`, `anchor`, `tail`, `handover_planned`,
+# `refused`, then the restart and the history import. `gmctl fill` reads it
+# (read_restart_record); render --aging fake writes it (chunk 9).
+RESTART_RECORD_FILE = "fake-aging.yaml"
 TEST_OVERRIDE = "test_harness_override"     # render's undocumented --test-leave-out (W4 item 8)
 OVERLAY = "overlay"                 # implementation.yaml's key deploy writes on several hosts
                                     # ({subnet}, capture W3-a, item 4; D182)
@@ -342,6 +347,17 @@ def read_implementation(ldir):
     data = read_yaml(Path(ldir) / IMPLEMENTATION_FILE)
     if data is None:
         raise GmError(f"no local implementation in {ldir}: run gmctl fit first")
+    return data
+
+
+def read_restart_record(ldir):
+    """The restart record (RESTART_RECORD_FILE) as written, or None when the
+    game has none (a real game); GmError when it is not a map."""
+    path = Path(ldir) / RESTART_RECORD_FILE
+    data = read_yaml(path)
+    if data is not None and not isinstance(data, dict):
+        raise GmError(f"{path}: not a map: the restart record is render's (gmctl render "
+                      "--aging fake)")
     return data
 
 

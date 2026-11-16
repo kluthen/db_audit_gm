@@ -340,7 +340,7 @@ class TestMountedMaterial(RenderedMounted):
     def test_catalog_brick_files_relative_to_the_scenario(self):
         sc = model.load_scenario(self.scenario)
         sc.bricks["monitor"] = model.find_definition(
-            "brick", "prometheus", "0.2.1", sc.dir, model.REPO_ROOT)[0]
+            "brick", "prometheus", "0.2.2", sc.dir, model.REPO_ROOT)[0]
         configs = localimpl.mounted_configs(sc, localimpl.node_parameters(sc), "laptop", "g")
         files = [c for c in configs["bastion"] if c["kind"] == "mounted"]
         self.assertEqual(len(files), 5)
@@ -1157,14 +1157,15 @@ class TestRenderV04(V04Rendered):
         self.fit()
         self.render(handover_at(16))                     # shift -2
         lines = self.rendered("reporting", "crontab").splitlines()
-        self.assertEqual(lines[:3], crontab.read_text().splitlines()[:3])  # comments, PGPASSFILE
-        self.assertTrue(lines[3].startswith("30 4 * * * psql -X -w -h /run/postgresql -U bi_etl"))
-        self.assertTrue(lines[3].endswith(">> /var/log/postgresql/cron/vacuum-sales.log 2>&1"))
-        self.assertEqual(lines[4], "*/15 " + ",".join(map(str, range(10, 23))) + f" * * * {entry}"
+        # the file's notes, PGPASSFILE and the entry's description, as written
+        self.assertEqual(lines[:4], crontab.read_text().splitlines()[:4])
+        self.assertTrue(lines[4].startswith("30 4 * * * psql -X -w -h /run/postgresql -U bi_etl"))
+        self.assertTrue(lines[4].endswith(">> /var/log/postgresql/cron/vacuum-sales.log 2>&1"))
+        self.assertEqual(lines[5], "*/15 " + ",".join(map(str, range(10, 23))) + f" * * * {entry}"
                          " >> /var/log/postgresql/cron/q.log 2>&1")
-        self.assertEqual(lines[5], f"0 1,8 * * * {entry} >> /var/log/postgresql/cron/t.log 2>&1")
+        self.assertEqual(lines[6], f"0 1,8 * * * {entry} >> /var/log/postgresql/cron/t.log 2>&1")
         self.render(handover_at(9, days=3))              # shift +5
-        self.assertTrue(self.rendered("reporting", "crontab").splitlines()[3]
+        self.assertTrue(self.rendered("reporting", "crontab").splitlines()[4]
                         .startswith("30 21 * * * "))
         cfg = self.config("reporting", "crontab")
         self.assertEqual((cfg["file"], cfg["uid"], cfg["gid"], cfg["mode"]),

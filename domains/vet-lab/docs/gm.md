@@ -400,7 +400,8 @@ part's `keys.sql` and `load.sql` into `lab` on the `lab` node as
 `practices`, in name order) into `partners` on the partners' database
 node, the two key files ahead of each; then the coherence check. The
 load's sessions are unseen (D265). Measured on 2026-11-04 in a throwaway
-container of `postgres:0.5.0` on armenelos (its data on a tmpfs), both
+container of `postgres:0.5.0` (the brick at `postgres:0.5.1` since v0.6,
+the same server) on armenelos (its data on a tmpfs), both
 key files streamed by hand as `load-data` streams them:
 
 | Run (`load_epoch` 2026-11-04T10:00Z) | Time | Size | Rows |

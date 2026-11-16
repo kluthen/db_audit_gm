@@ -14,7 +14,7 @@ severity: high
 applies_to:
   bricks:
     - id: grafana
-      versions: ["0.1.0", "0.2.0", "0.3.0"]
+      versions: ["0.1.0", "0.2.0", "0.3.0", "0.4.0"]
   preconditions:
     - the scenario's alert-rules.yaml holds the rule named by `rule`
 
@@ -50,6 +50,8 @@ injection:
         file as the brick's companion/alert-rules.yaml; the other four
         Grafana seed files byte for byte as the companion's
       material: inject/alert-rules.yaml.snippet
+      lines:
+        - "for: 2h"
   run_as: root
 
 # --- What the players can see ------------------------------------------

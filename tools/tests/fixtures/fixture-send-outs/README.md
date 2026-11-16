@@ -64,18 +64,18 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `records` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `lab` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `lab-api` | `api` 0.1.0 | api | yes | backend | fixable |
-| `interfaces` | `scheduler` 0.3.0 | transformer | yes | backend | no-access |
-| `partners-api` | `api` 0.1.0 | api | yes | backend | no-access |
-| `partners-backend` | `scheduler` 0.3.0 | producer | yes | backend | no-access |
-| `partners-db` | `postgres` 0.5.0 | database | yes | backend | no-access |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `records` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `lab` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `lab-api` | `api` 0.1.1 | api | yes | backend | fixable |
+| `interfaces` | `scheduler` 0.4.0 | transformer | yes | backend | no-access |
+| `partners-api` | `api` 0.1.1 | api | yes | backend | no-access |
+| `partners-backend` | `scheduler` 0.4.0 | producer | yes | backend | no-access |
+| `partners-db` | `postgres` 0.5.1 | database | yes | backend | no-access |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -100,7 +100,7 @@ No knobs.
 
 #### Node `records`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -130,7 +130,7 @@ Data: no data file; the domain loaded here by `load-data`: `vet-core` into the d
 
 #### Node `lab`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -160,7 +160,7 @@ Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the da
 
 #### Node `lab-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -181,7 +181,7 @@ No knobs.
 
 #### Node `interfaces`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -202,7 +202,7 @@ No knobs.
 
 #### Node `partners-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -223,7 +223,7 @@ No knobs.
 
 #### Node `partners-backend`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -244,7 +244,7 @@ No knobs.
 
 #### Node `partners-db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

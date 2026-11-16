@@ -7,3 +7,7 @@ local/
 
 # Python bytecode (tools/)
 __pycache__/
+
+# The shop's real-aging reference, extracted from its archive outside git
+# (v0.6 master spec 12.3, spec D519): a cache, never tracked
+/tools/fake_aging/reference/extracted/

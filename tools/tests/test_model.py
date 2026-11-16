@@ -156,7 +156,7 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
                        lambda d: self.node(d, "db")["brick"].update(version="0.6.0"))
-        self.assertRefused("nodes[db].brick", "0.6.0", "0.5.0")
+        self.assertRefused("nodes[db].brick", "0.6.0", "0.5.1")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -320,11 +320,11 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0", "catalog"),
-            "db": ("postgres", "0.5.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.1", "catalog"),
-            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.3.0", "catalog")})
+            "bastion": ("bastion", "0.6.0", "catalog"),
+            "db": ("postgres", "0.5.1", "catalog"),
+            "prometheus": ("prometheus", "0.2.2", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.1", "catalog"),
+            "grafana": ("grafana", "0.4.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
                          {n: "default" for n in self.NODES})
         self.assertEqual(sc.node("bastion")["parameters"]["web_routes"],
@@ -387,14 +387,14 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-load")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0", "catalog"),
-            "db": ("postgres", "0.5.0", "catalog"),
-            "pooler": ("pgbouncer", "0.1.1", "catalog"),
-            "producer": ("scheduler", "0.3.0", "catalog"),
-            "consumer": ("scheduler", "0.3.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.1", "catalog"),
-            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.3.0", "catalog")})
+            "bastion": ("bastion", "0.6.0", "catalog"),
+            "db": ("postgres", "0.5.1", "catalog"),
+            "pooler": ("pgbouncer", "0.1.2", "catalog"),
+            "producer": ("scheduler", "0.4.0", "catalog"),
+            "consumer": ("scheduler", "0.4.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.2", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.1", "catalog"),
+            "grafana": ("grafana", "0.4.0", "catalog")})
         self.assertTrue(model.has_scheduler_nodes(sc.data))
         self.assertEqual(sc.data["aging"], {"minimum": "8h", "handover_at": "14:00"})
         self.assertEqual([n["name"] for n in sc.nodes if n["write_policy"] == "report-only"],
@@ -1508,7 +1508,7 @@ class TestRetentionRefusals(RefusalAsserts, ScenarioCopyTest):
 
         def fault(d):
             d.update(id="fixture-short-retention", family="retention")
-            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.1"]}]
+            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.2"]}]
             d["injection"]["seed_changes"] = [{"file": "prometheus.yml",
                                                "change": "retention.time: 2h"}]
         self.edit_yaml("faults/fixture-short-retention/fault.yaml", fault)
@@ -2982,12 +2982,12 @@ class TestCampaignFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-campaign")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0"), "db": ("postgres", "0.5.0"),
-            "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.3.0"),
-            "consumer": ("scheduler", "0.3.0"), "reporting": ("postgres", "0.5.0"),
-            "bi": ("scheduler", "0.3.0"), "crm": ("scheduler", "0.3.0"),
-            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.1"),
-            "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.3.0")})
+            "bastion": ("bastion", "0.6.0"), "db": ("postgres", "0.5.1"),
+            "pooler": ("pgbouncer", "0.1.2"), "producer": ("scheduler", "0.4.0"),
+            "consumer": ("scheduler", "0.4.0"), "reporting": ("postgres", "0.5.1"),
+            "bi": ("scheduler", "0.4.0"), "crm": ("scheduler", "0.4.0"),
+            "gateway": ("scheduler", "0.4.0"), "prometheus": ("prometheus", "0.2.2"),
+            "exporter": ("postgres-exporter", "0.2.1"), "grafana": ("grafana", "0.4.0")})
         self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
         self.assertEqual({n["name"]: n["role"] for n in sc.nodes
                           if n["brick"]["id"] == "scheduler"},
@@ -3166,8 +3166,8 @@ class V05CopyTest(RefusalAsserts, ScenarioCopyTest):
         shutil.copytree(src, self.scenario / "faults" / fid)
         def edit(d):
             d["id"] = fid
-            d["applies_to"]["bricks"] += [{"id": "postgres", "versions": ["0.5.0"]},
-                                          {"id": "bastion", "versions": ["0.5.0"]}]
+            d["applies_to"]["bricks"] += [{"id": "postgres", "versions": ["0.5.1"]},
+                                          {"id": "bastion", "versions": ["0.6.0"]}]
             d["parameters"] = {}
             d["injection"]["seed_changes"] = [{"file": "postgresql.conf",
                                                "change": "random_page_cost = 4.0"}]
@@ -3243,13 +3243,13 @@ class TestOptionRefusals(V05CopyTest):
         self.on_node("exporter", lambda n: n.update(options=["monitoring"]))
         self.assertRefused(f"{self.S}: nodes[db].options: [] is not a non-empty list",
                            f"{self.S}: nodes[exporter].options: monitoring is not an option of "
-                           "brick postgres-exporter 0.2.0 (it declares none")
+                           "brick postgres-exporter 0.2.1 (it declares none")
 
     def test_unknown_and_twice(self):
         self.on_node("db", lambda n: n.update(options=["monitoring", "pgcluu", "monitoring"]))
         self.assertRefused(f"{self.S}: nodes[db].options: monitoring listed more than once",
                            f"{self.S}: nodes[db].options: pgcluu is not an option of brick "
-                           "postgres 0.5.0 (it declares monitoring")
+                           "postgres 0.5.1 (it declares monitoring")
 
     def test_no_access_only_on_a_brick_declaring_it(self):
         self.on_node("exporter", lambda n: n.update(write_policy="no-access"))
@@ -3271,7 +3271,7 @@ class TestOptionRefusals(V05CopyTest):
     def test_fault_naming_an_option_the_brick_lacks(self):
         self.local_fault("fx-other", lambda d: d.update(requires_option="pgcluu"))
         self.instance("f9", "fx-other", "db")
-        self.assertRefused("fault fx-other requires option pgcluu, which brick postgres 0.5.0 "
+        self.assertRefused("fault fx-other requires option pgcluu, which brick postgres 0.5.1 "
                            "of node db does not declare")
 
     def test_fault_definition_never_both(self):
@@ -4836,7 +4836,7 @@ class TestRegisterRefusals(RegisterCopyTest):
         def fault(d):
             d["id"] = "fixture-register-change"
             d["family"] = "security"
-            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.5.0"]}]
+            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.6.0"]}]
             d["injection"]["seed_changes"] = [{"file": "data-register.md",
                                                "change": "the handout as the skill wrote it"}]
         self.edit_yaml("faults/fixture-register-change/fault.yaml", fault)
@@ -4919,7 +4919,7 @@ class TestGovernanceOnThirdParties(RegisterCopyTest):
         data["nodes"] += [
             {"name": "partners-backend", "brick": {"id": "scheduler", "version": "0.1.0"},
              "write_policy": "no-access"},
-            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.0"},
+            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.1"},
              "write_policy": "no-access"}]
         self.assertEqual(model.third_party_nodes(data),     # no left_out: the owners' route
                          {"partners-db", "partners-backend", "partners-api"})
@@ -5123,7 +5123,7 @@ class TestFaultForms(V05CopyTest):
         self.elsewhere_fault()
         self.plant_elsewhere("lab-api")
         self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: lab-api runs api "
-                           "0.1.0, which fault fx-elsewhere does not apply to")
+                           "0.1.1, which fault fx-elsewhere does not apply to")
 
     def test_script_item_malformed_refused(self):
         self.elsewhere_fault(item={"on": "feeder", "as": "postgres"})
@@ -5239,6 +5239,649 @@ class TestFaultForms(V05CopyTest):
     def test_false_alarms_empty_refused(self):
         self.edit_yaml(self.K, lambda k: k.update(false_alarms=[]))
         self.assertRefused(f"{self.K}: false_alarms: empty")
+
+
+# --- v0.6: the format and the loader (build plan chunk 3; master spec 6.1 to
+# --- 6.10, 7.6; capture W1 items 0, 1, 4 and 5 of specs/versions/v0.6/wave-log.md)
+
+FIXTURE_V06 = FIXTURES / "fixture-v06-refusals"
+
+
+class TestV06Templates(unittest.TestCase):
+    """Every template carries every v0.6 item (chunk 3, Done when), each key
+    optional in wave 1 but base: (W1 item 0)."""
+
+    def test_scenario_template(self):
+        schema = model.template_schema("scenario.yaml")
+        node = schema.fields["nodes"].child.item
+        for key in ("description", "site", "users"):
+            self.assertTrue(node.fields[key].optional, key)
+        self.assertTrue(node.fields["users"].allow_empty)
+        self.assertEqual(set(node.fields["users"].child.item.fields), {"who", "database", "role"})
+        inst = schema.fields["fault_instances"].child.item
+        admitted = inst.fields["admitted"]
+        self.assertTrue(admitted.optional)
+        for key in ("by", "title", "text", "from"):
+            self.assertFalse(admitted.child.fields[key].optional, key)
+        self.assertTrue(admitted.child.fields["until"].optional)
+        text = (model.TEMPLATES_DIR / "scenario.yaml").read_text()
+        for item in ("network-overview.md: player/network-overview.md", "docs, reports or status",
+                     "comment line directly above it"):
+            self.assertIn(item, " ".join(text.replace("#", " ").split()))
+
+    def test_answer_key_template(self):
+        inst = model.template_schema("answer-key.yaml").fields["instances"].child.item
+        diff = inst.fields["overview_diff"]
+        self.assertTrue(diff.optional)
+        self.assertFalse(diff.child.item.fields["node"].optional)
+        self.assertFalse(diff.child.item.fields["field"].optional)
+
+    def test_fault_template(self):
+        schema = model.template_schema("fault.yaml")
+        fake = schema.fields["aging"].child.fields["fake"]
+        self.assertTrue(fake.optional)
+        self.assertFalse(fake.child.fields["support"].optional)
+        self.assertFalse(fake.child.fields["reason"].optional)
+        for key in ("tail_minimum", "tail_covers", "plant_in", "fill"):
+            self.assertTrue(fake.child.fields[key].optional, key)
+        history = schema.fields["history"]
+        self.assertTrue(history.optional)
+        self.assertFalse(history.child.item.fields["kind"].optional)
+        change = schema.fields["injection"].child.fields["seed_changes"].child.item
+        self.assertTrue(change.fields["lines"].optional)
+        self.assertIn("docs-overview-", (model.TEMPLATES_DIR / "fault.yaml").read_text())
+
+    def test_brick_template_requires_base(self):
+        base = model.template_schema("brick.yaml").fields["base"]
+        self.assertFalse(base.optional)
+        self.assertEqual(set(base.child.fields), {"os", "version"})
+
+    def test_domain_and_overview_templates(self):
+        self.assertTrue(model.template_schema("domain.yaml").fields["overview"].optional)
+        overview = model.template_schema("overview.yaml")
+        self.assertEqual(set(overview.fields["roles"].child.item.fields),
+                         {"role", "who", "reads", "writes"})
+        self.assertEqual(set(overview.fields["jobs"].child.item.fields), {"job", "what"})
+
+    def test_every_template_loads(self):
+        for name in ("scenario.yaml", "answer-key.yaml", "fault.yaml", "brick.yaml",
+                     "domain.yaml", "overview.yaml"):
+            with self.subTest(template=name):
+                self.assertIsInstance(model.strict_load(
+                    (model.TEMPLATES_DIR / name).read_text()), dict)
+
+
+class FaultDirTest(unittest.TestCase):
+    """A fault folder copied from the catalogue, changed, then checked."""
+
+    FAULT = "pg-standby-apply-delay"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="gmctl-test-")
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name) / "faults" / self.FAULT
+        shutil.copytree(REPO_ROOT / "faults" / self.FAULT, self.dir)
+
+    def edit(self, change):
+        path = self.dir / "fault.yaml"
+        data = yaml.safe_load(path.read_text())
+        change(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def problems(self):
+        return "\n".join(model.check_fault_dir(self.dir, catalog_root=REPO_ROOT))
+
+    def assertAccepted(self):
+        self.assertEqual(self.problems(), "")
+
+    def assertProblems(self, *fragments):
+        text = self.problems()
+        for fragment in fragments:
+            self.assertIn(fragment, text)
+
+    def fake(self, **fake):
+        self.edit(lambda d: d["aging"].update(fake=fake))
+
+    def history(self, entries, **fake):
+        def change(d):
+            d["history"] = entries
+            if fake:
+                d["aging"]["fake"] = fake
+        self.edit(change)
+
+
+class TestFakeAgingShape(FaultDirTest):
+    """aging.fake (master spec 6.3, 6.9, 6.10; W1 item 4)."""
+
+    L = "faults/pg-standby-apply-delay/fault.yaml: aging.fake"
+
+    def test_unassessed_accepted_and_read_as_none(self):
+        self.assertAccepted()
+        self.assertIsNone(model.fault_fake_aging(yaml.safe_load(
+            (self.dir / "fault.yaml").read_text())))
+
+    def test_tail_only_accepted_and_read(self):
+        self.history([{"kind": "none"}], support="tail-only", reason="genuine in the tail only",
+                     tail_minimum="2h", tail_covers=["12:00"], plant_in="tail",
+                     fill={"emulate": ["held-snapshot"]})
+        self.assertAccepted()
+        fake = model.fault_fake_aging(yaml.safe_load((self.dir / "fault.yaml").read_text()))
+        self.assertEqual(fake, model.FakeAging("tail-only", "genuine in the tail only", 7200,
+                                               ("12:00",), "tail", ("held-snapshot",)))
+
+    def test_real_only_defaults(self):
+        self.fake(support="real-only", reason="cannot be faked")
+        self.assertAccepted()
+        fake = model.fault_fake_aging(yaml.safe_load((self.dir / "fault.yaml").read_text()))
+        self.assertEqual((fake.plant_in, fake.emulate, fake.tail_minimum, fake.tail_covers),
+                         ("any", (), None, ()))
+        with self.assertRaises(Exception):
+            fake.support = "supported"               # frozen
+
+    def test_support_and_reason_required(self):
+        self.fake(tail_minimum="2h")
+        self.assertProblems(f"{self.L}.support: missing", f"{self.L}.reason: missing or empty")
+
+    def test_support_outside_the_list_refused(self):
+        self.fake(support="partial", reason="x")
+        self.assertProblems(f"{self.L}.support: 'partial' is not one of supported, tail-only, "
+                            "real-only")
+
+    def test_tail_keys_only_on_tail_only(self):
+        self.history([{"kind": "none"}], support="supported", reason="x", tail_minimum="2h",
+                     tail_covers=["12:00"])
+        self.assertProblems(f"{self.L}.tail_minimum: only on a tail-only fault (support "
+                            "supported; master spec 6.10)",
+                            f"{self.L}.tail_covers: only on a tail-only fault")
+
+    def test_tail_only_needs_the_tail_one_way(self):
+        self.history([{"kind": "none"}], support="tail-only", reason="x")
+        self.assertProblems(f"{self.L}: support tail-only, but neither tail_minimum, tail_covers "
+                            "nor plant_in: tail says how it needs the tail")
+
+    def test_malformed_values_refused(self):
+        self.history([{"kind": "none"}], support="tail-only", reason="x", tail_minimum="2 hours",
+                     tail_covers=[720, "25:00"], plant_in="anywhere", fill={"emulate": "x"},
+                     extra=1)
+        self.assertProblems(f"{self.L}.tail_minimum: ", f"{self.L}.tail_covers: 720 is not a "
+                            'quoted "HH:MM"', "(unquoted, YAML reads HH:MM as a number)",
+                            f"{self.L}.tail_covers: '25:00' is not", f"{self.L}.plant_in: "
+                            "'anywhere' is not any or tail", f"{self.L}.fill.emulate: not a list",
+                            f"{self.L}: extra: not a key of aging.fake")
+
+
+class TestHistoryShape(FaultDirTest):
+    """history: (master spec 6.3, 6.9, 6.10; W1 item 4)."""
+
+    L = "faults/pg-standby-apply-delay/fault.yaml: history"
+
+    def test_mandatory_on_supported_and_tail_only(self):
+        for support in ("supported", "tail-only"):
+            with self.subTest(support=support):
+                self.fake(support=support, reason="x", tail_minimum="1h") \
+                    if support == "tail-only" else self.fake(support=support, reason="x")
+                self.assertProblems(f"{self.L}: missing or empty, but aging.fake.support is "
+                                    f"{support}: the history signature is mandatory unless "
+                                    "real-only")
+
+    def test_empty_refused(self):
+        self.history([], support="supported", reason="x")
+        self.assertProblems(f"{self.L}: missing or empty, but aging.fake.support is supported")
+
+    def test_optional_on_real_only(self):
+        self.fake(support="real-only", reason="x")
+        self.assertAccepted()
+
+    def test_every_kind_accepted_and_read(self):
+        entries = [
+            {"kind": "counter_per_call", "series": 'node_cpu{node="{INSTANCE_NODE}"}',
+             "key": "orders.lookup", "per_call": 0.067, "node": "producer"},
+            {"kind": "gauge_sawtooth", "series": "pg_wal_size", "period": "1h",
+             "amplitude": 3, "phase": "0s"},
+            {"kind": "gauge_before", "series": "pg_replication_lag", "value": 0},
+            {"kind": "daily_spike", "series": "pg_locks", "at": "03:00", "duration": "10m",
+             "value": 40},
+            {"kind": "remove", "series": 'up{job="exporter"}', "suppressed_by": ["pg-hba-trust"]},
+            {"kind": "queue", "key": "orders.lookup", "service": {"median": 0.01, "sigma": 0.3}},
+            {"kind": "queue", "key": "orders.close", "lock": {"median": 2, "sigma": 0.2,
+                                                              "blocks": ["orders.lookup"]}},
+        ]
+        self.history(entries, support="supported", reason="x")
+        self.assertAccepted()
+        history = model.fault_history(yaml.safe_load((self.dir / "fault.yaml").read_text()))
+        self.assertEqual(len(history), 7)
+        self.assertEqual(history[0], model.HistoryEntry(
+            "counter_per_call", {"series": 'node_cpu{node="{INSTANCE_NODE}"}',
+                                 "key": "orders.lookup", "per_call": 0.067, "node": "producer"},
+            ()))
+        self.assertEqual(history[4].suppressed_by, ("pg-hba-trust",))
+        self.assertNotIn("suppressed_by", history[4].fields)
+
+    def test_none_is_the_only_entry(self):
+        self.history([{"kind": "none"}, {"kind": "remove", "series": "up"}],
+                     support="supported", reason="x")
+        self.assertProblems(f"{self.L}: kind none is the list's only entry")
+
+    def test_kinds_and_fields_refused(self):
+        self.history([{"kind": "spike"}, {"series": "x"},
+                      {"kind": "counter_per_call", "series": "x", "per_call": "0.1",
+                       "colour": "red"},
+                      {"kind": "gauge_sawtooth", "series": "x", "period": 3600,
+                       "amplitude": 1},
+                      {"kind": "daily_spike", "series": "x", "at": "3am", "duration": "1m",
+                       "value": 1},
+                      {"kind": "queue", "key": "k", "service": {"median": 1, "sigma": 1},
+                       "lock": {"median": 1, "sigma": 1, "blocks": ["a"]}},
+                      {"kind": "queue", "key": "k", "lock": {"median": "1", "sigma": 1}},
+                      {"kind": "remove", "series": "x", "suppressed_by": "pg-hba-trust"}],
+                     support="supported", reason="x")
+        self.assertProblems(f"{self.L}[0].kind: 'spike' is not one of", f"{self.L}[1].kind: "
+                            "missing", f"{self.L}[2].key: missing (kind counter_per_call)",
+                            f"{self.L}[2].per_call: '0.1' is not a number (measured",
+                            f"{self.L}[2].colour: not a field of kind counter_per_call",
+                            f"{self.L}[3].period: ", f"{self.L}[4].at: '3am' is not a quoted "
+                            '"HH:MM"', f"{self.L}[5]: kind queue takes exactly one of service "
+                            "and lock (service, lock given)", f"{self.L}[6].lock.median: '1' is "
+                            "not a number", f"{self.L}[6].lock.blocks: not a non-empty list",
+                            f"{self.L}[7].suppressed_by: not a non-empty list of fault ids")
+
+    def test_placeholders_name_a_parameter_or_the_instance_node(self):
+        def change(d):
+            d["parameters"] = {"slow-key": {"description": "x", "default": None,
+                                            "required": True}}
+            d["aging"]["fake"] = {"support": "supported", "reason": "x"}
+            d["history"] = [{"kind": "counter_per_call", "series": 'cpu{node="{INSTANCE_NODE}"}',
+                             "key": "{SLOW_KEY}", "per_call": 1, "node": "{TARGET}"}]
+        self.edit(change)
+        self.assertProblems(f"{self.L}[0].node: {{TARGET}} names no parameter of the fault (nor "
+                            "{INSTANCE_NODE}")
+        self.assertNotIn("{SLOW_KEY}", self.problems())
+        self.assertNotIn("INSTANCE_NODE} names", self.problems())
+
+
+class TestDocumentationFamily(FaultDirTest):
+    """Family documentation, ids docs-overview-* (master spec 6.3)."""
+
+    def overview_fault(self, fid="docs-overview-backups-claimed", family="documentation",
+                       bricks=("bastion",)):
+        new = self.dir.parent / fid
+        self.dir.rename(new)
+        self.dir = new
+        def change(d):
+            d["id"], d["family"] = fid, family
+            d["applies_to"]["bricks"] = [{"id": b, "versions": ["0.5.0"]} for b in bricks]
+            d["injection"]["seed_changes"] = [{"file": "network-overview.md",
+                                               "change": "the machines' backups claimed"}]
+        self.edit(change)
+
+    def test_a_network_overview_fault_accepted(self):
+        self.overview_fault()
+        self.assertAccepted()
+
+    def test_the_family_without_the_id_refused(self):
+        self.overview_fault(fid="overview-backups")
+        self.assertProblems("fault.yaml: id: 'overview-backups' is not docs-overview-<what>")
+
+    def test_the_id_or_the_change_without_the_family_refused(self):
+        self.overview_fault(family="backups")
+        self.assertProblems("fault.yaml: family: 'backups', but id docs-overview-backups-claimed: "
+                            "a network-overview fault is family documentation")
+
+    def test_another_brick_or_change_refused(self):
+        self.overview_fault(bricks=("bastion", "postgres"))
+        self.edit(lambda d: d["injection"]["seed_changes"].append(
+            {"file": "README.md", "change": "x"}))
+        self.assertProblems("applies_to.bricks: bastion, postgres: a documentation fault is on "
+                            "the bastion alone",
+                            "injection.seed_changes: a documentation fault changes "
+                            "network-overview.md, the bastion's handout, and nothing else")
+
+
+class TestDeclaredLinesShape(FaultDirTest):
+    """seed_changes[].lines in a definition (master spec 6.3; spec D521)."""
+
+    L = "faults/pg-standby-apply-delay/fault.yaml: injection.seed_changes[0].lines"
+
+    def lines(self, value, file=None):
+        def change(d):
+            d["injection"]["seed_changes"][0]["lines"] = value
+            if file:
+                d["injection"]["seed_changes"][0]["file"] = file
+        self.edit(change)
+
+    def test_the_catalogue_faults_declare_theirs(self):
+        for fid, line in (("pg-archive-command-silent",
+                           "archive_command = 'vault-post wal %p %f || true'"),
+                          ("governance-statement-log-personal", "log_statement = 'all'"),
+                          ("pg-standby-apply-delay", "recovery_min_apply_delay = '1h'"),
+                          ("grafana-alert-for-too-long", "for: 2h")):
+            with self.subTest(fault=fid):
+                data = yaml.safe_load((REPO_ROOT / "faults" / fid / "fault.yaml").read_text())
+                self.assertEqual(data["injection"]["seed_changes"][0]["lines"], [line])
+
+    def test_malformed_refused(self):
+        self.lines("recovery_min_apply_delay = '1h'")
+        self.assertProblems(f"{self.L}: not a non-empty list of the literal lines")
+        self.lines([3, ""])
+        self.assertProblems(f"{self.L}[0]: 3 is not a non-empty line", f"{self.L}[1]: ''")
+
+    def test_a_placeholder_naming_no_parameter_refused(self):
+        self.lines(["recovery_min_apply_delay = '{DELAY}'"])
+        self.assertProblems(f"{self.L}[0]: {{DELAY}} names no parameter of the fault")
+
+    def test_never_on_a_generated_handout(self):
+        for handout in ("data-register.md", "network-overview.md"):
+            with self.subTest(file=handout):
+                self.lines(["x"], file=handout)
+                self.assertProblems(f"{self.L}: {handout} is a generated handout, whose changes "
+                                    "the answer key's diffs carry: no lines:")
+
+
+class TestBrickBase(unittest.TestCase):
+    """base: (master spec 6.4, 6.9; W1 item 1)."""
+
+    L = "bricks/bastion/brick.yaml"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="gmctl-test-")
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name) / "bricks" / "bastion"
+        shutil.copytree(REPO_ROOT / "bricks" / "bastion", self.dir)
+
+    def base(self, value=None, drop=False):
+        path = self.dir / "brick.yaml"
+        data = yaml.safe_load(path.read_text())
+        data.pop("base", None)
+        if not drop:
+            data["base"] = value
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        return "\n".join(model.check_brick_dir(self.dir))
+
+    def test_accepted(self):
+        self.assertEqual(self.base({"os": "Debian GNU/Linux", "version": "13"}), "")
+
+    def test_missing_refused(self):
+        self.assertIn(f"{self.L}: base: missing", self.base(drop=True))
+
+    def test_an_unquoted_version_refused(self):
+        self.assertIn(f"{self.L}: base.version: 13 is not a non-empty string (quote it",
+                      self.base({"os": "Debian GNU/Linux", "version": 13}))
+
+    def test_other_shapes_refused(self):
+        self.assertIn(f"{self.L}: base: not a map", self.base("Debian 13"))
+        text = self.base({"os": "", "version": "13", "arch": "amd64"})
+        self.assertIn(f"{self.L}: base: arch: not a key of base (os and version only)", text)
+        self.assertIn(f"{self.L}: base.os: '' is not a non-empty string", text)
+
+
+class V06CopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of fixture-v06-refusals: a scheduler
+    node (aging 16h), a partner with a status page and no node, partners.md
+    mapped; f1 declaring random_page_cost = {COST} (its default 4.0), f2 a
+    state fault planted at handover-6h whose incident the partner admits
+    from handover-6h to handover-2h, f3 declaring timezone_offset: {OFFSET}
+    (the instance's -2) in jobs.yaml."""
+
+    S = "scenario.yaml"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-v06-refusals"
+        shutil.copytree(FIXTURE_V06, self.scenario)
+
+    def scenario_yaml(self, change):
+        self.edit_yaml(self.S, change)
+
+    def instance(self, data, iid):
+        return next(i for i in data["fault_instances"] if i["id"] == iid)
+
+    def admitted(self, **change):
+        def edit(d):
+            entry = self.instance(d, "f2")["admitted"]
+            for key, value in change.items():
+                if value is None:
+                    entry.pop(key, None)
+                else:
+                    entry[key] = value
+        self.scenario_yaml(edit)
+
+    def replace_in(self, relpath, old, new):
+        path = self.scenario / relpath
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new))
+
+
+class TestV06Fixture(unittest.TestCase):
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_V06)
+        self.assertEqual(sc.id, "fixture-v06-refusals")
+        self.assertEqual(sc.node("bastion")["seed_files"]["partners.md"], "player/partners.md")
+
+    def test_admitted_incidents(self):
+        sc = model.load_scenario(FIXTURE_V06)
+        self.assertEqual(model.admitted_incidents(sc), (model.Admitted(
+            instance="f2", by="northfield-lab", partner="Northfield Veterinary Laboratories",
+            anchor="northfield-veterinary-laboratories", title="Slower result look-ups",
+            text="Look-ups of past results are slower than usual. Our engineers are working "
+                 "on it.", start="handover-6h", end="handover-2h", start_before=6 * 3600,
+            end_before=2 * 3600),))
+
+    def test_fake_aging_and_history(self):
+        sc = model.load_scenario(FIXTURE_V06)
+        self.assertEqual([model.fault_fake_aging(sc.faults[i].data).support
+                          for i in ("f1", "f2", "f3")], ["tail-only", "supported", "real-only"])
+        self.assertEqual(model.fault_history(sc.faults["f1"].data),
+                         (model.HistoryEntry("none", {}, ()),))
+        self.assertIsNone(model.fault_history(sc.faults["f3"].data))
+        self.assertIsNone(model.instance_history(sc, "f3"))
+        raw = model.fault_history(sc.faults["f2"].data)
+        self.assertEqual(raw[0].fields["series"],
+                         'pg_stat_user_tables_seq_scan{instance="{INSTANCE_NODE}",'
+                         'relname="{TABLE_NAME}"}')
+        resolved = model.instance_history(sc, "f2")
+        self.assertEqual(resolved[0].fields["series"],
+                         'pg_stat_user_tables_seq_scan{instance="db",relname="orders"}')
+        self.assertEqual(resolved[1].fields["series"], 'up{job="shop-index-advisor"}')
+        self.assertEqual(resolved[1].suppressed_by, ("fixture-random-page-cost",))
+        self.assertEqual(resolved[0].fields["per_call"], 1)
+        with self.assertRaises(KeyError):
+            model.instance_history(sc, "f9")
+
+    def test_line_found(self):
+        copy = ["# random_page_cost = 4.0", "random_page_cost\t=  4.0\t# f1",
+                "log_min_duration_statement = 250 -- slow", "x = 4.05"]
+        self.assertTrue(model.line_found("random_page_cost = 4.0", copy))
+        self.assertTrue(model.line_found("  random_page_cost   =   4.0 ", copy))
+        self.assertTrue(model.line_found("log_min_duration_statement = 250", copy))
+        self.assertFalse(model.line_found("x = 4.0", copy))      # 4.05 continues, no comment
+        self.assertFalse(model.line_found("random_page_cost = 1.1", copy))
+        self.assertTrue(model.line_found("# random_page_cost = 4.0", copy))
+        self.assertEqual(model.resolve_placeholders("a {COST} {NONE} {{customer_timezone}}",
+                                                    {"COST": 4, "NONE": None}),
+                         "a 4 {NONE} {{customer_timezone}}")
+
+    def test_reserved_routes(self):
+        self.assertEqual(model.RESERVED_WEB_ROUTES, ("docs", "reports", "status"))
+
+
+class TestAdmittedRefusals(V06CopyTest):
+    """admitted: (master spec 6.9, 6.10, 7.6; spec D522)."""
+
+    A = "scenario.yaml: fault_instances[f2].admitted"
+
+    def test_without_until_accepted(self):
+        self.admitted(until=None)
+        incident = model.admitted_incidents(self.load())[0]
+        self.assertEqual((incident.end, incident.end_before), (None, None))
+
+    def test_from_t0_read_as_none(self):
+        self.scenario_yaml(lambda d: self.instance(d, "f2").update(plant_at="T0"))
+        self.admitted(**{"from": "T0"})
+        self.assertIsNone(model.admitted_incidents(self.load())[0].start_before)
+
+    def test_by_not_a_third_party_refused(self):
+        self.admitted(by="cold-storage")
+        self.assertRefused(f"{self.A}.by: 'cold-storage' is not a third_parties: entry")
+
+    def test_by_a_third_party_without_player_doc_refused(self):
+        def change(d):
+            d["third_parties"].append({"id": "authority", "name": "The Authority",
+                                       "stands_for": "x", "role": "outbound", "nodes": [],
+                                       "hostname": "authority"})
+            self.instance(d, "f2")["admitted"]["by"] = "authority"
+        self.scenario_yaml(change)
+        self.assertRefused(f"{self.A}.by: third party authority has no player_doc: only a "
+                           "partner with a player document has a status page")
+
+    def test_title_and_text_non_empty(self):
+        self.admitted(title=" ", text=None)
+        self.assertRefused(f"{self.A}.title: missing or empty", f"{self.A}.text: missing")
+
+    def test_from_not_a_moment_refused(self):
+        self.admitted(**{"from": "handover-90m"})
+        self.assertRefused(f"{self.A}.from: 'handover-90m' is not T0 or handover-<N>h")
+
+    def test_from_before_the_planting_refused(self):
+        self.admitted(**{"from": "handover-7h"})
+        self.assertRefused(f"{self.A}.from: handover-7h is before the instance's planting "
+                           "(handover-6h): a partner admits the incident its fault causes, never "
+                           "before it is planted")
+        self.admitted(**{"from": "T0"})
+        self.assertRefused(f"{self.A}.from: T0 is before the instance's planting (handover-6h)")
+
+    def test_from_before_t0_refused(self):
+        self.scenario_yaml(lambda d: self.instance(d, "f2").update(plant_at="T0"))
+        self.admitted(**{"from": "handover-17h"}, until=None)
+        self.assertRefused(f"{self.A}.from: handover-17h is before the instance's planting (T0)")
+
+    def test_until_not_after_from_refused(self):
+        for until in ("handover-6h", "handover-8h", "T0"):
+            with self.subTest(until=until):
+                self.admitted(until=until)
+                self.assertRefused(f"{self.A}.until: {until} is not after from (handover-6h)")
+
+    def test_until_not_a_moment_refused(self):
+        self.admitted(until="handover")
+        self.assertRefused(f"{self.A}.until: 'handover' is not T0 or handover-<N>h")
+
+    def test_unknown_key_and_missing_ones_refused(self):
+        self.admitted(by=None, to="handover-1h")
+        self.assertRefused(f"{self.A}.by: missing", f"{self.A}: to: not a key of admitted")
+
+
+class TestPartnersPage(V06CopyTest):
+    """O251 (master spec 6.10; formats.md "Partners"; spec D486; W1 item 5)."""
+
+    P = "scenario.yaml: nodes[bastion].seed_files.partners.md"
+
+    def test_player_doc_without_partners_md_refused(self):
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].pop("partners.md"))
+        self.assertRefused(f"{self.P}: missing: third parties carry a player_doc, but the bastion "
+                           'maps no partners.md (formats.md "Partners"; spec D486)')
+
+    def test_partners_md_without_player_doc_refused(self):
+        def change(d):
+            d["third_parties"][0].pop("player_doc")
+            d["fault_instances"][1].pop("admitted")
+        self.scenario_yaml(change)
+        self.assertRefused(f"{self.P}: the bastion maps partners.md, but no third party carries a "
+                           'player_doc (formats.md "Partners"; spec D486)')
+
+    def test_partners_md_without_third_parties_refused(self):
+        def change(d):
+            d.pop("third_parties")
+            d["fault_instances"][1].pop("admitted")
+        self.scenario_yaml(change)
+        self.assertRefused(f"{self.P}: the bastion maps partners.md, but no third party carries a "
+                           "player_doc")
+
+    def test_another_path_refused(self):
+        (self.scenario / "player" / "partners.md").rename(self.scenario / "player" / "lab.md")
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].update(
+            {"partners.md": "player/lab.md"}))
+        self.assertRefused(f'{self.P}: player/lab.md, not player/partners.md (formats.md '
+                           '"Partners"; spec D486)')
+
+
+class TestReservedRoutes(V06CopyTest):
+    """Reserved route names (master spec 6.1, 6.10)."""
+
+    def test_each_reserved_name_refused(self):
+        for route in model.RESERVED_WEB_ROUTES:
+            with self.subTest(route=route):
+                self.scenario_yaml(lambda d: self.node(d, "bastion")["parameters"].update(
+                    web_routes={route: "db:5432"}))
+                self.assertRefused(f"scenario.yaml: nodes[bastion].parameters.web_routes.{route}: "
+                                   f"{route} is a reserved route name: /docs/, /reports/, "
+                                   "/status/ are the web front's own paths")
+
+
+class TestDeclaredLinesRefusals(V06CopyTest):
+    """O269 (master spec 6.10; formats.md fault "Injection"; spec D510,
+    D521; W1 item 5)."""
+
+    CONF = "nodes/db/postgresql.conf"
+
+    def test_a_missing_line_refused(self):
+        self.replace_in(self.CONF, "random_page_cost = 4.0", "random_page_cost = 1.1")
+        self.assertRefused('scenario.yaml: fault_instances[f1]: postgresql.conf: line '
+                           '"random_page_cost = 4.0" of fault fixture-random-page-cost\'s '
+                           'seed_changes is not in nodes/db/postgresql.conf: a seed-file change '
+                           'is in the scenario\'s copy from T0 (formats.md, fault "Injection"; '
+                           'spec D510)')
+
+    def test_the_instance_parameter_fills_the_placeholder(self):
+        self.scenario_yaml(lambda d: self.instance(d, "f3")["parameters"].update(offset=-3))
+        self.assertRefused('fault_instances[f3]: jobs.yaml: line "timezone_offset: -3" of fault '
+                           "fixture-job-timezone's seed_changes is not in "
+                           "nodes/producer/jobs.yaml")
+
+    def test_the_instance_parameter_over_the_default(self):
+        self.scenario_yaml(lambda d: self.instance(d, "f1")["parameters"].update(cost="1.1"))
+        self.assertRefused('line "random_page_cost = 1.1" of fault fixture-random-page-cost')
+
+    def test_a_comment_above_or_a_moved_line_breaks_nothing(self):
+        path = self.scenario / self.CONF
+        lines = path.read_text().splitlines()
+        moved = [l for l in lines if l.startswith("random_page_cost")]
+        rest = [l for l in lines if not l.startswith("random_page_cost")]
+        path.write_text("\n".join(rest + ["# the planner's costs", "random_page_cost\t=\t4.0  "
+                                          "-- moved"]) + "\n")
+        self.assertTrue(moved)
+        self.load()
+
+    def test_a_folder_entry_reads_every_file(self):
+        def change(d):
+            d["injection"]["seed_changes"].append(
+                {"file": "builders/", "change": "the revenue builder logs its total",
+                 "lines": ["log(total)"]})
+        self.edit_yaml("faults/fixture-job-timezone/fault.yaml", change)
+        self.scenario_yaml(lambda d: self.node(d, "producer")["write_overrides"].append(
+            "/srv/scheduler/repository"))      # f3's fix reaches builders/ too
+        self.assertRefused('fault_instances[f3]: builders/: line "log(total)" of fault '
+                           "fixture-job-timezone's seed_changes is not in "
+                           "nodes/producer/builders/")
+        with (self.scenario / "nodes/producer/builders/extra.py").open("w") as f:
+            f.write("    log(total)  # the planted line\n")
+        self.load()
+
+    def test_the_data_entry_reads_the_data_file(self):
+        def change(d):
+            d["injection"]["seed_changes"].append(
+                {"file": "data", "change": "the orders' index dropped in the backup",
+                 "lines": ["DROP INDEX orders_customer_id_idx;"]})
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", change)
+        self.assertRefused('fault_instances[f1]: data: line "DROP INDEX orders_customer_id_idx;" '
+                           "of fault fixture-random-page-cost's seed_changes is not in "
+                           "data/db.sql")
+        self.append_text("data/db.sql", "DROP INDEX orders_customer_id_idx;  -- f1\n")
+        self.load()
+
+    def append_text(self, relpath, text):
+        with (self.scenario / relpath).open("a") as f:
+            f.write(text)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - >-
       the node is a standby (standby_of: its primary, cloned by load-data's
@@ -53,6 +53,8 @@ injection:
         reaches the reports); the rest of the standby's seed as the
         scenario's. The edit alone
       material: inject/postgresql.conf.snippet
+      lines:
+        - "recovery_min_apply_delay = '1h'"
   run_as: root
 
 # --- What the players can see ------------------------------------------

@@ -11,6 +11,7 @@ schema: data/schema.sql
 load: data/load.sql
 classification: data/classification.yaml
 register: data/register.yaml
+overview: data/overview.yaml
 producers: producers/
 notes: docs/gm.md
 purposes: [shop-sales-reporting, shop-winback-leads, shop-customer-mailing,

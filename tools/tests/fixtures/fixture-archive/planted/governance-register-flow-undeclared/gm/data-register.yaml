@@ -3,7 +3,7 @@
 # hand: change an input and regenerate. It describes the system as designed and
 # composed, before any fault is planted.
 generated_from:
-  scenario.yaml: sha256:eff956a43629a53f4a859dedf02207e0ed0c9bc742998915c0257e748586541c
+  scenario.yaml: sha256:6869467d4dd0916c5d4c42adc801a5fb37336a8f09e588f60946f6d7dacec8f0
   composition.yaml: sha256:b67f8334d2bf2cc14746c68e86087901bd13fc52b55c64ef8ba125082d05efa7
   data/classification.yaml: sha256:73cd34489def405b8674279bbf7117411777f8d6c36a5ee8865fca8292e79b8d
   player/data-policy.md: sha256:377c648f1378915add8f36a7e65d116b64f80cf463217393b321772dff5289df

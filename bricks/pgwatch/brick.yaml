@@ -1,7 +1,9 @@
 # brick.yaml: pgwatch node, PostgreSQL's metrics for Prometheus from a
 # second collector (v0.5 master spec 7.4, 7.5, 14).
 #
-# Version 0.1.0 (unreleased until the v0.5 release gate, D100). pgwatch's
+# Version 0.1.1 (unreleased until the v0.6 release gate, D100): 0.1.0,
+# released with v0.5, plus `base:` (v0.6 master spec 6.4, 6.8; no other
+# change). pgwatch's
 # release, its download and the build conditions: G9 (specs/versions/v0.5/
 # wave-log.md); the seed file, the port and Prometheus' target: capture W2
 # item 5; the monitoring role it connects as: the `postgres` brick's option
@@ -10,13 +12,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: pgwatch
-version: 0.1.0
+version: 0.1.1
 roles:
   - monitoring                      # v0.3 master spec 6.4's closed list (v0.5 capture W1 item 1)
 technology:
   name: pgwatch
   version: "6.1.0"
-image: 127.0.0.1:5000/dbagm/pgwatch:0.1.0
+image: 127.0.0.1:5000/dbagm/pgwatch:0.1.1
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 14's row (0.1 CPU, 96M), less what the
