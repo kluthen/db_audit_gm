@@ -1,14 +1,16 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v2, approved (2026-11-16): the owner's approval written in (G1
-done, spec D518); no reference data in git, the archive outside git and
-its pointer (chunk 1; chunks 8, 11, 12 extract from it; spec D519);
-`fa-real` torn down after chunk 1 (G12, spec D520).
+Status: v3 (2026-11-16): W1's corrections (capture W1's preflight
+corrections 1 to 4): `seed_changes[].lines` and its three clinic faults
+(chunk 3; spec D521), `admitted.from` in hours only (spec D522), chunk
+2's and chunk 8's Files, the merge edge `3 ──> 8`. v2, approved: the
+reference outside git (spec D519), `fa-real` torn down after chunk 1
+(spec D520).
 Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
-[formats.md](../../formats.md) v34. No design set (no interface to
+[formats.md](../../formats.md) v35. No design set (no interface to
 design, spec D2). Where this plan and those documents disagree, they win
 and the plan is corrected.
 
@@ -125,6 +127,9 @@ preflight on candidates (skill `dependency-gating-protocol`).
 1 ──> 8                 (in wave 1: the calibrations read through extract.sh,
                          its interface fixed by capture W1; 8 starts after 1
                          has merged)
+3 ──> 8                 (in wave 1, merge order: 8b reads instance_history,
+                         fixed by capture W1; 8 merges after 3 and takes
+                         v0.6-w1 in first)
 1 ──> G12;  1 ──> 11, 12   (the archive verified; the reference extracted)
 2, 3 ──> 6              (bastion 0.6.0's version line; admitted:, reserved routes)
 G6 ──> 6
@@ -157,7 +162,10 @@ its archive verifies, the driver tears `fa-real` down (G12), before
 the wave's gate. Chunks 3, 4 and 8 merge after chunk 2, each taking
 `v0.6-w1` in
 first (the version tuples in `tools/tests/test_model.py`, the clinic's
-`scenario.yaml`, the scheduler's version lines). `tools/gm/model.py` is
+`scenario.yaml`, the scheduler's version lines); chunk 8 also merges
+after chunk 3, taking `v0.6-w1` in first (8b reads `instance_history`,
+capture W1). Chunk 8 starts after chunks 1 and 2 and does not wait for
+3: it builds on the accessor as W1 fixes it. `tools/gm/model.py` is
 chunk 3's alone in wave 1; `bricks/scheduler/` chunk 8's after chunk 2's
 version lines; `domains/` chunk 4's.
 
@@ -444,14 +452,20 @@ chunk 7 can map it before chunk 6 serves it.
     `base: {os: Debian GNU/Linux, version: "13"}`; the Dockerfiles'
     build comments; `docs/gm.md`'s version lines and tags; the stack
     tests' tags, and each stack test checking `base:` against the
-    image's `/etc/os-release`;
+    image's `/etc/os-release` through the shared
+    `tools/tests/check-base.sh` (new, capture W1);
+  - the scheduler program's `gm_scheduler.VERSION` at 0.4.0, beside
+    `technology.version`;
   - the bastion's `brick.yaml`: the seventh optional seed file
     (capture W1); nothing else of the bastion;
   - every fault whose `applies_to` names a bumped brick given the new
     version, the fixtures' own faults likewise, each brick's
     "Supported faults" kept equal to them;
   - every scenario (the five) and fixture re-pinned to every bumped
-    brick it uses; their `README.md` regenerated;
+    brick it uses; their `README.md` regenerated, and the data
+    registers whose digests read `scenario.yaml` (the clinic's,
+    `fixture-archive`'s, `fixture-register`'s) regenerated with the
+    `data-register` skill in the same commit;
   - the smoke scripts', the fixtures' `run-*-test.sh` and the unit
     tests' tags and version tuples (`smoke.sh`, `smoke-scenario.sh`,
     `smoke-load.sh`, `smoke-monitoring.sh`, `smoke-monitoring-v05.sh`,
@@ -464,9 +478,13 @@ chunk 7 can map it before chunk 6 serves it.
 - Files: `bricks/*/brick.yaml`, `bricks/*/Dockerfile` (build comments),
   `bricks/*/docs/gm.md` (version lines, tags, "Supported faults"),
   `bricks/*/tests/{run-stack-test.sh,stack.test.yml}`;
+  `tools/tests/check-base.sh` (new);
+  `bricks/scheduler/program/gm_scheduler/__init__.py` (`VERSION`);
   `faults/*/fault.yaml` as the build lists them;
   `scenarios/*/{scenario.yaml,README.md}`;
-  `tools/tests/fixtures/*/` (pins, faults, READMEs, run scripts);
+  `scenarios/aldermoor-centre/{gm/data-register.yaml,player/data-register.md}`;
+  `tools/tests/fixtures/*/` (pins, faults, READMEs, run scripts),
+  `tools/tests/fixtures/{fixture-archive,fixture-register}/{gm/data-register.yaml,player/data-register.md}`;
   `tools/tests/{smoke.sh,smoke-scenario.sh,smoke-load.sh,smoke-monitoring.sh,smoke-monitoring-v05.sh,calibrate-f10.sh}`,
   `tools/tests/fixtures/calibrate-f10/stack.yml`,
   `tools/tests/{test_model.py,test_deploy.py,test_fit.py}`;
@@ -479,7 +497,8 @@ chunk 7 can map it before chunk 6 serves it.
   new version, every fault, the five scenarios and every fixture; the
   unit suite, `test_brick_docs` included, passes; every image builds at
   its new tag, its `base:` matches its `/etc/os-release`, and its stack
-  test passes; every `README.md` matches a fresh regeneration.
+  test passes; every `README.md` and data register matches a fresh
+  regeneration.
 - Verification: chunk checks; every brick's build and stack test, one
   at a time, under the lock.
 - Split rule: none; mechanical, one commit by the rule in "Read first".
@@ -521,10 +540,14 @@ error texts of the two refusals.
     player/partners.md` exactly when the scenario's `third_parties:`
     carry a `player_doc`, both directions refused with the texts of
     master spec 6.10, beside `PARTNERS_SEED_FILE`;
-  - **O269's refusal** (spec D510): for each selected instance whose
-    definition carries `seed_changes`, its changed lines are found in
-    its node's copy of each seed file named, else refused naming the
-    instance and the file;
+  - **O269's refusal** (spec D510, D521): `seed_changes[].lines`,
+    optional, in the template and the checklist; for each selected
+    instance whose definition's item carries `lines:`, each line found
+    in its node's copy of the item's file (master spec 6.10), else
+    refused naming the instance, the line and the file; `lines:` given
+    to `pg-archive-command-silent`, `governance-statement-log-personal`
+    and `pg-standby-apply-delay`, and to any other change whose text is
+    the same in every copy (W1-y lists them);
   - a unit test for each refusal; `fixture-v06-refusals` (new) for the
     cases a whole scenario shows best.
   - Out: the network overview's checks and requirements, `overview_diff:`,
@@ -535,7 +558,9 @@ error texts of the two refusals.
   `.claude/skills/scenario-format/templates/{scenario.yaml,answer-key.yaml,fault.yaml,brick.yaml,domain.yaml}`,
   `.claude/skills/scenario-format/templates/overview.yaml` (new);
   `tools/gm/model.py`; `tools/tests/test_model.py`;
-  `tools/tests/fixtures/fixture-v06-refusals/` (new).
+  `tools/tests/fixtures/fixture-v06-refusals/` (new);
+  `faults/{pg-archive-command-silent,governance-statement-log-personal,pg-standby-apply-delay}/fault.yaml`
+  (`lines:`), and any other fault given `lines:`.
 - Spec sections: [6.1](master-spec.md#61-scenario-scenarioyaml-and-the-folder),
   [6.2](master-spec.md#62-answer-key-gmanswer-keyyaml),
   [6.3](master-spec.md#63-fault-definition-faultyaml),
@@ -548,7 +573,8 @@ error texts of the two refusals.
 - Done when: every template carries every v0.6 item and loads as YAML;
   each refusal above is refused with its message in a unit test, and
   its passing case passes; every scenario and fixture in the
-  repository still loads (the clinic's s2, s7 and s8 lines found);
+  repository still loads (the clinic's s2, s7 and s8 declared lines
+  found);
   `ISS-001` closed with the `issue_management` skill, citing the
   commit.
 - Verification: chunk checks.
@@ -613,7 +639,8 @@ in `domain.yaml` (master spec 6.5, 6.9), so chunk 7 reads them.
 Status: planned
 Wave: 1
 Depends on: chunk 2 (merge order: the version lines); chunk 1 (the
-reference's extraction)
+reference's extraction); chunk 3 (merge order: 8b reads
+`instance_history`, capture W1)
 Docker: heavy (the scheduler's image and unit tests, P0 in a throwaway
 `postgres` container, the fill on a fixture)
 Architecture capture: W1, for chunks 9, 10 and 11: the fill's interface
@@ -658,12 +685,15 @@ key's service times sit beside its `queries.yaml` and the file's form.
     `autovacuum_naptime` lowered for the fill and restored at its end
     (fix 7); the exporter's and pgwatch's sessions opened at the scrape
     rate in virtual time (fix 9);
+  - **the restart record's name and reader** in `localimpl.py`
+    (`RESTART_RECORD_FILE`, `read_restart_record`; capture W1), which
+    `gmctl fill` reads; its writer is chunk 9's;
   - **from the research** (`10d1bc6`): `fill.py`, `latency.py` and
     `fake_aging.py`'s fill runner read and **rewritten** (they hardcode
     the shop's instances, keys and parameters); the service-time
     figures copied as data, their source named.
-  - Out: `render --aging fake`, `clean-restart`, the restart record
-    (chunk 9); `gmctl history` (chunk 10); the faults' `aging.fake` and
+  - Out: `render --aging fake`, `clean-restart`, the restart record's
+    writer (chunk 9); `gmctl history` (chunk 10); the faults' `aging.fake` and
     their `queue` entries (chunk 11).
 - Files: `bricks/scheduler/program/gm_scheduler/{__main__.py,fill.py,queue.py}`
   (`fill.py` and `queue.py` new), and the reused modules where an entry
@@ -671,6 +701,7 @@ key's service times sit beside its `queries.yaml` and the file's form.
   (new) and the replay corpus; `bricks/scheduler/docs/gm.md`;
   `scenarios/{tarnbeck-outdoor-shop,tarnbeck-outdoor-campaign}/nodes/{producer,consumer}/`
   (the service times, new); `tools/gm/fill.py` (new),
+  `tools/gm/localimpl.py` (the restart record's name and reader),
   `tools/gm/__init__.py`, `.claude/skills/game-master/gmctl.md` (its
   row); `tools/tests/test_fill.py` (new);
   `tools/tests/fixtures/fixture-fill/` (new: the shop's `db`,

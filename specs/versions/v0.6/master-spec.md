@@ -9,6 +9,9 @@ version page, the network overview, fake aging) and the owner's
 rulings of 2026-11-13 to 2026-11-16, after an independent review of the
 drafting whose findings were all closed before consolidation. Every
 point is stated here as fact. Companion: [access-model.md](access-model.md).
+Amended in wave 1, from capture W1's preflight corrections: a
+`seed_changes` item's declared `lines:` (6.3, 6.9, 6.10; spec D521);
+`admitted.from` in hours only (6.9; spec D522).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -87,8 +90,9 @@ customer-side assessment then a teaching moment (section 10), and
   0.4.0) (section 8).
 - Two loader refusals carried from v0.5: the bastion maps the partners'
   page exactly when the third parties carry a player document; each
-  selected seed-file fault instance's changed lines are found in its
-  node's copy of the seed file (section 6.10).
+  selected seed-file fault instance's declared lines
+  (`seed_changes[].lines`) are found in its node's copy of the seed
+  file (section 6.10).
 - Fake aging: the mode and its choice, the initiator who also plays, the
   timeline and the GM's steps, the fault format's eligibility and
   history signature, the tail, calibration, the ten fixes, the
@@ -203,7 +207,7 @@ copied as is (section 9.12).
 
 ## 6. Format changes
 
-[formats.md](../../formats.md) v34 carries every rule below.
+[formats.md](../../formats.md) v35 carries every rule below.
 
 ### 6.1 Scenario (`scenario.yaml` and the folder)
 
@@ -264,6 +268,13 @@ in 6.9; rules in 9.5.
   `gauge_before`, `daily_spike`, `remove`; `suppressed_by:` drops an
   entry while a hiding fault is selected. Every number in it is
   measured.
+- **`seed_changes[].lines`**, optional: the literal lines the change
+  puts in the scenario's copy of the item's `file`, `{NAME}` parameter
+  placeholders allowed, so a program can find them (a `change:` is
+  prose, a `material:` an example, a diff or a whole file). Refused on
+  `data-register.md` and `network-overview.md`, generated handouts
+  whose changes the answer key's diffs carry. The loader checks them
+  (6.10); a change without `lines:` stays the GM's to read.
 - **`gm.md`** gains a "Fake aging" note when the support is `tail-only`
   or `real-only`.
 - **Family `documentation`**, ids `docs-overview-*`: a `seed-file` fault
@@ -356,13 +367,22 @@ scenarios, domains and purposes never bump.
     text: >-
       Results are being delivered with delays of up to two hours. Our
       engineers are working on it.
-    from: handover-6h              # T0 or handover-<N>h|m, not before the instance's planting
+    from: handover-6h              # T0 or handover-<N>h, not before the instance's planting
     until: handover-4h             # optional; absent: still ongoing at hand-over
 
 # answer-key.yaml, an overview fault instance
 overview_diff:
   - {node: machines, field: backups, true: "a base backup nightly to Cold Storage",
      handed_out: "WAL archived to Cold Storage, base backup nightly"}
+
+# fault.yaml (pg-archive-command-silent), a seed-file change's declared lines
+injection:
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        archive_command = 'vault-post wal %p %f || true': ...
+      lines:                       # optional: literal lines in the scenario's copy; {NAME} allowed
+        - "archive_command = 'vault-post wal %p %f || true'"
 
 # fault.yaml
 aging:
@@ -439,11 +459,19 @@ history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
   converse. With a unit test. (v0.5 caught the omission only through a
   listed credential.)
 - **A seed-file fault's lines**: for each selected instance whose
-  definition carries `seed_changes`, its changed lines are found in its
-  node's copy of each seed file named; the loader refuses an instance
-  whose lines are missing, naming the file. With a unit test. (In v0.5
-  the clinic's s2, s7 and s8 lines were missing from the scenario's
-  copies and every check passed until the whole-clinic run.)
+  definition's `seed_changes` item carries `lines:`, each line, its
+  placeholders replaced from the instance's parameters (else their
+  defaults), is found in the node's copy of the item's `file` (a folder
+  entry: any file of the folder; `data`: the node's data file). A line
+  is found when a line of the copy, both stripped and their runs of
+  blanks made one, equals it or continues it with a comment (`#` or
+  `--` after a blank), anywhere in the file. The loader refuses an
+  instance whose line is missing, naming the instance, the line and the
+  file. With a unit test. The clinic's `pg-archive-command-silent`,
+  `governance-statement-log-personal` and `pg-standby-apply-delay`
+  carry `lines:`. (In v0.5 the clinic's s2, s7 and s8 lines were
+  missing from the scenario's copies and every check passed until the
+  whole-clinic run.)
 - `base:` present in every `brick.yaml`.
 - A domain's `data/overview.yaml` declared and covering every login role
   and job.

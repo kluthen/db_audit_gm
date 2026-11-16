@@ -277,3 +277,13 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   driver once chunk 1 has merged and the archive verifies,** no later
   chunk needing the live game (8, 11, 12 read the saved data). Now in:
   [build plan](versions/v0.6/build-plan.md) G12.
+- **D521 (2026-11-16, spec-writer, capture W1's preflight correction 1,
+  accepted by the wave driver): O269's lines are declared, an optional
+  `seed_changes[].lines` the loader looks for; a change without it stays
+  the GM's to read.** Prose `change:` and example `material:` gave no
+  form a program finds. Now in: [master spec](versions/v0.6/master-spec.md#610-the-loaders-new-checks)
+  6.3, 6.9, 6.10; [formats.md](formats.md) v35 "Injection"; [build plan](versions/v0.6/build-plan.md) chunk 3.
+- **D522 (2026-11-16, spec-writer, capture W1's preflight correction 2):
+  `admitted.from` is `T0` or `handover-<N>h`, hours only, as a planting
+  moment;** 6.9's `h|m` comment was the outlier. Now in:
+  [master spec](versions/v0.6/master-spec.md#69-shapes-of-the-new-fields) 6.9.
