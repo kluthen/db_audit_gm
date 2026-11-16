@@ -1,7 +1,7 @@
 # fault.yaml — template for faults/<fault-id>/fault.yaml
 #   (or scenarios/<scenario-id>/faults/<fault-id>/ for a scenario-only fault)
 #
-# Version v0.5, expected to evolve as games are played.
+# Version v0.6, expected to evolve as games are played.
 # Shape: v0.1 master spec sections 8 and 8.1, v0.2 master spec 6.4 and 6.5,
 # v0.3 master spec 6.3, 6.5 and 6.7, v0.4 master spec 6.3, 6.5 and 6.9;
 # keys of v0.2's capture W1 (specs/versions/v0.2/wave-log.md, item 8),
@@ -10,7 +10,10 @@
 # (specs/versions/v0.4/wave-log.md, item 3: applies_to.purposes,
 # needs_unshared_host, sealed_check.judges); v0.5 master spec 6.4 and 6.8
 # (an option required or its absence planted, a register fault, a partner's
-# misbehaviour; capture W1 of specs/versions/v0.5/wave-log.md, items 1 and 2).
+# misbehaviour; capture W1 of specs/versions/v0.5/wave-log.md, items 1 and 2);
+# v0.6 master spec 6.3, 6.9, 6.10 and 9.5 (fake aging's support, the history
+# signature, a seed change's declared lines, the documentation family;
+# capture W1 of specs/versions/v0.6/wave-log.md, items 0, 4 and 5).
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -33,7 +36,13 @@ family: <security>                  # security, performance, replication, backup
                                     # zone, a wrong segment); a governance or credential fault is
                                     # security, its id governance-<what> or security-<what>. From
                                     # v0.5 a register fault is security, its id
-                                    # governance-register-<what> (master spec 6.4)
+                                    # governance-register-<what> (master spec 6.4). From v0.6 a
+                                    # network-overview fault is documentation, its id
+                                    # docs-overview-<what>: a seed-file fault on the bastion
+                                    # alone whose seed_changes name network-overview.md (the
+                                    # handout), nothing else; the network-overview skill writes
+                                    # the changed handout, the system is untouched, the answer
+                                    # key's overview_diff states the change (v0.6 master spec 6.3)
 severity: <medium>                  # low | medium | high | critical
 
 # --- Where it applies -------------------------------------------------
@@ -80,6 +89,54 @@ aging:                              # v0.3 master spec 6.3 (D114)
                                     # aging_minimum to that moment's offset from its designed T0
                                     # plus this (spec D189; the loader cannot check it, the
                                     # fault's gm.md says so)
+  fake:                             # optional: absent, "not assessed", refused in a fake game
+                                    # (v0.6 master spec 6.3, 6.9, 9.5); in a real game unused
+    support: <tail-only>            # supported | tail-only (genuine only in the real tail after
+                                    # the restart) | real-only (fake aging cannot show it)
+    reason: >-
+      <One sentence: why this support (the autovacuum "not yet removable"
+      lines are genuine only in the tail; the fill holds the snapshot).>
+    tail_minimum: <2h>              # optional: tail-only only; a duration, the least tail the
+                                    # evidence needs
+    tail_covers: [<"12:00">]        # optional: tail-only only; quoted "HH:MM" scenario-time
+                                    # instants the tail must hold (a job's run). A tail-only fault
+                                    # gives tail_minimum, tail_covers or plant_in: tail
+    plant_in: <any>                 # optional: any (the default) | tail, planted in the real tail
+    fill:                           # optional: absent, the fill imitates nothing for it
+      emulate: [<held-snapshot>]    # what the fill must imitate; may be []
+  # gm.md gains a "Fake aging" note when the support is tail-only or
+  # real-only (v0.6 master spec 6.3).
+
+# --- Its history signature (v0.6) ---------------------------------------
+history:                            # optional: mandatory unless aging.fake.support is real-only
+                                    # (refused empty or missing on a supported or tail-only fault;
+                                    # absent on a fault not assessed). The fault's trail in
+                                    # Prometheus over the faked span (v0.6 master spec 6.3, 6.9,
+                                    # 9.7); a fault with none says so with the one entry
+                                    # - kind: none. Every number in it is measured
+  - kind: <counter_per_call>        # counter_per_call | gauge_sawtooth | gauge_before |
+                                    # daily_spike | remove | queue | none, its fields (W1 item 4):
+                                    # counter_per_call: series, key, per_call (a number), and
+                                    #   node when needed;
+                                    # gauge_sawtooth: series, period (a duration), amplitude (a
+                                    #   number); phase optional (a duration, 0s);
+                                    # gauge_before: series, value (the level until the planting);
+                                    # daily_spike: series, at ("HH:MM", scenario time), duration,
+                                    #   value (the level during the spike);
+                                    # remove: series;
+                                    # queue: key, and exactly one of service {median, sigma} and
+                                    #   lock {median, sigma, blocks: [<key>...]}; node optional;
+                                    # none: no field, the list's only entry.
+                                    # {NAME} (a parameter of the fault, as in parameter_changes)
+                                    # or {INSTANCE_NODE} (the instance's node:) in strings only
+                                    # (series, key, node); numbers are numbers
+    series: <'node_health_cpu_seconds_total{node="{NODE}"}'>   # optional: per kind, above
+    key: <'{KEY}'>                  # optional: per kind, above; the scheduler key
+    per_call: <0.067>               # optional: per kind, above; measured
+    node: <producer>                # optional: per kind, above; the scheduler node running key,
+                                    # absent: the one scheduler node whose queries.yaml has it
+    suppressed_by: [<pg-table-autovacuum-off>]   # optional: any kind; fault ids: the entry is
+                                    # dropped while one of them is selected (it hides this trail)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:                         # map; may be {}. A fault about mounted material has a
@@ -131,6 +188,21 @@ injection:
                                     # load, before T0 (v0.4 master spec 6.3, spec D226)
       change: <what the scenario's copy of the file must contain>
       material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
+      lines:                        # optional: the literal lines the change puts in the
+                                    # scenario's copy, {NAME} parameter placeholders allowed (v0.6
+                                    # master spec 6.3, 6.9; spec D510, D521), so a program can find
+                                    # them (a change is prose, a material an example, a diff or a
+                                    # whole file). The loader looks for each, placeholders
+                                    # replaced from the instance's parameters (else the defaults),
+                                    # in the node's copy of file (a folder entry: any file of the
+                                    # folder; data: the node's data file), line by line anywhere:
+                                    # found when a line of the copy, both stripped and their runs
+                                    # of blanks made one, equals it or continues it with a comment
+                                    # (# or -- after a blank). Refused on data-register.md and
+                                    # network-overview.md, generated handouts. Give it whenever the
+                                    # change's text is the same in every copy; without it the GM
+                                    # reads the copy
+        - <"host all all 0.0.0.0/0 trust">
   scripts:                          # optional: kind state only; run in this order, each on the
                                     # instance's node, as run_as, with the FAULT_<NAME> variables
     - <inject/10-plant.sh>

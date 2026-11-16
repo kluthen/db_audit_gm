@@ -675,6 +675,7 @@ def check_brick_dir(brick_dir, label_base=None):
     _check_mounted(data, brick_dir, base, label, out)
     _check_receives(data.get("receives"), label, out)
     _check_brick_v03(data, label, out)
+    _check_brick_base(data, label, out)
     return out
 
 
@@ -971,6 +972,7 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
     _check_fault_v03(data, label, out)
     _check_fault_v04(data, label, catalog_root, out)
     _check_fault_options(data, label, out)
+    _check_fault_v06(data, label, out)
     return out
 
 
@@ -1259,6 +1261,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_composition(data, sdir, catalog_root, out)
     _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir, catalog_root,
                out)
+    _check_v06(data, nodes, faults, scheduled, minimum, sdir, out)
 
     if out:
         return None, out
@@ -1613,6 +1616,12 @@ def _check_receiver(node_name, target, mounting, item, out):
                    f"{', '.join(map(str, lacking))}, which {what} requires")
 
 
+# The web front's own paths, never a bastion's route (master spec 6.1, 6.10;
+# capture W1 item 4 of specs/versions/v0.6/wave-log.md): the refusal's names
+# and the front's paths, one list.
+RESERVED_WEB_ROUTES = ("docs", "reports", "status")
+
+
 def _check_web_routes(nodes, bricks, out, http=None):
     """web-routes parameters against the topology's web interfaces, and the
     web front's published port (v0.2 capture W1, item 3): a node whose brick
@@ -1649,6 +1658,11 @@ def _check_web_routes(nodes, bricks, out, http=None):
                 if not (isinstance(route, str) and NAME_RE.match(route)):
                     out.append(f"{label}: {rp}: {route!r} is not a valid route name "
                                "(lowercase letters, digits and hyphens)")
+                elif route in RESERVED_WEB_ROUTES:
+                    out.append(f"{label}: {rp}: {route} is a reserved route name: "
+                               f"{', '.join(f'/{r}/' for r in RESERVED_WEB_ROUTES)} are the web "
+                               "front's own paths (master spec 6.1, 6.10)")
+                    continue
                 m = ROUTE_TARGET_RE.match(target) if isinstance(target, str) else None
                 if m is None:
                     out.append(f'{label}: {rp}: {target!r} is not "<node>:<port>"')
@@ -6825,3 +6839,643 @@ def _check_register_diffs(answer_key, register, ids, out):
             if "field" in item and item["field"] not in REGISTER_FIELDS:
                 out.append(f"{p}.field: {item['field']!r} is not one of "
                            f"{', '.join(REGISTER_FIELDS)}")
+
+
+# --- v0.6: the format's new keys but the network overview's (build plan
+# --- chunk 3; master spec 6.1 to 6.4, 6.9, 6.10, 7.6; capture W1 items 0, 1,
+# --- 4 and 5 of specs/versions/v0.6/wave-log.md) ---
+
+BASE_KEYS = ("os", "version")       # brick.yaml's base: (W1 item 1)
+FAKE_SUPPORTS = ("supported", "tail-only", "real-only")
+TAIL_ONLY = "tail-only"
+REAL_ONLY = "real-only"
+PLANT_IN = ("any", "tail")
+FAKE_KEYS = ("support", "reason", "tail_minimum", "tail_covers", "plant_in", "fill")
+FILL_KEYS = ("emulate",)
+SCENARIO_TIME_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")    # "HH:MM", scenario time
+# {NAME} in a history entry's strings and a seed change's lines: a fault
+# parameter's name upper-cased, - as _ (as FAULT_<NAME>), never a PromQL label
+# set ({job="x"}) nor the scenario's {{customer_timezone}}.
+FAULT_PLACEHOLDER_RE = re.compile(r"\{([A-Z][A-Z0-9_]*)\}")
+INSTANCE_NODE = "INSTANCE_NODE"     # a history signature's: the instance's node: (W1 item 4)
+HISTORY_NONE = "none"
+SUPPRESSED_BY = "suppressed_by"
+# kind -> (required, optional) fields, each with its form (W1 item 4's table)
+HISTORY_KINDS = {
+    "counter_per_call": ({"series": "string", "key": "string", "per_call": "number"},
+                         {"node": "string"}),
+    "gauge_sawtooth": ({"series": "string", "period": "duration", "amplitude": "number"},
+                       {"phase": "duration"}),
+    "gauge_before": ({"series": "string", "value": "number"}, {}),
+    "daily_spike": ({"series": "string", "at": "time", "duration": "duration",
+                     "value": "number"}, {}),
+    "remove": ({"series": "string"}, {}),
+    "queue": ({"key": "string"}, {"node": "string", "service": "effect", "lock": "effect"}),
+    HISTORY_NONE: ({}, {}),
+}
+QUEUE_EFFECTS = ("service", "lock")
+DOCUMENTATION_FAMILY = "documentation"
+DOCS_OVERVIEW_PREFIX = "docs-overview-"
+OVERVIEW_SEED_FILE = "network-overview.md"   # the bastion's seventh seed file (master spec 6.1)
+GENERATED_HANDOUTS = (REGISTER_SEED_FILE, OVERVIEW_SEED_FILE)   # never lines: (master spec 6.3)
+PARTNERS_HANDOUT = "player/partners.md"      # where partners.md maps (master spec 6.10)
+ADMITTED_KEYS = ("by", "title", "text", "from", "until")
+
+
+def _check_brick_base(data, label, out):
+    """`base:` (master spec 6.4, 6.9; W1 item 1): a map of exactly os and
+    version, both non-empty strings; an unquoted 13 is refused, since the
+    brick's tests compare strings. Its presence is the template's."""
+    if "base" not in data:
+        return                               # reported against the template
+    base = data["base"]
+    if not isinstance(base, dict):
+        out.append(f"{label}: base: not a map {{os: <name>, version: \"<version>\"}} (master "
+                   "spec 6.4)")
+        return
+    unknown = sorted(str(k) for k in base if k not in BASE_KEYS)
+    if unknown:
+        out.append(f"{label}: base: {', '.join(unknown)}: not a key of base (os and version "
+                   "only)")
+    for key in BASE_KEYS:
+        value = base.get(key)
+        if key not in base:
+            out.append(f"{label}: base.{key}: missing")
+        elif not (isinstance(value, str) and value.strip()):
+            hint = " (quote it: the tests compare strings)" if value is not None else ""
+            out.append(f"{label}: base.{key}: {value!r} is not a non-empty string{hint}")
+
+
+def _fault_parameter_names(data):
+    """{NAME: parameter} of a fault's parameters, NAME as in {NAME}."""
+    params = data.get("parameters")
+    return {str(p).upper().replace("-", "_"): p
+            for p in (params if isinstance(params, dict) else {})}
+
+
+def _check_fault_v06(data, label, out):
+    """v0.6's fault keys (master spec 6.3, 6.9, 6.10; W1 items 4 and 5):
+    aging.fake, history:, the documentation family, seed_changes[].lines."""
+    names = _fault_parameter_names(data)
+    fake = _check_fake_aging(data, label, out)
+    _check_history(data, fake, names, label, out)
+    _check_documentation_family(data, label, out)
+    injection = _dict(data.get("injection"))
+    changes = injection.get("seed_changes")
+    for i, change in enumerate(changes if isinstance(changes, list) else []):
+        if isinstance(change, dict) and "lines" in change:
+            _check_change_lines(change, f"{label}: injection.seed_changes[{i}].lines", names,
+                                out)
+
+
+def _check_fake_aging(data, label, out):
+    """`aging.fake` (master spec 6.3, 6.9, 9.5; W1 item 4): support and
+    reason required; tail_minimum and tail_covers only on tail-only, which
+    needs the tail one of three ways; plant_in any or tail; fill.emulate a
+    list. Returns the support when it is one, else None."""
+    aging = _dict(data.get("aging"))
+    if "fake" not in aging:
+        return None
+    p = f"{label}: aging.fake"
+    fake = aging["fake"]
+    if not isinstance(fake, dict):
+        out.append(f"{p}: not a map (support, reason, ...; absent: not assessed)")
+        return None
+    unknown = sorted(str(k) for k in fake if k not in FAKE_KEYS)
+    if unknown:
+        out.append(f"{p}: {', '.join(unknown)}: not a key of aging.fake ({', '.join(FAKE_KEYS)})")
+    support = fake.get("support")
+    if "support" not in fake:
+        out.append(f"{p}.support: missing ({' | '.join(FAKE_SUPPORTS)})")
+    elif support not in FAKE_SUPPORTS:
+        out.append(f"{p}.support: {support!r} is not one of {', '.join(FAKE_SUPPORTS)}")
+        support = None
+    reason = fake.get("reason")
+    if not (isinstance(reason, str) and reason.strip()):
+        out.append(f"{p}.reason: missing or empty (one sentence: why this support)")
+    for key in ("tail_minimum", "tail_covers"):
+        if key in fake and support is not None and support != TAIL_ONLY:
+            out.append(f"{p}.{key}: only on a tail-only fault (support {support}; master "
+                       "spec 6.10)")
+    if "tail_minimum" in fake:
+        try:
+            parse_duration(fake["tail_minimum"])
+        except ValueError as exc:
+            out.append(f"{p}.tail_minimum: {exc}")
+    if "tail_covers" in fake:
+        covers = fake["tail_covers"]
+        if not (isinstance(covers, list) and covers):
+            out.append(f'{p}.tail_covers: not a non-empty list of quoted "HH:MM" (scenario time)')
+        for value in covers if isinstance(covers, list) else []:
+            if not (isinstance(value, str) and SCENARIO_TIME_RE.match(value)):
+                hint = " (unquoted, YAML reads HH:MM as a number)" if _is_int(value) else ""
+                out.append(f'{p}.tail_covers: {value!r} is not a quoted "HH:MM", 24-hour, '
+                           f"scenario time{hint}")
+    if "plant_in" in fake and fake["plant_in"] not in PLANT_IN:
+        out.append(f"{p}.plant_in: {fake['plant_in']!r} is not {' or '.join(PLANT_IN)}")
+    if "fill" in fake:
+        fill = fake["fill"]
+        if not isinstance(fill, dict):
+            out.append(f"{p}.fill: not a map {{emulate: [...]}}")
+        else:
+            unknown = sorted(str(k) for k in fill if k not in FILL_KEYS)
+            if unknown:
+                out.append(f"{p}.fill: {', '.join(unknown)}: not a key of fill (emulate)")
+            emulate = fill.get("emulate", [])
+            if not (isinstance(emulate, list)
+                    and all(isinstance(e, str) and e.strip() for e in emulate)):
+                out.append(f"{p}.fill.emulate: not a list of what the fill imitates "
+                           "([held-snapshot]; may be [])")
+    if support == TAIL_ONLY and not ("tail_minimum" in fake or "tail_covers" in fake
+                                     or fake.get("plant_in") == "tail"):
+        out.append(f"{p}: support tail-only, but neither tail_minimum, tail_covers nor "
+                   "plant_in: tail says how it needs the tail (master spec 9.5)")
+    return support
+
+
+def _check_history(data, support, names, label, out):
+    """`history:` (master spec 6.3, 6.9, 6.10; W1 item 4): a non-empty list
+    of entries shaped by their kind; mandatory on a supported or tail-only
+    fault; `none` the list's only entry; {NAME} in strings only, naming a
+    parameter of the fault or INSTANCE_NODE; numbers numbers, durations
+    durations."""
+    p = f"{label}: history"
+    if "history" not in data or data["history"] in (None, []):
+        if support in (TAIL_ONLY, "supported"):
+            out.append(f"{p}: missing or empty, but aging.fake.support is {support}: the "
+                       "history signature is mandatory unless real-only (a fault with no "
+                       "Prometheus trail says - kind: none; master spec 6.10)")
+        elif "history" in data:
+            out.append(f"{p}: empty (a fault with no Prometheus trail says - kind: none)")
+        return
+    entries = data["history"]
+    if not isinstance(entries, list):
+        out.append(f"{p}: not a list of history entries")
+        return
+    kinds = [_dict(e).get("kind") for e in entries]
+    if HISTORY_NONE in kinds and len(entries) > 1:
+        out.append(f"{p}: kind none is the list's only entry (the fault leaves no Prometheus "
+                   "trail)")
+    for i, entry in enumerate(entries):
+        ep = f"{p}[{i}]"
+        if not isinstance(entry, dict):
+            out.append(f"{ep}: not a map (kind, ...)")
+            continue
+        kind = entry.get("kind")
+        if "kind" not in entry:
+            out.append(f"{ep}.kind: missing ({', '.join(HISTORY_KINDS)})")
+            continue
+        if kind not in HISTORY_KINDS:
+            out.append(f"{ep}.kind: {kind!r} is not one of {', '.join(HISTORY_KINDS)}")
+            continue
+        required, optional = HISTORY_KINDS[kind]
+        for key in sorted(str(k) for k in entry
+                          if k not in required and k not in optional
+                          and k not in ("kind", SUPPRESSED_BY)):
+            allowed = list(required) + list(optional) + [SUPPRESSED_BY]
+            out.append(f"{ep}.{key}: not a field of kind {kind} ({', '.join(allowed)})")
+        for key in required:
+            if key not in entry:
+                out.append(f"{ep}.{key}: missing (kind {kind})")
+        for key, form in list(required.items()) + list(optional.items()):
+            if key in entry:
+                _check_history_field(entry[key], form, f"{ep}.{key}", names, out)
+        if kind == "queue":
+            effects = [e for e in QUEUE_EFFECTS if e in entry]
+            if len(effects) != 1:
+                out.append(f"{ep}: kind queue takes exactly one of service and lock "
+                           f"({', '.join(effects) or 'none'} given)")
+            if "lock" in entry:
+                blocks = _dict(entry["lock"]).get("blocks")
+                if not (isinstance(blocks, list) and blocks
+                        and all(isinstance(b, str) and b for b in blocks)):
+                    out.append(f"{ep}.lock.blocks: not a non-empty list of the keys it blocks")
+        if SUPPRESSED_BY in entry:
+            ids = entry[SUPPRESSED_BY]
+            if not (isinstance(ids, list) and ids
+                    and all(isinstance(f, str) and NAME_RE.match(f) for f in ids)):
+                out.append(f"{ep}.{SUPPRESSED_BY}: not a non-empty list of fault ids")
+
+
+def _check_history_field(value, form, p, names, out):
+    if form == "string":
+        if not (isinstance(value, str) and value.strip()):
+            out.append(f"{p}: {value!r} is not a non-empty string")
+            return
+        for name in FAULT_PLACEHOLDER_RE.findall(value):
+            if name != INSTANCE_NODE and name not in names:
+                out.append(f"{p}: {{{name}}} names no parameter of the fault (nor "
+                           f"{{{INSTANCE_NODE}}}, the instance's node)")
+    elif form == "number":
+        if not _is_number(value):
+            out.append(f"{p}: {value!r} is not a number (measured, never a placeholder)")
+    elif form == "duration":
+        try:
+            parse_duration(value)
+        except ValueError as exc:
+            out.append(f"{p}: {exc}")
+    elif form == "time":
+        if not (isinstance(value, str) and SCENARIO_TIME_RE.match(value)):
+            out.append(f'{p}: {value!r} is not a quoted "HH:MM", 24-hour, scenario time')
+    elif form == "effect":
+        if not isinstance(value, dict):
+            out.append(f"{p}: not a map {{median, sigma, ...}}")
+            return
+        for key in ("median", "sigma"):
+            if not _is_number(value.get(key)):
+                out.append(f"{p}.{key}: {value.get(key)!r} is not a number (measured)")
+
+
+def _check_documentation_family(data, label, out):
+    """Family `documentation`, ids `docs-overview-*` (master spec 6.3): a
+    seed-file fault on the bastion whose seed_changes name
+    network-overview.md; the network-overview skill writes the handout."""
+    fid = data.get("id")
+    family = data.get("family")
+    injection = _dict(data.get("injection"))
+    changes = injection.get("seed_changes")
+    changes = [c for c in changes if isinstance(c, dict)] if isinstance(changes, list) else []
+    overview = [c for c in changes if c.get("file") == OVERVIEW_SEED_FILE]
+    named = isinstance(fid, str) and fid.startswith(DOCS_OVERVIEW_PREFIX)
+    if family == DOCUMENTATION_FAMILY or named or overview:
+        p = f"{label}"
+        if family != DOCUMENTATION_FAMILY:
+            why = f"id {fid}" if named else f"seed_changes name {OVERVIEW_SEED_FILE}"
+            out.append(f"{p}: family: {family!r}, but {why}: a network-overview fault is family "
+                       f"{DOCUMENTATION_FAMILY} (master spec 6.3)")
+        if not named:
+            out.append(f"{p}: id: {fid!r} is not {DOCS_OVERVIEW_PREFIX}<what>: a "
+                       f"{DOCUMENTATION_FAMILY} fault's id (master spec 6.3)")
+        if injection.get("kind") != "seed-file":
+            out.append(f"{p}: injection.kind: {injection.get('kind')!r}, but a "
+                       f"{DOCUMENTATION_FAMILY} fault is a seed-file change (master spec 6.3)")
+        if not changes or len(overview) != len(changes):
+            out.append(f"{p}: injection.seed_changes: a {DOCUMENTATION_FAMILY} fault changes "
+                       f"{OVERVIEW_SEED_FILE}, the bastion's handout, and nothing else (master "
+                       "spec 6.3)")
+        bricks = _dict(data.get("applies_to")).get("bricks")
+        ids = {_dict(b).get("id") for b in bricks} if isinstance(bricks, list) else set()
+        if ids and ids != {"bastion"}:
+            out.append(f"{p}: applies_to.bricks: {', '.join(sorted(map(str, ids)))}: a "
+                       f"{DOCUMENTATION_FAMILY} fault is on the bastion alone (master spec 6.3)")
+
+
+def _check_change_lines(change, p, names, out):
+    """`seed_changes[].lines` (master spec 6.3, 6.9; W1 item 5, spec D510,
+    D521): a non-empty list of the literal lines the change puts in the
+    scenario's copy, {NAME} naming a parameter of the fault; never on a
+    generated handout."""
+    lines = change.get("lines")
+    if change.get("file") in GENERATED_HANDOUTS:
+        out.append(f"{p}: {change.get('file')} is a generated handout, whose changes the answer "
+                   "key's diffs carry: no lines: (master spec 6.3)")
+        return
+    if not (isinstance(lines, list) and lines):
+        out.append(f"{p}: not a non-empty list of the literal lines the change puts in the "
+                   "scenario's copy")
+        return
+    for j, line in enumerate(lines):
+        if not (isinstance(line, str) and line.strip()):
+            out.append(f"{p}[{j}]: {line!r} is not a non-empty line (quote it)")
+            continue
+        if "\n" in line.strip():
+            out.append(f"{p}[{j}]: one line per item, never a block")
+        for name in FAULT_PLACEHOLDER_RE.findall(line):
+            if name not in names:
+                out.append(f"{p}[{j}]: {{{name}}} names no parameter of the fault")
+
+
+# --- the scenario's v0.6 checks ---
+
+def _check_v06(data, nodes, faults, scheduled, minimum, sdir, out):
+    """v0.6's scenario checks but the network overview's (build plan chunk 3;
+    master spec 6.10)."""
+    _check_admitted(data, faults, scheduled, minimum, out)
+    _check_partners_page(data, nodes, out)
+    _check_declared_lines(data, nodes, faults, sdir, out)
+
+
+def moment_before(value):
+    """Seconds before hand-over of a moment `handover-<N>h`; None for `T0`
+    or anything else (W1 item 4: moments written as a planting moment is)."""
+    m = HANDOVER_MOMENT_RE.match(value) if isinstance(value, str) else None
+    return int(m.group(1)) * 3600 if m else None
+
+
+def _is_moment(value):
+    return value == "T0" or moment_before(value) is not None
+
+
+def _third_party_docs(data):
+    """{third party id: its player_doc} of every third_parties: entry
+    carrying one."""
+    entries = data.get("third_parties")
+    entries = entries if isinstance(entries, list) else []
+    return {e["id"]: e["player_doc"] for e in entries
+            if isinstance(e, dict) and isinstance(e.get("id"), str) and e.get("player_doc")}
+
+
+def _check_admitted(data, faults, scheduled, minimum, out):
+    """A fault instance's `admitted:` (master spec 6.9, 6.10, 7.6; spec
+    D522): `by` a third party with a player_doc; `from` T0 or
+    handover-<N>h, not before the instance's planting; `until`, when
+    present, after `from` (and so before hand-over); `title` and `text`
+    non-empty. T0 lies aging.minimum before hand-over, at hand-over with no
+    scheduler node."""
+    label = "scenario.yaml"
+    entries = data.get("third_parties")
+    ids = {e.get("id") for e in entries if isinstance(e, dict)} \
+        if isinstance(entries, list) else set()
+    docs = _third_party_docs(data)
+    t0 = (minimum if scheduled else 0)
+    for inst in data.get("fault_instances") or []:
+        if not isinstance(inst, dict) or "admitted" not in inst:
+            continue
+        p = f"{label}: fault_instances[{inst.get('id')}].admitted"
+        admitted = inst["admitted"]
+        if not isinstance(admitted, dict):
+            out.append(f"{p}: not a map of by, title, text, from and optionally until")
+            continue
+        unknown = sorted(str(k) for k in admitted if k not in ADMITTED_KEYS)
+        if unknown:
+            out.append(f"{p}: {', '.join(unknown)}: not a key of admitted "
+                       f"({', '.join(ADMITTED_KEYS)})")
+        by = admitted.get("by")
+        if "by" not in admitted:
+            pass                             # reported against the template
+        elif by not in ids:
+            out.append(f"{p}.by: {by!r} is not a third_parties: entry (master spec 6.10)")
+        elif by not in docs:
+            out.append(f"{p}.by: third party {by} has no player_doc: only a partner with a "
+                       "player document has a status page (master spec 6.10, 7.6)")
+        for key in ("title", "text"):
+            value = admitted.get(key)
+            if not (isinstance(value, str) and value.strip()):
+                out.append(f"{p}.{key}: missing or empty (the partner's own words; master spec "
+                           "6.10)")
+        start, end = admitted.get("from"), admitted.get("until")
+        if "from" not in admitted:
+            continue                         # reported against the template
+        if not _is_moment(start):
+            out.append(f"{p}.from: {start!r} is not T0 or handover-<N>h (N a whole number of "
+                       "hours, at least 1: before hand-over)")
+            continue
+        start_s = moment_before(start) if start != "T0" else t0
+        plant = inst.get("plant_at", "T0")
+        plant_s = moment_before(plant) if plant != "T0" else t0
+        if _is_moment(plant) and start_s is not None and plant_s is not None \
+                and start_s > plant_s:
+            out.append(f"{p}.from: {start} is before the instance's planting ({plant}): a "
+                       "partner admits the incident its fault causes, never before it is "
+                       "planted (master spec 6.10, 7.6)")
+        if "until" not in admitted:
+            continue
+        if not _is_moment(end):
+            out.append(f"{p}.until: {end!r} is not T0 or handover-<N>h (N a whole number of "
+                       "hours, at least 1: not after hand-over)")
+            continue
+        end_s = moment_before(end) if end != "T0" else t0
+        if end == "T0" or (start_s is not None and end_s is not None and end_s >= start_s):
+            out.append(f"{p}.until: {end} is not after from ({start}) (master spec 6.10)")
+
+
+def _check_partners_page(data, nodes, out):
+    """O251 (master spec 6.10; formats.md "Partners"; spec D486; W1 item 5):
+    each bastion maps partners.md: player/partners.md exactly when the
+    scenario's third_parties: carry a player_doc."""
+    docs = bool(_third_party_docs(data))
+    why = '(formats.md "Partners"; spec D486)'
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        p = f"scenario.yaml: nodes[{node.get('name')}].seed_files.{PARTNERS_SEED_FILE}"
+        seeds = _dict(node.get("seed_files"))
+        if docs and PARTNERS_SEED_FILE not in seeds:
+            out.append(f"{p}: missing: third parties carry a player_doc, but the bastion maps no "
+                       f"{PARTNERS_SEED_FILE} {why}")
+        elif not docs and PARTNERS_SEED_FILE in seeds:
+            out.append(f"{p}: the bastion maps {PARTNERS_SEED_FILE}, but no third party carries "
+                       f"a player_doc {why}")
+        elif PARTNERS_SEED_FILE in seeds and seeds[PARTNERS_SEED_FILE] != PARTNERS_HANDOUT:
+            out.append(f"{p}: {seeds[PARTNERS_SEED_FILE]}, not {PARTNERS_HANDOUT} {why}")
+
+
+def _normal_line(text):
+    """A line stripped, its runs of blanks made one space (master spec 6.10)."""
+    return " ".join(text.split())
+
+
+def line_found(line, copy_lines):
+    """Whether `line` is in a copy's lines: a line of the copy, both
+    normalised, equals it or continues it with a comment (`#` or `--`
+    after a blank), anywhere in the file (master spec 6.10; W1 item 5)."""
+    want = _normal_line(line)
+    for have in copy_lines:
+        have = _normal_line(have)
+        if have == want or have.startswith(want + " #") or have.startswith(want + " --"):
+            return True
+    return False
+
+
+def resolve_placeholders(text, values):
+    """`{NAME}` in text replaced from `values` ({NAME: value}); a name with
+    no value (None) is left as written."""
+    def one(m):
+        value = values.get(m.group(1))
+        return m.group(0) if value is None else str(value)
+    return FAULT_PLACEHOLDER_RE.sub(one, text)
+
+
+def instance_values(fault_data, inst):
+    """{NAME: value} of an instance's fault parameters, for {NAME}: the
+    instance's value, else the fault's default."""
+    given = _dict(inst.get("parameters"))
+    values = {}
+    for pname, spec in _dict(fault_data.get("parameters")).items():
+        value = given.get(pname)
+        if value is None:
+            value = _dict(spec).get("default")
+        values[str(pname).upper().replace("-", "_")] = value
+    return values
+
+
+def _seed_copy(node, sdir, fname):
+    """(the scenario-relative path as written, [files]) of a node's copy of
+    a seed change's file: its seed_files entry (a folder entry: every file
+    under it), `data` its data file; (None, []) when the node has none."""
+    if fname == DATA_SEED_CHANGE:
+        rel = _dict(node.get("data")).get("file")
+    else:
+        rel = _dict(node.get("seed_files")).get(fname)
+    path = _inside(sdir, rel) if isinstance(rel, str) else None
+    if path is None:
+        return None, []
+    if path.is_dir():
+        return rel, sorted(p for p in path.rglob("*") if p.is_file())
+    return rel, [path] if path.is_file() else []
+
+
+def _check_declared_lines(data, nodes, faults, sdir, out):
+    """O269 (master spec 6.10; formats.md fault "Injection"; spec D510,
+    D521; W1 item 5): each line a selected instance's seed change declares,
+    its placeholders resolved, is in the node's copy of the change's file.
+    A copy the node does not map is reported where the mapping is checked."""
+    by_name = {n.get("name"): n for n in nodes}
+    for inst in data.get("fault_instances") or []:
+        if not isinstance(inst, dict):
+            continue
+        iid = inst.get("id")
+        fault = faults.get(iid)
+        node = by_name.get(inst.get("node"))
+        if fault is None or not isinstance(node, dict):
+            continue
+        changes = _dict(fault.data.get("injection")).get("seed_changes")
+        values = None
+        for change in changes if isinstance(changes, list) else []:
+            lines = _dict(change).get("lines")
+            fname = _dict(change).get("file")
+            if not isinstance(lines, list) or fname in GENERATED_HANDOUTS:
+                continue
+            rel, files = _seed_copy(node, sdir, fname)
+            if rel is None:
+                continue
+            copy_lines = []
+            for path in files:
+                try:
+                    copy_lines += path.read_text(encoding="utf-8").splitlines()
+                except (OSError, UnicodeDecodeError):
+                    continue
+            values = instance_values(fault.data, inst) if values is None else values
+            for line in lines:
+                if not (isinstance(line, str) and line.strip()):
+                    continue                 # reported with the fault
+                line = resolve_placeholders(line, values)
+                if not line_found(line, copy_lines):
+                    out.append(f'scenario.yaml: fault_instances[{iid}]: {fname}: line "{line}" '
+                               f"of fault {fault.id}'s seed_changes is not in {rel}: a seed-file "
+                               'change is in the scenario\'s copy from T0 (formats.md, fault '
+                               '"Injection"; spec D510)')
+
+
+# --- the accessors (W1 item 4): parse, never check; never raise on a checked
+# --- scenario; frozen records ---
+
+@dataclass(frozen=True)
+class Admitted:
+    """An incident a partner admits on its status page (master spec 7.6)."""
+    instance: str
+    by: str                         # the third party's id
+    partner: str                    # its name
+    anchor: object                  # its player_doc's fragment, after #; None without one
+    title: str
+    text: str
+    start: str                      # from, as written: T0 or handover-<N>h
+    end: object                     # until, as written; None without until
+    start_before: object            # seconds before hand-over; None for T0
+    end_before: object              # seconds before hand-over; None without until
+
+
+def admitted_incidents(scenario):
+    """One Admitted per fault instance carrying `admitted:`, in
+    fault_instances order. The UTC instants and the filter to planted
+    instances are render's (master spec 7.6)."""
+    parties = {e.get("id"): e for e in scenario.data.get("third_parties") or []
+               if isinstance(e, dict)}
+    found = []
+    for inst in scenario.data.get("fault_instances") or []:
+        admitted = inst.get("admitted") if isinstance(inst, dict) else None
+        if not isinstance(admitted, dict):
+            continue
+        party = _dict(parties.get(admitted.get("by")))
+        doc = str(party.get("player_doc") or "")
+        end = admitted.get("until")
+        found.append(Admitted(
+            instance=inst.get("id"), by=admitted.get("by"), partner=party.get("name"),
+            anchor=doc.partition("#")[2] if "#" in doc else None,
+            title=admitted.get("title"), text=admitted.get("text"),
+            start=admitted.get("from"), end=end,
+            start_before=moment_before(admitted.get("from")),
+            end_before=moment_before(end) if end is not None else None))
+    return tuple(found)
+
+
+@dataclass(frozen=True)
+class FakeAging:
+    """A fault's aging.fake (master spec 6.3, 9.5)."""
+    support: str                    # supported | tail-only | real-only
+    reason: str
+    tail_minimum: object            # seconds, or None
+    tail_covers: tuple              # "HH:MM" scenario-time strings
+    plant_in: str                   # any | tail
+    emulate: tuple                  # what the fill imitates
+
+
+def fault_fake_aging(fault_data):
+    """The fault's FakeAging, or None without aging.fake (not assessed)."""
+    fake = _dict(fault_data.get("aging")).get("fake")
+    if not isinstance(fake, dict):
+        return None
+    try:
+        tail = parse_duration(fake["tail_minimum"]) if "tail_minimum" in fake else None
+    except ValueError:
+        tail = None
+    covers = fake.get("tail_covers")
+    emulate = _dict(fake.get("fill")).get("emulate")
+    return FakeAging(support=fake.get("support"), reason=fake.get("reason"),
+                     tail_minimum=tail,
+                     tail_covers=tuple(covers) if isinstance(covers, list) else (),
+                     plant_in=fake.get("plant_in", "any"),
+                     emulate=tuple(emulate) if isinstance(emulate, list) else ())
+
+
+@dataclass(frozen=True)
+class HistoryEntry:
+    """An entry of a fault's history signature (master spec 6.3, 6.9)."""
+    kind: str
+    fields: dict                    # every key but kind and suppressed_by, as written
+    suppressed_by: tuple            # fault ids
+
+
+def fault_history(fault_data):
+    """The fault's history signature as written (placeholders unresolved),
+    a tuple of HistoryEntry, or None without history:."""
+    entries = fault_data.get("history")
+    if not isinstance(entries, list):
+        return None
+    found = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        suppressed = entry.get(SUPPRESSED_BY)
+        found.append(HistoryEntry(
+            kind=entry.get("kind"),
+            fields={k: v for k, v in entry.items() if k not in ("kind", SUPPRESSED_BY)},
+            suppressed_by=tuple(suppressed) if isinstance(suppressed, list) else ()))
+    return tuple(found)
+
+
+def _resolved(value, values):
+    if isinstance(value, str):
+        return resolve_placeholders(value, values)
+    if isinstance(value, dict):
+        return {k: _resolved(v, values) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolved(v, values) for v in value]
+    return value
+
+
+def instance_history(scenario, iid):
+    """The history signature of fault instance `iid` of a checked scenario:
+    fault_history's entries with every {NAME} replaced from the instance's
+    parameters, else their defaults, and {INSTANCE_NODE} by its node:;
+    suppressed_by kept as data (it depends on the selection). None without
+    history:. KeyError for an instance the scenario does not have."""
+    fault = scenario.faults[iid]
+    inst = next(i for i in scenario.data.get("fault_instances") or []
+                if isinstance(i, dict) and i.get("id") == iid)
+    entries = fault_history(fault.data)
+    if entries is None:
+        return None
+    values = dict(instance_values(fault.data, inst), **{INSTANCE_NODE: inst.get("node")})
+    return tuple(HistoryEntry(kind=e.kind, fields=_resolved(e.fields, values),
+                              suppressed_by=e.suppressed_by) for e in entries)

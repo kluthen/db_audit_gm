@@ -4,7 +4,7 @@
 **Ref:** `ISS-001`
 **Date:** 2026-11-14
 **Severity:** High
-**Status:** Open
+**Status:** Resolved
 **Component:** `tools/gm/model.py`
 **Affects:** `tools/gm/localimpl.py` (seed rendering), `tools/gm/inject.py`, the `scenario-format` skill's checks, every scenario that selects a `seed-file` fault (`scenarios/*/nodes/*/`), the wave gates' fixtures
 **Seen on:** armenelos + VPS; `aldermoor-centre` at G13 run 1 (game `aldermoor-cfdt1n`, 2026-11-13), on main 090ea1f
@@ -131,3 +131,17 @@ readings matched run 2. Run 2 (after 0118c90) read every fault present.
 ## Change log
 
 - **2026-11-14**: filed.
+- **2026-11-16**: resolved in 1ef46e3 (v0.6 build plan chunk 3; spec D510,
+  D521; master spec v0.6 6.3, 6.10). A `seed_changes` item declares
+  `lines:`, the literal lines the change puts in the scenario's copy; the
+  loader finds each, its `{NAME}` placeholders resolved from the instance's
+  parameters (else the defaults), in the node's copy of the item's file,
+  and refuses the instance naming the line and the copy.
+  `pg-archive-command-silent`, `governance-statement-log-personal`,
+  `pg-standby-apply-delay` (the clinic's s2, s7, s8) and
+  `grafana-alert-for-too-long` declare theirs; a change without `lines:`
+  stays the GM's to read, as the `scenario-format` checklist says. Covered
+  by `tools/tests/test_model.py` `TestDeclaredLinesRefusals` (a missing
+  line refused, placeholders, a folder entry, the data file) and
+  `TestRepositoryYaml.test_repo_scenarios_load` (the clinic's three lines
+  found).

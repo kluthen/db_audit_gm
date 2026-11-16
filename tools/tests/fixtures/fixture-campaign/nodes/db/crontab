@@ -4,4 +4,5 @@
 # shop_refresh (MAINTAIN on the view), over the local socket through the
 # password file load-data's secret fills; output appended to the job's log.
 PGPASSFILE=/run/gm-cron/pgpass
+# the web shop's best-sellers list (popular_products) refreshed
 17 * * * * psql -X -w -h /run/postgresql -U shop_refresh -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1

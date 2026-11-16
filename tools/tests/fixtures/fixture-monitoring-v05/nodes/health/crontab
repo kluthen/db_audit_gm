@@ -3,9 +3,9 @@
 # until G13 (spec D362). Each line's results land on the page (/health/).
 PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
-# the checks (check_postgres over health.yaml), every five minutes
+# the health page's checks on the database servers (check_postgres over health.yaml)
 */5 * * * * health-run checks
-# the IT's disk alarm on the databases' size: warning at 2 GB, critical at 4 GB
+# the IT's disk alarm on records' databases: warning at 2 GB, critical at 4 GB
 */5 * * * * health-run script disk-alarm 2048 4096 records
-# is last night's base backup in cold storage? after the nightly job
+# is records' base backup of last night in Cold Storage? after its nightly backup
 30 6 * * * health-run script backup-there http://cold-storage:8000 records

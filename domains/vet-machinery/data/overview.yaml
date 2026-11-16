@@ -1,0 +1,40 @@
+# vet-machinery's overview fragment (v0.6 master spec 6.5, 6.9; capture W1
+# item 6): each login role its three schema files (data/{pacs,vitals,
+# biomed}/schema.sql) create, each job of producers/equipment/jobs.yaml and
+# each pg_cron job of data/cron.sql, one line each, in the customer's words.
+# The network overview reads it (master spec 8.2, "Fed and used by",
+# "Background tasks").
+roles:
+  - role: mach_pacs_app
+    who: the imaging system (PACS), its worklist and the imaging machines
+    reads: the imaging worklist, the procedures, the studies and the reports
+    writes: the worklist's scheduling, identity and state, studies, series and reports
+  - role: mach_vitals_app
+    who: the central monitoring station and the patient monitors
+    reads: every monitoring table
+    writes: the monitoring census, sessions, vital signs, charts and alarms
+  - role: mach_biomed_app
+    who: biomedical engineering
+    reads: every machine table
+    writes: machine events, readings, maintenance and downtimes, a machine's status and next quality check
+  - role: mach_maint
+    who: the nightly partition jobs
+    reads: nothing
+    writes: the coming days' partitions of the monitors' and the machines' data
+  - role: mach_service
+    who: the machine vendors' remote service
+    reads: the machines, their events, readings and maintenance
+    writes: its maintenance visits
+jobs:
+  - job: mach-identity
+    what: new imaging worklist entries completed with the animal's and its owner's identity, from the clinic's lookup API
+  - job: mach-census
+    what: the animals in hospital copied to the monitoring census from the clinic's lookup API, intensive care sessions opened and closed
+  - job: vitals-chart
+    what: the anaesthesia and intensive care charts summarised from the monitors' readings
+  - job: vitals-partitions
+    what: the coming days' partitions of the monitors' vital signs created
+  - job: readings-partitions
+    what: the coming days' partitions of the machines' readings created
+  - job: events-partitions
+    what: next month's partition of the machines' events created

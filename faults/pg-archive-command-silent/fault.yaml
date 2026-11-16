@@ -48,6 +48,8 @@ injection:
         alone; wal_level, archive_mode = on, archive_timeout and the rest of
         the file as the scenario has them
       material: inject/postgresql.conf.snippet
+      lines:
+        - "archive_command = 'vault-post wal %p %f || true'"
   run_as: root
 
 # --- What the players can see ------------------------------------------

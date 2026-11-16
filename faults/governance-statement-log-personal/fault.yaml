@@ -51,6 +51,8 @@ injection:
         pg-archive-command-silent's archive_command line in one file, each
         sealed check judging its own setting
       material: inject/postgresql.conf.snippet
+      lines:
+        - "log_statement = 'all'"
   run_as: root
 
 # --- What the players can see ------------------------------------------
