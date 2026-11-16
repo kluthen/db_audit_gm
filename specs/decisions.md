@@ -287,3 +287,25 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   `admitted.from` is `T0` or `handover-<N>h`, hours only, as a planting
   moment;** 6.9's `h|m` comment was the outlier. Now in:
   [master spec](versions/v0.6/master-spec.md#69-shapes-of-the-new-fields) 6.9.
+- **D523 (2026-11-16, owner ruling "Adopt the cover (Recommended)",
+  relayed by the wave driver after chunk 8): a routine pinning its own
+  `search_path` is covered for the fill's span and restored exactly,
+  on failure too; its catalog row-version tell a documented limit;** the
+  campaign's f4 and f7 back to `supported`, their calibration confirming.
+  Refines D508 and capture W1 item 8 ("session settings only"). The fill
+  finds such routines itself (spec-writer's default for the form): a
+  declared list is the omission chunk 8 hit. Now in:
+  [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
+  9.4, 9.8, 9.10, 18.
+- **D524 (2026-11-16, spec-writer, placing D523): chunk 15 inserted in
+  wave 2 to build the cover,** before the wave's start, so W2's capture
+  covers it; a chunk of its own rather than inside 9 (already the
+  wave's largest) or 11 (wave 3, which needs it done). Now in:
+  [build plan](versions/v0.6/build-plan.md) chunk 15, "Waves".
+- **D525 (2026-11-16, spec-writer, on chunk 8's risk): in a fake game
+  `load-data` and the plantings at T0 run on the virtual T0's clock**
+  (fix 11), so the seed ends at the virtual T0 instead of overlapping
+  the fill's span; 9.3 already made the virtual T0 a real game's T0,
+  9.4 said nothing of the seed's clock. Now in:
+  [master spec](versions/v0.6/master-spec.md#99-the-fix-list) 9.4, 9.9;
+  [build plan](versions/v0.6/build-plan.md) chunk 9.

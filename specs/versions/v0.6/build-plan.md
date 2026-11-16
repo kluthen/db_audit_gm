@@ -1,7 +1,10 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v3 (2026-11-16): W1's corrections (capture W1's preflight
-corrections 1 to 4): `seed_changes[].lines` and its three clinic faults
+Status: v4 (2026-11-16): the `rpt.close_day()` cover adopted (spec
+D523), chunk 15 inserted in wave 2 to build it (spec D524), the seed and
+the T0 plantings dated from the virtual T0 in chunk 9 (spec D525);
+chunks 9, 11 and 12 and wave 2 revised. v3: W1's corrections (capture
+W1's preflight corrections 1 to 4): `seed_changes[].lines` and its three clinic faults
 (chunk 3; spec D521), `admitted.from` in hours only (spec D522), chunk
 2's and chunk 8's Files, the merge edge `3 ──> 8`. v2, approved: the
 reference outside git (spec D519), `fa-real` torn down after chunk 1
@@ -116,7 +119,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | planned |
-| 2 | 6, 7, 9 | wave 1; G6 (chunk 6); G7 before its gate | planned |
+| 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | planned |
 | 3 | 10, 11, 13 | wave 2 | planned |
 | 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
 
@@ -138,12 +141,17 @@ G6 ──> 6
 3, 8 ──> 9              (aging.fake read by render; the fill's interface, W1)
 6 ──> 9                 (in wave 2, merge order: render.py, deploy.py, localimpl.py;
                          the interfaces both touch fixed by capture W2)
+8 ──> 15                (the fill as merged: gm_vclock, fill.quiet, the pauses)
+15 ──> 9                (in wave 2, merge order: the cover's fill.quiet item, which
+                         clean-restart restores, and bricks/scheduler/program/ if 9
+                         needs it for the seed's clock; fixed by capture W2)
+15 ──> 11, 12           (f4's and f7's support through the cover)
 3, 9 ──> 10             (history: read; the restart record and the host timers)
-3, 8 ──> 11             (the fault format; P0's result and the queue model's form)
+3, 8, 15 ──> 11         (the fault format; P0's result, the cover and the queue model's form)
 7, 9 ──> 13             (game-master's setup step 2; the fake-mode verbs, W2, W3)
 2 ──> 5                 (grafana 0.4.0's version line)
-7, 8, 9, 10, 11 ──> 12  (the scenario-document skill; the fill, the restart, the
-                         history, the faults' assessment)
+7, 8, 9, 10, 11, 15 ──> 12  (the scenario-document skill; the fill and its cover, the
+                         restart, the history, the faults' assessment)
 6, 7 ──> 14             (bastion 0.6.0's front and seventh seed file; the overview
                          and overview_diff:)
 ```
@@ -169,11 +177,16 @@ capture W1). Chunk 8 starts after chunks 1 and 2 and does not wait for
 chunk 3's alone in wave 1; `bricks/scheduler/` chunk 8's after chunk 2's
 version lines; `domains/` chunk 4's.
 
-**Wave 2's order**: chunks 6 and 7 start first; 9 takes chunk 7's slot
-and merges after chunk 6, taking `v0.6-w2` in first. `tools/gm/model.py`
-and the `scenario-document` skill are chunk 7's alone in wave 2;
+**Wave 2's order**: chunks 6 and 7 start first; 9 takes chunk 7's slot,
+15 (light, short) the next free one; 9 merges last, after chunks 6 and
+15, taking `v0.6-w2` in first. `tools/gm/model.py` and the
+`scenario-document` skill are chunk 7's alone in wave 2;
 `tools/gm/{render,deploy,localimpl}.py` are shared by 6 and 9 under that
-merge order (capture W2).
+merge order (capture W2); `tools/gm/fill.py`, `tools/tests/test_fill.py`
+and `bricks/scheduler/` are chunk 15's, and 9 changes the scheduler
+program only after 15 has merged; `tools/gm/inject.py` is chunk 9's.
+Chunk 15 joins the wave's capture (W2) like the others: it was inserted
+before wave 2's start (spec D524).
 
 **Wave 3's order**: chunks 13 and 11 start first (11's shop half needs
 no Docker); 10 takes chunk 13's slot. The three share no file; 10's and
@@ -278,7 +291,7 @@ the seeded dashboards, which no `README.md` reads.
 | Wave | Adds to the full quality command |
 |---|---|
 | 1 | G5 cleared; every brick built at its v0.6 version, its `base:` checked against the image's `/etc/os-release`; the loader's new refusals (chunk 3's unit tests, every scenario and fixture loading); `check_domain_dir` clean on the seven domains with their overview fragments; the scheduler's replay guard and P0's result recorded in the wave log; chunk 8's short fill on its fixture |
-| 2 | G7 cleared; `bastion` 0.6.0's stack test (the home page, the documentation site, the reports folder with its sandbox header, `jq` and `tmux`) and chunk 6's status fixture (an incident started, one not yet, "Operational", the status file unreadable by `player`); the network overview's unit tests on the clinic (each crafted break refused); the clinic's format check with its overview, every scenario's `README.md` matching a fresh regeneration; chunk 9's clean-restart fixture (one restart instant, the monitoring started in it, the statistics reset once, `pg_wal`'s size, the restart record) |
+| 2 | G7 cleared; `bastion` 0.6.0's stack test (the home page, the documentation site, the reports folder with its sandbox header, `jq` and `tmux`) and chunk 6's status fixture (an incident started, one not yet, "Operational", the status file unreadable by `player`); the network overview's unit tests on the clinic (each crafted break refused); the clinic's format check with its overview, every scenario's `README.md` matching a fresh regeneration; chunk 9's clean-restart fixture (one restart instant, the monitoring started in it, the statistics reset once, `pg_wal`'s size, the restart record, no seeded or T0-planted time after the virtual T0); chunk 15's cover in `TestP0` (the scheduler's unit runner), the replay guard green |
 | 3 | chunk 10's history fixture (the import, the seam check, the restart from the hand-over snapshot keeping the imported blocks); every fault of the shop and the campaign passing the format check with `aging.fake` and `history:`; the calibration figures recorded in the wave log |
 | 4 | G8 cleared; `grafana` 0.4.0's stack test (the `node` variable filtering one node); the two short fake games (chunk 12: shop and campaign, each under 30 minutes, the checks reading every selected fault present, the seam check, the tells script, the shop's M1 and M3 comparisons against the reference); the `docs-overview-*` fault's short test and the clinic's front fixture (chunk 14) |
 
@@ -303,6 +316,13 @@ is spent. i aprove the plan."):
 | No reference data in git, small files included: the whole `results/` archived outside git at the proposed path, git keeping its pointer; a test needing it skips when it is absent | D519 | 1, 8, 11, 12 |
 | `fa-real` torn down once its usefulness is spent: after chunk 1 merges and the archive verifies | D520 | G12 |
 
+Ruled on 2026-11-16, after chunk 8 (wave log, "Owner ruling: the
+`rpt.close_day()` cover adopted"), "Adopt the cover (Recommended)":
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| A routine pinning its own `search_path` covered for the fill's span and restored exactly, the catalog row-version tell a documented limit; the campaign's f4 and f7 back to `supported`, subject to their calibration | D523 | 15, 9, 11, 12 |
+
 ## Measurements and hand checks
 
 - G3, G4: hand checks by the wave driver before wave 1.
@@ -310,9 +330,12 @@ is spent. i aprove the plan."):
   `.tech` updated on the wave branch.
 - **P0** (master spec 9.8, 18): binding the virtual instant in the
   fill's SQL and the server-side functions it calls; chunk 8's first
-  deliverable, before any other fill code. Its result sets the
-  campaign's supports (chunk 11) and the campaign's short selection
-  (chunk 12): the fallback if it fails is settled (master spec 9.8).
+  deliverable, measured partial (W1-x): a routine pinning its own
+  `search_path` is out of reach, so the cover (chunk 15, spec D523);
+  f4's and f7's support confirmed in a short campaign fill (chunk 11).
+  Its result sets the campaign's supports (chunk 11) and the campaign's
+  short selection (chunk 12): the fallback for a fault it doesn't reach
+  is settled (master spec 9.8).
 - **Each key's service time** for the queue model: the shop's from the
   research's real run (chunk 8); a campaign-only key's by a short real
   run (chunk 11).
@@ -349,7 +372,7 @@ each is recorded.
 
 | Item | Chunk |
 |---|---|
-| P0 | 8 |
+| P0 | 8; the cover 15; f4 and f7 confirmed 11 |
 | The WAL padding's time and what it leaves | 9 |
 | A short autovacuum naptime against the fill's speed | 8 |
 | A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 |
@@ -916,11 +939,13 @@ them); the loader's error texts; the `scenario-document` skill's
 
 Status: planned
 Wave: 2
-Depends on: chunks 3, 8; chunk 6 (merge order)
+Depends on: chunks 3, 8; chunks 6 and 15 (merge order)
 Docker: heavy (deployments of `fixture-fill` with the fill and the
 restart)
 Architecture capture: W2, for chunks 10, 12 and 13: the restart
-record's fields as written (master spec 6.9's form); the host timer
+record's fields as written (master spec 6.9's form); how `load-data`
+and the T0 inject take the virtual T0's clock (fix 11's means); the
+host timer
 units' names for the history import and the early check; how the story
 line on the restart reaches the starter pack (a placeholder render
 fills, or a line render writes); where the scenario's measured WAL rate
@@ -942,7 +967,17 @@ campaign's.
     hand-over, refused instances); `gmctl deploy` keeping Prometheus,
     Grafana, the exporters and pgwatch at zero until the restart;
     `gmctl start-load` with the virtual T0 as T0, no `reload
-    status=ok` line; the early check's timing (halfway through the
+    status=ok` line; **`gmctl load-data` and the plantings at T0 on the
+    virtual T0's clock** in a fake game (fix 11, master spec 9.4 steps
+    3 and 4; spec D525; chunk 8's risk: today's seed writes the real
+    `now()`, so its rows run up to the deploy and overlap the fill's
+    span): P0's means at a fixed instant, `gm_vclock` (`gm_scheduler
+    fill-sql`) with `gm.vclock` at the virtual T0 for `now()` and the
+    functions (dropped after), the time-of-day keywords in the seed's
+    and the inject scripts' SQL bound to it; a seeded time the means
+    can't reach (a column's `DEFAULT now()` the seed leaves to the
+    default) reported as a finding, never shifted after the fact; the
+    real mode unchanged; the early check's timing (halfway through the
     tail, by H minus one hour, never before the import is recorded,
     right after it in a tail under two hours); `gmctl status` showing
     the mode and the record;
@@ -955,14 +990,17 @@ campaign's.
     service of the game restarted at one instant with fresh process
     namespaces, the monitoring scaled up in that restart (fix 2); the
     instant recorded as the anchor, with the restart's `explains`
-    list;
+    list; every `fill.quiet` item the fill left unrestored that isn't
+    left off (a cover after a failed fill, chunk 15) restored from its
+    `restore` in its database before the statistics reset, beside
+    `gm_vclock`'s leftover drop;
   - **from the research** (`10d1bc6`): `fake_aging.py`'s clean-up and
     tail start read and **rewritten**.
   - Out: standbys and base backups after the restart (the clinic,
     later); `gmctl history` and the record's `history` field (chunk 10);
     the GM's procedure (chunk 13).
-- Files: `tools/gm/{render.py,deploy.py,aging.py,state.py,localimpl.py,__init__.py}`,
-  `tools/gm/cleanrestart.py` (new); `tools/tests/{test_render.py,test_deploy.py,test_aging.py,test_state.py}`,
+- Files: `tools/gm/{render.py,deploy.py,aging.py,state.py,localimpl.py,inject.py,__init__.py}`,
+  `tools/gm/cleanrestart.py` (new); `tools/tests/{test_render.py,test_deploy.py,test_aging.py,test_state.py,test_inject.py}`,
   `tools/tests/test_cleanrestart.py` (new);
   `.claude/skills/game-master/gmctl.md` (rows); `tools/tests/fixtures/fixture-fill/`
   (its run script for the restart).
@@ -975,7 +1013,11 @@ campaign's.
 - Done when: unit tests show the timeline for the shop's full selection
   (anchor 11:00, tail three hours) and for a capped floor, an
   ineligible instance refused with its reason, the early check's due
-  time in each case; on `fixture-fill` after `gmctl fill`: every
+  time in each case; on `fixture-fill`, after `load-data` and `inject`
+  in a fake game, no value after the virtual T0 in any `timestamptz`,
+  `timestamp` or `date` column of its databases, and the fill's rows
+  continuing from it; a unit test restoring a synthetic unrestored
+  cover item in W2's form; after `gmctl fill`: every
   container's and the postmaster's start time agreeing with the anchor,
   the monitoring's included; one `stats_reset` instant; no fill line
   in the PostgreSQL, pooler or cron logs; `pg_wal`'s size and the
@@ -984,8 +1026,75 @@ campaign's.
   under 30 minutes.
 - Verification: chunk checks; the fixture run.
 - Split rule: 9a the timeline, the record, deploy at zero, start-load,
-  the early check's timing, status; 9b clean-restart and its fixture
-  run.
+  the seed's and the T0 plantings' clock, the early check's timing,
+  status; 9b clean-restart (the leftover cover's restore included) and
+  its fixture run.
+
+### Chunk 15 — P0's cover: routines that pin their own `search_path`
+
+Status: planned
+Wave: 2
+Depends on: chunk 8 (merged; inserted after it, spec D524)
+Docker: light (the scheduler's image rebuilt, its unit runner with its
+throwaway PostgreSQL; no deployment)
+Architecture capture: W2, for chunks 9, 11 and 12: the cover's
+`fill.quiet` item (W1's form, its `restore` naming the routine and the
+database it runs in); what the fill covers (the query and its
+exclusions); the look after each planting.
+
+- Goal: the fill's virtual clock reaching a function or procedure that
+  pins its own `search_path`, the campaign's `rpt.close_day()` first,
+  for the fill's span only, its setting restored exactly, as master
+  spec 9.4 states (spec D523).
+- Scope: in:
+  - **found by the fill, not declared** (spec D523): at the fill's
+    start, in each database it writes, every function and procedure
+    outside the system schemas and the `gm_*` schemas whose
+    `proconfig` sets `search_path`;
+  - **the cover**: `ALTER FUNCTION|PROCEDURE … SET search_path` to
+    `gm_vclock` then the routine's own path, `pg_catalog` right after
+    `gm_vclock` when the path doesn't name it; its other settings (f7's
+    `TimeZone`) untouched; unseen as the fill's other statements; its
+    SQL beside `VCLOCK_SQL` in the program (`gm_scheduler fill-sql`),
+    so `TestP0` runs the very SQL `gmctl fill` sends;
+  - **listed and restored**: one `fill.quiet` item per routine (the
+    routine, its database, its original setting), restored to exactly
+    that at the fill's end, on `FAILED` and on any failure of `gmctl
+    fill`'s own, as `gm_vclock` is dropped; a restore that fails left
+    listed unrestored, for clean-restart (chunk 9);
+  - **after each planting** at a pause, the look again: a routine the
+    inject replaced or added takes its new setting as its original and
+    is covered;
+  - the P0 entry in the scheduler's `docs/gm.md`.
+  - Out: the campaign's f4 and f7 marked and confirmed (chunk 11);
+    clean-restart's restore of a leftover (chunk 9); the tells script's
+    check that no cover is left (chunk 12); what stays out of P0's
+    reach (the keywords in a body, `BEGIN ATOMIC`, a column's
+    `DEFAULT now()`).
+- Files: `bricks/scheduler/program/gm_scheduler/{fill.py,__main__.py}`
+  (the cover's SQL, `fill-sql`'s option);
+  `bricks/scheduler/tests/unit/test_fill.py` (`TestP0`);
+  `bricks/scheduler/docs/gm.md`; `tools/gm/fill.py`;
+  `tools/tests/test_fill.py`; `.claude/skills/game-master/gmctl.md`
+  (the fill's row, if it lists what the fill leaves).
+- Spec sections: [9.4](master-spec.md#94-the-gms-steps-in-fake-mode),
+  [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates),
+  [9.10](master-spec.md#910-documented-limits); items 5.
+- Done when: in `TestP0`, a procedure pinning `pg_catalog, pg_temp`
+  with a `TimeZone` setting (`rpt.close_day()`'s shape under f7) and a
+  function pinning `public, pg_temp` read the virtual clock from a fill
+  session under the cover and the real clock from a session without
+  `gm.vclock`; after the restore each `proconfig` equals its original
+  exactly, entries and order; a routine in a `gm_*` schema and one
+  without its own path are left untouched; in `tools/tests/test_fill.py`,
+  the cover listed in `fill.quiet` and restored in its own database at
+  the end, on `FAILED` and on a `gmctl fill` failure, a routine replaced
+  by a planting covered again and its new setting restored, a database
+  with no pinned routine giving no item; the replay guard green.
+- Verification: chunk checks; the scheduler's unit runner with the
+  replay guard. No fixture run: the shop pins no routine, and the wave
+  gate reruns `fixture-fill`'s short test.
+- Split rule: none.
 
 ### Chunk 10 — The history: `gmctl history`
 
@@ -1055,8 +1164,9 @@ arguments and output; the record's `history` field (`at`, `result`,
 
 Status: planned
 Wave: 3
-Depends on: chunks 3, 8; chunk 1 (the reference)
-Docker: heavy (the campaign's calibration runs, one at a time)
+Depends on: chunks 3, 8, 15; chunk 1 (the reference)
+Docker: heavy (the campaign's calibration runs and its short fill, one
+at a time)
 Architecture capture: W3, for chunk 12: each fault's support and tail,
 the shop's and the campaign's full selections' tails, P0's outcome as
 applied.
@@ -1077,8 +1187,14 @@ applied.
     node, key and fault as arguments), its origin named; the shop's
     numbers read from chunk 1's archive through `extract.sh`, never
     committed as files;
-  - **11b, the campaign's ten**: P0's outcome applied (f1 to f4 and f7
-    `supported`, or `tail-only` each with the tail its job's runs need);
+  - **11b, the campaign's ten**: P0's outcome applied: f1 to f3
+    `supported` (reached directly, W1-x); f4 and f7 `supported` through
+    the cover (chunk 15, spec D523), confirmed by one short fill of the
+    campaign, under 30 minutes, f4 and f7 planted, its span holding the
+    01:30 close: `rpt.close_day()`'s runs in the fill dated at their
+    virtual instants (`rpt.etl_runs`) and its `search_path` setting
+    identical after; either one not confirmed `tail-only` with the tail
+    its job's runs need (master spec 9.8);
     f5 `tail-only` planted in the tail, f6 `tail-only` one hour, f10
     `real-only` with its reason and no `history:`; each signature's
     numbers from one short real run of the fault, under 30 minutes,
@@ -1104,7 +1220,8 @@ applied.
   them traces to the reference or to a recorded calibration run; each
   `tail-only` and `real-only` fault's `gm.md` has its note; every
   calibration run is recorded with its wall time, each under 30
-  minutes.
+  minutes; the campaign's short fill recorded with its wall time and
+  f4's and f7's result, their `aging.fake.support` following it.
 - Verification: chunk checks; the calibration runs, one at a time,
   under the lock.
 - Split rule: 11a the shop's ten and the calibration tool; 11b the
@@ -1197,7 +1314,7 @@ link).
 
 Status: planned
 Wave: 4
-Depends on: chunks 7, 8, 9, 10, 11; chunk 1 (the reference)
+Depends on: chunks 7, 8, 9, 10, 11, 15; chunk 1 (the reference)
 Docker: heavy (one short fake game of the shop and one of the campaign)
 Architecture capture: W4: the verification tools' arguments and
 verdicts, and the short-game script's name, which the release gate
@@ -1211,7 +1328,8 @@ calls.
   - **the verification tools** in `tools/fake_aging/`: the tells
     script (no negative or moving start time, no fill statement in
     `pg_stat_statements`, one `stats_reset` instant, `pg_wal`'s size,
-    autovacuum counts in range), the M1 dump and comparison, the M3
+    autovacuum counts in range, no routine's `search_path` naming
+    `gm_vclock`), the M1 dump and comparison, the M3
     profile and comparison; from the research's `m4_tells.sh`,
     `m1_dump.sh`, `m1_compare.py` and `m3_profile.py`, **copied and
     generalised** (scenario, nodes and keys as arguments), their origin
@@ -1222,8 +1340,10 @@ calls.
   - **the short fake games**, one script (`tools/tests/smoke-fake-aging.sh`,
     new) run on `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign`:
     a selection whose tail fits a floor capped at 15 minutes (the shop:
-    f1, f2, f3, f6, f8, f9, f10; the campaign: f1 to f4 and f7 to f9, or
-    its fallback if P0 failed); render, deploy, load, inject, fill,
+    f1, f2, f3, f6, f8, f9, f10; the campaign: f1 to f4 and f7 to f9,
+    f4 and f7 through the cover (spec D523), less either one chunk 11
+    left `tail-only`, master spec 9.8's fallback); render, deploy, load,
+    inject, fill,
     clean-restart, a 15-minute tail, the history import at about 12
     minutes and the early check right after it; the checks reading
     every selected fault present; the seam check; the tells script; for
