@@ -1,0 +1,38 @@
+# Query repository of Tarnbeck Outdoor's back office, straight to the
+# database: the dashboards, the reports, the roll-up and the accounting
+# export.
+queries:
+  reports.recent:                    # the latest orders, on the back office's home page
+    sql: >-
+      SELECT id, customer_id, status, total FROM orders
+       WHERE placed_at > now() - interval '15 minutes' ORDER BY placed_at DESC LIMIT 20
+  reports.best-days:                 # the "best days" sales report: each day's three biggest orders
+    sql: >-
+      SELECT * FROM (
+        SELECT o.*, row_number() OVER (PARTITION BY o.placed_at::date ORDER BY o.total DESC) AS day_rank
+          FROM orders o) ranked
+       WHERE day_rank <= 3
+       ORDER BY placed_at
+  reports.dashboard:                 # the warehouse screen's dashboard
+    transaction: {isolation: repeatable read, hold: 5m}
+    steps:
+      - sql: >-
+          SELECT count(*), coalesce(sum(total), 0) FROM orders
+           WHERE placed_at >= now() - interval '1 day'
+      - sql: >-
+          SELECT status, count(*) FROM orders
+           WHERE id > (SELECT max(id) FROM orders) - 5000 GROUP BY status
+      - sql: SELECT count(*) FROM delivery_events WHERE received_at >= now() - interval '1 hour'
+  reports.rollup:                    # the nightly roll-up of yesterday's sales
+    transaction: {isolation: read committed}
+    steps:
+      - sql: >-
+          INSERT INTO daily_sales (day, orders, revenue)
+          SELECT placed_at::date, count(*), sum(total) FROM orders
+           WHERE placed_at >= current_date - 1 AND placed_at < current_date GROUP BY 1
+          ON CONFLICT (day) DO UPDATE SET orders = excluded.orders, revenue = excluded.revenue
+  reports.export:                    # the accounting export: yesterday's orders by status
+    sql: >-
+      SELECT placed_at::date AS day, status, count(*) AS orders, sum(total) AS revenue
+        FROM orders WHERE placed_at >= current_date - 1 AND placed_at < current_date
+       GROUP BY 1, 2 ORDER BY 1, 2
