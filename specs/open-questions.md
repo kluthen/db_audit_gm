@@ -36,7 +36,9 @@ draft and closed the same day as recommended (D487, D488). On
 2026-11-15 the owner's direction on fake aging closed O22 (D489–D493);
 O271 and O272 raised with its draft and closed the same day by the
 owner (D494, D495). On 2026-11-16 the owner agreed to every pending
-v0.6 point as recommended, closing O21 (D502) and O32 (D503).
+v0.6 point as recommended, closing O21 (D502) and O32 (D503); the
+same day the merge of `main` brought O269 into v0.6 (D476), settled as
+proposed (D510).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -249,7 +251,9 @@ owner; O269 and O270 were raised by G13 and placed at v0.5's close
   (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
   (third parties); [formats.md](formats.md) "Partners".
 - **O269** (soon, v0.6; raised by G13's finding 1, filed as ISS-001;
-  D476) — The loader does not check that a `seed-file` fault instance's
+  D476; **settled** by D510 as proposed, the loader refusal, built
+  beside O251's in v0.6's first chunk touching `tools/gm/model.py`;
+  open until built) — The loader does not check that a `seed-file` fault instance's
   `seed_changes` lines appear in the scenario's copies of the seed
   files, where formats.md (fault "Injection") puts them. In
   `aldermoor-centre` the lines of s2, s7 and s8 were missing; the format

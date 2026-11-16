@@ -185,3 +185,51 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   in English,** the website and the feedback included; a scenario
   language option later. Closes O32. Now in:
   [versions/v0.6/README.md](versions/v0.6/README.md#pending-owner-rulings-before-consolidation).
+- **D504 (2026-11-16, spec-writer default on the review's finding,
+  reconciling D150 with D494/D496; owner may reopen): the GM asks once,
+  with the time available, whether the initiator will play;** if they
+  may, it offers a quick or an extended game by duration only, never
+  naming the technique; an initiator who won't play may be told the mode.
+  Now in: [gm-stance.md](gm-stance.md) "At setup"; [fake aging](versions/v0.6/fake-aging.md#11-choosing-the-mode) 1.1.
+- **D505 (2026-11-16, spec-writer default on the review's finding): N9,
+  the network overview's absence, dropped;** the page is always present
+  where required, no `{absent: true}`. Its absence would remove the
+  access rule (O260) and leave the README pointing nowhere (O267). Now
+  in: [network-overview.md](versions/v0.6/network-overview.md#5-deviations-as-faults) 4, 5.
+- **D506 (2026-11-16, spec-writer default on the review's finding): a
+  fake game's restart item is a per-game restart record,
+  `local/<playground>/fake-aging.yaml`,** GM-side, written by `gmctl`;
+  the scenario format stays unchanged. Now in:
+  [fake aging](versions/v0.6/fake-aging.md#21-the-fields) 2.1.
+- **D507 (2026-11-16, spec-writer default on the review's findings):
+  the monitoring starts in the maintenance restart, whose instant is
+  the anchor; the early check runs halfway through the tail, by H − 1 h,
+  never before the history import.** A later start would stand apart as
+  a tell. Now in: [fake aging](versions/v0.6/fake-aging.md#13-the-gms-steps-in-fake-mode) 1.2, 1.3.
+- **D508 (2026-11-16, spec-writer, on the review's findings): P0 binds
+  the virtual instant in the fill's SQL and the functions it calls;
+  `pg_cron` stays off in the fill. If P0 fails, the campaign's short
+  check keeps f1, f8, f9.** Now in:
+  [fake aging](versions/v0.6/fake-aging.md#24-starting-estimate-to-be-measured) 2.4, 9.
+- **D509 (2026-11-16, spec-writer default on the review's findings):
+  the blind reads and the GM-behaviour checks (the two-part feedback,
+  no aging word before the game is concluded, a reported tell
+  explained, no mention without one) join v1.0 gating;** the gate keeps
+  short checks. Now in: [versions/README.md](versions/README.md#v10-gating).
+- **D510 (2026-11-16, spec-writer, settling O269 as main's text
+  directs): a loader refusal, each selected `seed-file` instance's
+  `seed_changes` lines found in its node's copy, with a unit test,**
+  built beside O251's. The skill's check is the GM reading by hand.
+  Now in: [versions/v0.6/README.md](versions/v0.6/README.md#in-scope).
+- **D511 (2026-11-16, spec-writer, on the review's findings): Reports
+  are a `~/reports/` folder on the bastion served at `/reports/`,
+  sandboxed, owned by `bastion`; the short tests of the bastion's
+  items listed; a scenario without an overview keeps its README node
+  table.** Now in: [v0.6](versions/v0.6/README.md#short-tests-d314-d511);
+  [network-overview.md](versions/v0.6/network-overview.md#6-on-the-bastions-front) 6.
+- **D512 (2026-11-16, spec-writer, on the review's findings): the
+  drafts' text corrections:** the tail's wording for a fault planted in
+  the tail, the stale draft pointers, O32 shown closed on the v0.6
+  page, the v1.0 gating additions no longer `(proposed)` (D498). Now
+  in: [fake aging](versions/v0.6/fake-aging.md#22-the-tails-length) 2.2;
+  [versions/v0.6/README.md](versions/v0.6/README.md).

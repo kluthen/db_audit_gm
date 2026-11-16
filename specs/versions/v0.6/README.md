@@ -1,7 +1,8 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v7. No master spec; every drafting point ruled on
-2026-11-16 (D498–D503), a review next, then consolidation. Bastion-related items moved in from
+Status: draft v8. No master spec yet; every drafting point ruled on
+2026-11-16 (D498–D503); the review's findings closed the same day
+(D504–D512), consolidation next. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486); fake aging joined on
 2026-11-15 (D489–D495); the GM's feedback in two parts on 2026-11-16
@@ -32,8 +33,8 @@ players (D480).
   node of the customer's estate, generated from the authoritative
   files, customer documentation that may be incomplete or wrong, each
   node linked to Grafana's Node health dashboard. Its design is
-  [network-overview.md](network-overview.md) (draft v2; O260–O268
-  closed as recommended, D487, D488).
+  [network-overview.md](network-overview.md) (draft v4; O260–O268
+  closed as recommended, D487, D488; the page always present, D505).
 - **Handouts are static snapshots** (D488): what the customer gave the
   DBA at the mission's start, generated once at setup and never
   re-rendered in play; only the live tools they link to follow the
@@ -49,7 +50,19 @@ players (D480).
   through the bastion's web front, a "Reports" entry under the home
   page's sites, rather than copied out with `scp` and `sftp`, which is
   how they leave in v0.2. These are the stack's own reports, not the
-  players' (D481).
+  players' (D481). **Design** (D511): a folder on the bastion,
+  `~/reports/`, created by the bastion's entrypoint, served read-only
+  by its web front at `/reports/` as a listing, behind the same basic
+  authentication. A player brings a report there with one hop
+  (`scp <node>:pgbadger.html ~/reports/`, `scp -r` for pgCluu's
+  folder) and opens it in the browser; the `sftp` to their own machine
+  is no longer needed. The front never reaches into a database node: no
+  new route, no web server on the nodes. A report's own scripts run
+  sandboxed (the front answers `/reports/` with a
+  `Content-Security-Policy: sandbox allow-scripts` header), so a
+  report's page never acts on Grafana's origin. **Owner**: the
+  `bastion` brick, its web front; the `postgres` brick's player
+  documentation says where to put a report.
 - **A status page for each third party** (D274, D501), showing only the
   incidents the partner admits, beside its `partners.md` description
   ([v0.5's third parties](../v0.5/third-parties.md)): one page per
@@ -57,18 +70,22 @@ players (D480).
   incidents the scenario marks as admitted by that partner, each from
   its start time. A live site like Grafana, not a handout, so D488
   doesn't apply. Its design (where the scenario marks an incident
-  admitted, how the page renders) is the master spec's.
+  admitted, how the page renders) is the master spec's; whatever it
+  is, it never routes from the bastion to a third party's node (D273).
 - **O251's loader refusal** (a bastion mapping `partners.md` exactly
   when the third parties carry a `player_doc`), in v0.6's first chunk
-  that touches `tools/gm/model.py` (D486).
+  that touches `tools/gm/model.py` (D486); **O269's beside it** (each
+  selected `seed-file` instance's `seed_changes` lines found in its
+  node's copy of the seed file, with a unit test; D476, D510).
 - **Fake aging** (D489–D493), a second aging mode beside real aging:
   a quick game filled in minutes on a virtual clock, a maintenance
   restart, a real tail, forged Prometheus history; its faults curated
   to what it can fake, its fixable caveats fixed, the rest documented.
-  Its design is [fake-aging.md](fake-aging.md) (draft v3): the players
+  Its design is [fake-aging.md](fake-aging.md) (draft v5): the players
   never told about the aging process during the game, a tell their
-  report names explained after it (D494, D496); the shop and the
-  campaign covered, the clinic later (D495).
+  report names explained after it (D494, D496); the setup dialogue
+  naming no technique when the initiator may play (D504); the shop and
+  the campaign covered, the clinic later (D495).
 - **The GM's feedback in two parts** (D497): the customer side, then a
   teaching moment (below).
 
@@ -112,10 +129,41 @@ What it refines (D499, no conflict found):
 - **D18** (the GM answering in character as the customer during the
   game, a future idea) is untouched: part 1 is an assessment after the
   game, not a conversation during it.
-- Open still: O38 (a score; the feedback written to a file), O32 (its
-  language).
+- Open still: O38 (a score; the feedback written to a file). The
+  feedback's language is settled: English, as all player-facing
+  material (D503, O32 closed).
 
 gm-stance.md "Feedback" takes this text at consolidation.
+
+## Short tests (D314, D511)
+
+Each under 30 minutes, on the least environment that proves it, as
+v0.5's gates have them; the long ones are in
+[v1.0 gating](../README.md#v10-gating):
+
+- **The home page**: a fixture with two web routes and three of the
+  seven documents: its **Sites** list the two routes and **Reports**,
+  its **Documents** the three present and no link to an absent one; a
+  route named `docs` refused by the loader.
+- **The documentation site**: each starter-pack file and handout at
+  `/docs/<id>`, each topology brick's player documentation at its page,
+  rendered from the starter pack as handed over (a player's edit of
+  their home copy changes no page); a page behind the basic
+  authentication.
+- **`jq` and `tmux`**: present on the bastion and runnable as `player`;
+  `jq` reading Prometheus' API through `curl`.
+- **Reports**: a pgBadger report copied into `~/reports/` listed and
+  served at `/reports/`, with the sandbox header; nothing served from
+  outside the folder.
+- **The status pages**: a fixture with one partner with a `player_doc`
+  and two admitted incidents, one started and one not: the page shows
+  the started one only, the other once its start passes; a partner with
+  none admitted shows no incident; no route to a third party's node.
+- **The network overview**, the dashboard's `node` variable, a
+  `docs-overview-*` fault, fake aging's short checks: as their drafts
+  say ([network-overview.md](network-overview.md#5-deviations-as-faults),
+  [fake-aging.md](fake-aging.md#7-verification)).
+- **The loader's refusals**: O251's and O269's, each with a unit test.
 
 ## The game's home page (D480)
 
@@ -208,15 +256,21 @@ heading stays for the links to it.
 - O271, O272, fake aging's: closed (D494, players never told; D495,
   the shop and the campaign)
   ([fake-aging.md](fake-aging.md#questions-for-the-owner)).
+- O251, the loader's `partners.md` refusal: placed (D486), built in
+  v0.6, open until built.
+- O269, the loader's check of a `seed-file` instance's lines in the
+  scenario's copy: placed in v0.6 at v0.5's close (D476), settled as
+  the loader refusal (D510), built beside O251's, open until built.
 
 ## Pending owner rulings before consolidation
 
 Settled on 2026-11-16: the owner, "agreed", to all eighteen items as
 recommended (D498–D503): fake aging's proposals (D498), the feedback's
 form (D499), the network overview's details (D500), this page's scope
-items (D501), O21 (D502) and O32 (D503). None pending. Next: a review
-of the drafting, then consolidation. The two questions' answers, which
-have no other page yet:
+items (D501), O21 (D502) and O32 (D503). None pending. The review of
+the drafting (REJECT, 2026-11-16) was closed by D504–D512; next,
+consolidation. The two questions' answers, which have no other page
+yet:
 
 - **Starter files and planted inaccuracies** (D502, O21): only the
   handouts describing the system may carry one, the data register and

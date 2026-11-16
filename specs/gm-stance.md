@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v13
+Status: draft v14
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -28,7 +28,15 @@ Among its first questions, the GM asks (D7, D16):
   and otherwise guides the user through setting it up (D26);
 - what the initiator (the teacher, or a student playing alone) wants to set:
   topology, background story, data schema, incidents, and so on. Any of it
-  may be stated, sketched or left out.
+  may be stated, sketched or left out;
+- from v0.6, once, with the time available (D150): **whether the
+  initiator will play** the game (D504). When the initiator may play,
+  the GM speaks of a **quick game** or an **extended game** by its
+  duration only ("ready in about 40 minutes", "ready in about 16
+  hours") and never names the aging technique behind it, as it never
+  does in anything a player reads (D494, D496). An initiator who will
+  not play (a teacher, the owner) may be told the aging mode and its
+  limits.
 
 The GM then fills in the blanks and generates the local implementation
 that fits the scenario to the declared capacity (or, in v0.1, fits the

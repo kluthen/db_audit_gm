@@ -1,13 +1,17 @@
 # Fake aging: a second aging mode
 
-Status: draft v4, 2026-11-16. The owner's direction of 2026-11-15
+Status: draft v5, 2026-11-16. The owner's direction of 2026-11-15
 (D489–D491) and spec-writer's reading of it on the bar (D492); O22
 closed (D493); the owner's rulings of the same day: the players are
 never told about the aging process (D494, O271 closed), v0.6 covers
 the shop and the campaign (D495, O272 closed); refined on 2026-11-16:
 once the game is concluded, a reported tell may be explained (D496),
 within the feedback's two parts (D497). Every remaining proposal
-accepted as written on 2026-11-16 (D498). What stays open is
+accepted as written on 2026-11-16 (D498). Draft v5 closes the
+review's findings: the initiator who also plays (D504), the restart
+record (D506), the monitoring started at the restart and the early
+check's time (D507), P0's reach and the campaign's fallback (D508),
+the blind reads in v1.0 gating (D509). What stays open is
 technical: the estimates of 2.4, to be measured, and section 9.
 
 Inputs, on branch `research/fake-aging` (10d1bc6), worktree
@@ -78,6 +82,15 @@ the GM makes for it is eligible (section 2).
 - **The initiator states the time available**, as today (D150), and may
   ask for a quick or an extended game. The initiator never picks faults
   or a mode's mechanics: fault selection is the GM's.
+- **Whether the initiator plays** (D504): the GM asks once, within
+  D150's setup dialogue, whether the initiator will play the game (a
+  student playing alone does). When the initiator may play, the
+  dialogue speaks of a **quick game** or an **extended game** by
+  duration only ("ready in about 40 minutes" or "ready in about 16
+  hours"), and never names the technique: no aging, fill, forged,
+  virtual clock or fake, as 4.1 holds for anything a player reads. An
+  initiator who will not play (a teacher, the owner) may be told the
+  mode and its limits.
 - **Default**: real aging when the time available covers
   the scenario's declared aging; fake aging when it doesn't, or when the
   initiator asks for a quick game. This keeps D150's judgment as it
@@ -89,7 +102,7 @@ the GM makes for it is eligible (section 2).
   D150 already has it do.
 - **Recorded**: `gmctl render --aging fake` writes the
   mode, the virtual T0, the anchor and the tail into the local
-  implementation. `gmctl` refuses a fake game holding a `real-only`
+  implementation's restart record (2.1). `gmctl` refuses a fake game holding a `real-only`
   fault, or a fault not assessed for fake aging.
 - A scenario with no scheduler node has no aging (D157) and so no mode.
 
@@ -102,10 +115,11 @@ game.
 |---|---|---|
 | virtual T0 | H minus the scenario's declared aging (the shop: 22:00 the evening before) | T0, real |
 | fill | virtual T0 to the anchor, run in minutes, before the tail | no fill |
-| clean-up | just before the anchor: the "maintenance restart" | none |
-| anchor | H minus the tail; the tail's real start | none |
+| clean-up | just before the anchor, ending with the "maintenance restart" | none |
+| anchor | H minus the tail: the maintenance restart's instant, every service of the game, the monitoring included, started there; the tail's real start | none |
 | tail | anchor to H, real time, everything running | the whole aging |
 | history import | about 12 minutes into the tail | none |
+| early check | halfway through the tail, no later than one hour before H, never before the history import (step 9) | v0.3's rule |
 | H | hand-over | hand-over |
 
 - **The virtual span is the scenario's declared aging**, so
@@ -126,7 +140,7 @@ Steps 1 to 4 are today's setup.
    starter pack's story line on the restart (3, fix 2) is rendered with
    the clean-up's planned time.
 2. `gmctl deploy`, the monitoring (Prometheus, Grafana, the exporters,
-   pgwatch) kept scaled to 0 until the anchor.
+   pgwatch) kept scaled to 0 until the maintenance restart (step 6).
 3. `gmctl load-data`, unseen as today (`tools/gm/inject.py`'s
    `UNSEEN_SQL`: no statement log, no pgaudit, no
    `pg_stat_statements`).
@@ -145,11 +159,15 @@ Steps 1 to 4 are today's setup.
    the WAL padded and checkpointed, the statement and shared statistics
    reset, the fill's PostgreSQL, pooler and cron logs removed, the data
    files' modification times set to their virtual times, then **every
-   service of the game restarted** at the same instant, the standbys
-   and base backup built after it.
-7. `gmctl start-load` at the anchor, T0 recorded as the virtual T0,
-   writing no `reload status=ok` line: the purpose checks date their
-   judged moment from that line. The monitoring scales back up.
+   service of the game restarted** at the same instant, the monitoring
+   scaled up from 0 in that same restart (D507), so Prometheus,
+   Grafana, the exporters and pgwatch start with the rest and no start
+   time stands apart; the standbys and base backup built after it. The
+   restart's instant is the anchor; `clean-restart` records it in the
+   restart record (2.1).
+7. `gmctl start-load` right after the restart, T0 recorded as the
+   virtual T0, writing no `reload status=ok` line: the purpose checks
+   date their judged moment from that line.
 8. **`gmctl history`**, run by a host timer about 12 minutes into the
    tail: read the tail's first 10 minutes from Prometheus, compose the
    baseline and the selected faults' overlays, rebase them on the
@@ -157,10 +175,17 @@ Steps 1 to 4 are today's setup.
    create-blocks-from openmetrics`, copy the blocks in, check the seam.
    A failed import is recorded, never a teardown, as the early check's
    failures are (v0.3 master spec 8.7).
-9. The early check, the hand-over check, the hand-over snapshot and
-   `status --set handed-over`, as today. The earliest hand-over is the
-   anchor plus the tail; the instances' aging minima count from the
-   virtual T0.
+9. **The early check** (D507), run by a host timer as today: halfway
+   through the tail, and no later than one hour before the earliest
+   hand-over, but never before `gmctl history` has recorded its import;
+   so in a tail under two hours, and in the tests' short tails, it runs
+   right after the import. It checks what v0.3's does (every fault
+   planted so far reads present, the fill's plantings included, every
+   scheduler key running, no node unhealthy, the outages) and reads the
+   import's recorded result. Then the hand-over check, the hand-over
+   snapshot and `status --set handed-over`, as today. The earliest
+   hand-over is the anchor plus the tail; the instances' aging minima
+   count from the virtual T0.
 
 Planting times:
 - a `state` fault planted between the virtual T0 and the anchor is
@@ -233,11 +258,42 @@ history:                        # mandatory unless support is real-only
   (formats.md "Fault definition") grows a sentence. `history:` is a new
   item. The loader's checks (`tools/gm/model.py`) gain the refusals
   above. The scenario format is unchanged: the mode is the game's.
-- The answer key gains one item in a fake game: the
-  maintenance restart, an in-world event of the customer's system, with
-  what it explains (statistics since the restart, older logs archived,
-  services started at that time). Not a fault, never counted; the
-  feedback uses it as 4.1 says.
+- **The restart record** (D506), one per fake game: the maintenance
+  restart, an in-world event of the customer's system, with what it
+  explains. Not a fault, never counted; the feedback uses it as 4.1
+  says. It is the game's, not the scenario's: `gmctl` writes it into
+  the game's local implementation, `local/<playground>/fake-aging.yaml`,
+  GM-side and out of the players' reach like `gm/answer-key.yaml`, so
+  the scenario format stays unchanged. `render --aging fake` writes the
+  plan, `clean-restart` the restart, `history` the import:
+
+  ```yaml
+  mode: fake
+  virtual_t0: 2026-11-20T22:00:00Z    # H minus the scenario's declared aging
+  anchor: 2026-11-21T11:00:00Z        # the planned restart, H minus the tail
+  tail: 3h
+  handover_planned: 2026-11-21T14:00:00Z
+  refused: [{instance: f10, reason: <its aging.fake.reason>}]
+  restart:
+    at: 2026-11-21T11:00:04Z          # measured, every service's start
+    story_line: >-                    # as rendered into the starter pack
+      The servers were restarted this morning at 11:00 for maintenance;
+      older logs were archived.
+    explains:                         # the rows of section 4 that hold in this game
+      - observation: statement and shared statistics reset at 11:00
+        where: pg_stat_statements_info.stats_reset, pg_stat_bgwriter.stats_reset
+        in_world: the maintenance restart reset them
+      - observation: no PostgreSQL, pooler or cron log before 11:00
+        where: /var/log/postgresql/, the pooler's and cron's logs
+        in_world: older logs archived at the restart
+  history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}   # gmctl history
+  ```
+
+  `observation`, `where` and `in_world` for each limit of section 4
+  that touches this game's evidence, `explains` drawn from that table
+  by `render`; the scenario document's "Fake aging" section lists the
+  same rows for the scenario. `gmctl status` shows the mode, the
+  anchor, the tail, the refused instances and the import's result.
 
 ### 2.2 The tail's length
 
@@ -247,8 +303,10 @@ The tail is the longest of:
   the hand-over;
 - each selected fault's `tail_minimum`;
 - for each `tail_covers` instant, the time from it to H;
-- for each instance planted in the tail, the time from its planting to
-  H plus its aging minimum.
+- for each instance planted in the tail, the time from its planting
+  moment to H; that moment lies inside the tail, at least the
+  instance's aging minimum before H, so the tail is never shorter than
+  that minimum.
 
 Tests may cap the floor, as v0.3's rehearsal caps the aging minimum
 (D161; section 7).
@@ -274,8 +332,11 @@ the brick). The brick ships the model's code.
 ### 2.4 Starting estimate, to be measured
 
 Only the shop is measured (the test); the rest is fault-impact's
-reading, amended. "P0" is the virtual clock in job SQL, unproven: if
-it fails, the purpose faults marked P0 drop to `tail-only`.
+reading, amended. "P0" is the virtual clock in the SQL the fill runs,
+the server-side functions it calls included, unproven: if it fails,
+the purpose faults marked P0 drop to `tail-only`. `pg_cron` never runs
+in the fill (step 5), so no `pg_cron` job is P0's: its runs are the
+tail's, a limit of section 4 (D508).
 
 **Shop** (`tarnbeck-outdoor-shop`, measured on R and F1–F6):
 
@@ -313,6 +374,14 @@ The campaign's hiding: f5 hides f4, f7 and f10. With f10 out of a fake
 selection and f5 planted in the tail, the GM checks f5's order against
 f4's and f7's runs when it composes the selection (fault-impact 3).
 
+**If P0 fails** (D508): f1–f4 and f7 drop to `tail-only`, each with
+the tail its job's runs need. v0.6's short campaign check (section 7)
+then keeps f8 and f9, which need no P0, and f1, whose job runs every
+five minutes and so fits a 15-minute tail; f2, f3, f4 and f7 wait for
+the full selection's run in v1.0 gating. The check still proves the
+mode's mechanism on the campaign: the fill, the restart, the history,
+the seam and the tells.
+
 **Clinic** (`aldermoor-centre`, two hosts, a standby, the archive, the
 partners):
 
@@ -341,7 +410,7 @@ exercised the fix, not only the defect.
 
 | # | Fix | Fixable? | How | Tested |
 |---|---|---|---|---|
-| 1 | **Generator bugs** | yes | noise clamped at 0 and scaled to the value (no negative `scrape_duration_seconds`); start times are constants that step only at a restart (the `ts_now` class caught `process_start_time_seconds`); the forged past draws the clean-up's restart: a `pg_up` and `up` blip, start times stepping, the restarted processes' counters resetting at that instant, not at the anchor | defects seen (M5); fixes not |
+| 1 | **Generator bugs** | yes | noise clamped at 0 and scaled to the value (no negative `scrape_duration_seconds`); start times are constants that step only at a restart (the `ts_now` class caught `process_start_time_seconds`); the forged past draws the clean-up's restart: a `pg_up` and `up` blip, start times stepping, the restarted processes' counters resetting at that instant, the anchor (D507), never later | defects seen (M5); fixes not |
 | 2 | **A coherent restart** | yes | one event, the clean-up: every service of the game restarted there (fresh process namespaces, so start times and process IDs agree with it), the statement and shared statistics reset there and not at the deploy, no `reload status=ok` line; the PostgreSQL, pooler and cron logs start there, the forged log volume grows through the day and drops at the restart ("older logs archived"); the starter pack's story says "the servers were restarted this morning for maintenance; older logs archived", with the time render planned | partly (F runs restarted PostgreSQL and the pooler only) |
 | 3 | **Statistics off during the load and the fill** | yes | the fill's sessions run as `load-data`'s do: `pg_stat_statements` not tracking, no statement log, no pgaudit; `pg_stat_statements` then holds the tail only and agrees with its reset; the fill's `$n` duplicates and the load's statements disappear. `track_counts` stays on: autovacuum and the faults read the table statistics | yes (F3) |
 | 4 | **WAL, checkpoints, the LSN** | the segments yes; the LSN probably | at the clean-up: pad the WAL with `pg_logical_emit_message` to a day's worth at the scenario's measured WAL rate, then `CHECKPOINT` and `pg_switch_wal()` twice, so PostgreSQL recycles the fill's segments (`pg_wal` near R's 84 MB, not 305 MiB); the checkpointer and WAL statistics reset with the shared ones | no |
@@ -395,8 +464,9 @@ of the players' reach: they have the bastion only.
   a "Fake aging" section, generated: each instance's support, the tail
   the full selection needs, the instances refused, and the limits from
   this table that touch its evidence.
-- Per game: the local implementation records the mode, the tail and
-  the refused instances; `gmctl status` shows them.
+- Per game: the restart record (2.1) in the local implementation holds
+  the mode, the instants, the tail, the refused instances and the rows
+  of this table that hold in the game; `gmctl status` shows them.
 
 All of these are GM-facing: the scenario document opens with its "do
 not read" warning, and nothing above reaches the bastion, the starter
@@ -422,14 +492,15 @@ have given their final answer and the GM has processed it
   archived. That restart really happened in the game;
 - the GM never uses the words aging, fill, forged, virtual clock or
   fake in anything a player reads, a restart's confirmation (D126)
-  included, and neither confirms nor denies a suspicion of forged
+  included, nor in the setup dialogue when the initiator may play
+  (1.1, D504), and neither confirms nor denies a suspicion of forged
   history.
 
 **After the final answer, in the feedback** (its two parts, D497):
 - **The customer side** (a) stays in-world in every case. A reported
   tell matches no fault there: it is neither credited nor counted as a
   mistake. A sound reading of the restart's consequences is
-  acknowledged from the answer key's restart item (2.1).
+  acknowledged from the restart record (2.1).
 - **The teaching moment** (b) may explain a reported tell: that the
   game was fake-aged, how, and why the thing looked as it did. "A tell
   reported" means the report names an observation from section 4's
@@ -463,8 +534,8 @@ have given their final answer and the GM has processed it
   autovacuum lines covering only the tail, say). `gm.md` is already
   the "explanation the GM uses for feedback" (formats.md "Fault
   definition");
-- the local implementation's record of the game: the virtual T0, the
-  restart's real time and the tail, so the explanation names this
+- the restart record (2.1): the virtual T0, the restart's real time,
+  the tail and the rows that hold, so the explanation names this
   game's instants.
 
 ## 5. Where it belongs
@@ -513,7 +584,8 @@ campaign (D495), under 30 minutes each**:
   15 minutes: for the shop f1, f2, f3, f6, f8, f9, f10 (no f4, f5,
   f7); for the campaign f1–f4 and f7–f9 (no f5, f6, f10);
 - fill, clean-restart, a 15-minute tail, `gmctl history` at about
-  12 minutes;
+  12 minutes, the early check right after it (1.3 step 9);
+- if P0 fails, the campaign's fallback selection (2.4);
 - the checks read every selected fault present;
 - the seam check: no negative value, no counter reset outside the
   restart, gauges joining;
@@ -526,18 +598,19 @@ campaign (D495), under 30 minutes each**:
   the checks reading present, P0's jobs' outputs against their
   invariants, and the seam and tells.
 
-**Once, one-off: a blind read of a fake game alone**: a
-fresh agent with player access only, told nothing about aging, asked to
-audit the shop (not to find a fake), then asked at the end whether
-anything about the system's history looked wrong. The game is the
-gate's short shop game, kept up for the read. It passes under D492 if
-the reader doesn't come to suspect the history. A second blind read,
-on the campaign's short game, joins it (D495). The reader is a test
-agent, not a player: D494 doesn't apply to it.
-
-**Before v1.0, once** ([v1.0 gating](../README.md#v10-gating)): the
-full selections with their real tails (the shop's 3 h, f4, f5 and f7
-included), each run longer than 30 minutes.
+**Before v1.0, once** ([v1.0 gating](../README.md#v10-gating), D509),
+each run longer than 30 minutes:
+- the full selections with their real tails (the shop's 3 h, f4, f5
+  and f7 included; the campaign's, f10 refused);
+- **a blind read of a fake game alone**, on the shop and on the
+  campaign: a fresh agent with player access only, told nothing about
+  aging, asked to audit the scenario (not to find a fake), then asked
+  at the end whether anything about the system's history looked wrong.
+  The game is a fake game of the full selection, kept up for the read.
+  It passes under D492 if the reader doesn't come to suspect the
+  history. The reader is a test agent, not a player: D494 doesn't apply
+  to it. An audit takes longer than 30 minutes, so v0.6's gate has no
+  blind read.
 
 **The reference.** R's data (`results/` on the research worktree,
 about 2 GB, untracked) is the only real run of the shop. It must
@@ -580,9 +653,11 @@ its path and checksum recorded beside them.
 
 Technical unknowns; none is the owner's.
 - **P0**: binding `now()`, `current_date` and `current_timestamp` to the
-  virtual instant inside server-side functions (`rpt.close_day()`) and
-  `pg_cron`'s jobs, not only in the scheduler's own SQL. If it can't be
-  done, the faults marked P0 drop to `tail-only`.
+  virtual instant inside the server-side functions the fill's SQL calls
+  (`rpt.close_day()`), not only in the scheduler's own SQL. `pg_cron`
+  stays off in the fill (D508). If it can't be done, the faults marked
+  P0 drop to `tail-only` and the campaign's short check takes its
+  fallback selection (2.4).
 - Fix 4's padding: its time and the WAL it leaves after the checkpoints.
 - Fix 7: whether a short naptime brings `autovacuum_count` within range
   without slowing the fill.

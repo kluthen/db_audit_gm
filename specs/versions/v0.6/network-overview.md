@@ -1,6 +1,9 @@
 # v0.6 — the network overview, a player handout
 
-Status: draft v3. The rulings are settled (D480–D485), and the owner
+Status: draft v4. Draft v4 closes the review's findings: N9, the
+page's absence, dropped (D505); scenarios without an overview keep
+their README node table (D511); O269's refusal beside O251's (D510).
+The rulings are settled (D480–D485), and the owner
 accepted O260–O268 as recommended on 2026-11-13 (D487, D488;
 [questions](#questions-for-the-owner)), so every point they cover
 stands as written; the remaining details were accepted as written on
@@ -181,7 +184,7 @@ edited by hand, regenerated rather than reconciled.
     rest of `gm/`, opening with `generated_from:`, each input's digest;
   - **`player/network-overview.md`**, the handout: the true overview
     rendered as is, or with a planted overview fault's change applied;
-    absent when that fault is the page's absence;
+    always present in a scenario that has an overview (D505);
   - **in the answer key**, each overview fault instance's
     `overview_diff:` (section 5).
 - **When**: at Setup step 2, after the data register and before the
@@ -196,7 +199,8 @@ edited by hand, regenerated rather than reconciled.
   database of every database node under **Databases**; every
   `standby_of`, `archive_mode = on` and base backup line under some
   **Backups**. A miss is a generation error, never a fault. And the
-  handout: present unless the answer key declares it absent; never a
+  handout: always present and mapped when the scenario has an overview,
+  no answer key able to declare it absent (D505); never a
   third party's node name in it (as D469 refuses one in the register);
   **Your access** and the header equal to the true overview's (O260,
   O261).
@@ -219,9 +223,9 @@ required there and refused elsewhere, the shape of `register_diff:`:
 `field` one of `description`, `site`, `system`, `applications`,
 `sizing`, `databases`, `fed_and_used_by`, `uses`, `users`,
 `third_parties`, `tasks`, `backups`, or `entry` for a whole entry
-missing or invented (its `true` or `handed_out` then `absent`); the one
-item `{absent: true}` for the page's absence. `access` is never a
-field. The scenario document shows each diff in a "Network overview"
+missing or invented (its `true` or `handed_out` then `absent`). There
+is no `{absent: true}` item: the page is never absent (D505). `access`
+is never a field, nor is the header. The scenario document shows each diff in a "Network overview"
 section.
 
 **Resolution**: *propose* (O266): the players give the corrected entry
@@ -244,8 +248,8 @@ the system:
 | N6 | A background task wrong or missing: the base backup "at 02:00" (the crontab says 03:30), the portal's session purge not listed | the crontab (`sudo gm-crontab -l`), `cron.job`, `jobs.yaml` |
 | N7 | A user missing: the back office's reads of the record on the standby (`vet_reports`) not listed; or a role listed that nothing uses | `pg_stat_activity`, `pg_hba.conf`, the configs on the application nodes |
 | N8 | A third party missing: Cold Storage absent from `records`' third parties | `archive_command`, the base backup line; `partners.md` |
-| N9 | The page absent: the README names it, the home page has no such document | the README; the home page |
-| N10 | The page vague: "our servers", no versions, "backed up nightly" everywhere | the entries themselves |
+| ~~N9~~ | *Dropped (D505).* The page's absence would take away **Your access**, the game's rule (O260), and leave the README pointing to a missing page (O267). No variant of it keeps the rule exact, so none is kept; the number is not reused | — |
+| N10 | The page vague: "our servers", no versions, "backed up nightly" everywhere; **Your access** and the header stay exact | the entries themselves |
 
 **The class**: M by default, as a register fault (D290). N5 can rise to
 V or D when the story leans on the claimed backup (an issue asking
@@ -287,6 +291,12 @@ v0.6 builds the family and at least one of them with its short test.
   pointing to the network overview, whose **Your access** column is the
   rule (O260). Its "web interfaces" table shrinks to the home page's
   address.
+- **Scenarios without an overview** (D511): a scenario that has none
+  (v0.4's shop and earlier ones until next revised, a `fixture-`
+  scenario) keeps its README's node table and network paragraph as
+  they are, its access rules there; only its "web interfaces" table
+  shrinks to the home page's address, since every game has the home
+  page.
 
 ## 7. Worked against the clinic (aldermoor-centre)
 
@@ -450,7 +460,9 @@ are the kind `scenario.yaml`'s new keys would carry (O263).
 - **Crontabs written by the GM**: each entry has its description on the
   comment line directly above it.
 - **The loader**: section 4's checks; `overview_diff:`'s shape; O251's
-  refusal goes into the same chunk (D486).
+  refusal goes into the same chunk (D486), and O269's beside it: each
+  selected `seed-file` instance's `seed_changes` lines found in its
+  node's copy of the seed file, with a unit test (D510).
 - **The skills**: `network-overview` is new; `game-master`'s Setup step
   2 calls it; `scenario-document` gains a "Network overview" section;
   `scenario-format`'s checklist gains the new keys.
@@ -458,7 +470,7 @@ are the kind `scenario.yaml`'s new keys would carry (O263).
 ## 9. Build-plan chunks (a sketch, for the build plan)
 
 1. **The format and the loader**: the new keys, the overview's checks,
-   `overview_diff:`, and O251's refusal (D486).
+   `overview_diff:`, O251's refusal (D486) and O269's (D510).
 2. **The skill and the front**: the `network-overview` skill and its
    template; the bastion's seventh seed file and the home page (O267);
    the dashboard's `node` variable (O264).

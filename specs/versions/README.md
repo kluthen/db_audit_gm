@@ -283,8 +283,25 @@ aged run is decided then (D193).
     and the partner
     stubs' reference counters restarting at 0001 after the planted
     series (O249, D467).
-- **v0.6's additions** (proposed): fake aging's full selections with
-  their real tails, the shop's 3 h tail with f4, f5 and f7 among them,
-  on the shop and the campaign (D495); v0.6's gate runs
-  only the short-tail check
-  ([fake aging](v0.6/fake-aging.md#7-verification)).
+- **v0.6's additions** (D498, D509), each run once and longer than 30
+  minutes; v0.6's gate runs only the short checks
+  ([v0.6](v0.6/README.md#short-tests-d314-d511),
+  [fake aging](v0.6/fake-aging.md#7-verification)):
+  - **fake aging's full selections** with their real tails, on the
+    shop and the campaign (D495): the shop's 3 h tail with f4, f5 and
+    f7 among them; the campaign's with f5 planted in the tail, f10
+    refused, and, if P0 failed, f2, f3, f4 and f7 as `tail-only` (D508);
+  - **the blind reads**: on a fake game of each full selection, kept
+    up for the read, a fresh agent with player access only, told
+    nothing about aging, audits the scenario, then is asked whether
+    anything about the system's history looked wrong; each passes if
+    the reader doesn't come to suspect the history (D492);
+  - **the stance check-list's v0.6 items**, beside the earlier
+    versions': the feedback given in its two parts, the customer side
+    first and in-world, then the teaching moment (D497, D499); no aging
+    word (aging, fill, forged, virtual clock, fake) in anything a
+    player reads before the game is concluded, a restart's confirmation
+    and, when the initiator may play, the setup dialogue included
+    (D494, D496, D504); a reported tell explained in the teaching
+    moment from the restart record and the documented limits; with no
+    tell reported, no mention of aging (D496).
