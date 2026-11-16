@@ -515,7 +515,12 @@ chunk 7 can map it before chunk 6 serves it.
 
 ### Chunk 3 — The format and the loader
 
-Status: planned
+Status: merged (w1, b475c4d)
+Record: 1ef46e3 and 97417bc (ISS-001 Resolved), re-pinned after chunk 2
+in be123be, merged as b475c4d on 2026-11-16. Outside its Files:
+`fixture-v05-refusals` maps `partners.md` (O251's direct consequence)
+and `grafana-alert-for-too-long` gained `lines:` (its definition fixes
+the line). No deviation from the spec or W1 (W1-y in the wave log).
 Wave: 1
 Depends on: chunk 2 (merge order); G2 (done)
 Docker: none
@@ -595,7 +600,11 @@ error texts of the two refusals.
 
 ### Chunk 4 — The domains' overview fragments, the clinic's nodes described, the crontabs' comments
 
-Status: planned
+Status: merged (w1, d88169e)
+Record: a87c9fa, merged as d88169e on 2026-11-16 (the clinic register's
+digest recomputed on the merged `scenario.yaml`). Outside its Files:
+`tools/tests/test_render.py`'s two positional indices. Coverage shown by
+a script run once (W1-z in the wave log).
 Wave: 1
 Depends on: chunk 2 (merge order)
 Docker: none

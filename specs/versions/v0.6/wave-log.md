@@ -640,3 +640,52 @@ pass; images identical to v0.5's but the scheduler's (cached builds).
 - Left: `.tech` (G5), the format skill's version prose (chunk 3),
   `purposes/shop-sales-reporting/tests/run-tests.sh`'s stale
   `scheduler-unit:0.2.0` (pre-existing).
+
+### Chunk 3 — merged (b475c4d), 2026-11-16
+
+A `coding-executor` finished the merge: `v0.6-w1` taken in (c6cc23c, no
+conflict; the faults' `applies_to` and `lines:`, `fixture-v05-refusals`'
+pins and `partners.md`, `test_model.py`'s tuples and classes all kept
+both sides), `fixture-v06-refusals` re-pinned (be123be), merged as
+b475c4d. Suite 1343 OK, 2 skipped; 35 scenario and fixture folders load;
+`base:` required, on all 17 tracked `brick.yaml`. W1-y (as built):
+
+- `admitted_incidents(scenario) -> tuple[Admitted]` (`instance`, `by`,
+  `partner`, `anchor` — None without `#` in the `player_doc` —, `title`,
+  `text`, `start`, `end`, `start_before`, `end_before`, seconds before
+  hand-over, None for `T0` or without `until`); `fault_fake_aging ->
+  FakeAging(support, reason, tail_minimum, tail_covers, plant_in="any",
+  emulate=())`; `fault_history -> tuple[HistoryEntry(kind, fields,
+  suppressed_by)]`; `instance_history(scenario, iid)` with `{NAME}` and
+  `{INSTANCE_NODE}` resolved recursively (None without `history:`,
+  `KeyError` for an unknown instance). Helpers `line_found`,
+  `resolve_placeholders`, `instance_values`, `moment_before`;
+  `RESERVED_WEB_ROUTES = ("docs", "reports", "status")`;
+  `FAULT_PLACEHOLDER_RE` upper-case names only.
+- Refusal texts verbatim as W1 item 5 (O251's three, O269's one), plus
+  `admitted:`'s seven, the reserved route's and `base:`'s three.
+- `lines:` on `pg-archive-command-silent`,
+  `governance-statement-log-personal`, `pg-standby-apply-delay` and
+  `grafana-alert-for-too-long`; not on `pg-hba-trust-remote` (scenario
+  picks the range), prose or block changes, nor the 20-copy fixture
+  `fixture-random-page-cost`.
+- Chunk choices: T0 is `aging.minimum` before hand-over (at hand-over
+  without a scheduler); `history: []` refused (no trail is `kind:
+  none`); unknown keys refused in `aging.fake`, `fill`, `admitted`,
+  history entries; the documentation family checked both ways;
+  `overview_diff`'s `true`/`handed_out` optional in the template only
+  (YAML booleans), chunk 7 checks them.
+- Noted: a DeprecationWarning at `tools/gm/model.py:5122` (positional
+  `maxsplit`, from dde1a148, older than v0.6).
+
+### Chunk 4 — merged (d88169e), 2026-11-16
+
+`v0.6-w1` taken in (8b2ba71); the one conflict, the clinic register's
+`scenario.yaml` digest, recomputed with `model.register_digest`, not a
+side picked. Merged as d88169e. Suite 1343 OK, 2 skipped;
+`check_domain_dir` clean on the seven domains; each fragment passes
+chunk 3's `templates/overview.yaml`. W1-z: shop 7 roles 1 job,
+vet-core 4/2, vet-housing 2/0, vet-lab 5/7, vet-machinery 5/3+3
+pg_cron, vet-portal 2/1 pg_cron, vet-scheduling 2/1; 20 crontab entries
+commented. Chunk 2's in-place README pin edits are left for the gate's
+"every README matching a fresh regeneration" check.
