@@ -20,7 +20,7 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - >-
       the node is a standby (standby_of: its primary, cloned by load-data's

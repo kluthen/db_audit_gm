@@ -64,8 +64,8 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 BRICK=$(cd "$HERE/.." && pwd)
 STACK=gmtest-sched
-IMAGE=127.0.0.1:5000/dbagm/scheduler:0.3.0
-DB_IMAGE=dbagm-test/scheduler-unit:0.3.0
+IMAGE=127.0.0.1:5000/dbagm/scheduler:0.4.0
+DB_IMAGE=dbagm-test/scheduler-unit:0.4.0
 SERVICE=${STACK}_scheduler
 TR_SERVICE=${STACK}_transformer
 CL_SERVICE=${STACK}_caller
@@ -149,6 +149,8 @@ fi
 info "building $IMAGE and $DB_IMAGE from $BRICK"
 docker build -q -t "$IMAGE" "$BRICK" >/dev/null
 docker build -q --target unit-test -t "$DB_IMAGE" "$BRICK" >/dev/null
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$BRICK/../../tools/tests/check-base.sh" "$BRICK" "$IMAGE"); then pass "$out"; else fail "$out"; fi
 
 # --- per-game material, as render and gmctl deploy would create it ----------
 now() { date -u +%s; }

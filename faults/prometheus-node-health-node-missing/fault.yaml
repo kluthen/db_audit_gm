@@ -16,7 +16,7 @@ severity: medium
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0", "0.2.0", "0.2.1"]
+      versions: ["0.1.0", "0.2.0", "0.2.1", "0.2.2"]
   preconditions:
     - the node is in the prometheus node's node_health map
     - the scenario's prometheus.yml still lists the node's port 9110 target in the node-health job, so the gap shows as a target down rather than only by comparing nodes

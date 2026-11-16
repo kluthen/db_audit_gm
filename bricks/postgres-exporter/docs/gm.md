@@ -2,13 +2,13 @@
 
 GM documentation of the `postgres-exporter` brick (`brick.yaml`, v0.2
 master spec 7 and 7.3; required sections: v0.2 master spec 6.2). Never
-shipped to players. Brick version 0.2.0, expected to evolve as games are
+shipped to players. Brick version 0.2.1, expected to evolve as games are
 played.
 
 ## Purpose
 
 `postgres_exporter` 0.20.1 on Debian 13 (trixie), with an SSH server for
-the players, in the image `127.0.0.1:5000/dbagm/postgres-exporter:0.2.0`.
+the players, in the image `127.0.0.1:5000/dbagm/postgres-exporter:0.2.1`.
 It fills the role `monitoring`: the node that reads PostgreSQL's
 statistics with a monitoring role and serves them as Prometheus metrics
 (`pg_up`, the default collectors' metrics, and the query statistics of
@@ -37,7 +37,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.1 bricks/postgres-exporter`.
 - **How many**: one per watched database; it watches the one database
   its seed file names.
 - **Next to which node**: any host; it reaches the database by node name
@@ -420,7 +420,7 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.2.0`,
+(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.2.1`,
 so it supports none.
 
 It shows one catalog fault of another brick: `pg-stat-statements-not-preloaded`

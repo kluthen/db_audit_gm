@@ -22,7 +22,7 @@ severity: low
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - >-
       a monitoring node targets the instance's node (postgres-exporter's

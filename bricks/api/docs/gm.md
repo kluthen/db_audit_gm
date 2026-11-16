@@ -7,7 +7,7 @@ players.
 
 - **What it is**: an HTTP API node, FastAPI 0.162.0 on uvicorn 0.54.0,
   Python 3.13 (Debian 13), psycopg 3.3.7 on Debian's libpq, image
-  `127.0.0.1:5000/dbagm/api:0.1.0`. The GM drops endpoint files into the
+  `127.0.0.1:5000/dbagm/api:0.1.1`. The GM drops endpoint files into the
   node and the brick serves them; the image is generic and holds no
   scenario content (v0.5 master spec 7.2, "The `api` brick").
 - **Role**: `api` (spec D349).
@@ -33,7 +33,7 @@ players.
   `no-access` and the partners' hostnames as network aliases (render's,
   chunk 7). Next to nothing in particular: it reaches its databases and
   the APIs it calls by name.
-- Build: `docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api`
+- Build: `docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api`
   (x86_64: the s6-overlay archive and pydantic-core's wheel). The build
   asserts G6's pins (each package at exactly its pin, nothing else in
   `dist-packages`), psycopg's pure-Python implementation over libpq 17 or
@@ -243,7 +243,7 @@ Restored by copying back; the server reads the files at start.
 
 ## Supported faults
 
-None yet: no catalog fault's `applies_to` names `api` 0.1.0. v0.5's test
+None yet: no catalog fault's `applies_to` names `api` 0.1.1. v0.5's test
 selection plants no fault on the `db/` side (master spec 7.2: it is
 covered by the brick's own build checks). What a scenario plants around
 an API (in its data, its routes or a partner's misbehaviour keys) comes

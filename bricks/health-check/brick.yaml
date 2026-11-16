@@ -2,7 +2,9 @@
 # check_postgres from cron, the customer's scripts, a status page (v0.5
 # master spec 7.4, 7.5, 14).
 #
-# Version 0.1.0 (unreleased until the v0.5 release gate, D100). Packages and
+# Version 0.1.1 (unreleased until the v0.6 release gate, D100): 0.1.0,
+# released with v0.5, plus `base:` (v0.6 master spec 6.4, 6.8; no other
+# change). Packages and
 # build conditions: G9 (specs/versions/v0.5/wave-log.md); the seed files,
 # the scripts' convention, the port, the interface and its route: capture
 # W2 item 5; the monitoring role it connects as: the `postgres` brick's
@@ -10,13 +12,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: health-check
-version: 0.1.0
+version: 0.1.1
 roles:
   - monitoring                      # v0.3 master spec 6.4's closed list (v0.5 capture W1 item 1)
 technology:
   name: check_postgres
   version: "2.26.0"
-image: 127.0.0.1:5000/dbagm/health-check:0.1.0
+image: 127.0.0.1:5000/dbagm/health-check:0.1.1
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 14's row (0.1 CPU, 64M), less what the

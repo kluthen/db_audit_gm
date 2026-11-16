@@ -1,6 +1,9 @@
 # brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
 #
-# Version 0.5.0 (unreleased until the v0.5 release gate, D100). Roles, growth
+# Version 0.5.1 (unreleased until the v0.6 release gate, D100): 0.5.0,
+# released with v0.5, plus `base:` (v0.6 master spec 6.4 and 6.8; capture
+# W1 item 1 of specs/versions/v0.6/wave-log.md); 6.8's other change, its
+# player documentation on the reports folder, comes with its chunk. Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
@@ -13,13 +16,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.5.0
+version: 0.5.1
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+image: 127.0.0.1:5000/dbagm/postgres:0.5.1
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # CPU and memory: v0.1's figures as reservations, limits

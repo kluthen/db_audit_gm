@@ -76,13 +76,13 @@
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Usage: sh bricks/postgres/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pg
-IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 SERVICE=${STACK}_db
 NET=${STACK}_net
 CLIENT=${STACK}-client
@@ -154,6 +154,8 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 docker image inspect "$IMAGE" >/dev/null 2>&1 || { echo "image $IMAGE not built" >&2; exit 2; }
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 for st in "$STACK" "$RSTACK"; do
     if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$st" || true)" ]; then
         echo "stack $st already exists; remove it first" >&2

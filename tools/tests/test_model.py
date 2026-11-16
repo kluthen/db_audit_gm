@@ -156,7 +156,7 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
                        lambda d: self.node(d, "db")["brick"].update(version="0.6.0"))
-        self.assertRefused("nodes[db].brick", "0.6.0", "0.5.0")
+        self.assertRefused("nodes[db].brick", "0.6.0", "0.5.1")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -320,11 +320,11 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0", "catalog"),
-            "db": ("postgres", "0.5.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.1", "catalog"),
-            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.3.0", "catalog")})
+            "bastion": ("bastion", "0.6.0", "catalog"),
+            "db": ("postgres", "0.5.1", "catalog"),
+            "prometheus": ("prometheus", "0.2.2", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.1", "catalog"),
+            "grafana": ("grafana", "0.4.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
                          {n: "default" for n in self.NODES})
         self.assertEqual(sc.node("bastion")["parameters"]["web_routes"],
@@ -387,14 +387,14 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-load")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0", "catalog"),
-            "db": ("postgres", "0.5.0", "catalog"),
-            "pooler": ("pgbouncer", "0.1.1", "catalog"),
-            "producer": ("scheduler", "0.3.0", "catalog"),
-            "consumer": ("scheduler", "0.3.0", "catalog"),
-            "prometheus": ("prometheus", "0.2.1", "catalog"),
-            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.3.0", "catalog")})
+            "bastion": ("bastion", "0.6.0", "catalog"),
+            "db": ("postgres", "0.5.1", "catalog"),
+            "pooler": ("pgbouncer", "0.1.2", "catalog"),
+            "producer": ("scheduler", "0.4.0", "catalog"),
+            "consumer": ("scheduler", "0.4.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.2", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.1", "catalog"),
+            "grafana": ("grafana", "0.4.0", "catalog")})
         self.assertTrue(model.has_scheduler_nodes(sc.data))
         self.assertEqual(sc.data["aging"], {"minimum": "8h", "handover_at": "14:00"})
         self.assertEqual([n["name"] for n in sc.nodes if n["write_policy"] == "report-only"],
@@ -1508,7 +1508,7 @@ class TestRetentionRefusals(RefusalAsserts, ScenarioCopyTest):
 
         def fault(d):
             d.update(id="fixture-short-retention", family="retention")
-            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.1"]}]
+            d["applies_to"]["bricks"] = [{"id": "prometheus", "versions": ["0.2.2"]}]
             d["injection"]["seed_changes"] = [{"file": "prometheus.yml",
                                                "change": "retention.time: 2h"}]
         self.edit_yaml("faults/fixture-short-retention/fault.yaml", fault)
@@ -2982,12 +2982,12 @@ class TestCampaignFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-campaign")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.5.0"), "db": ("postgres", "0.5.0"),
-            "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.3.0"),
-            "consumer": ("scheduler", "0.3.0"), "reporting": ("postgres", "0.5.0"),
-            "bi": ("scheduler", "0.3.0"), "crm": ("scheduler", "0.3.0"),
-            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.1"),
-            "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.3.0")})
+            "bastion": ("bastion", "0.6.0"), "db": ("postgres", "0.5.1"),
+            "pooler": ("pgbouncer", "0.1.2"), "producer": ("scheduler", "0.4.0"),
+            "consumer": ("scheduler", "0.4.0"), "reporting": ("postgres", "0.5.1"),
+            "bi": ("scheduler", "0.4.0"), "crm": ("scheduler", "0.4.0"),
+            "gateway": ("scheduler", "0.4.0"), "prometheus": ("prometheus", "0.2.2"),
+            "exporter": ("postgres-exporter", "0.2.1"), "grafana": ("grafana", "0.4.0")})
         self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
         self.assertEqual({n["name"]: n["role"] for n in sc.nodes
                           if n["brick"]["id"] == "scheduler"},
@@ -3166,8 +3166,8 @@ class V05CopyTest(RefusalAsserts, ScenarioCopyTest):
         shutil.copytree(src, self.scenario / "faults" / fid)
         def edit(d):
             d["id"] = fid
-            d["applies_to"]["bricks"] += [{"id": "postgres", "versions": ["0.5.0"]},
-                                          {"id": "bastion", "versions": ["0.5.0"]}]
+            d["applies_to"]["bricks"] += [{"id": "postgres", "versions": ["0.5.1"]},
+                                          {"id": "bastion", "versions": ["0.6.0"]}]
             d["parameters"] = {}
             d["injection"]["seed_changes"] = [{"file": "postgresql.conf",
                                                "change": "random_page_cost = 4.0"}]
@@ -3243,13 +3243,13 @@ class TestOptionRefusals(V05CopyTest):
         self.on_node("exporter", lambda n: n.update(options=["monitoring"]))
         self.assertRefused(f"{self.S}: nodes[db].options: [] is not a non-empty list",
                            f"{self.S}: nodes[exporter].options: monitoring is not an option of "
-                           "brick postgres-exporter 0.2.0 (it declares none")
+                           "brick postgres-exporter 0.2.1 (it declares none")
 
     def test_unknown_and_twice(self):
         self.on_node("db", lambda n: n.update(options=["monitoring", "pgcluu", "monitoring"]))
         self.assertRefused(f"{self.S}: nodes[db].options: monitoring listed more than once",
                            f"{self.S}: nodes[db].options: pgcluu is not an option of brick "
-                           "postgres 0.5.0 (it declares monitoring")
+                           "postgres 0.5.1 (it declares monitoring")
 
     def test_no_access_only_on_a_brick_declaring_it(self):
         self.on_node("exporter", lambda n: n.update(write_policy="no-access"))
@@ -3271,7 +3271,7 @@ class TestOptionRefusals(V05CopyTest):
     def test_fault_naming_an_option_the_brick_lacks(self):
         self.local_fault("fx-other", lambda d: d.update(requires_option="pgcluu"))
         self.instance("f9", "fx-other", "db")
-        self.assertRefused("fault fx-other requires option pgcluu, which brick postgres 0.5.0 "
+        self.assertRefused("fault fx-other requires option pgcluu, which brick postgres 0.5.1 "
                            "of node db does not declare")
 
     def test_fault_definition_never_both(self):
@@ -4836,7 +4836,7 @@ class TestRegisterRefusals(RegisterCopyTest):
         def fault(d):
             d["id"] = "fixture-register-change"
             d["family"] = "security"
-            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.5.0"]}]
+            d["applies_to"]["bricks"] = [{"id": "bastion", "versions": ["0.6.0"]}]
             d["injection"]["seed_changes"] = [{"file": "data-register.md",
                                                "change": "the handout as the skill wrote it"}]
         self.edit_yaml("faults/fixture-register-change/fault.yaml", fault)
@@ -4919,7 +4919,7 @@ class TestGovernanceOnThirdParties(RegisterCopyTest):
         data["nodes"] += [
             {"name": "partners-backend", "brick": {"id": "scheduler", "version": "0.1.0"},
              "write_policy": "no-access"},
-            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.0"},
+            {"name": "partners-api", "brick": {"id": "api", "version": "0.1.1"},
              "write_policy": "no-access"}]
         self.assertEqual(model.third_party_nodes(data),     # no left_out: the owners' route
                          {"partners-db", "partners-backend", "partners-api"})
@@ -5123,7 +5123,7 @@ class TestFaultForms(V05CopyTest):
         self.elsewhere_fault()
         self.plant_elsewhere("lab-api")
         self.assertRefused(f"{self.S}: fault_instances[f9].parameters.feeder: lab-api runs api "
-                           "0.1.0, which fault fx-elsewhere does not apply to")
+                           "0.1.1, which fault fx-elsewhere does not apply to")
 
     def test_script_item_malformed_refused(self):
         self.elsewhere_fault(item={"on": "feeder", "as": "postgres"})

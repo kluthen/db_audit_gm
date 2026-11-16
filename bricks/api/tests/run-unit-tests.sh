@@ -11,7 +11,7 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 BRICK=$(cd "$HERE/.." && pwd)
-TAG=dbagm-test/api-unit:0.1.0
+TAG=dbagm-test/api-unit:0.1.1
 NAME=gmtest-api-unit
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true

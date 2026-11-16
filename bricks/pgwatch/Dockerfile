@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The seed file (the sources, each a
 # database node and its metric preset) and the secrets arrive at run time at
 # the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/pgwatch:0.1.0 bricks/pgwatch
+# Build:  docker build -t 127.0.0.1:5000/dbagm/pgwatch:0.1.1 bricks/pgwatch
 # Architecture: x86_64 only (the s6-overlay and pgwatch archives below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------

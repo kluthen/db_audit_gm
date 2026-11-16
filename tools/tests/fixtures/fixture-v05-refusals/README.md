@@ -62,18 +62,18 @@ files map `partners.md`: the page is in the starter pack.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `standby` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
-| `producer` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `lab-api` | `api` 0.1.0 | api | yes | backend | fixable |
-| `partners-api` | `api` 0.1.0 | api | yes | backend | no-access |
-| `partners-db` | `postgres` 0.5.0 | database | yes | backend | no-access |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `standby` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `exporter` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
+| `producer` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `lab-api` | `api` 0.1.1 | api | yes | backend | fixable |
+| `partners-api` | `api` 0.1.1 | api | yes | backend | no-access |
+| `partners-db` | `postgres` 0.5.1 | database | yes | backend | no-access |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -101,7 +101,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -140,7 +140,7 @@ Data, restored from `data/db.sql`:
 
 #### Node `standby`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -169,7 +169,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 
 #### Node `exporter`
 
-- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -190,7 +190,7 @@ No knobs.
 
 #### Node `producer`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Write overrides**: `/srv/scheduler/jobs`: fixable on this report-only
@@ -215,7 +215,7 @@ No knobs.
 
 #### Node `lab-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -237,7 +237,7 @@ No knobs.
 
 #### Node `partners-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.
@@ -259,7 +259,7 @@ No knobs.
 
 #### Node `partners-db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

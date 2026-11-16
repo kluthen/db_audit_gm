@@ -106,7 +106,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.5.0
+      version: 0.6.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -132,7 +132,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     options: [monitoring]           # the exporter's target (v0.5 master spec 17.5)
     role: database
     stateful: true
@@ -229,7 +229,7 @@ nodes:
   - name: pooler
     brick:
       id: pgbouncer
-      version: 0.1.1
+      version: 0.1.2
     role: pooler
     stateful: true
     networks: [backend]
@@ -266,7 +266,7 @@ nodes:
   - name: producer
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: producer
     stateful: true
     networks: [backend]
@@ -294,7 +294,7 @@ nodes:
   - name: consumer
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: consumer
     stateful: true
     networks: [backend]
@@ -320,7 +320,7 @@ nodes:
   - name: reporting
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     role: database
     stateful: true
     networks: [backend]
@@ -412,7 +412,7 @@ nodes:
   - name: bi
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: transformer
     stateful: true
     networks: [backend]
@@ -437,7 +437,7 @@ nodes:
   - name: crm
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: transformer
     stateful: true
     networks: [backend]
@@ -464,7 +464,7 @@ nodes:
   - name: gateway
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: producer                  # the customs gateway stub (capture W1 item 1)
     stateful: true
     networks: [backend]
@@ -488,7 +488,7 @@ nodes:
   - name: prometheus
     brick:
       id: prometheus
-      version: 0.2.1
+      version: 0.2.2
     role: monitoring
     stateful: true
     networks: [backend]
@@ -514,7 +514,7 @@ nodes:
   - name: exporter
     brick:
       id: postgres-exporter
-      version: 0.2.0
+      version: 0.2.1
     role: monitoring
     stateful: true
     networks: [backend]
@@ -536,7 +536,7 @@ nodes:
   - name: grafana
     brick:
       id: grafana
-      version: 0.3.0
+      version: 0.4.0
     role: monitoring
     stateful: true
     networks: [backend]

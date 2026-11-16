@@ -10,9 +10,9 @@
 # before the machinery's 22:00 partition jobs, on the same local day as the
 # load.
 #
-# On a copy of tools/tests/fixtures/fixture-vault (bastion 0.5.0; records,
-# machines and partners-db: postgres 0.5.0; interfaces: scheduler 0.3.0;
-# partners-api: api 0.1.0 serving partners/coldstore/ under cold-storage;
+# On a copy of tools/tests/fixtures/fixture-vault (bastion 0.6.0; records,
+# machines and partners-db: postgres 0.5.1; interfaces: scheduler 0.4.0;
+# partners-api: api 0.1.1 serving partners/coldstore/ under cold-storage;
 # domains: vet-core at records/clinic, vet-machinery at
 # machines/{pacs,vitals,biomed}; purpose 14 at machines/vitals,
 # machines/biomed, partners-db/partners, interfaces, partners-api):
@@ -50,10 +50,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-vault/run-short-test.sh   (from anywhere)
@@ -63,8 +63,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=vault-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1 127.0.0.1:5000/dbagm/postgres:0.5.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
 JOBS=/srv/scheduler/jobs/jobs.yaml
 CHECKS=$REPO/purposes/cold-storage-archive/checks

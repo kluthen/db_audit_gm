@@ -4,12 +4,12 @@
 # specs/versions/v0.5/wave-log.md; spec D397): a restart from the hand-over
 # snapshot gives back replication. On one host, about ten minutes.
 #
-# On a copy of tools/tests/fixtures/fixture-restore (bastion 0.5.0; records:
-# postgres 0.5.0 archiving to cold-storage:8000 with the credential
+# On a copy of tools/tests/fixtures/fixture-restore (bastion 0.6.0; records:
+# postgres 0.5.1 archiving to cold-storage:8000 with the credential
 # cold_storage, the fault f1 planting the slot old_reports beside the
-# standby's; standby: postgres 0.5.0, records' standby; partners-api: api
-# 0.1.0 serving partners/coldstore/ under cold-storage; partners-db: postgres
-# 0.5.0 with partners/shared/ and coldstore's data; no scheduler node):
+# standby's; standby: postgres 0.5.1, records' standby; partners-api: api
+# 0.1.1 serving partners/coldstore/ under cold-storage; partners-db: postgres
+# 0.5.1 with partners/shared/ and coldstore's data; no scheduler node):
 #   fit (the laptop playground, 2 CPU / 4G / 16G, so the snapshot fits) ->
 #   render -> deploy -> load-data (the standby cloned, streaming) -> inject
 #   (old_reports on records) -> check --handover-check -> snapshot (records
@@ -31,9 +31,9 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-restore/run-short-test.sh   (from anywhere)
@@ -43,8 +43,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=restore-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/postgres:0.5.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/postgres:0.5.1"
 LABELS="com.docker.stack.namespace dbagm.game dbagm.snapshot"
 KINDS="service network volume config secret"
 started=$(date +%s)

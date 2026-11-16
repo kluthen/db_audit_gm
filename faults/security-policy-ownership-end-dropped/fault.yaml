@@ -20,7 +20,7 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - >-
       vet-portal is composed in the instance node's database `database`

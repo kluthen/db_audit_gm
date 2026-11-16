@@ -2,12 +2,12 @@
 
 GM documentation of the `postgres` brick (`brick.yaml`, master spec 9.1;
 required sections: spec D56). Never shipped to players. Brick version
-0.5.0, expected to evolve as games are played.
+0.5.1, expected to evolve as games are played.
 
 ## Purpose
 
 A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
-for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.5.0`. It
+for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.5.1`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
 database node of a scenario; in v0.2 it is still the only database
@@ -49,7 +49,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
   `monitoring_password`, `gm_check_password`, `pgbouncer_lookup_password`
@@ -1321,14 +1321,14 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.5.0`, and no other. The v0.5 faults (master spec 17.2, the clinic's:
+`postgres` `0.5.1`, and no other; all also name `0.5.0`. The v0.5 faults (master spec 17.2, the clinic's:
 `pg-archive-command-silent`, `governance-statement-log-personal`,
 `pg-standby-apply-delay`, `purpose-herd-use-dropped`,
 `security-policy-ownership-end-dropped`, `pg-monitoring-option-absent`) name
-`0.5.0` only; all others also name `0.4.0`. The v0.4 database-node faults
+`0.5.1` and `0.5.0` only; all others also name `0.4.0`. The v0.4 database-node faults
 (`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
 `governance-personal-copied`, `purpose-etl-role-expired`,
-`purpose-heavy-job-on-database-node`) name `0.5.0` and `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
+`purpose-heavy-job-on-database-node`) name `0.5.1`, `0.5.0` and `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
 `pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
