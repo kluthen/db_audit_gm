@@ -545,3 +545,13 @@ files; the fill's per-minute metrics record for `gmctl history`; the
 ### Questions for the owner
 
 None.
+
+### W1 reviewed by the driver, 2026-11-16
+
+The capture's 18 **(choice)** points are accepted as drafted. Its four
+plan corrections (O269's `seed_changes[].lines`, `admitted.from` in hours
+only, chunk 2's and chunk 8's Files, the edge `3 ──> 8`) go to
+`spec-writer` before chunk 2's branch is cut; item 5 (the forms W1
+settles) waits for G10 after the wave's gate. No owner question.
+Chunk 1 starts at once: no correction touches it, and W1 item 3 is
+committed (f01e24e).
