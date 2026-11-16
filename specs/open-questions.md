@@ -58,7 +58,8 @@ resolved by the owner's rulings of that day (D480, D481), O21 narrowed
 draft and closed the same day as recommended (D487, D488). On
 2026-11-15 the owner's direction on fake aging closed O22 (D489–D493);
 O271 and O272 raised with its draft and closed the same day by the
-owner (D494, D495).
+owner (D494, D495). On 2026-11-16 the owner agreed to every pending
+v0.6 point as recommended, closing O21 (D502) and O32 (D503).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -119,7 +120,11 @@ for the next version (v0.1 until it closed, with none left open);
   while the format skill says there is no schema-check script. Refs:
   [bricks-and-faults.md](bricks-and-faults.md), [formats.md](formats.md)
   "Enforcement".
-- **O21** (later, v0.6) — Can the starter documentation contain deliberate
+- **O21** (**closed**, D502: only the data register and the network
+  overview may carry a planted inaccuracy; the README, rules, data
+  policy and `partners.md` never; the story and issues only as the
+  customer's belief; kept here until v0.6's archive) (later, v0.6) —
+  Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario? Due with v0.6's
   documentation website; no longer v0.5's (D233). Narrowed by D330: the
   data register may carry one from v0.5 (T300–T308); and by D484: v0.6's
@@ -194,8 +199,10 @@ for the next version (v0.1 until it closed, with none left open);
   later version (D125).
 - **O31** (later) — Are player actions on nodes recorded (shell history,
   audit trail) to help the GM's feedback?
-- **O32** (later) — Language of player-facing material (story, starter
-  documentation, issues, feedback).
+- **O32** (**closed**, D503: English everywhere, the website and the
+  feedback included; a scenario language option later, not in v0.6;
+  kept here until v0.6's archive) (later) — Language of player-facing
+  material (story, starter documentation, issues, feedback).
 - **O38** (later) — Is the feedback written to a file (the teacher is out
   of the game by then)? A scoring system is post-v1.0, unless research
   finds one quick to implement (D120). Refs:

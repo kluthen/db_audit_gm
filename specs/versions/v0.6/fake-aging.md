@@ -1,13 +1,14 @@
 # Fake aging: a second aging mode
 
-Status: draft v3, 2026-11-16. The owner's direction of 2026-11-15
+Status: draft v4, 2026-11-16. The owner's direction of 2026-11-15
 (D489–D491) and spec-writer's reading of it on the bar (D492); O22
 closed (D493); the owner's rulings of the same day: the players are
 never told about the aging process (D494, O271 closed), v0.6 covers
 the shop and the campaign (D495, O272 closed); refined on 2026-11-16:
 once the game is concluded, a reported tell may be explained (D496),
-within the feedback's two parts (D497). Items not yet ruled are tagged
-(proposed).
+within the feedback's two parts (D497). Every remaining proposal
+accepted as written on 2026-11-16 (D498). What stays open is
+technical: the estimates of 2.4, to be measured, and section 9.
 
 Inputs, on branch `research/fake-aging` (10d1bc6), worktree
 `~/work/db_audit_gm-wt/research-fake-aging`:
@@ -53,6 +54,10 @@ Then: "lets work on integrating fake aging into the game".
 - **D497**: the GM's appreciation of a report has two parts, the
   customer side and a teaching moment; beyond fake aging, so stated in
   the [v0.6 page](README.md#the-gms-feedback-d497).
+- **D498**: the draft's proposals accepted as written (2026-11-16):
+  the mode and the GM's steps, the fault format, the tail, the
+  calibration, the fix list with its additions and its departure, the
+  limits' documentation, the product's shape and the verification.
 - **D495**: v0.6 makes the shop and the campaign fake-ageable, the
   campaign without its f10; the clinic later (2.4).
 
@@ -66,14 +71,14 @@ mandatory.
 
 ### 1.1 Choosing the mode
 
-The mode is chosen per game, by the GM, at setup (proposed). It is not a
+The mode is chosen per game, by the GM, at setup. It is not a
 scenario field: a scenario allows fake aging when the fault selection
 the GM makes for it is eligible (section 2).
 
 - **The initiator states the time available**, as today (D150), and may
   ask for a quick or an extended game. The initiator never picks faults
   or a mode's mechanics: fault selection is the GM's.
-- **Default** (proposed): real aging when the time available covers
+- **Default**: real aging when the time available covers
   the scenario's declared aging; fake aging when it doesn't, or when the
   initiator asks for a quick game. This keeps D150's judgment as it
   stands and adds one option before declining.
@@ -82,7 +87,7 @@ the GM makes for it is eligible (section 2).
   eligible (2.1), then sets the tail (2.2). If no acceptable selection
   fits the scenario, the GM declines it or proposes another scenario, as
   D150 already has it do.
-- **Recorded**: `gmctl render --aging fake` (proposed name) writes the
+- **Recorded**: `gmctl render --aging fake` writes the
   mode, the virtual T0, the anchor and the tail into the local
   implementation. `gmctl` refuses a fake game holding a `real-only`
   fault, or a fault not assessed for fake aging.
@@ -103,7 +108,7 @@ game.
 | history import | about 12 minutes into the tail | none |
 | H | hand-over | hand-over |
 
-- **The virtual span is the scenario's declared aging** (proposed), so
+- **The virtual span is the scenario's declared aging**, so
   the virtual T0 is the T0 a real game of the scenario would have. The
   research ran 24 h for the comparison with R; the product uses the
   scenario's own aging. The instances' aging minima (the shop's f5,
@@ -115,7 +120,7 @@ game.
 
 ### 1.3 The GM's steps in fake mode
 
-The command names are proposed. Steps 1 to 4 are today's setup.
+Steps 1 to 4 are today's setup.
 
 1. `gmctl render --aging fake`: the timeline above, recorded. The
    starter pack's story line on the restart (3, fix 2) is rendered with
@@ -175,7 +180,7 @@ the rest of Prometheus' volume (to verify, section 9).
 ### 2.1 The fields
 
 A `fault.yaml` keeps its `aging:` block (`technique: real-time`, the
-real mode's, and `minimum`) and gains two things (proposed).
+real mode's, and `minimum`) and gains two things.
 
 ```yaml
 aging:
@@ -228,7 +233,7 @@ history:                        # mandatory unless support is real-only
   (formats.md "Fault definition") grows a sentence. `history:` is a new
   item. The loader's checks (`tools/gm/model.py`) gain the refusals
   above. The scenario format is unchanged: the mode is the game's.
-- The answer key gains one item in a fake game (proposed): the
+- The answer key gains one item in a fake game: the
   maintenance restart, an in-world event of the customer's system, with
   what it explains (statistics since the restart, older logs archived,
   services started at that time). Not a fault, never counted; the
@@ -236,7 +241,7 @@ history:                        # mandatory unless support is real-only
 
 ### 2.2 The tail's length
 
-The tail is the longest of (proposed):
+The tail is the longest of:
 - a floor of **1 h**, so the statement statistics and the logs hold an
   hour of genuine traffic and the import (step 8) is done well before
   the hand-over;
@@ -254,7 +259,7 @@ Four guesses in the test were 4× to 55× off (f8's CPU and latency, the
 roll-up, the export). Every number in a `history:` entry, and each
 key's service time in the queue model, comes from one real run of the
 fault:
-- **short** (proposed): under 30 minutes, the fault planted at once and
+- **short**: under 30 minutes, the fault planted at once and
   its job moved into the window as a player would move it. Per-call
   costs and service times don't need a day; the day's shape comes from
   the producer profiles. This keeps calibration within D314's short
@@ -263,8 +268,8 @@ fault:
 
 The per-key service times describe the scenario's or the domain's
 keys, so they live beside the query repository that defines them
-(`queries.yaml`), not in the scheduler brick (proposed; the results put
-them in the brick). The brick ships the model's code.
+(`queries.yaml`), not in the scheduler brick (the results put them in
+the brick). The brick ships the model's code.
 
 ### 2.4 Starting estimate, to be measured
 
@@ -302,7 +307,7 @@ The full selection's tail: 3 h (anchor 11:00, the noon peak inside).
 | f7 | purpose-day-boundary-wrong-zone | supported (P0) | the 01:30 close, virtual |
 | f8 | purpose-receiver-down-unnoticed | supported | the gateway's outage at virtual 08:00–10:00 |
 | f9 | governance-personal-copied | supported | its definitions are state; `job_run_details` holds the tail's runs only (pg_cron off in the fill) |
-| f10 | purpose-heavy-job-on-database-node | **real-only** | a real OOM kill and crash recovery at 03:00, read from the PostgreSQL log since the request; a redesign moving the incident into the tail is possible later, not in v0.6 (proposed) |
+| f10 | purpose-heavy-job-on-database-node | **real-only** | a real OOM kill and crash recovery at 03:00, read from the PostgreSQL log since the request; a redesign moving the incident into the tail is possible later, not in v0.6 |
 
 The campaign's hiding: f5 hides f4, f7 and f10. With f10 out of a fake
 selection and f5 planted in the tail, the GM checks f5's order against
@@ -379,7 +384,7 @@ hunting with superuser access can.
 Host-level evidence (the host's uptime, Docker's task history) is out
 of the players' reach: they have the bastion only.
 
-**Where it is documented** (proposed):
+**Where it is documented**:
 - GM-facing, once: the limits above in the GM's guide to aging (today
   [scenario-lifecycle.md](../../scenario-lifecycle.md) "Aging" and
   [gm-stance.md](../../gm-stance.md) "Aging feasibility"), at
@@ -464,7 +469,7 @@ have given their final answer and the GM has processed it
 
 ## 5. Where it belongs
 
-| Research piece (`tools/research/fake_aging/`) | In the product (proposed) |
+| Research piece (`tools/research/fake_aging/`) | In the product |
 |---|---|
 | `fill.py`, the fill driver | the scheduler program's **fill mode** (`bricks/scheduler/program/gm_scheduler/`): it reuses the repository, builders, generators, the log's format and the minute summaries, as the prototype does |
 | `latency.py`, the queue model | the model's code in the scheduler program, used by the fill's log lines and by `gmctl history`'s histograms; the keys' service times beside their `queries.yaml` (2.3); the faults' effects in their `history: queue` entries |
@@ -503,7 +508,7 @@ Consistent with: aged runs are one-off, never a standing gate item
 test over 30 minutes runs once, before v1.0 (D314).
 
 **v0.6's gate: a short fake-only check, on the shop and on the
-campaign (D495), under 30 minutes each** (proposed):
+campaign (D495), under 30 minutes each**:
 - a fake game with a selection whose tail fits a capped floor of
   15 minutes: for the shop f1, f2, f3, f6, f8, f9, f10 (no f4, f5,
   f7); for the campaign f1–f4 and f7–f9 (no f5, f6, f10);
@@ -521,7 +526,7 @@ campaign (D495), under 30 minutes each** (proposed):
   the checks reading present, P0's jobs' outputs against their
   invariants, and the seam and tells.
 
-**Once, one-off: a blind read of a fake game alone** (proposed): a
+**Once, one-off: a blind read of a fake game alone**: a
 fresh agent with player access only, told nothing about aging, asked to
 audit the shop (not to find a fake), then asked at the end whether
 anything about the system's history looked wrong. The game is the
@@ -536,7 +541,7 @@ included), each run longer than 30 minutes.
 
 **The reference.** R's data (`results/` on the research worktree,
 about 2 GB, untracked) is the only real run of the shop. It must
-survive the research worktree (proposed): the small files (M1 dumps,
+survive the research worktree: the small files (M1 dumps,
 the M3 profile, the calibrations, the tells) committed with the
 verification tools; R's Prometheus copy kept as an archive outside git,
 its path and checksum recorded beside them.

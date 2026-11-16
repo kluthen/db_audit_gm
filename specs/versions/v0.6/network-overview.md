@@ -1,10 +1,10 @@
 # v0.6 — the network overview, a player handout
 
-Status: draft v2. The rulings are settled (D480–D485), and the owner
+Status: draft v3. The rulings are settled (D480–D485), and the owner
 accepted O260–O268 as recommended on 2026-11-13 (D487, D488;
 [questions](#questions-for-the-owner)), so every point they cover
-stands as written. Details still tagged (proposed) await his
-confirmation. It follows the
+stands as written; the remaining details were accepted as written on
+2026-11-16 (D500). Nothing is left open. It follows the
 [data register handout](../v0.5/data-register-handout.md) and its
 `data-register` skill wherever it can.
 
@@ -44,9 +44,9 @@ A real IT team keeps an inventory of its servers: one page or one row
 per machine, what it is for, what runs on it, who connects to it, what
 runs at night and how it is backed up. It is written once and updated
 when someone remembers. The handout takes that shape, with one entry
-per node of the customer's estate (proposed).
+per node of the customer's estate.
 
-**Grouping** (proposed): by what the node is for, in this order:
+**Grouping**: by what the node is for, in this order:
 
 1. the database servers (`database`);
 2. the applications (`producer`, `api`) and the integration and
@@ -60,7 +60,7 @@ than the register, so the page opens with a one-line-per-node summary
 table (name, role, description, access), each name linking to its
 entry.
 
-**The header** (proposed, fixed text, never a deviation): the customer's
+**The header** (fixed text, never a deviation): the customer's
 name (from the story); one line on the network ("one private network;
 the partners' services are reached on it by name; from outside, only the
 bastion's SSH port and web port are reachable"); a note on the bastion
@@ -133,7 +133,7 @@ may render them inaccurate, but that's okay." The rule holds for
 **The data register.** Both handouts come from the same facts: the
 register says which data sits in which `node/database` and who receives
 it; the overview says which nodes exist, who connects to them and how
-they are protected. They are kept consistent by construction (proposed):
+they are protected. They are kept consistent by construction:
 
 - a database server's **Databases** lists, for each database, the
   register entries its `index:` gives, linked
@@ -163,7 +163,7 @@ not a node entry. The header carries one fixed line: "You work from
 `bastion`, your access point; [its activity](...)". The line is never a
 deviation. Its Node health stays on the dashboard, as today.
 
-## 4. Generation: the GM's `network-overview` skill (proposed)
+## 4. Generation: the GM's `network-overview` skill
 
 A GM sub-skill, `.claude/skills/network-overview/`, on the
 `data-register` model: generated from the authoritative files, never
@@ -201,7 +201,7 @@ edited by hand, regenerated rather than reconciled.
   **Your access** and the header equal to the true overview's (O260,
   O261).
 - **Which scenarios**: every scenario listing `domains:`, as for the
-  register (D335) (proposed); a fixture, whose id starts `fixture-`, is
+  register (D335); a fixture, whose id starts `fixture-`, is
   exempt; v0.4's shop and earlier scenarios are exempt until next
   revised.
 
@@ -230,7 +230,7 @@ diff. The sealed check reads only that the change is present in the
 bastion's copy. The report is the players' business, written where they
 like (D481).
 
-**The traps**, a generic catalogue (proposed; numbered when a
+**The traps**, a generic catalogue (numbered when a
 scenario's catalogue takes them). Each witness is the page read against
 the system:
 
@@ -266,7 +266,7 @@ v0.6 builds the family and at least one of them with its short test.
 - **The home page's link**: under "Documents", "Network overview", only
   when the scenario has one (D221's rule: no dead link).
 - **The Grafana link** (O264): today the dashboard (uid `node-health`)
-  has no template variable and shows every node at once. Proposed: a
+  has no template variable and shows every node at once. v0.6 adds a
   `node` variable (`label_values(node_health_cpu_limit_cores, node)`,
   multi-value, "All" by default), every panel's query filtered by
   `{node=~"$node"}`, and each entry linking
@@ -291,7 +291,7 @@ v0.6 builds the family and at least one of them with its short test.
 ## 7. Worked against the clinic (aldermoor-centre)
 
 Three entries and the start of the third-party table, as the generator
-would write them from today's files, with the proposed fields
+would write them from today's files, with the new fields
 (description, site, role and task descriptions) filled as the GM and the
 domains would give them. Illustration only.
 

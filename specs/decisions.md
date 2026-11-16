@@ -1724,3 +1724,36 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   explained, why things looked as they did, from faults or aging).
   D9's content becomes the first part; D13 and D18 untouched. Now in:
   [versions/v0.6/README.md](versions/v0.6/README.md#the-gms-feedback-d497).
+- **D498 (2026-11-16, owner ruling "agreed", relayed by the
+  coordinator, on the v0.6 page's pending items 1–7): fake aging's
+  proposals accepted as written:** the mode and the GM's steps, the
+  fault format, the tail, the calibration, the fix list with its
+  additions and its departure (table statistics kept), the limits'
+  documentation, the product's shape, the verification; with 4.1's
+  reading of an unsupported suspicion (no tell, no explanation). Now
+  in: [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md).
+- **D499 (2026-11-16, same ruling, item 8): the feedback's customer
+  side comes first, in the GM's voice from the customer's point of
+  view;** D9's content becomes it, D13 and D18 untouched. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#the-gms-feedback-d497).
+- **D500 (2026-11-16, same ruling, items 9–12): the network overview's
+  remaining details accepted as written:** the page's shape and
+  header, the register linked by construction, the `network-overview`
+  skill and which scenarios need it, the traps N1–N10. Now in:
+  [versions/v0.6/network-overview.md](versions/v0.6/network-overview.md).
+- **D501 (2026-11-16, same ruling, items 13–16): the v0.6 page's scope
+  items:** the website's content; `jq` and `tmux` added to the
+  bastion, nothing heavier; the stack's reports as a "Reports" site;
+  a live status page per partner with a `player_doc`, its design the
+  master spec's. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#in-scope).
+- **D502 (2026-11-16, same ruling, item 17): only the handouts
+  describing the system (the data register, the network overview) may
+  carry a planted inaccuracy;** never the README, the rules, the data
+  policy or `partners.md`; the story and issues only as the customer's
+  belief. Closes O21. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#pending-owner-rulings-before-consolidation).
+- **D503 (2026-11-16, same ruling, item 18): player-facing material is
+  in English,** the website and the feedback included; a scenario
+  language option later. Closes O32. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#pending-owner-rulings-before-consolidation).
