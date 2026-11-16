@@ -803,3 +803,82 @@ Sent to `spec-writer` to record and place in the plan.
 
 Chunks 1, 2, 3, 4 and 8 merged. Next: G5 (dependency post-change check
 on wave 1's images), then the wave gate.
+
+### G5 — dependency post-change check: CLEAR, 2026-11-16
+
+`security-advisor`, a833c67: nine bricks are the v0.5 images retagged,
+`scheduler` 0.4.0 has the same 142 packages as 0.3.0; chunk 8's fill mode
+imports only the standard library, psycopg and PyYAML. Docker Engine
+29.9.3 (NVD: 0). cve-watch: 52 at or above medium, all pre-existing and
+triaged, none introduced. `.tech` updated.
+
+### Plan v4 (420e730), 2026-11-16
+
+`spec-writer` recorded the owner's cover ruling and its consequences:
+- **D523:** at the fill's start, every routine whose `proconfig` pins
+  `search_path` is auto-discovered, given `gm_vclock` first, listed, and
+  restored exactly at the end or on failure; clean-restart puts back any
+  leftover. The catalog row-version tell is a documented limit. Campaign
+  f4 and f7 count as supported on one short campaign fill's evidence,
+  tail-only otherwise.
+- **D524:** chunk 15 (the cover) inserted in wave 2: wave 2 is now
+  chunks 6, 7, 9 and 15.
+- **D525:** load-data and the T0 plantings run on the virtual T0's clock
+  (chunk 9a); what can't be backdated (a column `DEFAULT now()`) is
+  reported, not patched.
+- D526 reserved by mistake, unused.
+
+Put to the owner, both minor, neither blocking before wave 2: (1)
+auto-discovery against a declared list, given the clinic's ~25 pinned
+routines (recommended: keep auto-discovery); (2) D525's reach to the T0
+plantings (recommended: keep it).
+
+### Wave 1 gate — all green, 2026-11-16
+
+`coding-executor`, verification level wave gate, on armenelos, 15:58 to
+17:40 CET, from a833c67, κ = 1, under the lock and the inhibitor.
+
+| Item | Result |
+|---|---|
+| Unit suite (`tools/tests`) | 1366 OK, 2 skipped, 317 s |
+| Scheduler unit tests, replay guard | 109 OK, replay byte for byte and deterministic, 228 s |
+| api unit tests | 36 OK |
+| `sh -n`/`bash -n`; `py_compile` | 333 shell files; 464 Python files |
+| Ten bricks: build, stack test | postgres 316/0, bastion 117/0, pgbouncer 121/0, scheduler 179/0, api 89/0, prometheus 132/0, postgres-exporter 104/0, grafana 131/0, pgwatch 73/0, health-check 97/0 (and 3 reruns on the fix) |
+| `check-base.sh` | 10/10 Debian GNU/Linux 13 |
+| Smokes | smoke 61, monitoring 43, governance 121, load 73 |
+| Scenario smokes | bookshop 19, fernway-clinics 18, tarnbeck shop 26, tarnbeck campaign 33 |
+| Loader's new refusals (chunk 3's 11 classes) | 60 OK |
+| `check_scenario` | 5/5 scenarios, 31/31 scenario fixtures |
+| `check_domain_dir` | 0 problems on the seven domains |
+| `fixture-fill/run-short-test.sh` | 39/0, 431 s with the deployment |
+
+Figures (armenelos, 2026-11-16): the fill took 316 s for 13 virtual hours
+on two scheduler nodes; the exporter opened 3126 sessions against 3120
+expected; autovacuum ran 52 times on `products`, 0 elsewhere. Gate wall
+clock about 1 h 42 min.
+
+- **Failures:** none traced to a chunk.
+- **ISS-006:** the race showed (first run "waited 2s"); test-only bounded
+  wait for `ps -C cron` (up to 90 s) in 78fe203, three green runs after
+  it; issue In Progress (b15e35a), the brick's two medium-term options
+  left for its next version.
+- **G9 (dpkg):** no change; scheduler 0.4.0's apt layer missed the cache
+  (image id 73f52fa1eb26 to 2589362d6a90) with an identical package list.
+  No G9 row.
+- **Left:** the unit suite ran outside the docker lock (nothing else was
+  using docker; it passed); a rerun goes under the lock. `/home` has about
+  16 GB free; no images removed. Nothing labelled with a game id or
+  `dbagm` left running.
+- **Wave sync:** no intent register or data register in this repo, so no
+  `documentalist` or `data-steward` sync; the dependency check was G5.
+- **G10.1** added (wave 1's forms as built), held by `spec-writer`.
+- `doc-ids compare main v0.6-w1`: 0 collisions, 0 warnings.
+
+Open after wave 1: G6 (security preflight on `jq`/`tmux`) before chunk 6;
+capture W2; G10.1; the owner's two minor questions above; the merge into
+`main` on the owner's word. Branches left: `v0.6-w1` (worktree
+`~/work/db_audit_gm-wt/v0.6-w1`); the merged chunk branches
+`v0.6-c1-reference`, `v0.6-c2-versions`, `v0.6-c3-loader`,
+`v0.6-c4-overview-inputs`, `v0.6-c8-fill` (no worktrees), removed with
+the wave's merge; `v0.6-spec` (worktree, merged into `main` at 819baab).

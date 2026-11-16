@@ -102,12 +102,13 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G2 | [formats.md](../../formats.md) carries master spec 6: the overview's fields, `overview_diff:`, `admitted:`, reserved routes, `aging.fake`, `history:`, `base:`, the domains' overview fragment, the restart record, the two refusals (draft v34) | `spec-writer` | Chunks 3, 7 | done (2026-11-16, spec D514) |
 | G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG), the s6-overlay release, the pinned downloads (Prometheus, `postgres_exporter`, pgwatch, Grafana) | Hand check by the wave driver | Every image build (chunks 2, 5, 6, 8; 10 if it changes an image); every wave gate | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker, left drained and untouched | Hand check by the wave driver | Every stack test and fixture run, every wave gate, the release gate | open |
-| G5 | **Dependency post-change check** on wave 1's images: every brick rebuilt at its new version (chunk 2), `scheduler` 0.4.0 as chunk 8 leaves it; `.tech` updated, committed on `v0.6-w1` | `security-advisor` (skill `dependency-check`), called by the wave driver once chunks 2 and 8 have merged | Wave 1's gate | open |
+| G5 | **Dependency post-change check** on wave 1's images: every brick rebuilt at its new version (chunk 2), `scheduler` 0.4.0 as chunk 8 leaves it; `.tech` updated, committed on `v0.6-w1` | `security-advisor` (skill `dependency-check`), called by the wave driver once chunks 2 and 8 have merged | Wave 1's gate | done (2026-11-16, a833c67: CLEAR) |
 | G6 | **Dependency preflight** on `bastion` 0.6.0's new packages: Debian 13's `jq` and `tmux`, `--no-install-recommends`, with what they pull in (master spec 7.7) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 6's branch | open |
 | G7 | **Dependency post-change check** on `bastion` 0.6.0 as chunk 6 leaves it; `.tech` updated on `v0.6-w2` | `security-advisor`, once chunk 6 has merged | Wave 2's gate | open |
 | G8 | **Dependency post-change check** on `grafana` 0.4.0 (chunk 5) and any image a wave 3 or 4 chunk rebuilt; `.tech` updated on `v0.6-w4` | `security-advisor`, once chunk 5 has merged | Wave 4's gate | open |
 | G9 | **Any other dependency** a chunk adds or upgrades (a Python package for the history generator or the calibration tool, say; the standard library is preferred): a preflight before its branch, a post-change check before its wave's gate. The driver adds a row `G9.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
+| G10.1 | Wave 1's forms as built, from capture W1 and the chunk records in the wave log: the fill's interface (`gm_scheduler fill`'s FillConfig, PAUSE/GO/DONE/FAILED), the `<node>.metrics.jsonl` record, `service-times.yaml`'s place and shape, the restart record's fields (`local/<pg>/fake-aging.yaml`), `fill.quiet`, the `fill-sql` command | `spec-writer` | Release gate item 2 | open |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 
@@ -118,7 +119,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | planned |
+| 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | planned |
 | 3 | 10, 11, 13 | wave 2 | planned |
 | 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
