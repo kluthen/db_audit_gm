@@ -1,6 +1,6 @@
 # scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
 #
-# Version v0.5, expected to evolve as games are played.
+# Version v0.6, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6, v0.2 master spec 6.3 (capture W1 of
 # specs/versions/v0.2/wave-log.md), v0.3 master spec 6.1 and 6.7, with
 # 7.1 for a scheduler's files (capture W1 of specs/versions/v0.3/wave-log.md,
@@ -9,7 +9,9 @@
 # specs/versions/v0.4/wave-log.md, items 0, 1, 7 and 8), and v0.5 master
 # spec 6.2 and 6.8, with 7.1 for a standby, 8.4 and 8.5 for composed domains,
 # 10 for third parties, 13.3 for the data register (capture W1 of
-# specs/versions/v0.5/wave-log.md, items 0, 2, 5, 6 and 7). This file and
+# specs/versions/v0.5/wave-log.md, items 0, 2, 5, 6 and 7), and v0.6 master
+# spec 6.1, 6.6, 6.9 and 6.10, with 7.6 for the partners' status pages
+# (capture W1 of specs/versions/v0.6/wave-log.md, items 0, 4 and 5). This file and
 # gm/answer-key.yaml are AUTHORITATIVE;
 # README.md (the scenario document) is generated from them.
 # A scenario never bumps its version (D58, D75); git history is the record.
@@ -151,7 +153,11 @@ third_parties:                      # optional: a scenario with partners; one en
                                     # the partners' api node, the host its endpoints answer under
     player_doc: <player/partners.md#northfield-veterinary-laboratories>   # its partners.md
                                     # entry; player/partners.md, the starter pack's fifth file,
-                                    # maps to the bastion's seed file partners.md (an optional one)
+                                    # maps to the bastion's seed file partners.md (an optional one).
+                                    # From v0.6 the partner has a status page,
+                                    # /status/<id>/ (master spec 7.6), and the loader refuses a
+                                    # bastion mapping partners.md without a player_doc here, or
+                                    # none with one (master spec 6.10, spec D486)
     credentials: [<xlab_customer>]  # optional: the customer's own HTTP credentials with this
                                     # partner, handed over with partners.md (access model 3, 6;
                                     # spec D365, D433): each accepted by an endpoint answering
@@ -177,6 +183,19 @@ nodes:                              # one entry per node (one service, one conta
     brick:
       id: <postgres>                # looked up in the scenario's bricks/ first, then the catalog
       version: <0.1.0>              # pinned: the brick's current version (one per brick)
+    description: <The record's database server, the medical record and the agenda.>
+                                    # optional: one line on what the node is for, in the
+                                    # customer's words (v0.6 master spec 6.1). Required on every
+                                    # customer node of a scenario with a network overview (every
+                                    # scenario listing domains:, a fixture- one exempt); optional
+                                    # elsewhere
+    site: <the main building>       # optional: where the node stands, when that matters (the
+                                    # off-site room); omitted from the overview when absent
+    users:                          # optional: the people who work on the node directly; may be []
+                                    # (every clinic database today)
+      - who: <the practice manager> # who
+        database: <clinic>          # optional: on a database node, the database they work in
+        role: <vet_app>             # optional: on a database node, the role they connect as
     role: <database>                # one of the brick's roles (a scheduler node running a
                                     # purpose's jobs: transformer; an api node: api, v0.5; a
                                     # standby keeps database)
@@ -209,7 +228,9 @@ nodes:                              # one entry per node (one service, one conta
                                     # prometheus: default}, required with a prometheus node and
                                     # listing every node of the topology, its own included;
                                     # web-routes, e.g. the bastion's web_routes
-                                    # {prometheus: "prometheus:9090"}, one route per web interface
+                                    # {prometheus: "prometheus:9090"}, one route per web interface,
+                                    # never named docs, reports or status, the web front's own
+                                    # paths (v0.6 master spec 6.1, 6.10)
     resources:                      # absolute: never recomputed per playground; includes what
                                     # mounted companion material adds to the node
       limits:
@@ -237,6 +258,11 @@ nodes:                              # one entry per node (one service, one conta
                                     # data-register.md: player/data-register.md exactly when
                                     # governance.register is set, unless a planted register
                                     # fault is the handout's absence (both optional seed files).
+                                    # From v0.6 (bastion 0.6.0) its seventh, optional seed file:
+                                    # network-overview.md: player/network-overview.md exactly
+                                    # when the scenario has a network overview (master spec 6.1;
+                                    # the true overview is gm/network-overview.yaml, generated,
+                                    # no overview section here).
                                     # An api node (api 0.1.0): api.yaml, and the directory
                                     # entries routes/ and db/, written by gmctl compose into
                                     # nodes/<node>/ (v0.5 capture W1 items 5 and 7).
@@ -254,6 +280,11 @@ nodes:                              # one entry per node (one service, one conta
                                     # A postgres node may seed crontab: nodes/<db>/crontab
                                     # (optional, postgres 0.4.0: postgres' crontab, in scenario
                                     # time, turning the cron daemon on), with crontab_roles.
+                                    # From v0.6 each crontab entry has its description, one
+                                    # line, on the comment line directly above it, no blank line
+                                    # between; an environment line (PGPASSFILE=) goes above the
+                                    # description, never between it and its entry (master spec
+                                    # 6.6); the overview's Background tasks read it.
                                     # pg_cron is on when its postgresql.conf preloads it
                                     # (shared_preload_libraries, cron.database_name naming a
                                     # database its data file creates, cron.use_background_workers
@@ -312,6 +343,19 @@ fault_instances:                    # every fault planted in this scenario
                                     # instance's own aging minimum
     aging_minimum: <4h>             # optional: with scheduler nodes only; a duration, at least the
                                     # fault definition's aging.minimum, when it needs more here
+    admitted:                       # optional: the incident the instance causes as a partner
+                                    # admits it on its status page (v0.6 master spec 6.1, 6.9,
+                                    # 7.6); absent: the partner does not admit it. Only a planted
+                                    # instance's incident shows
+      by: <northfield-lab>          # a third_parties id with a player_doc
+      title: <Delayed results delivery>   # the partner's own words, non-empty
+      text: >-
+        <Results are being delivered with delays of up to two hours. Our
+        engineers are working on it.>
+      from: <handover-6h>           # the incident's start: T0 or handover-<N>h, written as a
+                                    # planting moment is, never before the instance's planting
+      until: <handover-4h>          # optional: its end, after from, not after hand-over; absent:
+                                    # still ongoing at hand-over
 
 issues:                             # given to the players at hand-over; may be []
   - id: <I1>
