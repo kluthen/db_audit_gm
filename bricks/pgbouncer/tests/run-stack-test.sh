@@ -43,16 +43,16 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is also the test client: it has ssh and psql):
-#   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.2 bricks/pgbouncer
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # On the build host, run it under the docker lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/pgbouncer/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgb
-IMAGE=127.0.0.1:5000/dbagm/pgbouncer:0.1.1
-DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/pgbouncer:0.1.2
+DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 CLIENT_IMAGE=$DB_IMAGE
 SERVICE=${STACK}_pooler
 DB_SERVICE=${STACK}_db
@@ -118,6 +118,8 @@ trap 'exit 130' INT TERM
 for i in "$IMAGE" "$DB_IMAGE"; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "image $i not built" >&2; exit 2; }
 done
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
     echo "stack $STACK already exists; remove it first" >&2
     exit 2

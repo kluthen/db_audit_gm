@@ -10,7 +10,7 @@
 version: "3.8"
 
 x-api: &api
-  image: 127.0.0.1:5000/dbagm/api:0.1.0
+  image: 127.0.0.1:5000/dbagm/api:0.1.1
   read_only: true
   cap_drop: [ALL]
   cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
@@ -100,7 +100,7 @@ services:
         limits: {cpus: "0.25", memory: 128M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.1
     hostname: db
     read_only: true
     cap_drop: [ALL]

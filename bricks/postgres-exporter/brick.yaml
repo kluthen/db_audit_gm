@@ -1,7 +1,9 @@
 # brick.yaml: postgres-exporter node, PostgreSQL's metrics for Prometheus
 # (v0.2 master spec 7 and 7.3).
 #
-# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# Version 0.2.1 (unreleased until the v0.6 release gate, D100): 0.2.0,
+# released with v0.3, plus `base:` (v0.6 master spec 6.4, 6.8; no other
+# change). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Interfaces, accounts, seed file, secret, wrappers and footprint: capture W3
@@ -11,13 +13,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres-exporter
-version: 0.2.0
+version: 0.2.1
 roles:
   - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: postgres_exporter
   version: "0.20.1"
-image: 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
+image: 127.0.0.1:5000/dbagm/postgres-exporter:0.2.1
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's figures for the node, less what the

@@ -36,10 +36,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-housing/run-planted-test.sh <fault-id>
@@ -56,8 +56,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=housing-planted
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1 127.0.0.1:5000/dbagm/postgres:0.5.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0"
 BOARD="SELECT * FROM housing_unit_board WHERE unit_id = \$1"
 SAMPLE=120           # seconds between two reads of the board's calls
 LABELS="com.docker.stack.namespace dbagm.game"

@@ -25,8 +25,8 @@
 #   -> teardown, nothing labelled with the game id left.
 #
 # Needs: a swarm manager on the local engine, curl and python3 (PyYAML) on
-# the host, the images built (bastion, postgres 0.5.0, prometheus 0.2.1,
-# grafana 0.3.0, pgwatch 0.1.0, health-check 0.1.0). Host ports 2222 and
+# the host, the images built (bastion, postgres 0.5.1, prometheus 0.2.2,
+# grafana 0.4.0, pgwatch 0.1.1, health-check 0.1.1). Host ports 2222 and
 # 8080 free (the bastion's).
 # Usage: sh tools/tests/smoke-monitoring-v05.sh        (from anywhere)
 set -eu
@@ -36,9 +36,9 @@ REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke-monitoring-v05
 NODES="bastion records prometheus pgwatch grafana health"
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.0 127.0.0.1:5000/dbagm/bastion:0.5.0
-127.0.0.1:5000/dbagm/prometheus:0.2.1 127.0.0.1:5000/dbagm/grafana:0.3.0
-127.0.0.1:5000/dbagm/pgwatch:0.1.0 127.0.0.1:5000/dbagm/health-check:0.1.0"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.1 127.0.0.1:5000/dbagm/bastion:0.6.0
+127.0.0.1:5000/dbagm/prometheus:0.2.2 127.0.0.1:5000/dbagm/grafana:0.4.0
+127.0.0.1:5000/dbagm/pgwatch:0.1.1 127.0.0.1:5000/dbagm/health-check:0.1.1"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 ACTIONS="connection backends locks txn_wraparound last_autovacuum last_analyze database_size"

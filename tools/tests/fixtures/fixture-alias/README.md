@@ -59,12 +59,12 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `caller` | `scheduler` 0.3.0 | producer | yes | backend | report-only |
-| `partners` | `api` 0.1.0 | api | yes | backend | no-access |
+| `caller` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
+| `partners` | `api` 0.1.1 | api | yes | backend | no-access |
 
 #### Node `caller`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -86,7 +86,7 @@ No knobs.
 
 #### Node `partners`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

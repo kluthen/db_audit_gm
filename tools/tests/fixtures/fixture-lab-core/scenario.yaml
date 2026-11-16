@@ -76,7 +76,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.5.0
+      version: 0.6.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -106,7 +106,7 @@ nodes:
   - name: records
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     role: database
     stateful: true
     networks: [backend]
@@ -147,7 +147,7 @@ nodes:
   - name: lab
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     role: database
     stateful: true
     networks: [backend]
@@ -188,7 +188,7 @@ nodes:
   - name: clinic-api
     brick:
       id: api
-      version: 0.1.0
+      version: 0.1.1
     role: api
     stateful: true
     networks: [backend]
@@ -212,7 +212,7 @@ nodes:
   - name: lis
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: producer
     stateful: true
     networks: [backend]
@@ -237,7 +237,7 @@ nodes:
   - name: lab-api
     brick:
       id: api
-      version: 0.1.0
+      version: 0.1.1
     role: api
     stateful: true
     networks: [backend]
@@ -261,7 +261,7 @@ nodes:
   - name: partners-db
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     role: database
     stateful: true
     networks: [backend]

@@ -2,12 +2,12 @@
 
 GM documentation of the `prometheus` brick (`brick.yaml`, v0.2 master
 spec 7 and 7.2; required sections: v0.2 master spec 6.2). Never shipped
-to players. Brick version 0.2.1, expected to evolve as games are played.
+to players. Brick version 0.2.2, expected to evolve as games are played.
 
 ## Purpose
 
 Prometheus 3.16.0 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.1`. It fills
+players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.2`. It fills
 the role `monitoring`: the node that scrapes and keeps the game's
 metrics, which the players audit as the customer's monitoring and read
 through its UI, and which a Grafana node queries. The GM picks it for
@@ -42,7 +42,7 @@ The image:
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
   `bastion` 0.4.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
   do.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.2 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches its scrape targets by node
@@ -476,7 +476,7 @@ hours (about 80M at 4M an hour), and `fernway-clinics-monitoring`'s 256MB
 its four-hour game (six targets, about 1 900 series, under 16M).
 
 These figures were measured on earlier versions. 0.2.1 (Prometheus
-3.16.0) has not been measured at rest, and they stand until an aging
+3.16.0) and 0.2.2 have not been measured at rest, and they stand until an aging
 measures the node (v1.0 gating). The whole clinic's first deployment
 (G13, 2026-11-13, `aldermoor-centre` on armenelos plus the VPS, about 70
 minutes from T0, `docker stats` every 2 minutes) read it at 96M mean and
@@ -539,7 +539,7 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `prometheus` `0.2.1`, and no other; all also name `0.1.0` and `0.2.0`.
+names `prometheus` `0.2.2`, and no other; all also name `0.1.0`, `0.2.0` and `0.2.1`.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

@@ -15,7 +15,7 @@ severity: medium
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0", "0.2.0", "0.2.1"]
+      versions: ["0.1.0", "0.2.0", "0.2.1", "0.2.2"]
   preconditions:
     - every node of the topology is in the prometheus node's node_health map, so the left-out node serves its endpoint on port 9110
 
