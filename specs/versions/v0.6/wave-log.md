@@ -689,3 +689,44 @@ vet-core 4/2, vet-housing 2/0, vet-lab 5/7, vet-machinery 5/3+3
 pg_cron, vet-portal 2/1 pg_cron, vet-scheduling 2/1; 20 crontab entries
 commented. Chunk 2's in-place README pin edits are left for the gate's
 "every README matching a fresh regeneration" check.
+
+### Chunk 8 — half 8a built (bb6c3df), 8b resumed by a fresh owner, 2026-11-16
+
+The first owner built 8a (the program's fill mode, P0, the replay guard,
+the queue model, the service times) and stopped at the split with a heavy
+context (306k tokens; the program and the research read in full). Its
+report, kept for the resume in the driver's scratchpad, gives W1-x's 8a
+part:
+
+- **P0: partial.** The fill's own SQL binds the virtual instant
+  (`%(gm_vnow)s`); the `gm_vclock` shim on each fill session's
+  `search_path` covers plpgsql and SQL bodies calling `now()`,
+  `clock_timestamp()`, `transaction_timestamp()`. Not reached: the
+  `current_timestamp`/`current_date` keywords in a body, a function with
+  its own `SET search_path`, `BEGIN ATOMIC`, a column's `DEFAULT now()`.
+  The shop is fully covered; the campaign's f1, f2, f3 too; **f4 and f7
+  fail** (`rpt.close_day()` is `SET search_path = pg_catalog, pg_temp`),
+  so master spec 9.8's fallback (D508) holds for them. A cover (`ALTER
+  PROCEDURE rpt.close_day() SET search_path = gm_vclock, ...` for the
+  fill's span, restored after) is outside W1 item 8's "session settings
+  only": put to the owner, not built.
+- The replay guard: a 1,698-line corpus recorded before any program
+  change, green on the host and in the image. Scheduler unit tests 109
+  OK; stack test 179 PASS.
+- The program's interface (`gm_scheduler fill`, `FillConfig`, `PAUSE`/
+  `GO`/`DONE`/`FAILED`), the queue model (`queue.Model.call`), the
+  metrics record (`<node>.metrics.jsonl`) and `service-times.yaml` (the
+  shop's producer and consumer, the campaign's producer; its `consent.*`
+  keys and consumer are 11b's): as the report states; W1-x completes with
+  8b.
+- Choices for review: one fill process for every node; `fill-sql`;
+  `visits` and `sequences` inputs; `RESTART_S` = 1 s; failed calls end at
+  once.
+
+8b (`gmctl fill`, the record's reader, `test_fill.py`, `fixture-fill/`
+and its run, fix 3's means, the visits) dispatched to a fresh
+`coding-leader`, resuming from bb6c3df, taking `v0.6-w1` in first.
+
+ISS-006 filed (ccb5a1c): health-check's stack test races cron after the
+report-only redeploy. If the wave gate meets it, the test-only fix (a
+bounded wait for cron before `gm-validate`) goes in as a gate fix.
