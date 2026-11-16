@@ -1700,7 +1700,23 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   recommendation (feedback after the final answer). A report naming a
   tell is answered in-world only. Closes O271. Now in:
   [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#41-the-players-are-never-told-d494).
+  *Refined by D496 (2026-11-16).*
 - **D495 (2026-11-15, same ruling, "agreed for O272"): v0.6 makes the
   shop and the campaign fake-ageable, the campaign's f10 `real-only`;
   the clinic later.** Closes O272. Now in:
   [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#24-starting-estimate-to-be-measured).
+- **D496 (2026-11-16, owner ruling, relayed by the coordinator; refines
+  D494): Never during the game; once it is concluded, a tell the report
+  names may be explained, the fake aging included.** "The game is
+  already concluded, thus it's okay." The customer side stays in-world;
+  the teaching part explains the reported tell. With no tell reported
+  the feedback doesn't mention aging (spec-writer's reading of "if the
+  tell has been reported"). Now in:
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#41-what-the-players-are-told-and-when-d494-d496).
+- **D497 (2026-11-16, same ruling; refines D9): The GM's appreciation
+  of a report has two parts: the customer side, an in-world
+  assessment, then a teaching moment** (what was missed and how it
+  could have been seen, what was found, what was identified but not
+  explained, why things looked as they did, from faults or aging).
+  D9's content becomes the first part; D13 and D18 untouched. Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md#the-gms-feedback-d497).

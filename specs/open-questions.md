@@ -460,6 +460,8 @@ archive moves them. Text on
   the players ever told their game was fake-aged? Never: not during
   the game, not in the feedback, not after the final answer.
   Recommended had been: the feedback says so after the final answer.
+  Refined by D496 (2026-11-16): never during the game; once it is
+  concluded, a tell the report names may be explained.
 - **O272** (v0.6; **closed**, D495, as recommended) — Which scenarios
   does v0.6 make fake-ageable? The shop and the campaign (its f10
   `real-only`); the clinic later.

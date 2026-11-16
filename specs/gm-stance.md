@@ -133,6 +133,11 @@ they succeeded and how they could have done better, and it stays positive.
 Whether there is also a score, and whether the feedback is written to a
 file (the teacher is out of the game by then): O38.
 
+From v0.6 (drafting) the feedback has two parts, the customer side and
+a teaching moment that explains what was missed, found or left
+unexplained, and why things looked as they did (D497;
+[versions/v0.6/README.md](versions/v0.6/README.md#the-gms-feedback-d497)).
+
 ## Future ideas
 
 Not in scope, and beyond v1.0 (D48); kept so they are not lost.

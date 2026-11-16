@@ -1,11 +1,13 @@
 # Fake aging: a second aging mode
 
-Status: draft v2, 2026-11-15. The owner's direction of 2026-11-15
+Status: draft v3, 2026-11-16. The owner's direction of 2026-11-15
 (D489–D491) and spec-writer's reading of it on the bar (D492); O22
 closed (D493); the owner's rulings of the same day: the players are
 never told about the aging process (D494, O271 closed), v0.6 covers
-the shop and the campaign (D495, O272 closed). Items not yet ruled are
-tagged (proposed).
+the shop and the campaign (D495, O272 closed); refined on 2026-11-16:
+once the game is concluded, a reported tell may be explained (D496),
+within the feedback's two parts (D497). Items not yet ruled are tagged
+(proposed).
 
 Inputs, on branch `research/fake-aging` (10d1bc6), worktree
 `~/work/db_audit_gm-wt/research-fake-aging`:
@@ -44,7 +46,13 @@ Then: "lets work on integrating fake aging into the game".
   fill before the game, never fake time (section 8).
 - **D494**: the players are never told about the aging process: not
   during the game, not in the feedback, not after the final answer
-  (4.1).
+  (4.1). Refined by D496.
+- **D496**: during the game, still never; once the game is concluded,
+  a tell the report names may be explained in the feedback, the fake
+  aging included (4.1).
+- **D497**: the GM's appreciation of a report has two parts, the
+  customer side and a teaching moment; beyond fake aging, so stated in
+  the [v0.6 page](README.md#the-gms-feedback-d497).
 - **D495**: v0.6 makes the shop and the campaign fake-ageable, the
   campaign without its f10; the clinic later (2.4).
 
@@ -387,34 +395,69 @@ of the players' reach: they have the bastion only.
 
 All of these are GM-facing: the scenario document opens with its "do
 not read" warning, and nothing above reaches the bastion, the starter
-pack or a handout.
+pack or a handout during the game. Once the game is concluded, they
+are also what the feedback's explanation of a reported tell is drawn
+from (4.1).
 
-### 4.1 The players are never told (D494)
+<a id="41-the-players-are-never-told-d494"></a>
+### 4.1 What the players are told, and when (D494, D496)
 
 The owner, 2026-11-15: "players are never meant to be told about aging
-process." Not during the game, not in the feedback, not after the
-final answer. Only the in-world facts are ever spoken of: the
-customer's system was restarted for maintenance this morning, and its
-older logs are archived. That restart really happened in the game.
+process" (D494). Refined on 2026-11-16 (D496): "if the tell has been
+reported in the report, the gm may include the information about the
+aging process. The game is already concluded, thus it's okay."
 
-**A report naming a fake-aging tell** (proposed):
-- **It is judged in-world, as any finding that matches no fault.** The
-  feedback answers the facts the observation rests on, never their
-  cause: statistics counted since this morning's maintenance restart,
-  logs before it archived, services started then. When the observation
-  is a sound reading of the restart's consequences, the feedback
-  acknowledges it as such, from the answer key's restart item (2.1).
-- **A claim that the history is forged, fabricated or simulated is
-  neither confirmed nor denied, and neither credited nor penalised.**
-  The feedback says it matches none of the issues found on the system
-  and turns to the in-world facts above where they apply; it never
-  explains why the system looks as it does beyond them. It is not
-  marked a mistake, so the GM never asserts something untrue about the
-  game.
-- **The same in a real game**: a report there claiming a forged history
-  gets the same treatment, so the feedback never differs by mode.
-- The GM never uses the words aging, fill, forged, virtual clock or
-  fake in anything a player reads, the feedback file included (O38).
+**During the game: never.** The game is concluded when the players
+have given their final answer and the GM has processed it
+([gm-stance.md](../../gm-stance.md) "The final answer"). Until then:
+- only the in-world facts are ever spoken of: the customer's system
+  was restarted for maintenance this morning, and its older logs are
+  archived. That restart really happened in the game;
+- the GM never uses the words aging, fill, forged, virtual clock or
+  fake in anything a player reads, a restart's confirmation (D126)
+  included, and neither confirms nor denies a suspicion of forged
+  history.
+
+**After the final answer, in the feedback** (its two parts, D497):
+- **The customer side** (a) stays in-world in every case. A reported
+  tell matches no fault there: it is neither credited nor counted as a
+  mistake. A sound reading of the restart's consequences is
+  acknowledged from the answer key's restart item (2.1).
+- **The teaching moment** (b) may explain a reported tell: that the
+  game was fake-aged, how, and why the thing looked as it did. "A tell
+  reported" means the report names an observation from section 4's
+  table or the results' tells, whatever cause the player gave it: "the
+  statistics were reset this morning", "autovacuum barely ran on
+  products", "this history looks generated" all count. A suspicion
+  that names no observation is answered as any unsupported claim is:
+  what would have backed it, then the explanation.
+- **When no tell is reported, the feedback doesn't mention aging**
+  (chosen, following "if the tell has been reported"). The teaching
+  part doesn't need it to stay truthful: it explains each missed or
+  unexplained finding from the evidence this game actually held (the
+  tail's log, the forged graphs as they read), never from evidence a
+  real aging would have left and this game didn't (a fault's PostgreSQL
+  log lines from before the restart, say). If explaining a finding the
+  report did make would be false without the aging, that finding rests
+  on a tell, so the rule above applies.
+- **The same in a real game**: a report claiming a forged history gets
+  the same customer side, and the teaching part explains why the thing
+  really looked as it did.
+
+**Where the explanation comes from**, all GM-facing (section 4's
+"Where it is documented"):
+- the scenario document's "Fake aging" section: which limits touch
+  this scenario's evidence, so the GM matches the reported observation
+  to a row of section 4's table, whose wording is written to be
+  explained to a player in plain words;
+- the per-fault `aging.fake.reason` and the "Fake aging" note in the
+  fault's `gm.md`, when the tell touches a fault's evidence (f4's
+  autovacuum lines covering only the tail, say). `gm.md` is already
+  the "explanation the GM uses for feedback" (formats.md "Fault
+  definition");
+- the local implementation's record of the game: the virtual T0, the
+  restart's real time and the tail, so the explanation names this
+  game's instants.
 
 ## 5. Where it belongs
 
@@ -550,7 +593,8 @@ None open. Closed on 2026-11-15:
 - **O271** (closed, D494, against the recommendation): are the players
   ever told that their game was fake-aged? The owner: never, not even
   after the final answer; the recommendation had been to say so in the
-  feedback. Now 4.1.
+  feedback. Refined on 2026-11-16 (D496): never during the game; after
+  it, a reported tell may be explained. Now 4.1.
 - **O272** (closed, D495, as recommended): which scenarios does v0.6
   make fake-ageable? The shop and the campaign (f10 `real-only`); the
   clinic later. Now 2.4.

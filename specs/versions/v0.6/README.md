@@ -1,9 +1,10 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v4. No master spec. Bastion-related items moved in from
+Status: draft v5. No master spec. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486); fake aging joined on
-2026-11-15 (D489–D493).
+2026-11-15 (D489–D495); the GM's feedback in two parts on 2026-11-16
+(D496, D497).
 
 ## Goal
 
@@ -55,9 +56,57 @@ players (D480).
   a quick game filled in minutes on a virtual clock, a maintenance
   restart, a real tail, forged Prometheus history; its faults curated
   to what it can fake, its fixable caveats fixed, the rest documented.
-  Its design is [fake-aging.md](fake-aging.md) (draft v2): the players
-  never told about the aging process (D494); the shop and the campaign
-  covered, the clinic later (D495).
+  Its design is [fake-aging.md](fake-aging.md) (draft v3): the players
+  never told about the aging process during the game, a tell their
+  report names explained after it (D494, D496); the shop and the
+  campaign covered, the clinic later (D495).
+- **The GM's feedback in two parts** (D497): the customer side, then a
+  teaching moment (below).
+
+## The GM's feedback (D497)
+
+The owner, 2026-11-16: "Explaining why things look like they did (due
+to aging or due to planted faults) is one of the goal of the GM upon
+detailing its appreciation of the report produced. One part will be
+the customer side of thing, the other part is a teaching moment. What
+did the player miss, and explain how they could have seen it, what
+they found correctly, what they identified but couldn't explain should
+be explained, etc ..."
+
+After the final answer, the GM's appreciation of the report has two
+parts:
+
+1. **The customer side**: the in-world assessment. What the customer
+   gets from the report: each issue against its expected resolution
+   and the answer key's acceptance criteria, the faults found against
+   those present, the GM's tooling expectations (D65, D76), an
+   overstep named. In the GM's voice, from the customer's point of
+   view (proposed); it never steps out of the story.
+2. **The teaching moment**:
+   - what the players missed, and how they could have seen it, from
+     the evidence the game actually held;
+   - what they found correctly;
+   - what they identified but couldn't explain, explained;
+   - why things looked as they did, whether from a planted fault
+     (its `gm.md`, the scenario's notes) or from the aging (a reported
+     tell only, [fake-aging.md](fake-aging.md#41-what-the-players-are-told-and-when-d494-d496)).
+
+What it refines (proposed reading, no conflict found):
+- **D9 and [gm-stance.md](../../gm-stance.md) "Feedback"**: the
+  feedback's content was the issues found against the faults present,
+  the tooling expectations, and each answer's acceptability, in a
+  teacher's tone that stays positive. That content is now part 1; part
+  2 is new. The tone stays: what was missed is said as how it could
+  have been seen.
+- **D13** (no reveals before the final answer) is untouched: both parts
+  come after it, and part 2 is where the reveals live.
+- **D18** (the GM answering in character as the customer during the
+  game, a future idea) is untouched: part 1 is an assessment after the
+  game, not a conversation during it.
+- Open still: O38 (a score; the feedback written to a file), O32 (its
+  language).
+
+gm-stance.md "Feedback" takes this text at consolidation.
 
 ## The game's home page (D480)
 
