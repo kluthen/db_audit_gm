@@ -18,7 +18,7 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - >-
       the node holds personal data an application writes with literal or
@@ -51,6 +51,8 @@ injection:
         pg-archive-command-silent's archive_command line in one file, each
         sealed check judging its own setting
       material: inject/postgresql.conf.snippet
+      lines:
+        - "log_statement = 'all'"
   run_as: root
 
 # --- What the players can see ------------------------------------------

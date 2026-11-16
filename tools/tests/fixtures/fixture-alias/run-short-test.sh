@@ -4,8 +4,8 @@
 # caller started before the api node, waiting, bounded, then calling once
 # the alias resolves. On one host, under ten minutes.
 #
-# On a copy of tools/tests/fixtures/fixture-alias (caller: scheduler 0.3.0,
-# partners: api 0.1.0, no-access, under third_parties: with hostname xlab):
+# On a copy of tools/tests/fixtures/fixture-alias (caller: scheduler 0.4.0,
+# partners: api 0.1.1, no-access, under third_parties: with hostname xlab):
 #   fit (the laptop playground, 2 CPU / 4G / 8G) -> render -> deploy, then:
 #   - the stack file: partners with the network alias xlab, every other
 #     service in the list form; http_xlab_status mounted 0:0 0400 on both
@@ -26,8 +26,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-alias/run-short-test.sh   (from anywhere)
@@ -37,7 +37,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=alias-short
-IMAGES="127.0.0.1:5000/dbagm/scheduler:0.3.0 127.0.0.1:5000/dbagm/api:0.1.0"
+IMAGES="127.0.0.1:5000/dbagm/scheduler:0.4.0 127.0.0.1:5000/dbagm/api:0.1.1"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 SECRET=/opt/gm/secrets/http_xlab_status

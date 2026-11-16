@@ -431,7 +431,15 @@ chunks read.
 
 ### Chunk 2 — Versions, `base:` and re-pins
 
-Status: planned
+Status: merged (w1, 15a5e1a)
+Record: e5e4348, merged as 15a5e1a on 2026-11-16. Outside its Files:
+`partners/shared/nodes.yaml`, `fixture-instances/breaches/bi/node.yaml`,
+four test files' tags and tuples, `smoke-governance.sh`'s comment,
+`fixture-archive`'s planted register digest, and `base:` in the seven
+fixture-local bricks (relayed from chunk 3). vet-lab's and vet-portal's
+dated `postgres:0.5.0` measurements kept, annotated. READMEs' pin
+strings updated in place rather than regenerated (the template reads
+nothing else that changed). Reported in the wave log.
 Wave: 1
 Depends on: G1; G3, G4
 Docker: heavy (every brick rebuilt at its new version)

@@ -3,12 +3,12 @@
 GM documentation of the `pgwatch` brick (`brick.yaml`, v0.5 master spec
 7.4, 7.5 and 14; the build conditions: G9, v0.5 wave log; the seed file
 and the port: capture W2 item 5). Never shipped to players. Brick version
-0.1.0, expected to evolve as games are played.
+0.1.1, expected to evolve as games are played.
 
 ## Purpose
 
 pgwatch 6.1.0 on Debian 13 (trixie), with an SSH server for the players,
-in the image `127.0.0.1:5000/dbagm/pgwatch:0.1.0`. It fills the role
+in the image `127.0.0.1:5000/dbagm/pgwatch:0.1.1`. It fills the role
 `monitoring`: one collector for every instance in the players' scope,
 standing for the clinic's "monitoring tooling required in such complex
 settings" (D340). It reads what `postgres` already provides through the
@@ -40,7 +40,7 @@ The image:
 - **What gets installed**: a node of its own, `pgwatch` in the clinic,
   from the brick's image. The image must be on the engine that runs the
   game: deployment never pulls it.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/pgwatch:0.1.0 bricks/pgwatch`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/pgwatch:0.1.1 bricks/pgwatch`.
 - **How many**: one per game: it watches every source its seed file lists
   (`records`, the standby, `lab`, `machines` in the clinic; never the
   partners' database).
@@ -264,7 +264,7 @@ node: 1 for each source once its name resolves; Prometheus' target
 ### Stack test
 
 `sh bricks/pgwatch/tests/run-stack-test.sh` (needs the images
-`pgwatch:0.1.0` and `postgres:0.5.0`): pgwatch started before its source
+`pgwatch:0.1.1` and `postgres:0.5.1`): pgwatch started before its source
 (the wait, its bound, the honest failure, the source reached once it
 resolves), the basic preset's series, `--web-disable=all` and nothing on
 8080, nothing created in the database, the password's places, SSH and

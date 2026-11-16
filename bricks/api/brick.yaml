@@ -2,7 +2,8 @@
 # drops in (v0.5 master spec 6.5, 7.2 "The `api` brick", 10.2; access model
 # 5, "`api` nodes").
 #
-# Version 0.1.0 (unreleased until the v0.5 release gate).
+# Version 0.1.1 (unreleased until the v0.6 release gate): 0.1.0, released
+# with v0.5, plus `base:` (v0.6 master spec 6.4, 6.8; no other change).
 # The node's paths, api.yaml, the dispatch by hostname, the credentials and
 # gm-reload-api: capture W1 items 0, 3 and 5 (specs/versions/v0.5/
 # wave-log.md); the PyPI set and its conditions: G6 there; what the brick
@@ -10,13 +11,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: api
-version: 0.1.0
+version: 0.1.1
 roles:
   - api                             # spec D349
 technology:
   name: fastapi                     # FastAPI 0.162.0 on uvicorn 0.54.0, Python 3.13, psycopg 3.3.7
   version: "0.162.0"                #   (requirements.txt, G6's hash-pinned set)
-image: 127.0.0.1:5000/dbagm/api:0.1.0
+image: 127.0.0.1:5000/dbagm/api:0.1.1
+base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
+                                    # checked against its /etc/os-release (tools/tests/check-base.sh)
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.2's starting figures (0.1 CPU, 96M; 128M for

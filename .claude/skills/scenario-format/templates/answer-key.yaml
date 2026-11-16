@@ -1,6 +1,6 @@
 # answer-key.yaml — template for scenarios/<scenario-id>/gm/answer-key.yaml
 #
-# Version v0.5, expected to evolve as games are played.
+# Version v0.6, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6.2 ("The answer key"), v0.2 master
 # spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md), v0.3 master
 # spec 6.2 and 11 (capture W1 of specs/versions/v0.3/wave-log.md, item 4:
@@ -9,7 +9,8 @@
 # check judging runs or triggers, its threshold) and v0.5 master spec 6.3
 # and 6.8 (a register fault's diff, a cascade's backlog, a third party's
 # evidence, a report-only fault outside the players' layers; capture W1 of
-# specs/versions/v0.5/wave-log.md) and 17.2 (a false alarm; spec D459). This file and
+# specs/versions/v0.5/wave-log.md) and 17.2 (a false alarm; spec D459) and
+# v0.6 master spec 6.2 and 6.9 (a network-overview fault's diff). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -116,6 +117,26 @@ instances:                          # exactly one entry per fault instance in sc
                                     # never a fault, never counted toward the fault cap or the score
       what: <the requests stuck, e.g. orders marked sent with no lab order behind them>
       cleanup: <what counts as cleaned up, e.g. each resent under its own key, or reconciled>
+    overview_diff:                  # optional: a network-overview fault instance only (family
+                                    # documentation, docs-overview-*; v0.6 master spec 6.2, 6.9),
+                                    # required there and refused elsewhere: non-empty, one item
+                                    # per node and field the handout changes, the shape of a
+                                    # register fault's diff. Shown in the scenario document's
+                                    # "Network overview" section. The true key reads as a YAML
+                                    # boolean key. Never an {absent: true} item: the page is never
+                                    # absent
+      - node: <machines>            # the node whose entry the handout changes
+        field: <backups>            # description | site | system | applications | sizing |
+                                    # databases | fed_and_used_by | uses | users | third_parties |
+                                    # tasks | backups, or entry for a whole entry missing or
+                                    # invented (its true or handed_out then absent); never access
+                                    # nor the header
+        true: <a base backup nightly to Cold Storage>   # optional: here only, since YAML reads
+                                    # the key as a boolean; every item has it, checked by code. The
+                                    # field's value in the true overview (gm/network-overview.yaml)
+        handed_out: <WAL archived to Cold Storage, base backup nightly>   # optional: here only,
+                                    # with true; every item has it, checked by code. Its value in
+                                    # player/network-overview.md
 
 tooling_expectations:               # the GM's silent tooling expectations, apart from the fault
                                     # instances; may be []. No visibility, no sealed check:

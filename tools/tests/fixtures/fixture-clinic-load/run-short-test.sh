@@ -5,8 +5,8 @@
 # chunk 27, with aldermoor-centre's governance, through the governance checks
 # unfaulted. On one host, under 30 minutes.
 #
-# On a copy of tools/tests/fixtures/fixture-clinic-load (bastion 0.5.0;
-# records, lab, machines and partners-db: postgres 0.5.0; every producer left
+# On a copy of tools/tests/fixtures/fixture-clinic-load (bastion 0.6.0;
+# records, lab, machines and partners-db: postgres 0.5.1; every producer left
 # out, so no compose, no scheduler node and no aging):
 #   fit (2 CPU / 4G / 8G) -> render -> deploy -> load-data, then:
 #   - load-data: the core, housing and scheduling in records/clinic, the lab
@@ -33,8 +33,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-clinic-load/run-short-test.sh   (from anywhere)
@@ -44,7 +44,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=clinic-load-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/postgres:0.5.1"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 started=$(date +%s)

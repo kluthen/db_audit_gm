@@ -49,7 +49,7 @@ nodes:
   - name: caller
     brick:
       id: scheduler
-      version: 0.3.0
+      version: 0.4.0
     role: producer
     stateful: true
     networks: [backend]
@@ -73,7 +73,7 @@ nodes:
   - name: partners
     brick:
       id: api
-      version: 0.1.0
+      version: 0.1.1
     role: api
     stateful: true
     networks: [backend]

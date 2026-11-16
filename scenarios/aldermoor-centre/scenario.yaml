@@ -345,7 +345,7 @@ nodes:
 - name: bastion
   brick:
     id: bastion
-    version: 0.5.0
+    version: 0.6.0
   role: bastion
   stateful: true
   networks:
@@ -380,7 +380,7 @@ nodes:
 - name: records
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   description: The record's database server, the medical record, the agenda and the wards, the back
     office's registers and reports, the owners' portal.
@@ -501,7 +501,7 @@ nodes:
 - name: standby
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   description: The record's standby, a streaming replica of records where the back office's reports
     run their heavy reads.
@@ -561,7 +561,7 @@ nodes:
 - name: lab
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   description: The laboratory's database server, its orders, samples and results, the practices'
     accounts and their billing.
@@ -621,7 +621,7 @@ nodes:
 - name: machines
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   description: The machines' database server, the imaging worklist and reports, the monitors'
     readings and the biomedical events.
@@ -692,7 +692,7 @@ nodes:
 - name: pms
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   description: The practice software, from its vendor, for the record, the agenda, the ward screens
     and the portal's desk.
@@ -718,7 +718,7 @@ nodes:
 - name: lis
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   description: The laboratory's information system, from its vendor, for the bench, the analysers,
     the results and the quality control.
@@ -745,7 +745,7 @@ nodes:
 - name: ward
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   description: The ward service, from its vendor, which drives the displays on every box and stall.
   stateful: true
@@ -770,7 +770,7 @@ nodes:
 - name: equipment
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   description: The machines' feeds, from their vendors, for the imaging machines, the monitors and
     the biomedical equipment.
@@ -797,7 +797,7 @@ nodes:
 - name: interfaces
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: transformer
   description: The centre's integration jobs, for the lab orders and results, the send-outs, the
     other centres, the notifications, the imaging orders, the portal and the archive.
@@ -824,7 +824,7 @@ nodes:
 - name: backoffice
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: transformer
   description: The back office's reports, the medicines and controlled-drugs registers, the
     antimicrobial use, the working time, the head office's figures and the practices' statements.
@@ -852,7 +852,7 @@ nodes:
 - name: clinic-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   description: The lookup API the other centres, the lab and the machines call, from the practice
     software's vendor.
@@ -878,7 +878,7 @@ nodes:
 - name: lab-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   description: The laboratory's order API, for the centre's orders, the practices' orders and the
     external lab's answers.
@@ -904,7 +904,7 @@ nodes:
 - name: portal-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   description: The owners' portal, their accounts, their animals' documents and their reminders.
   stateful: true
@@ -929,7 +929,7 @@ nodes:
 - name: prometheus
   brick:
     id: prometheus
-    version: 0.2.1
+    version: 0.2.2
   role: monitoring
   description: Prometheus, which collects the metrics.
   stateful: true
@@ -978,7 +978,7 @@ nodes:
 - name: grafana
   brick:
     id: grafana
-    version: 0.3.0
+    version: 0.4.0
   role: monitoring
   description: Grafana, the dashboards and the alert rules.
   site: the off-site room, at Lowmoor
@@ -1007,7 +1007,7 @@ nodes:
 - name: exporter-records
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   description: The PostgreSQL exporter for records.
   stateful: true
@@ -1030,7 +1030,7 @@ nodes:
 - name: exporter-standby
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   description: The PostgreSQL exporter for the standby.
   stateful: true
@@ -1053,7 +1053,7 @@ nodes:
 - name: exporter-lab
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   description: The PostgreSQL exporter for lab.
   stateful: true
@@ -1076,7 +1076,7 @@ nodes:
 - name: exporter-machines
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   description: The PostgreSQL exporter for machines.
   stateful: true
@@ -1099,7 +1099,7 @@ nodes:
 - name: pgwatch
   brick:
     id: pgwatch
-    version: 0.1.0
+    version: 0.1.1
   role: monitoring
   description: pgwatch, a second collector of PostgreSQL metrics.
   stateful: true
@@ -1122,7 +1122,7 @@ nodes:
 - name: health
   brick:
     id: health-check
-    version: 0.1.0
+    version: 0.1.1
   role: monitoring
   description: The IT's health checks, check_postgres and their own scripts, and their page.
   site: the off-site room, at Lowmoor
@@ -1149,7 +1149,7 @@ nodes:
 - name: partners-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   stateful: true
   networks:
@@ -1173,7 +1173,7 @@ nodes:
 - name: partners-backend
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -1197,7 +1197,7 @@ nodes:
 - name: partners-db
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:

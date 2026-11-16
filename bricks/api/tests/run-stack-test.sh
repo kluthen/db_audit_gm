@@ -33,7 +33,7 @@
 # on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image
-# 127.0.0.1:5000/dbagm/postgres:0.5.0. On the build host, run it under the
+# 127.0.0.1:5000/dbagm/postgres:0.5.1. On the build host, run it under the
 # host lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/api/tests/run-stack-test.sh
 set -eu
@@ -44,8 +44,8 @@ FX=$HERE/fixtures
 PG_FIXTURES=$BRICK/../postgres/tests/fixtures
 NH=$BRICK/../prometheus/companion/node-health
 STACK=gmtest-api
-IMAGE=127.0.0.1:5000/dbagm/api:0.1.0
-DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/api:0.1.1
+DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 LAB_SERVICE=${STACK}_lab-api
 PAR_SERVICE=${STACK}_partners
 DB_SERVICE=${STACK}_db
@@ -124,6 +124,8 @@ docker image inspect "$DB_IMAGE" >/dev/null 2>&1 || { echo "image $DB_IMAGE is m
 # --- the image, from this worktree ---------------------------------------------
 info "building $IMAGE from $BRICK"
 docker build -q -t "$IMAGE" "$BRICK" >/dev/null
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$BRICK/../../tools/tests/check-base.sh" "$BRICK" "$IMAGE"); then pass "$out"; else fail "$out"; fi
 rc=0; out=$(docker run --rm --entrypoint python3 "$IMAGE" -I -m pip --version 2>&1) || rc=$?
 [ "$rc" -ne 0 ] && pass "no pip in the image (python3 -I -m pip: exit $rc)" || fail "pip in the image: $out"
 out=$(docker run --rm --entrypoint python3 "$IMAGE" -I -c 'import fastapi, uvicorn, psycopg, starlette, pydantic, yaml

@@ -9,7 +9,7 @@ A PgBouncer connection pooler node (v0.3 master spec 7.2): PgBouncer
 1.26.1 from the PostgreSQL apt repository (PGDG, `trixie-pgdg`, package
 `1.26.1-1.pgdg13+1`, D177; psql 18 from there too), on `debian:13-slim`,
 with s6-overlay 3.2.3.2, `sshd`, the `player` account and a public
-validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.1`.
+validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.2`.
 Role `pooler`.
 
 It is optional in any scenario (D119): the GM picks it when the design
@@ -23,7 +23,7 @@ CLIENTS`) and its log, and the node-health script covers the node.
 
 - A node of its own, one per pooler the design needs (one is the usual
   case); it mounts no material into other nodes.
-- Build: `docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1
+- Build: `docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.2
   bricks/pgbouncer` (x86_64; the build fails if the package is not
   PgBouncer 1.26.1, `1.26.1-1.pgdg13+1`).
 - Stateful (`stateful: true`): its configuration, its log and the
@@ -369,7 +369,7 @@ empty volume; the next start rewrites `/run` (the socket,
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `pgbouncer` `0.1.1` (all of them name `0.1.0` too), and no other.
+names `pgbouncer` `0.1.2` (all of them name `0.1.0` and `0.1.1` too), and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

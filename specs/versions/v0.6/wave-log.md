@@ -604,3 +604,39 @@ is left.
 Chunk 2 (Docker: heavy) on `v0.6-c2-versions`, then chunk 3 (Docker:
 none) on `v0.6-c3-loader` in chunk 1's slot; chunk 3 merges after
 chunk 2. Briefs assembled from plan v3 and W1 items 0, 1, 2, 4, 5, 10.
+
+### Chunk 3 — built (1ef46e3, 97417bc), waiting on chunk 2, 2026-11-16
+
+60 new tests; ISS-001 marked Resolved (97417bc). Before merging it
+re-pins its new `fixture-v06-refusals` (and its three local faults'
+`applies_to`) to chunk 2's versions. Relayed to chunk 2 while it ran:
+seven fixture-local `brick.yaml` lacked `base:`. W1-y comes with the
+merge.
+
+### Chunk 4 — built (a87c9fa), waiting on chunk 2, 2026-11-16
+
+Seven `data/overview.yaml` (27 roles, 18 jobs, coverage run once:
+nothing missing or extra), the clinic's 21 descriptions, 20 crontab
+entries commented. Outside Files: `tools/tests/test_render.py`'s two
+positional indices moved by one (a fixture crontab gained a line). The
+wording is the customer's voice from the handouts: offered to the owner
+for review in the wave report.
+
+### Chunk 2 — merged (15a5e1a), 2026-11-16
+
+Commit e5e4348, merged as 15a5e1a. Versions as master spec 6.8 (bastion
+0.6.0, grafana 0.4.0, scheduler 0.4.0, the other seven a patch up);
+`base: {os: Debian GNU/Linux, version: "13"}` in every brick and the
+seven fixture-local ones; `check-base.sh` matches on all ten images
+(adds `--pull never`). Unit suite 1283 OK, 2 skipped. Stack tests all
+pass; images identical to v0.5's but the scheduler's (cached builds).
+
+- **Flake:** health-check's stack test failed 2 of 3 runs, `gm-validate`
+  running before the cron daemon starts ("RED cron: the cron daemon
+  does not run"); pre-existing (image byte-identical to 0.1.0). To be
+  filed as an issue; the wave gate may meet it.
+- The unit suite writes into a fixture tree briefly: don't load fixtures
+  while it runs.
+- Left: `.tech` (G5), the format skill's version prose (chunk 3),
+  `purposes/shop-sales-reporting/tests/run-tests.sh`'s stale
+  `scheduler-unit:0.2.0` (pre-existing).

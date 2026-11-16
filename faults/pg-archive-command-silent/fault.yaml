@@ -19,7 +19,7 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.5.0"]
+      versions: ["0.5.0", "0.5.1"]
   preconditions:
     - the node archives its WAL to the vault (archive_mode on, its vault_target cold storage's hostname, cold storage on the partners' shared nodes)
 
@@ -48,6 +48,8 @@ injection:
         alone; wal_level, archive_mode = on, archive_timeout and the rest of
         the file as the scenario has them
       material: inject/postgresql.conf.snippet
+      lines:
+        - "archive_command = 'vault-post wal %p %f || true'"
   run_as: root
 
 # --- What the players can see ------------------------------------------

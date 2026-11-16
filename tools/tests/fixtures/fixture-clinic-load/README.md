@@ -65,15 +65,15 @@ both round-trip, their state on `partners-db`).
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `records` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `lab` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `machines` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `partners-db` | `postgres` 0.5.0 | database | yes | backend | no-access |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `records` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `lab` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `machines` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `partners-db` | `postgres` 0.5.1 | database | yes | backend | no-access |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -99,7 +99,7 @@ No knobs.
 
 #### Node `records`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -166,7 +166,7 @@ the database `clinic`, and `vet-portal` into `portal` (see section 1).
 
 #### Node `lab`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -198,7 +198,7 @@ Data: no data file; the domain `vet-lab` is loaded into the database
 
 #### Node `machines`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -246,7 +246,7 @@ and `biomed` (see section 1).
 
 #### Node `partners-db`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

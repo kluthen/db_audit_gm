@@ -1094,7 +1094,7 @@ class TestHelpers(unittest.TestCase):
 
 # --- The composed test load, into throwaway containers ---------------------------
 
-IMAGE = os.environ.get("GM_TEST_PG_IMAGE", "127.0.0.1:5000/dbagm/postgres:0.5.0")
+IMAGE = os.environ.get("GM_TEST_PG_IMAGE", "127.0.0.1:5000/dbagm/postgres:0.5.1")
 PG_START = r"""set -eu
 PGBIN=/usr/lib/postgresql/18/bin
 install -d -o postgres -g postgres -m 0700 /run/gmtest/pgdata

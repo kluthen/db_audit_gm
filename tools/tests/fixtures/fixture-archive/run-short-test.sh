@@ -3,16 +3,16 @@
 # master spec 10.4, 11.2; cold-storage.md 3; capture W1 item 6, W2 item 6,
 # W2-f, W5 item 2; spec D356): cold storage, the vault, on the partners'
 # shared nodes, fed by records' archive_command and nightly base backup
-# through postgres 0.5.0's vault-post. The fixture unfaulted (its two faults,
+# through postgres 0.5.1's vault-post. The fixture unfaulted (its two faults,
 # s2 and s6, are run-planted-test.sh's). On one host, about thirteen minutes
 # (vet-core's load about three).
 #
-# On a copy of tools/tests/fixtures/fixture-archive (bastion 0.5.0; records:
-# postgres 0.5.0 archiving to cold-storage:8000 with the credential
+# On a copy of tools/tests/fixtures/fixture-archive (bastion 0.6.0; records:
+# postgres 0.5.1 archiving to cold-storage:8000 with the credential
 # cold_storage, vet-core's record in clinic, the filler in fill;
-# partners-api: api 0.1.0 serving partners/coldstore/ under
-# cold-storage; partners-backend: scheduler 0.3.0; partners-db: postgres
-# 0.5.0 with partners/shared/ and coldstore's data and planted manifests):
+# partners-api: api 0.1.1 serving partners/coldstore/ under
+# cold-storage; partners-backend: scheduler 0.4.0; partners-db: postgres
+# 0.5.1 with partners/shared/ and coldstore's data and planted manifests):
 #   fit (the laptop playground, 2 CPU / 4G / 8G) -> render -> deploy, then:
 #   - the stack file: partners-api's alias cold-storage; http_cold_storage on
 #     records and partners-api only;
@@ -42,10 +42,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-archive/run-short-test.sh   (from anywhere)
@@ -55,8 +55,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=archive-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0 127.0.0.1:5000/dbagm/postgres:0.5.1"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 SECRET=/opt/gm/secrets/http_cold_storage
