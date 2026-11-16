@@ -1,15 +1,14 @@
 # db_audit_gm v0.6 — Master specification
 
-Status: **consolidated on 2026-11-16 for the owner's review; not yet
-approved.** Consolidated on the owner's word ("have a reviewer check
-out spec v0.6 then consolidate") from v0.6's three draft documents (the
+Status: **approved by the owner on 2026-11-16** ("agreed for both
+question, you may proceed on the build plan"), the points settled while
+closing the review standing as written. Consolidated on the owner's
+word ("have a reviewer check out spec v0.6 then consolidate") from
+v0.6's three draft documents (the
 version page, the network overview, fake aging) and the owner's
 rulings of 2026-11-13 to 2026-11-16, after an independent review of the
 drafting whose findings were all closed before consolidation. Every
-point the owner ruled is stated here as fact; the points spec-writer
-settled while closing the review, which the owner has not yet seen, are
-marked *(default, for review)* where they first appear and gathered at
-the end of section 18. Companion: [access-model.md](access-model.md).
+point is stated here as fact. Companion: [access-model.md](access-model.md).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -305,7 +304,7 @@ above it. The overview's **Background tasks** read it.
   rendered, the documented limits that hold in this game, each with
   what it shows, where, and its in-world explanation) and the history
   import's result. GM-side, out of the players' reach like the answer
-  key. *(default, for review)*
+  key.
 - **The partners' status file**: render turns each planted instance's
   `admitted:` into UTC instants, as it turns a schedule's timeline
   changes, and writes it as a GM-owned secret mounted on the bastion
@@ -523,7 +522,7 @@ policy (the norm the players audit against) or the partners' page (the
 players have no access to verify it). The story and the issues may be
 mistaken only as the customer's belief: a false alarm, as today.
 
-### 7.5 Reports *(default, for review)*
+### 7.5 Reports
 
 The stack's reports (pgBadger's HTML, pgCluu's folder) become readable
 in the browser instead of leaving through `scp` and then `sftp`:
@@ -771,7 +770,7 @@ against the system:
 
 There is no N9: the page's absence was considered and dropped, since it
 would take away **Your access**, the game's rule, and leave the README
-pointing to a missing page. *(default, for review)*
+pointing to a missing page.
 
 A GM selects among these at deploy; fault selection is the GM's. v0.6
 builds the family and at least one fault of it with its short test.
@@ -803,7 +802,7 @@ shrinks to the home page's address.
 revised, a fixture), the README keeps its node table and network
 paragraph as they are, the access rules there; only its web-interfaces
 table shrinks to the home page's address, since every game has the
-home page. *(default, for review)*
+home page.
 
 ## 9. Fake aging
 
@@ -827,7 +826,7 @@ GM, at setup**; it is not a scenario field.
   fits, the GM declines the scenario or proposes another, as today.
 - A scenario with no scheduler node has no aging, and so no mode.
 
-### 9.2 The initiator who also plays *(default, for review)*
+### 9.2 The initiator who also plays
 
 The players are never told about the aging process during the game
 (9.11), and a student playing alone is both the initiator and a player.
@@ -1030,7 +1029,7 @@ selection.
 its job's runs need. v0.6's short campaign check then keeps f8 and f9,
 which need no P0, and f1, whose job runs every five minutes and fits a
 15-minute tail; f2, f3, f4 and f7 wait for the full selection's run in
-v1.0 gating. *(default, for review)*
+v1.0 gating.
 
 **The clinic** is later: it needs a standby and a base backup built
 after the fill, the vault's gap for the fill's span, two hosts; its s8
@@ -1424,9 +1423,9 @@ spec:
 - **Handouts are static.** They are what the customer gave at the start;
   re-rendering them would turn a player's fix into a change of the
   evidence. The live tools follow the system on their own.
-- **The page never absent** *(default, for review)*. The access rule
+- **The page never absent**. The access rule
   lives on it and the README points to it.
-- **Reports in a folder on the bastion** *(default, for review)*: no web
+- **Reports in a folder on the bastion**: no web
   server on the database nodes, no new route, one hop for the player;
   the sandbox header keeps a report's scripts away from Grafana's
   origin.
@@ -1441,19 +1440,18 @@ spec:
 - **Faults curated, not the fake stretched.** A fault declares what it
   needs; the GM refuses what the fake can't make, rather than the fake
   pretending.
-- **One restart instant for every service** *(default, for review)*,
+- **One restart instant for every service**,
   the monitoring included: a monitoring that started later would be a
   tell of its own.
-- **The restart record in the local implementation** *(default, for
-  review)*: the restart is the game's event, not the scenario's, so the
-  scenario format stays unchanged.
-- **The early check after the history import** *(default, for review)*:
+- **The restart record in the local implementation**: the restart is
+  the game's event, not the scenario's, so the scenario format stays
+  unchanged.
+- **The early check after the history import**:
   the import is part of what must be right before the hand-over.
 - **Table statistics kept**: resetting them would hide last-use times
   but break the evidence of several faults.
-- **The initiator asked once whether they play** *(default, for
-  review)*: the never-told rule binds anything a player reads, and a
-  student playing alone is both; a teacher or the owner may still be
+- **The initiator asked once whether they play**: the never-told rule
+  binds anything a player reads, and a student playing alone is both; a teacher or the owner may still be
   told the mode.
 - **Calibration by short real runs**: per-call costs don't need a day,
   and the research's guesses were far off.
@@ -1497,9 +1495,10 @@ spec:
 - The bricks' exact versions if a build finds more to change (folded
   into the unreleased version).
 
-**Points settled while closing the review, for the owner's review**
-(marked *(default, for review)* above): the initiator asked once
-whether they play, and the technique never named to a possible player
+**Points settled while closing the review**, standing as written
+since the owner's approval of 2026-11-16, 9.2 confirmed: the initiator
+asked once whether they play, and the technique never named to a
+possible player
 (9.2); the network overview's absence dropped as a trap (8.5); the
 restart record's place and fields (6.7, 9.4); the monitoring started in
 the restart and the early check's timing (9.3, 9.4); the campaign's

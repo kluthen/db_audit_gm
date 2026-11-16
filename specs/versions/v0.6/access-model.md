@@ -1,7 +1,7 @@
 # db_audit_gm v0.6 — Access model
 
-Status: **consolidated on 2026-11-16 with the [master spec](master-spec.md)
-it accompanies, for the owner's review; not yet approved.** Revises the
+Status: **approved by the owner on 2026-11-16 with the
+[master spec](master-spec.md) it accompanies.** Revises the
 [v0.5 access model](../v0.5/access-model.md), which stays in force for
 v0.6 games in everything this document does not change: its actors,
 their assignment and lifecycle, its permission matrix, conditions,

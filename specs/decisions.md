@@ -245,3 +245,19 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   which stays in force for the rest. Drafts kept as the working record.
   Now in: [versions/v0.6/master-spec.md](versions/v0.6/master-spec.md),
   [versions/v0.6/access-model.md](versions/v0.6/access-model.md).
+- **D515 (2026-11-16, owner ruling "agreed for both question, you may
+  proceed on the build plan", relayed by the coordinator): every brick
+  takes a new version in v0.6, since `base:` changes every `brick.yaml`
+  (O263):** `bastion` 0.6.0, `grafana` 0.4.0, `scheduler` 0.4.0, a patch
+  bump for the others, every scenario repinned. Now in:
+  [master spec](versions/v0.6/master-spec.md#68-versions-and-pins) 6.8.
+- **D516 (2026-11-16, same ruling): D504 confirmed:** an initiator who
+  may play hears only "quick game" or "extended game", by duration, and
+  never the technique. Now in:
+  [master spec](versions/v0.6/master-spec.md#92-the-initiator-who-also-plays) 9.2.
+- **D517 (2026-11-16, same ruling): v0.6's master spec and access model
+  approved, the points marked "(default, for review)" standing as
+  written** (the owner raised no objection and asked for the build
+  plan); the marks removed. Now in:
+  [master spec](versions/v0.6/master-spec.md) (status, 18),
+  [access model](versions/v0.6/access-model.md).
