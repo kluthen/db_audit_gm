@@ -1,0 +1,17 @@
+# vet-scheduling's overview fragment (v0.6 master spec 6.5, 6.9; capture W1
+# item 6): each login role data/schema.sql creates and each job of
+# producers/pms/jobs.yaml, one line each, in the customer's words. The
+# network overview reads it (master spec 8.2, "Fed and used by", "Background
+# tasks").
+roles:
+  - role: sched_app
+    who: the practice software's scheduling module
+    reads: the rooms, the opening hours, the machines, the appointment types, the courses, the bookings and the rota, and the free slots
+    writes: bookings, room and machine allocations, the rota, absences, teaching sessions' state, trainees and enrolments
+  - role: sched_reports
+    who: the periodic reports, on the standby
+    reads: every scheduling table
+    writes: nothing
+jobs:
+  - job: rota-publish
+    what: "the Friday rota: the seventh week ahead planned, the week after next published, its machine and theatre blocks booked"

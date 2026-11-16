@@ -12,6 +12,7 @@ id: vet-machinery
 title: The machines of a veterinary hospital and their three systems' databases (PACS, central station, biomedical engineering)
 classification: data/classification.yaml
 register: data/register.yaml
+overview: data/overview.yaml
 producers: producers/
 notes: docs/gm.md
 policy: docs/policy.md

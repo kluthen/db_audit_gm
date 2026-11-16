@@ -1,0 +1,41 @@
+# vet-lab's overview fragment (v0.6 master spec 6.5, 6.9; capture W1 item 6):
+# each login role data/schema.sql creates and each job of
+# producers/lis/jobs.yaml, one line each, in the customer's words. The
+# network overview reads it (master spec 8.2, "Fed and used by", "Background
+# tasks").
+roles:
+  - role: lab_app
+    who: the laboratory information system
+    reads: every laboratory table
+    writes: orders, samples and their events, tests, results, critical calls, notifications, quality control runs, charges
+  - role: lab_api
+    who: the laboratory's order API, for the practices and the external laboratory
+    reads: the test catalogue and its reference intervals, the accounts, the orders, their samples, tests and results, the send-outs
+    writes: new orders with their samples and tests, the external laboratory's answers and results
+  - role: lab_instruments
+    who: the analysers' middleware
+    reads: the samples, the tests ordered, the analytes, the reference intervals, the quality control runs
+    writes: analyser batches and results
+  - role: lab_dispatch
+    who: the centre's jobs delivering results and sending tests out
+    reads: the orders, their tests, samples and results, the accounts, the callbacks, the send-outs, the notifications
+    writes: result callbacks, send-outs, sample events, notifications sent
+  - role: lab_reports
+    who: the periodic reports and statements
+    reads: every laboratory table
+    writes: nothing
+jobs:
+  - job: lab-qc-morning
+    what: every analyser's quality control before the bench opens
+  - job: lab-qc-night
+    what: the on-call analysers' quality control before the night
+  - job: lab-release-round
+    what: "the pathologist's round: validated results released, completed orders closed, charges billed"
+  - job: lab-release-round-14
+    what: the pathologist's early afternoon round, Monday to Saturday, as the late morning one
+  - job: lab-release-round-18
+    what: the pathologist's evening round, Monday to Saturday, as the late morning one
+  - job: lab-samples-dispose
+    what: samples past their keeping date disposed of as clinical waste
+  - job: lab-identity
+    what: the centre's new orders completed with the animal's identity, from the clinic's lookup API

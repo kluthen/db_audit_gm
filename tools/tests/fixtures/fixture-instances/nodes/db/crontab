@@ -4,4 +4,5 @@
 # psql -X -w over the local socket as the crontab role shop_etl, whose
 # password load-data sets; output appended to the job's log.
 PGPASSFILE=/run/gm-cron/pgpass
+# a run marked in crontab_runs, the proof the cron daemon runs
 * * * * * psql -X -w -h /run/postgresql -U shop_etl -d shop -c "INSERT INTO crontab_runs DEFAULT VALUES" >> /var/log/postgresql/cron/crontab-mark.log 2>&1

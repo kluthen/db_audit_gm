@@ -1,0 +1,27 @@
+# vet-core's overview fragment (v0.6 master spec 6.5, 6.9; capture W1 item
+# 6): each login role data/schema.sql creates and each job of
+# producers/pms/jobs.yaml, one line each, in the customer's words. The
+# network overview reads it (master spec 8.2, "Fed and used by", "Background
+# tasks").
+roles:
+  - role: vet_app
+    who: the practice-management software
+    reads: the whole medical record and its reference tables
+    writes: owners, animals and herds, referrals, consultations, diagnoses and procedures, requests, stays, alerts, exchanges with other centres, prescriptions, administrations and dispensings
+  - role: vet_lookup
+    who: the lookup API the other centres, the lab and the machines call
+    reads: the animals without their death, their owners' names without contact details, the stays' dates
+    writes: nothing
+  - role: vet_display
+    who: the ward displays
+    reads: the animals' board and the housing units' board
+    writes: nothing
+  - role: vet_reports
+    who: the back office
+    reads: the whole medical record, owners' contact details included
+    writes: nothing
+jobs:
+  - job: administrations-round
+    what: "the ward round every four hours: the doses due given, the next round's doses planned"
+  - job: prescriptions-expire
+    what: the night's expiry of prescriptions not dispensed in time
