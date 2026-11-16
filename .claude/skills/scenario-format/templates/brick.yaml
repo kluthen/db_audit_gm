@@ -1,6 +1,6 @@
 # brick.yaml — template for bricks/<brick-id>/brick.yaml
 #
-# Version v0.5, expected to evolve as games are played.
+# Version v0.6, expected to evolve as games are played.
 # Shape: v0.1 master spec section 7, v0.2 master spec 6.1, v0.3 master
 # spec 6.4 and 6.7 and v0.4 master spec 6.4 and 6.9; top-level keys fixed by v0.1's capture W1-A
 # (specs/versions/v0.1/wave-log.md), amended by v0.2's capture W1
@@ -12,7 +12,9 @@
 # and v0.4's capture W1 (specs/versions/v0.4/wave-log.md, item 4:
 # `seed.optional`) and v0.5's (v0.5 master spec 6.5 and 6.8; capture W1 of
 # specs/versions/v0.5/wave-log.md, items 1 and 5: `options`, `no-access`,
-# the `api` brick's seed files, the role `api`); D59 dropped
+# the `api` brick's seed files, the role `api`) and v0.6's (v0.6 master spec
+# 6.4 and 6.9; capture W1 of specs/versions/v0.6/wave-log.md, item 1: `base:`,
+# the bastion's seventh seed file); D59 dropped
 # `compatible_faults`. Do not
 # add, rename or drop a top-level key here; brick-specific extras go under
 # `extra`.
@@ -45,6 +47,13 @@ technology:
   name: <technology>                # postgresql, openssh
   version: "<engine-version>"       # quoted ("18")
 image: 127.0.0.1:5000/dbagm/<brick-id>:<version>   # registry-qualified, never Docker Hub
+base: {os: <Debian GNU/Linux>, version: <"13">}   # the image's operating system (v0.6 master
+                                    # spec 6.4, 6.9): exactly os and version, both strings,
+                                    # version quoted ("13"; an unquoted 13 is refused); os and
+                                    # version as the image's /etc/os-release has NAME and
+                                    # VERSION_ID, which the brick's stack test checks
+                                    # (tools/tests/check-base.sh). The network overview's System
+                                    # reads "<os> <version>"
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # the default the GM starts from when it sizes a scenario,

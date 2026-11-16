@@ -1,0 +1,33 @@
+# overview.yaml — template for domains/<domain-id>/data/overview.yaml
+#
+# Version v0.6, expected to evolve as games are played.
+# Shape: v0.6 master spec 6.5 and 6.9 (capture W1 of
+# specs/versions/v0.6/wave-log.md, item 6). The domain's fragment of the
+# network overview (master spec 8): who uses each login role and what each
+# job does, as the customer would say it. Declared in domain.yaml as
+# `overview: data/overview.yaml`, after `register:`. The network-overview
+# skill reads it when it writes a scenario's overview; it never reaches a
+# node.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) is a valid value where its comment says so; an
+# absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+#
+# Coverage (W1 item 6): `roles` names every role created LOGIN in the
+# domain's schema files (schema, or each data/<database>/schema.sql);
+# `jobs` names every `name:` of the domain's producers/<node>/jobs.yaml for
+# a customer node (not producers/api/ nor producers/partners/) and every
+# job cron.schedule or cron.schedule_in_database gives in its cron.sql, one
+# entry per distinct name, as written. Each value one line.
+
+roles:                              # one entry per login role; may be [] (a part creating none)
+  - role: <vet_app>                 # the role's name, as its schema creates it
+    who: <the practice software>    # who uses it
+    reads: <the record and the agenda>     # what it reads
+    writes: <consultations, prescriptions, bookings>   # what it writes ("nothing": read-only)
+jobs:                               # one entry per job; may be [] (a domain running none)
+  - job: <prescriptions-expire>     # the job's name, as its jobs.yaml or cron.sql gives it
+    what: <the night's expiry of prescriptions>   # what it does

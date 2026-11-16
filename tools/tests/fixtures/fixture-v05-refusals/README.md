@@ -47,7 +47,8 @@ A small shop takes orders, posts some to an external laboratory through its
 order API, ships its archive to an off-site vault, and keeps a read-only
 replica of its database.
 
-The story as the players read it: `player/story.md`.
+The story as the players read it: `player/story.md`. The bastion's seed
+files map `partners.md`: the page is in the starter pack.
 
 ## 3. Topology
 
@@ -80,7 +81,8 @@ The story as the players read it: `player/story.md`.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port
   8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+  `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` →
+  `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface: the
 web front serves the starter-pack page alone, and the tools password is
