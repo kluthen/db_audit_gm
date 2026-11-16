@@ -60,14 +60,14 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.5.0 | bastion | yes | backend | report-only |
-| `records` | `postgres` 0.5.0 | database | yes | backend | fixable |
-| `clinic-api` | `api` 0.1.0 | api | yes | backend | report-only |
-| `pms` | `scheduler` 0.3.0 | producer | yes | backend | no-access |
+| `bastion` | `bastion` 0.6.0 | bastion | yes | backend | report-only |
+| `records` | `postgres` 0.5.1 | database | yes | backend | fixable |
+| `clinic-api` | `api` 0.1.1 | api | yes | backend | report-only |
+| `pms` | `scheduler` 0.4.0 | producer | yes | backend | no-access |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.5.0 (pinned).
+- **Brick**: `bastion`, version 0.6.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -92,7 +92,7 @@ No knobs.
 
 #### Node `records`
 
-- **Brick**: `postgres`, version 0.5.0 (pinned).
+- **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -124,7 +124,7 @@ Data: no data file; the domain `vet-core` is loaded into the database
 
 #### Node `clinic-api`
 
-- **Brick**: `api`, version 0.1.0 (pinned).
+- **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -144,7 +144,7 @@ No knobs.
 
 #### Node `pms`
 
-- **Brick**: `scheduler`, version 0.3.0 (pinned).
+- **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   no-access.
 - **Networks**: backend.

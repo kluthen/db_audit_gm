@@ -345,7 +345,7 @@ nodes:
 - name: bastion
   brick:
     id: bastion
-    version: 0.5.0
+    version: 0.6.0
   role: bastion
   stateful: true
   networks:
@@ -380,7 +380,7 @@ nodes:
 - name: records
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:
@@ -498,7 +498,7 @@ nodes:
 - name: standby
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:
@@ -554,7 +554,7 @@ nodes:
 - name: lab
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:
@@ -611,7 +611,7 @@ nodes:
 - name: machines
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:
@@ -679,7 +679,7 @@ nodes:
 - name: pms
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -703,7 +703,7 @@ nodes:
 - name: lis
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -728,7 +728,7 @@ nodes:
 - name: ward
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -752,7 +752,7 @@ nodes:
 - name: equipment
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -777,7 +777,7 @@ nodes:
 - name: interfaces
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: transformer
   stateful: true
   networks:
@@ -802,7 +802,7 @@ nodes:
 - name: backoffice
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: transformer
   stateful: true
   networks:
@@ -827,7 +827,7 @@ nodes:
 - name: clinic-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   stateful: true
   networks:
@@ -851,7 +851,7 @@ nodes:
 - name: lab-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   stateful: true
   networks:
@@ -875,7 +875,7 @@ nodes:
 - name: portal-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   stateful: true
   networks:
@@ -899,7 +899,7 @@ nodes:
 - name: prometheus
   brick:
     id: prometheus
-    version: 0.2.1
+    version: 0.2.2
   role: monitoring
   stateful: true
   networks:
@@ -947,7 +947,7 @@ nodes:
 - name: grafana
   brick:
     id: grafana
-    version: 0.3.0
+    version: 0.4.0
   role: monitoring
   stateful: true
   networks:
@@ -974,7 +974,7 @@ nodes:
 - name: exporter-records
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   stateful: true
   networks:
@@ -996,7 +996,7 @@ nodes:
 - name: exporter-standby
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   stateful: true
   networks:
@@ -1018,7 +1018,7 @@ nodes:
 - name: exporter-lab
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   stateful: true
   networks:
@@ -1040,7 +1040,7 @@ nodes:
 - name: exporter-machines
   brick:
     id: postgres-exporter
-    version: 0.2.0
+    version: 0.2.1
   role: monitoring
   stateful: true
   networks:
@@ -1062,7 +1062,7 @@ nodes:
 - name: pgwatch
   brick:
     id: pgwatch
-    version: 0.1.0
+    version: 0.1.1
   role: monitoring
   stateful: true
   networks:
@@ -1084,7 +1084,7 @@ nodes:
 - name: health
   brick:
     id: health-check
-    version: 0.1.0
+    version: 0.1.1
   role: monitoring
   stateful: true
   networks:
@@ -1109,7 +1109,7 @@ nodes:
 - name: partners-api
   brick:
     id: api
-    version: 0.1.0
+    version: 0.1.1
   role: api
   stateful: true
   networks:
@@ -1133,7 +1133,7 @@ nodes:
 - name: partners-backend
   brick:
     id: scheduler
-    version: 0.3.0
+    version: 0.4.0
   role: producer
   stateful: true
   networks:
@@ -1157,7 +1157,7 @@ nodes:
 - name: partners-db
   brick:
     id: postgres
-    version: 0.5.0
+    version: 0.5.1
   role: database
   stateful: true
   networks:

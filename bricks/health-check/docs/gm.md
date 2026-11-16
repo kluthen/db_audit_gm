@@ -3,7 +3,7 @@
 GM documentation of the `health-check` brick (`brick.yaml`, v0.5 master
 spec 7.4, 7.5 and 14; the build conditions: G9, v0.5 wave log; the seed
 files, the scripts' convention, the port and the route: capture W2 item
-5). Never shipped to players. Brick version 0.1.0, expected to evolve as
+5). Never shipped to players. Brick version 0.1.1, expected to evolve as
 games are played.
 
 ## Purpose
@@ -14,7 +14,7 @@ Debian's `check_postgres` 2.26.0 run every five minutes from cron as
 scripts on the same crontab, and a status page rewritten by each run and
 served by nginx (static files only), routed by the bastion as `health`.
 It fills the role `monitoring`; image
-`127.0.0.1:5000/dbagm/health-check:0.1.0`.
+`127.0.0.1:5000/dbagm/health-check:0.1.1`.
 
 The image:
 
@@ -38,7 +38,7 @@ The image:
 
 - **What gets installed**: a node of its own, `health` in the clinic.
   The image must be on the engine that runs the game.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.0 bricks/health-check`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/health-check:0.1.1 bricks/health-check`.
 - **How many**: one per game.
 - **Next to which node**: any host; the VPS in the clinic, off site as the
   standby is (master spec 14).
@@ -230,7 +230,7 @@ UNKNOWN on a fresh cluster), each script's line; `sudo gm-validate` green.
 ### Stack test
 
 `sh bricks/health-check/tests/run-stack-test.sh` (needs
-`health-check:0.1.0` and `postgres:0.5.0`): a primary and its cloned
+`health-check:0.1.1` and `postgres:0.5.1`): a primary and its cloned
 standby started after the health node (the wait, its bound, the honest
 failure, then every action of the set against PostgreSQL 18, TLS), cron
 running lines on its own, the two scripts (the stand-in's `GET

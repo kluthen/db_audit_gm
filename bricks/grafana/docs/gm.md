@@ -3,12 +3,12 @@
 GM documentation of the `grafana` brick (`brick.yaml`, v0.2 master spec 7
 and 7.4; required sections: v0.2 master spec 6.2; interface: capture W3 in
 `specs/versions/v0.2/wave-log.md`). Never shipped to players. Brick
-version 0.3.0, expected to evolve as games are played.
+version 0.4.0, expected to evolve as games are played.
 
 ## Purpose
 
 Grafana OSS 13.3.1 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/grafana:0.3.0`. It fills the
+players, in the image `127.0.0.1:5000/dbagm/grafana:0.4.0`. It fills the
 role `monitoring`: the customer's dashboards and alerting, built on the
 game's Prometheus, which the players audit and read through its UI. There
 is no separate alerting brick: Grafana's own alerting evaluates the alert
@@ -44,7 +44,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.4.0 bricks/grafana`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches Prometheus by node name over
@@ -524,7 +524,7 @@ from a provisional `2M` to `1M`. Its snapshot stop: `grafana` down 7 s
 (13:46:57Z to 13:47:04Z, a 1.7M `grafdata` copied on the VPS).
 
 These figures were measured on earlier versions. 0.3.0 (Grafana 13.3.1)
-has not been measured at rest, and they stand until an aging measures the
+and 0.4.0 have not been measured at rest, and they stand until an aging measures the
 node (v1.0 gating). The whole clinic's first deployment (G13, 2026-11-13,
 `aldermoor-centre` on armenelos plus the VPS, the node on the VPS, about
 70 minutes from T0, `docker stats` every 2 minutes, no dashboard opened)
@@ -570,7 +570,7 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `grafana` `0.3.0`, and no other; all also name `0.2.0`.
+names `grafana` `0.4.0`, and no other; all also name `0.3.0` and `0.2.0`.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

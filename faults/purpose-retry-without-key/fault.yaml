@@ -22,7 +22,7 @@ severity: medium
 applies_to:
   bricks:
     - id: scheduler
-      versions: ["0.3.0"]
+      versions: ["0.3.0", "0.4.0"]
   purposes: [vet-lab-centre-orders]
   preconditions:
     - >-

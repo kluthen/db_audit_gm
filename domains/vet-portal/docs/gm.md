@@ -416,7 +416,8 @@ and `gm_src_vet_lab`, as the composition record's `derive: [{domain:
 vet-portal, after: [vet-core, vet-lab]}]` sanctions it. Then the
 coherence check. Every session is unseen (D265). Measured on 2026-11-04,
 after the core's agenda (chunk 30), in a throwaway container of
-`postgres:0.5.0` on armenelos, the keys streamed and the foreign schemas
+`postgres:0.5.0` (the brick at `postgres:0.5.1` since v0.6, the same
+server) on armenelos, the keys streamed and the foreign schemas
 created by hand as `load-data` does:
 
 | Run (`load_epoch` 08:50 local) | Time | Size | Rows |

@@ -9,7 +9,7 @@ version: "3.8"
 
 services:
   grafana:
-    image: 127.0.0.1:5000/dbagm/grafana:0.3.0
+    image: 127.0.0.1:5000/dbagm/grafana:0.4.0
     hostname: grafana
     read_only: true
     cap_drop: [ALL]
@@ -45,7 +45,7 @@ services:
         limits: {cpus: "0.5", memory: 384M}
 
   prometheus:
-    image: 127.0.0.1:5000/dbagm/prometheus:0.2.1
+    image: 127.0.0.1:5000/dbagm/prometheus:0.2.2
     hostname: prometheus
     read_only: true
     cap_drop: [ALL]

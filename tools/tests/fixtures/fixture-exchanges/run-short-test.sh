@@ -16,9 +16,9 @@
 # reaches T0 at about :45 (EXCH_PREP_MINUTES, default 7, the minutes from the
 # deployment to T0); that wait is not the run's.
 #
-# On a copy of tools/tests/fixtures/fixture-exchanges (bastion 0.5.0;
-# records, lab, partners-db: postgres 0.5.0; clinic-api, partners-api: api
-# 0.1.0; interfaces, partners-backend: scheduler 0.3.0):
+# On a copy of tools/tests/fixtures/fixture-exchanges (bastion 0.6.0;
+# records, lab, partners-db: postgres 0.5.1; clinic-api, partners-api: api
+# 0.1.1; interfaces, partners-backend: scheduler 0.4.0):
 #   gmctl compose --check -> the copy moved -> fit (2 CPU / 4G / 8G) ->
 #   render -> deploy -> load-data, then:
 #   - load-data: office and its tables, the purposes' ops tables in clinic
@@ -44,10 +44,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-exchanges/run-short-test.sh   (from anywhere)
@@ -57,8 +57,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=exchanges-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1 127.0.0.1:5000/dbagm/postgres:0.5.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"

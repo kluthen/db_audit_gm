@@ -370,7 +370,7 @@ class TestInjectFaultForms(DeployedGame):
     def script_elsewhere(self, node="bastion"):
         """f2's second script run on the node its parameter `elsewhere` names."""
         def fault(d):
-            d["applies_to"]["bricks"].append({"id": "bastion", "versions": ["0.5.0"]})
+            d["applies_to"]["bricks"].append({"id": "bastion", "versions": ["0.6.0"]})
             d["parameters"]["elsewhere"] = {"description": "where 20-analyze runs",
                                             "default": None, "required": True}
             d["injection"]["scripts"] = [F2_SCRIPTS[0],

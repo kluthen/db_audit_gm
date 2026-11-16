@@ -50,8 +50,8 @@
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # debian:13-slim (the stub's image), an OpenSSH client (8.4 or later) and
 # curl on this host, and free TCP ports GMTEST_BASTION_PORT (default 22222)
 # and GMTEST_BASTION_WEB_PORT (default 28080).
@@ -62,8 +62,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 STARTER=$HERE/fixtures/starter
 STACK=gmtest-bastion
-IMAGE=127.0.0.1:5000/dbagm/bastion:0.5.0
-PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
+IMAGE=127.0.0.1:5000/dbagm/bastion:0.6.0
+PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 BASTION=${STACK}_bastion
 DB=${STACK}_db
 NET=${STACK}_net
@@ -124,6 +124,8 @@ trap 'exit 130' INT TERM
 for i in "$IMAGE" "$PG_IMAGE" "$STUB_IMAGE"; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "image $i not built" >&2; exit 2; }
 done
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
     echo "stack $STACK already exists; remove it first" >&2
     exit 2

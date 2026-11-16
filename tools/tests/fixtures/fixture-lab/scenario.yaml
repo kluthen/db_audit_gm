@@ -38,7 +38,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.5.0
+      version: 0.6.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -63,7 +63,7 @@ nodes:
   - name: lab
     brick:
       id: postgres
-      version: 0.5.0
+      version: 0.5.1
     # no options: the monitoring option's absence is fault instance s10
     role: database
     stateful: true
@@ -113,7 +113,7 @@ nodes:
   - name: exporter
     brick:
       id: postgres-exporter
-      version: 0.2.0
+      version: 0.2.1
     role: monitoring
     stateful: true
     networks: [backend]

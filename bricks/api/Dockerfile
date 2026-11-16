@@ -4,7 +4,7 @@
 # (routes/, db/) and the secrets arrive at run time at the fixed paths
 # declared in brick.yaml. FastAPI on uvicorn, from the hash-pinned PyPI set
 # of requirements.txt (G6, specs/versions/v0.5/wave-log.md).
-# Build:       docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
+# Build:       docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
 # Unit tests:  sh bricks/api/tests/run-unit-tests.sh (the `unit-test` stage)
 # Architecture: x86_64 only (the s6-overlay archive, pydantic-core's wheel).
 

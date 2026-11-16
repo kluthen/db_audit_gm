@@ -42,15 +42,15 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # grafana image is also the test client: it has ssh, curl and jq):
-#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.1 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.4.0 bricks/grafana
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.2 bricks/prometheus
 # Usage: sh bricks/grafana/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-grafana
-IMAGE=127.0.0.1:5000/dbagm/grafana:0.3.0
-PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.1
+IMAGE=127.0.0.1:5000/dbagm/grafana:0.4.0
+PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.2
 SERVICE=${STACK}_grafana
 PROM_SERVICE=${STACK}_prometheus
 NET=${STACK}_net
@@ -113,6 +113,8 @@ trap 'exit 130' INT TERM
 for i in "$IMAGE" "$PROM_IMAGE"; do
     docker image inspect "$i" >/dev/null 2>&1 || { echo "image $i not built" >&2; exit 2; }
 done
+# `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
+if out=$(sh "$HERE/../../../tools/tests/check-base.sh" "$HERE/.." "$IMAGE"); then pass "$out"; else fail "$out"; fi
 if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
     echo "stack $STACK already exists; remove it first" >&2
     exit 2

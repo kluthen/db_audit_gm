@@ -7,8 +7,8 @@
 # practice software, pms, as vet_app, both composed by gmctl compose from
 # the domain's producers. On one host, about three minutes.
 #
-# On a copy of tools/tests/fixtures/fixture-core (bastion 0.5.0, records:
-# postgres 0.5.0, clinic-api: api 0.1.0, pms: scheduler 0.3.0 at intensity
+# On a copy of tools/tests/fixtures/fixture-core (bastion 0.6.0, records:
+# postgres 0.5.1, clinic-api: api 0.1.1, pms: scheduler 0.4.0 at intensity
 # 0.1, domains: vet-core at records/clinic):
 #   gmctl compose --check (nodes/clinic-api/ and nodes/pms/ as compose
 #   writes them) -> fit (the laptop playground, 2 CPU / 4G / 8G) -> render
@@ -35,10 +35,10 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the images built:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.0 bricks/api
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # Run it under the host lock and the sleep inhibitor (build plan, workflow
 # deltas).
 # Usage: sh tools/tests/fixtures/fixture-core/run-short-test.sh   (from anywhere)
@@ -48,8 +48,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../../../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=core-short
-IMAGES="127.0.0.1:5000/dbagm/bastion:0.5.0 127.0.0.1:5000/dbagm/api:0.1.0 127.0.0.1:5000/dbagm/postgres:0.5.0"
-IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.3.0"
+IMAGES="127.0.0.1:5000/dbagm/bastion:0.6.0 127.0.0.1:5000/dbagm/api:0.1.1 127.0.0.1:5000/dbagm/postgres:0.5.1"
+IMAGES="$IMAGES 127.0.0.1:5000/dbagm/scheduler:0.4.0"
 SCHEDLOG=/var/log/scheduler/scheduler.log
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
