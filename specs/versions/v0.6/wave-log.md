@@ -730,3 +730,76 @@ and its run, fix 3's means, the visits) dispatched to a fresh
 ISS-006 filed (ccb5a1c): health-check's stack test races cron after the
 report-only redeploy. If the wave gate meets it, the test-only fix (a
 bounded wait for cron before `gm-validate`) goes in as a gate fix.
+
+### Chunk 8 — merged (f66ba41), 2026-11-16
+
+8b's owner took `v0.6-w1` in (5676098), built 8b (4d78db8), took it in
+again (0bc3ab0) and merged as f66ba41, no conflict. Suite 1366 OK, 2
+skipped (`test_fill.py` 23 new; `test_aging`'s verb list gained `fill`);
+scheduler unit tests 109 OK with the replay guard; `scheduler:0.4.0`
+rebuilt to the identical image id. **`fixture-fill`'s short test: 39
+passed, 0 failed; the shop's 22:00 to 11:00 filled in 332 s (311 s the
+run before), 447 s with the deployment.** W1-x, 8b's part (as built):
+
+- `gmctl fill <scenario-dir> --playground <name>`: needs stage `injected`
+  and a restart record (`localimpl.RESTART_RECORD_FILE =
+  "fake-aging.yaml"`, `read_restart_record(ldir)`, None when absent) with
+  `mode: fake` and an anchor not passed. Refuses before any change: a
+  fill already recorded (never resumed), a key without a service time,
+  a non-`sql/postgresql` connection, a pgwatch node. Runs the program as
+  root in the first scheduler node's container (working folder
+  `/run/gm-fill`, limits raised to 2 CPU / 768m and restored); pooled
+  connections go straight to the database `pgbouncer.ini` names, pool id
+  `<pooler>/<db>/<role>`; queue entries via `instance_history`; the
+  exporter's visits from its seed `exporter.conf` and Prometheus' scrape
+  interval. A `state` instance planned in [vT0, anchor) is planted at its
+  pause by its inject scripts (600 s timeout); a failed planting fails
+  the fill.
+- `state.yaml`: `fill: {started_at, ended_at, outcome: ok|failed, reason,
+  quiet}`; plantings with `{at: real, by: fill, virtual_at, outcome}` and
+  `planted_at` virtual; metrics in `local/<pg>/fill/<node>.metrics.jsonl`
+  (780 lines for 13 h).
+- `fill.quiet`, one item per `postgres` node (`node, what, how,
+  left_off, restore, restored_at`). Restored at the fill's end: fix 3 as
+  `ALTER ROLE <role> IN DATABASE <db> SET` (load-data's `UNSEEN_SQL`
+  values) for each role the fill connects as, earlier values put back;
+  fix 7's `autovacuum_naptime = '1s'`. Left off for clean-restart:
+  `cron.launch_active_jobs = off`, archiving (`archive_command =
+  '/bin/true'`, unit-tested only), the cron daemon.
+- Left in the database: the rows at virtual times; `gm_vclock` dropped
+  (also on failure); the fill's PostgreSQL and pooler log lines, for
+  clean-restart.
+- Autovacuum (naptime 1 s; about 150 virtual s per real s): products 45
+  against 73.8 expected from R's rate (0.6x), customers 0 against 0.9,
+  orders, delivery_events and order_lines 0 (R's orders not comparable,
+  f9). The exporter's sessions: 3126 against 3120 expected.
+
+Choices for review (no deviation from the spec or W1): fix 3 per role
+and database rather than server-wide; the naptime fixed at 1 s (the
+floor; it could follow the fill's speed); the fixture adds the pooler
+and an every-minute pg_cron job, drops Grafana, keeps f1's seed error
+lines; exporter visits one statement per default collector; a failed
+planting fails the fill; the fixture's README generated with the
+skill (two skill gaps noted: `cron.schedule` jobs not described, no
+`cron.timezone` in the fixture's seed).
+
+Risks passed on: **load-data writes with the real `now()`, so in a fake
+game its rows run up to the deploy and overlap the fill's virtual span
+(chunk 9)**; a held repeatable-read session can block an inject script at
+a pause (600 s bound); cron and archiving paths unit-tested only; f8's
+latency step appears only once chunk 11 adds its `queue` entry.
+
+### Owner ruling: the `rpt.close_day()` cover adopted, 2026-11-16
+
+Asked: P0 can't reach the campaign's f4 and f7 (`rpt.close_day()` pins
+its own `search_path`); keep master spec 9.8's fallback (D508), or adopt
+a cover that sets that procedure's `search_path` to `gm_vclock,
+pg_catalog, pg_temp` for the fill's span and restores it exactly after,
+leaving only a catalog row-version tell, beyond W1 item 8's "session
+settings only"? **The owner chose: "Adopt the cover (Recommended)".**
+Sent to `spec-writer` to record and place in the plan.
+
+### Wave 1's chunks all merged, 2026-11-16
+
+Chunks 1, 2, 3, 4 and 8 merged. Next: G5 (dependency post-change check
+on wave 1's images), then the wave gate.

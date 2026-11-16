@@ -655,7 +655,14 @@ in `domain.yaml` (master spec 6.5, 6.9), so chunk 7 reads them.
 
 ### Chunk 8 — The fill: `scheduler` 0.4.0's fill mode, the queue model, `gmctl fill`
 
-Status: planned
+Status: merged (w1, f66ba41)
+Record: 8a bb6c3df, 8b 4d78db8, merged as f66ba41 on 2026-11-16. P0
+partial: the campaign's f4 and f7 not reached (`rpt.close_day()`'s own
+`search_path`); the owner adopted a cover (wave log). Outside its Files:
+`tools/tests/test_aging.py`'s verb list. Choices for review in the wave
+log (fix 3 per role and database, naptime 1 s, the fixture's pooler and
+pg_cron job). Load-data's real-clock rows overlapping the virtual span
+passed to chunk 9.
 Wave: 1
 Depends on: chunk 2 (merge order: the version lines); chunk 1 (the
 reference's extraction); chunk 3 (merge order: 8b reads
