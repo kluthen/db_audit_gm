@@ -13,7 +13,7 @@ v0.1 is draft.
 | [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | released 2026-10-30: release gate passed, G9 and G10 cleared; merged into `main` (cba7be3); [master spec](v0.3/master-spec.md) and [access model](v0.3/access-model.md); [release notes](v0.3/README.md#release-notes); working record archived in [archive/v0.3/](../archive/v0.3/README.md) |
 | [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | released 2026-11-03: release gate passed, G11 cleared, its long runs moved to [v1.0 gating](#v10-gating) (D311–D313); merged into `main` (56b7471); [master spec](v0.4/master-spec.md) and [access model](v0.4/access-model.md); [release notes](v0.4/README.md#release-notes); working record archived in [archive/v0.4/](../archive/v0.4/README.md) |
 | [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them, for `postgres` only (D236, D262); a post-mortem collection begun beside it (D234) | released 2026-11-14: release gate passed on 2026-11-13, G15 cleared (D475); merged into `main` (`a56e5ac`); its long-running checks [v1.0 gating](#v10-gating) (D314); [master spec](v0.5/master-spec.md) and [access model](v0.5/access-model.md); [release notes](v0.5/README.md#release-notes); working record archived in [archive/v0.5/](../archive/v0.5/README.md) |
-| [v0.6](v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation website, general-use tooling; the setup's entry point and a reporting tool, moved from v0.5 (D233) | draft |
+| [v0.6](v0.6/README.md) | The bastion as the players' main activity point: one game's web front with a home page linking every site (D480), a documentation website, the network overview handout (D483), general-use tooling; moved in from v0.5 (D233); no front above several games, no reporting tool (D480, D481). Fake aging, a second aging mode for quick games beside real aging (D489–D493; [draft](v0.6/fake-aging.md)) | [master spec](v0.6/master-spec.md) and [access model](v0.6/access-model.md) consolidated 2026-11-16 (D514) and approved the same day (D515–D517); [build plan](v0.6/build-plan.md) approved 2026-11-16 (D518–D520); drafting opened 2026-11-13 |
 | [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.6 | draft |
 
 **Beyond v1.0**:
@@ -54,11 +54,10 @@ same iam complexity."
 | **Service kinds** | a node presented as a managed database, a plain VM and so on: a presentation and constraint layer over the existing bricks (a managed database gives no shell on its host, proposed); a VM node with a full init is where systemd timers come in (D206) | after v1.0 |
 | **Capacity management** | choosing, resizing and right-sizing types is part of play; its faults a family, the undersized transformer first (D204) | after v1.0 |
 | **A console** | a web interface of our own layout for the above, continuing v0.6's bastion as the players' main activity point | v1.0+ |
-| **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
+| **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12); a network map, mandatory once there are several networks (D482; v0.6 has none, one private network) | v2.0+ |
 
-The console has its own entry point beside the setup's homepage, which
-v0.6 may bring (owner, 2026-10-30, D224; moved from v0.5, D233, D248;
-O130, O135).
+The console is a site on the game's home page, the bastion's web
+front (D480; v0.6); no front above several games is planned (O130).
 
 Settled: the provider is **fictional**, with an in-world name of its
 own; the console's layout is ours, not a copy of AWS's; **no AWS-style
@@ -266,6 +265,7 @@ aged run is decided then (D193).
     proves it on a short fixture (its build plan's chunk 28); the
     clinic's own restart from a snapshot runs only if v1.0's test takes
     one (v0.5 master spec 18.4: whether one is needed and fits).
+
   - **the stance check-list's v0.5 items**, beside v0.3's and v0.4's: a
     register fault's *propose* judged against its diff, a display fault
     judged on the report and never cleared in play, a partner's support
@@ -283,3 +283,25 @@ aged run is decided then (D193).
     and the partner
     stubs' reference counters restarting at 0001 after the planted
     series (O249, D467).
+- **v0.6's additions** (D498, D509), each run once and longer than 30
+  minutes; v0.6's gate runs only the short checks
+  ([v0.6](v0.6/README.md#short-tests-d314-d511),
+  [fake aging](v0.6/fake-aging.md#7-verification)):
+  - **fake aging's full selections** with their real tails, on the
+    shop and the campaign (D495): the shop's 3 h tail with f4, f5 and
+    f7 among them; the campaign's with f5 planted in the tail, f10
+    refused, and, if P0 failed, f2, f3, f4 and f7 as `tail-only` (D508);
+  - **the blind reads**: on a fake game of each full selection, kept
+    up for the read, a fresh agent with player access only, told
+    nothing about aging, audits the scenario, then is asked whether
+    anything about the system's history looked wrong; each passes if
+    the reader doesn't come to suspect the history (D492);
+  - **the stance check-list's v0.6 items**, beside the earlier
+    versions': the feedback given in its two parts, the customer side
+    first and in-world, then the teaching moment (D497, D499); no aging
+    word (aging, fill, forged, virtual clock, fake) in anything a
+    player reads before the game is concluded, a restart's confirmation
+    and, when the initiator may play, the setup dialogue included
+    (D494, D496, D504); a reported tell explained in the teaching
+    moment from the restart record and the documented limits; with no
+    tell reported, no mention of aging (D496).

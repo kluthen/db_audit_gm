@@ -26,7 +26,7 @@ v1.0 are still being drafted.
 | [v0.3](specs/versions/v0.3/README.md) | Producers and consumers: a scheduler driving load, ingestion, load spikes, misbehaving requests; aging under real time | 2026-10-30 | `tarnbeck-outdoor-shop` |
 | [v0.4](specs/versions/v0.4/README.md) | Purposes: the side uses of the data (reporting, leads, mailing, export declarations), several PostgreSQL instances, jobs on a database node, the shop as the first business domain, a first cut of data governance | 2026-11-03 | `tarnbeck-outdoor-campaign` |
 | [v0.5](specs/versions/v0.5/README.md) | Domain definition: a procedure for defining a domain, the clinic's domains, purposes and round trips, `postgres` brick options, a post-mortem collection | 2026-11-14 | `aldermoor-centre` |
-| [v0.6](specs/versions/v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation site, general tooling, a reporting tool | draft | — |
+| [v0.6](specs/versions/v0.6/README.md) | The bastion as the players' main activity point: a home page linking every site of the game, a documentation site, the network overview, general tooling; fake aging for quick games | spec consolidated 2026-11-16, for review | — |
 | [v1.0](specs/versions/v1.0/README.md) | First release: the full pipeline scenario | draft | — |
 
 The specification starts at [`specs/README.md`](specs/README.md) (index,

@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v18
+Status: draft v19
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -29,8 +29,17 @@ the bastion's second published port, in host mode, every UI behind it
 under its own path, with HTTP basic authentication on the per-game tools
 password (D79), since Prometheus has no login of its own; plain HTTP in
 v0.2. Files and reports still leave through `scp` and `sftp`. From v0.6
-the bastion becomes the players' main activity point: web interfaces, a
-documentation website, general-use tooling (D71).
+the bastion becomes the players' main activity point (D71, D480, D501):
+the front serves, on its own and behind the same authentication, a home
+page linking every site and document of the one game, a documentation
+site (`/docs/`), the reports folder `~/reports/` read-only at
+`/reports/` (one `scp` hop to the bastion, no web server on any node,
+D511) and a status page per partner (`/status/<id>/`), rendered on the
+bastion from a root-only file the GM delivers, never proxied from a
+third party's node (D273;
+[v0.6 master spec](versions/v0.6/master-spec.md) 7). Route names `docs`,
+`reports` and `status` are the front's own and refused in `web_routes`.
+`jq` and `tmux` join the bastion's tooling.
 
 ## Planes (D42)
 

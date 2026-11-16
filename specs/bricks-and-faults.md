@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v10
+Status: draft v11
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -154,7 +154,7 @@ declare such dependencies explicitly (proposed).
 | Data flow | consumer producing duplicates; producer silently dropping records; transformer running on stale input |
 | Versions | outdated engine needing a minor hotfix or a major upgrade |
 | Rules | a node whose initial configuration is out of bounds and cannot be fixed by the player (see [planes-and-access.md](planes-and-access.md)) |
-| Documentation | stale or wrong starter documentation (only if O21 allows it) |
+| Documentation | from v0.6, a handout describing the system planted wrong: the network overview's `docs-overview-*` faults (a node missing or invented, a stale version, a wrong sizing, a claimed backup, a task, user or third party wrong or missing, a vague page; [v0.6 master spec](versions/v0.6/master-spec.md) 8.5), resolved by *propose* against `overview_diff:`; the data register's faults stay `governance-*` (D330). Never the README, the rules, the data policy or `partners.md`, and never the overview's **Your access** or its absence (D502, D505) |
 | Network | exposure through the routing mesh, wrong segmentation (only if O12 allows it) |
 
 v0.1's faults are limited to the restored database and its configuration

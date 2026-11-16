@@ -29,6 +29,19 @@ v0.5 retargeted its questions on 2026-10-31 (D233): O53 and O54 to
 later, version not set (D237); O21 and O135 to v0.6; O24 and O25 to
 v1.0+ (D248).
 
+v0.6's drafting opened on 2026-11-13 (branch `v0.6-spec`): O135
+resolved by the owner's rulings of that day (D480, D481), O21 narrowed
+(D484), O251 placed (D486); O260–O268 raised by the network overview's
+draft and closed the same day as recommended (D487, D488). On
+2026-11-15 the owner's direction on fake aging closed O22 (D489–D493);
+O271 and O272 raised with its draft and closed the same day by the
+owner (D494, D495). On 2026-11-16 the owner agreed to every pending
+v0.6 point as recommended, closing O21 (D502) and O32 (D503); the
+same day the merge of `main` brought O269 into v0.6 (D476), settled as
+proposed (D510), and v0.6 was consolidated into its
+[master spec](versions/v0.6/master-spec.md) (D514); O251 and O269 stay
+open until built.
+
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
 **later** = can wait for v1.0 or beyond.
@@ -88,12 +101,21 @@ for the next version (v0.1 until it closed, with none left open);
   while the format skill says there is no schema-check script. Refs:
   [bricks-and-faults.md](bricks-and-faults.md), [formats.md](formats.md)
   "Enforcement".
-- **O21** (later, v0.6) — Can the starter documentation contain deliberate
+- **O21** (**closed**, D502: only the data register and the network
+  overview may carry a planted inaccuracy; the README, rules, data
+  policy and `partners.md` never; the story and issues only as the
+  customer's belief; kept here until v0.6's archive) (later, v0.6) —
+  Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario? Due with v0.6's
   documentation website; no longer v0.5's (D233). Narrowed by D330: the
-  data register may carry one from v0.5 (T300–T308); still open for the
-  other starter files.
-- **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
+  data register may carry one from v0.5 (T300–T308); and by D484: v0.6's
+  network overview may too. Still open for the other starter files (the
+  README, story, issues, data policy, `partners.md`).
+- **O22** (**closed**, D489–D493: fake aging joins real aging as a
+  second mode from v0.6, forged history and a compressed fill, never
+  fake time; the volume copy no longer planned, its use O232's;
+  [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md); kept here
+  until v0.6's archive) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
   copies aged volumes to a class's hosts (D125), and whether a later
@@ -158,8 +180,10 @@ for the next version (v0.1 until it closed, with none left open);
   later version (D125).
 - **O31** (later) — Are player actions on nodes recorded (shell history,
   audit trail) to help the GM's feedback?
-- **O32** (later) — Language of player-facing material (story, starter
-  documentation, issues, feedback).
+- **O32** (**closed**, D503: English everywhere, the website and the
+  feedback included; a scenario language option later, not in v0.6;
+  kept here until v0.6's archive) (later) — Language of player-facing
+  material (story, starter documentation, issues, feedback).
 - **O38** (later) — Is the feedback written to a file (the teacher is out
   of the game by then)? A scoring system is post-v1.0, unless research
   finds one quick to implement (D120). Refs:
@@ -213,7 +237,7 @@ owner; O269 and O270 were raised by G13 and placed at v0.5's close
   `purposes/vet-head-office-figures/` (`material/receiver/`);
   [build plan](archive/v0.5/build-plan.md) release gate item 12.
 - **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12; **placed**
-  in v0.6 by the owner, 2026-11-13: v0.6's first chunk touching
+  in v0.6 by the owner, 2026-11-13 (D486): v0.6's first chunk touching
   `tools/gm/model.py`) — The
   loader does not enforce the format rule that a bastion maps
   `partners.md: player/partners.md` exactly when the scenario's
@@ -229,7 +253,9 @@ owner; O269 and O270 were raised by G13 and placed at v0.5's close
   (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
   (third parties); [formats.md](formats.md) "Partners".
 - **O269** (soon, v0.6; raised by G13's finding 1, filed as ISS-001;
-  D476) — The loader does not check that a `seed-file` fault instance's
+  D476; **settled** by D510 as proposed, the loader refusal, built
+  beside O251's in v0.6's first chunk touching `tools/gm/model.py`;
+  open until built) — The loader does not check that a `seed-file` fault instance's
   `seed_changes` lines appear in the scenario's copies of the seed
   files, where formats.md (fault "Injection") puts them. In
   `aldermoor-centre` the lines of s2, s7 and s8 were missing; the format
@@ -256,28 +282,60 @@ owner; O269 and O270 were raised by G13 and placed at v0.5's close
   [versions/README.md](versions/README.md#v10-gating).
 
 
-## v0.6: the setup's entry point
+## v0.6: the network overview
 
-Raised by the owner's ruling on the web front (D224): every game has a
-web front from v0.4, and he expects more around it, "Expect it to
-evolve both with v0.5 and v1.0+". Moved from v0.5 to v0.6 (D233,
-D248).
+O260–O268, raised by the network overview's first draft (D483–D485),
+closed on 2026-11-13 as recommended (D487, D488); each question's text
+is on
+[versions/v0.6/network-overview.md](versions/v0.6/network-overview.md#questions-for-the-owner).
+O135, the setup's entry point, closed by D480 (one game's front, no
+front above several games) and D481 (no reporting tool). None open;
+the closed entries are kept here until v0.6's archive moves them:
 
-- **O135** (later, v0.6) — A common entry point for the whole setup: one
-  Caddy in front of several games' web fronts, and a homepage for the
-  setup dispatching the viewer to each game's rules (READMEs, game
-  information, data policies, issues), tools and dashboards; and a
-  reporting tool joining a game's starter-pack page (D221). To settle:
-  where the Caddy runs (the build host, a VPS whose own Caddy is shared
-  with other sites, platform.md) and who may reach the homepage; how it
-  keeps the bastion-only rule (it may proxy only to each game's
-  published web front, never to a node); what a game publishes to it
-  and when it leaves at teardown; the tools password per game behind a
-  shared front; how it relates to v0.6's landing page and documentation
-  website on the bastion; what the reporting tool is (the players
-  writing their report, or reports generated in the stack, v0.6).
-  Refs: [versions/v0.6/README.md](versions/v0.6/README.md#the-setups-entry-point-d224),
-  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 22.
+- **O260** (v0.6; **closed**, D487, as recommended) — Is the page's "Your access" column the game's
+  rule, always exact and never a planted deviation? Recommended: yes,
+  marked as such on the page, the README pointing to it.
+- **O261** (v0.6; **closed**, D487, as recommended) — The bastion on the page: a node entry, or a
+  fixed note? Recommended: a fixed note at the top (the players' kit,
+  D65, D87), never a deviation, with its Node health link.
+- **O262** (v0.6; **closed**, D487, as recommended) — Third parties on the page. Recommended: a
+  closing table, one row per partner with a `player_doc`, by its
+  hostname, access none; the partners' shared nodes never named (D469).
+- **O263** (v0.6; **closed**, D487, as recommended) — The format additions for the fields with no
+  source today (a node's `description`, `site`, `users`; a brick's
+  `base`; a domain's `data/overview.yaml`; the crontab comment rule).
+  Recommended: accept, into v0.6's master spec.
+- **O264** (v0.6; **closed**, D487, as recommended) — A `node` variable on the Node health
+  dashboard, each entry linking its own node. Recommended: yes.
+- **O265** (v0.6; **closed**, D487, as recommended) — The overview and the data register planted
+  independently, so one may give away a fault of the other.
+  Recommended: independent; the answer key notes the interaction.
+- **O266** (v0.6; **closed**, D487, as recommended) — Resolving and classing an overview fault.
+  Recommended: *propose*, M by default, family `documentation`, ids
+  `docs-overview-*`, as the register's.
+- **O267** (v0.6; **closed**, D487, as recommended) — The home page's shape and what leaves the
+  README. Recommended: two lists (sites, documents), one page per
+  handout; the node table and the network paragraph leave the README.
+- **O268** (v0.6; **closed**, D488, as recommended, with the owner's clarification) — The true overview read from seed files a
+  system fault may have changed. Recommended: the skill states the
+  design, the value before the fault's change.
+
+## v0.6: fake aging
+
+Raised by the fake aging draft (D489–D493) and closed by the owner on
+2026-11-15; none open; the closed entries are kept here until v0.6's
+archive moves them. Text on
+[versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#questions-for-the-owner).
+
+- **O271** (v0.6; **closed**, D494, against the recommendation) — Are
+  the players ever told their game was fake-aged? Never: not during
+  the game, not in the feedback, not after the final answer.
+  Recommended had been: the feedback says so after the final answer.
+  Refined by D496 (2026-11-16): never during the game; once it is
+  concluded, a tell the report names may be explained.
+- **O272** (v0.6; **closed**, D495, as recommended) — Which scenarios
+  does v0.6 make fake-ageable? The shop and the campaign (its f10
+  `real-only`); the clinic later.
 
 ## v0.5: scope, the domain procedure, post-mortems
 
@@ -308,8 +366,8 @@ no AWS-style IAM.
   on its host, proposed, against the players' `dba` today); which
   capacity actions players get and what a resize does mid-game (a
   service update restarts the node); the console's relation to v0.6's
-  bastion; its own entry point beside the setup's homepage (O135,
-  D224); the in-world name. Refs:
+  bastion, a site on the game's home page (D480); the network map it
+  makes mandatory (D482); the in-world name. Refs:
   [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
 
 ## Roadmap: gaps and cross-version risks
@@ -323,7 +381,9 @@ the question concerns.
   (D114). Where does the solvability probe as a gate (O20) enter the
   roadmap? With an aging of eight hours or more (D150), a probe failing at
   hand-over costs the class; v0.3's master spec has an early check during
-  aging and a hand-over check. Refs:
+  aging and a hand-over check. A fake-aged game (D489) reaches its
+  hand-over about one real tail after setup, so there a failing probe
+  costs a tail, not a day. Refs:
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
