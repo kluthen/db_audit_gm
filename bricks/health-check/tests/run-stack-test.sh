@@ -422,6 +422,11 @@ out=$(pssh sudo -n gm-crontab crontab.good 2>&1); rc=$?
 [ "$rc" -eq 1 ] && [ "$out" = "gm-crontab: this node is report-only: its crontab cannot be replaced; nothing installed." ] \
     && pass "report-only: gm-crontab refuses a replacement (exit 1)" || fail "report-only gm-crontab: exit $rc: $out"
 check "report-only: gm-crontab -l still lists" pssh sudo -n gm-crontab -l
+# healthy does not cover cron: wait, bounded, for the daemon before the validator looks (ISS-006)
+i=0
+while [ "$i" -lt 90 ] && [ -z "$(gm ps -C cron -o pid= 2>/dev/null)" ]; do sleep 2; i=$((i + 2)); done
+[ -n "$(gm ps -C cron -o pid= 2>/dev/null)" ] && pass "report-only: the cron daemon runs (waited ${i}s)" \
+    || fail "report-only: no cron daemon 90 s after the container was healthy"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "report-only: gm-validate green" || fail "validate report-only: exit $rc: $out"
 
