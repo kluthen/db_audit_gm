@@ -1,0 +1,6 @@
+# Fixed-time operations of Tarnbeck Outdoor's web shop.
+jobs:
+  - name: close-day
+    key: orders.close-day
+    connection: app
+    at: "0 12 * * *"

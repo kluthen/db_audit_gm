@@ -1,0 +1,81 @@
+# Query repository of Tarnbeck Outdoor's web shop: what the shop sends to
+# its database, through the connection pooler.
+queries:
+  # Checkout: the order, its lines, the stock and the customer's last order,
+  # then the payment provider's authorisation before COMMIT.
+  orders.place:
+    sql: >-
+      WITH basket AS (
+        SELECT id, sku, name, price, 1 + mod(id, 3) AS quantity FROM products
+         WHERE id BETWEEN %(product_id)s AND %(product_id)s + %(extra)s),
+      new_order AS (
+        INSERT INTO orders (customer_id, placed_at, status, total, updated_at)
+        SELECT %(customer_id)s, now(), 'paid', sum(price * quantity), now() FROM basket
+        RETURNING id, customer_id),
+      new_lines AS (
+        INSERT INTO order_lines (order_id, product_id, sku, product_name, quantity, unit_price,
+                                 vat_rate, line_total, created_at)
+        SELECT new_order.id, basket.id, basket.sku, basket.name, basket.quantity, basket.price,
+               20.00, basket.quantity * basket.price, now()
+          FROM new_order, basket),
+      stock AS (
+        UPDATE products SET stock = stock - 1, sold = sold + 1
+         WHERE id IN (SELECT id FROM basket))
+      UPDATE customers SET last_order_at = now()
+       WHERE id = (SELECT customer_id FROM new_order)
+    params:
+      customer_id: {int: [1, 20000]}
+      product_id: {int: [1, 1996]}
+      extra: {int: [0, 4]}
+    transaction: {isolation: read committed, hold: 3s}
+  catalog.lookup:                    # the shop's catalogue pages
+    - sql: SELECT id, sku, name, price, stock FROM products WHERE id = %(id)s
+      params: {id: {int: [1, 2000]}}
+      weight: 6
+    - sql: >-
+        SELECT id, sku, name, price FROM products WHERE category = %(category)s
+         ORDER BY sold DESC, name LIMIT 24
+      params:
+        category: {choice: [tents, sleeping-bags, backpacks, footwear, clothing, stoves, lighting,
+                            accessories]}
+      weight: 3
+    - sql: >-
+        SELECT id, sku, name, price, stock FROM products
+         WHERE id = 'TB-' || lpad(%(code)s::text, 5, '0')
+      params: {code: {int: [1, 2000]}}
+      weight: 1
+  orders.detail:                     # a customer opens one of their recent orders
+    sql: >-
+      SELECT o.id, o.placed_at, o.status, o.total, l.product_id, l.quantity, l.unit_price
+        FROM orders o JOIN order_lines l ON l.order_id = o.id
+       WHERE o.id = (SELECT max(id) FROM orders) - %(back)s
+    params:
+      back: {int: [0, 20000]}
+  orders.status:                     # the warehouse packs and ships the newest orders
+    sql: >-
+      UPDATE orders
+         SET status = CASE status WHEN 'paid' THEN 'packed' ELSE 'shipped' END,
+             updated_at = now()
+       WHERE id = (SELECT max(id) FROM orders) - %(back)s AND status IN ('paid', 'packed')
+    params:
+      back: {int: [0, 5000]}
+  deliveries.ingest:                 # the carriers' delivery events
+    builder: builders/carrier_feed.py:ingest
+    options: {resend: 0.2, orders: 300000}
+  # Close of day: invoicing, the customers' lifetime value, the products'
+  # sales; then the day's invoices are posted to the accounting service
+  # before COMMIT.
+  orders.close-day:
+    transaction: {isolation: read committed, hold: 20s}
+    steps:
+      - sql: UPDATE orders SET status = 'invoiced', updated_at = now() WHERE status = 'shipped'
+      - sql: >-
+          UPDATE customers c SET lifetime_value = s.total
+            FROM (SELECT customer_id, sum(total) AS total FROM orders
+                   WHERE status = 'invoiced' GROUP BY customer_id) s
+           WHERE c.id = s.customer_id
+      - sql: >-
+          UPDATE products p SET sold = s.quantity
+            FROM (SELECT product_id, sum(quantity) AS quantity FROM order_lines
+                   GROUP BY product_id) s
+           WHERE p.id = s.product_id

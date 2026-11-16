@@ -1,0 +1,395 @@
+# Fill fixture of v0.6 (build plan chunk 8). Not a game: the shop
+# (scenarios/tarnbeck-outdoor-shop) without Grafana and with one fault
+# instance, f8, the shop's state fault planted during the aging (08:00 the
+# customer's time, six hours before hand-over), for `gmctl fill`'s short
+# test, run-short-test.sh: the shop's virtual night and morning, 22:00 to
+# 11:00 the customer's time, in minutes, f8 planted at its virtual
+# instant. The nodes, their seed files, the data and the service times are
+# the shop's; Grafana is left out (nothing of it reaches the fill), the
+# pooler kept (the fill reads its pool and goes straight to the database);
+# the database preloads pg_cron with one job every minute (data/db.sql), so
+# the test reads that none runs in the fill. The seed files are the shop's
+# as they are, f1's product-code lookup included (an error one call in ten,
+# so the fill logs error lines; no f1 instance: nothing checks it).
+# Loaded and fitted by tools/tests/test_fill.py.
+
+# --- Scenario information --------------------------------------------
+id: fixture-fill
+version: 0.1.0
+title: The shop's night and morning, filled in minutes
+date: 2026-11-16
+origin: hand-written
+session_length_minutes: 240
+brief: brief.md
+background: >-
+  Tarnbeck Outdoor's web shop and back office under the shop's daily
+  load, one index dropped in the morning. The data file creates the roles
+  shop (owner of the database, no login), shop_app (the web shop, through
+  the pooler) and shop_reports (the back office, straight to the
+  database); the brick creates dba, the players' superuser, monitoring,
+  gm_check and pgbouncer_lookup.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 16h                      # the shop's: T0 22:00 the evening before, hand-over 14:00
+  handover_at: "14:00"
+difficulty:
+  score: 1
+  level: normal
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      the players' SSH and SQL sessions, the web shop's SQL through the
+      pooler, the pooler's and the back office's SQL to the database, the
+      scrapes and the exporter's queries
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.6.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {prometheus: "prometheus:9090"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.5.1
+    options: [monitoring]           # the exporter's target
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 20 000 customers; the checkout updates last_order_at.
+            - name: products
+              description: 2 000 products; the checkout updates stock and sold.
+            - name: orders
+              description: >-
+                300 000 orders over the fifteen days before the backup,
+                growing under the checkout; the warehouse's status updates.
+            - name: order_lines
+              description: >-
+                900 000 lines; index order_lines_order_id_idx, dropped by
+                f8 during the aging.
+            - name: delivery_events
+              description: the carriers' events, about 12 a minute more under the feed.
+            - name: daily_sales
+              description: one row per day; the nightly roll-up's.
+
+  - name: pooler
+    brick:
+      id: pgbouncer
+      version: 0.1.2
+    role: pooler
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 64M
+      reservations:
+        cpu: 0.05
+        memory: 32M
+        disk: 256M
+    published_ports: []
+    seed_files:
+      pgbouncer.ini: nodes/pooler/pgbouncer.ini
+    knobs:
+      - setting: default_pool_size
+        initial: 3
+        envelope: {min: 1, max: 30}
+      - setting: max_client_conn
+        initial: 100
+        envelope: {min: 50, max: 500}
+      - setting: max_db_connections
+        initial: 0
+        envelope: {min: 0, max: 60}
+      - setting: reserve_pool_size
+        initial: 0
+        envelope: {min: 0, max: 10}
+      - setting: pool_mode
+        initial: transaction
+        envelope: {allowed: [session, transaction]}
+
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.4.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:
+      - /srv/scheduler/repository
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/producer/queries.yaml
+      builders/: nodes/producer/builders/
+      jobs.yaml: nodes/producer/jobs.yaml
+      schedule.yaml: nodes/producer/schedule.yaml
+    knobs: []
+
+  - name: consumer
+    brick:
+      id: scheduler
+      version: 0.4.0
+    role: consumer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/consumer/queries.yaml
+      jobs.yaml: nodes/consumer/jobs.yaml
+      schedule.yaml: nodes/consumer/schedule.yaml
+    knobs: []
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.2.2
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      node_health: {bastion: default, db: default, pooler: default, producer: default,
+                    consumer: default, prometheus: default, exporter: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.2.1
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: pooler
+    what: players' SSH sessions, and SQL and console sessions through the pooler
+    how: ssh 22, postgresql 6432
+    cadence: interactive
+  - from: bastion
+    to: producer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: consumer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: producer
+    to: pooler
+    what: the web shop's checkout, catalogue, order pages, warehouse updates and carriers' feed, as shop_app
+    how: postgresql 6432
+    cadence: continuous (peak at noon), and daily at 12:00
+  - from: pooler
+    to: db
+    what: the pooled server sessions, and the logins' lookups as pgbouncer_lookup
+    how: postgresql 5432
+    cadence: continuous
+  - from: consumer
+    to: db
+    what: the back office's dashboards and reports, as shop_reports
+    how: postgresql 5432
+    cadence: continuous (office hours), and nightly (roll-up, export)
+  - from: prometheus
+    to: exporter
+    what: the PostgreSQL metrics scrape, and the node-health scrape
+    how: http 9187, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: producer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: consumer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: pooler
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f8
+    fault:
+      id: pg-join-index-missing
+      version: 0.1.0
+    node: db
+    parameters:
+      database: shop
+      table-name: order_lines
+      column: order_id
+    visibility: known
+    plant_at: handover-6h           # 08:00: the index dropped "this morning"
+    aging_minimum: 4h
+
+issues:
+  - id: I1
+    complaint: >-
+      Since early this morning, opening an order has been slower than it
+      ever was. Find out what changed and fix it.
+    expected_resolution: fix
+    covers: [f8]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 3G
+      disk: 10G
+  placement:
+    bastion: host-1
+    db: host-1
+    pooler: host-1
+    producer: host-1
+    consumer: host-1
+    prometheus: host-1
+    exporter: host-1

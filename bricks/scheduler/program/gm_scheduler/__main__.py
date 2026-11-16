@@ -17,6 +17,11 @@
                  fixable, 1 when the node is report-only for all of them
     write-policy as root, by the entrypoint: checks GM_WRITE_POLICY and
                  GM_WRITE_OVERRIDES and writes /run/gm/write-policy
+    fill         as root, by `gmctl fill` (v0.6): the fill mode, every
+                 scheduler node on one virtual clock (gm_scheduler.fill); its
+                 JSON on the first line of standard input, then `GO` lines
+    fill-sql     the SQL creating the fill's clock schema (P0,
+                 gm_scheduler.fill.VCLOCK_SQL); with --drop, the SQL dropping it
 
 Exit codes of the checks: 0 fine, 1 problems (one line each), 2 error.
 """
@@ -136,9 +141,16 @@ def cmd_write_policy():
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="gm_scheduler")
     parser.add_argument("command", choices=("run", "check", "check-keys", "pending", "restore", "reloadable",
-                                            "write-policy"))
+                                            "write-policy", "fill", "fill-sql"))
     parser.add_argument("--config", default=CONFIG_FILE)
+    parser.add_argument("--drop", action="store_true", help="fill-sql: the SQL dropping the clock schema")
     args = parser.parse_args(argv)
+    if args.command in ("fill", "fill-sql"):
+        from . import fill
+        if args.command == "fill":
+            return fill.main()
+        sys.stdout.write(fill.VCLOCK_DROP if args.drop else fill.VCLOCK_SQL)
+        return 0
     if args.command == "restore":
         return cmd_restore()
     if args.command == "write-policy":
