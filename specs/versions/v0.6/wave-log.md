@@ -555,3 +555,52 @@ only, chunk 2's and chunk 8's Files, the edge `3 ──> 8`) go to
 settles) waits for G10 after the wave's gate. No owner question.
 Chunk 1 starts at once: no correction touches it, and W1 item 3 is
 committed (f01e24e).
+
+### Plan revision before chunk 2, 2026-11-16
+
+`spec-writer` applied W1's corrections 1 to 4: build plan v3 (41717cd),
+spec D521 (O269's lines declared as an optional `seed_changes[].lines`;
+a change without `lines:` left to the GM: this narrows D510 as approved,
+to be named in the wave report) and D522 (`admitted.from` in hours
+only); formats.md v35. The `3 ──> 8` merge edge makes the merge chain
+2 → 3 → 8, three long against the model's two; kept, since it orders
+merges only (chunk 8 still starts after 1 and 2 on W1's accessor).
+
+### Chunk 1 — merged (3c62185), 2026-11-16
+
+Commit 679beec, merged `--no-ff` as 3c62185. Every Done-when item
+passed; no deviation. W1-w (as built):
+
+- Archive `/home/bastien/archive/db_audit_gm/fake-aging-shop-reference/results-20261115.tar.zst`,
+  326,495,975 bytes (unpacked 2,031,069,790); SHA-256
+  `26faa9e010a449abad9e17472fdea1cfc96dca3614df9cd6cd5c2ed2ed838a55` in
+  its `.sha256`; both made read-only (`chmod a-w`).
+- `MANIFEST.sha256`: 507 files (plus 5 empty folders `hist-f2/tmp` to
+  `hist-f6/tmp` the manifest can't list, named in the README).
+- `tar --zstd -df` against the research `results/`: no difference;
+  manifest 507/507 OK; `extract.sh` extracted the three calibrations
+  and skipped (77) on a missing archive. The research worktree's
+  `git status --porcelain --ignored` unchanged, still locked.
+- `extract.sh` resolves members against the manifest before looking
+  for the archive: a misnamed member fails (1) even where the archive
+  is absent.
+- The driver re-verified the archive's checksum on 2026-11-16.
+
+Risk noted: one copy, on armenelos `/home`, no off-host backup (spec
+12.3 asks for none).
+
+### G12 — `fa-real` torn down, 2026-11-16
+
+`tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real
+--reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`,
+under the lock, from the main checkout: 8 services, 1 network, 35
+configs, 13 secrets, 78 volumes and the game's 4 host timer units
+removed; `state.yaml` records the teardown at 2026-11-16T11:31:57Z from
+stage `load-started`. Nothing labelled `tarnbeck-outdoor-shop-z8415w`
+is left.
+
+### Chunks 2 and 3 started, 2026-11-16
+
+Chunk 2 (Docker: heavy) on `v0.6-c2-versions`, then chunk 3 (Docker:
+none) on `v0.6-c3-loader` in chunk 1's slot; chunk 3 merges after
+chunk 2. Briefs assembled from plan v3 and W1 items 0, 1, 2, 4, 5, 10.

@@ -106,7 +106,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G9 | **Any other dependency** a chunk adds or upgrades (a Python package for the history generator or the calibration tool, say; the standard library is preferred): a preflight before its branch, a post-change check before its wave's gate. The driver adds a row `G9.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
-| G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | open |
+| G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 
 G5, G7 and G8 are post-change checks on resolved versions, G6 a
 preflight on candidates (skill `dependency-gating-protocol`).
@@ -363,7 +363,9 @@ each is recorded.
 
 ### Chunk 1 — The shop's real-aging reference preserved
 
-Status: planned
+Status: merged (w1, 3c62185)
+Record: 679beec, merged as 3c62185 on 2026-11-16; no deviation from the
+spec or W1 (W1-w in the wave log).
 Wave: 1
 Depends on: G1 (done)
 Docker: none
