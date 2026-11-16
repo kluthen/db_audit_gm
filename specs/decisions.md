@@ -261,3 +261,19 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   plan); the marks removed. Now in:
   [master spec](versions/v0.6/master-spec.md) (status, 18),
   [access model](versions/v0.6/access-model.md).
+- **D518 (2026-11-16, owner approval "i aprove the plan", relayed by
+  the coordinator): v0.6's build plan approved, κ = 2;** G1 cleared,
+  `v0.6-spec` merged into `main` by the coordinator. Now in:
+  [build plan](versions/v0.6/build-plan.md) (header, "Gates").
+- **D519 (2026-11-16, same answer, "i don't want to keep the archive in
+  the git, but it can go there"): no reference data in git;** the whole
+  `results/` folder archived outside git at the proposed path, git
+  keeping only its pointer (README, per-file manifest); tests needing it
+  skip when it is absent. Now in:
+  [master spec](versions/v0.6/master-spec.md#123-the-reference) 5, 12.3;
+  [build plan](versions/v0.6/build-plan.md) chunks 1, 8, 11, 12.
+- **D520 (2026-11-16, same answer, "you may stop the real aging game
+  once its usefullness is spent"): `fa-real` torn down by the wave
+  driver once chunk 1 has merged and the archive verifies,** no later
+  chunk needing the live game (8, 11, 12 read the saved data). Now in:
+  [build plan](versions/v0.6/build-plan.md) G12.

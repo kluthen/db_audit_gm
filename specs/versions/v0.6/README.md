@@ -4,8 +4,9 @@ Status: draft v10. **Consolidated** on 2026-11-16 into the
 [master spec](master-spec.md) and its [access model](access-model.md)
 (D514), **approved** the same day, the review's defaults standing,
 every brick bumped and D504 confirmed (D515–D517); the
-[build plan](build-plan.md) v1 written, for the owner's approval
-(G1). Every drafting point ruled on 2026-11-16 (D498–D503); the
+[build plan](build-plan.md) **approved** the same day (D518), as v2:
+no reference data in git (D519), `fa-real` torn down after chunk 1
+(D520). Every drafting point ruled on 2026-11-16 (D498–D503); the
 review's findings closed the same day (D504–D512); the partners' status
 pages designed at consolidation (D513). This page and its two drafts
 stay as the working record until v0.6's archive; where they and the

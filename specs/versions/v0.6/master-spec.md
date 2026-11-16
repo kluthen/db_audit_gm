@@ -188,7 +188,8 @@ scenarios/
 tools/gm/           the loader's new checks; render --aging fake; fill; clean-restart;
                     history; the restart record; status
 tools/fake_aging/   the calibration tool and the verification tools (the tells script,
-                    the M1 and M3 comparisons), with the shop's reference
+                    the M1 and M3 comparisons), with the pointer to the shop's
+                    reference archive (no reference data in git)
 .claude/skills/
   network-overview/ new GM sub-skill
   game-master/      the setup dialogue (whether the initiator plays, the mode), the
@@ -1280,10 +1281,13 @@ Run once before the v1.0 tag, each longer than 30 minutes
 
 The research's real run of the shop (about 2 GB, untracked, on the
 research worktree) is the only real-aging reference. It must survive
-that worktree: the small files (the M1 dumps, the M3 profile, the
-calibrations, the tells) committed with the verification tools; the
-real run's Prometheus copy kept as an archive outside git, its path and
-checksum recorded beside them.
+that worktree, and none of it goes into git, small files included: the
+whole folder is kept as one archive outside git, on armenelos; git
+keeps only the pointer beside the verification tools (the archive's
+path, size and checksum, how to extract it, a per-file manifest). A
+tool or test reading the reference (the calibrations, the M1 dumps, the
+M3 profile) extracts what it needs into an untracked working directory,
+and skips, saying why, when the archive is absent.
 
 ## 13. Definition of done
 

@@ -1,7 +1,10 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v1 (2026-11-16): first version, for the owner's approval.
-Approval: **not yet approved** (G1).
+Status: v2, approved (2026-11-16): the owner's approval written in (G1
+done, spec D518); no reference data in git, the archive outside git and
+its pointer (chunk 1; chunks 8, 11, 12 extract from it; spec D519);
+`fa-real` torn down after chunk 1 (G12, spec D520).
+Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
@@ -61,7 +64,12 @@ this plan states only its deltas. Its conventions follow v0.5's
   prototype with `git show 10d1bc6:tools/research/fake_aging/<file>`;
   each chunk's Scope says what it takes and how (rewritten, or copied
   and generalised, naming `10d1bc6` in its commit message). Nothing is
-  copied as is (master spec 9.12). Lifting the worktree's lock stays
+  copied as is (master spec 9.12). **No reference data goes into git**
+  (spec D519): chunk 1 archives the whole `results/` folder outside
+  git, and a chunk reading the reference extracts what it needs with
+  `tools/fake_aging/reference/extract.sh` into an untracked working
+  directory; a test needing it skips, saying why, when the archive is
+  absent. Lifting the worktree's lock stays
   the owner's, once chunk 1 has merged.
 - **The real mode stays as it is.** The scheduler's real scheduling is
   untouched byte for byte; the fill is a separate entry point (master
@@ -85,7 +93,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | Plan approval, κ = 2 included (workflow deltas); `v0.6-spec` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | open |
+| G1 | Plan approval, κ = 2 included (workflow deltas); `v0.6-spec` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | done (2026-11-16, spec D518; the merge into `main` by the coordinator) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the overview's fields, `overview_diff:`, `admitted:`, reserved routes, `aging.fake`, `history:`, `base:`, the domains' overview fragment, the restart record, the two refusals (draft v34) | `spec-writer` | Chunks 3, 7 | done (2026-11-16, spec D514) |
 | G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG), the s6-overlay release, the pinned downloads (Prometheus, `postgres_exporter`, pgwatch, Grafana) | Hand check by the wave driver | Every image build (chunks 2, 5, 6, 8; 10 if it changes an image); every wave gate | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker, left drained and untouched | Hand check by the wave driver | Every stack test and fixture run, every wave gate, the release gate | open |
@@ -96,6 +104,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G9 | **Any other dependency** a chunk adds or upgrades (a Python package for the history generator or the calibration tool, say; the standard library is preferred): a preflight before its branch, a post-change check before its wave's gate. The driver adds a row `G9.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
+| G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | open |
 
 G5, G7 and G8 are post-change checks on resolved versions, G6 a
 preflight on candidates (skill `dependency-gating-protocol`).
@@ -104,7 +113,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 8 | G1; G2 (done); G3, G4; G5 before its gate | planned |
+| 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | planned |
 | 2 | 6, 7, 9 | wave 1; G6 (chunk 6); G7 before its gate | planned |
 | 3 | 10, 11, 13 | wave 2 | planned |
 | 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
@@ -113,7 +122,10 @@ preflight on candidates (skill `dependency-gating-protocol`).
 2 ──> 3, 4, 8           (in wave 1, merge order: each merges after chunk 2 and takes
                          v0.6-w1 in first; the version lines, base: and the
                          seventh seed file fixed by capture W1)
-1                       (no edge; the reference, outside the code)
+1 ──> 8                 (in wave 1: the calibrations read through extract.sh,
+                         its interface fixed by capture W1; 8 starts after 1
+                         has merged)
+1 ──> G12;  1 ──> 11, 12   (the archive verified; the reference extracted)
 2, 3 ──> 6              (bastion 0.6.0's version line; admitted:, reserved routes)
 G6 ──> 6
 2, 3, 4 ──> 7           (the seventh seed file; model.py after chunk 3; the fragments,
@@ -139,8 +151,11 @@ joins wave 3, 13 joins wave 3 beside it, and 5 (needs only 2) and 14
 join wave 4, so no wave runs under three chunks.
 
 **Wave 1's order**: chunks 2 and 1 start first; 3 takes chunk 1's slot,
-then 4; 8 starts once chunk 2 has merged (its image tag), beside 3 or
-4. Chunks 3, 4 and 8 merge after chunk 2, each taking `v0.6-w1` in
+then 4; 8 starts once chunks 1 and 2 have merged (the reference's
+extraction, its image tag), beside 3 or 4. Once chunk 1 has merged and
+its archive verifies, the driver tears `fa-real` down (G12), before
+the wave's gate. Chunks 3, 4 and 8 merge after chunk 2, each taking
+`v0.6-w1` in
 first (the version tuples in `tools/tests/test_model.py`, the clinic's
 `scenario.yaml`, the scheduler's version lines). `tools/gm/model.py` is
 chunk 3's alone in wave 1; `bricks/scheduler/` chunk 8's after chunk 2's
@@ -270,6 +285,16 @@ build plan"); the chunks named are written on these answers.
 | An initiator who may play hears only "quick game" or "extended game" | D516 | 13 |
 | The master spec and access model approved, the review's defaults standing (the restart record, the monitoring started in the restart, the early check after the import, N9 dropped, the campaign's P0 fallback, the reports folder, the README node table kept without an overview) | D517 | 6, 7, 9, 10, 12, 13 |
 
+Ruled on 2026-11-16 ("i don't want to keep the archive in the git, but
+it can go there. you may stop the real aging game once its usefullness
+is spent. i aprove the plan."):
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| The plan approved, κ = 2; `v0.6-spec` merged into `main` | D518 | G1; every wave |
+| No reference data in git, small files included: the whole `results/` archived outside git at the proposed path, git keeping its pointer; a test needing it skips when it is absent | D519 | 1, 8, 11, 12 |
+| `fa-real` torn down once its usefulness is spent: after chunk 1 merges and the archive verifies | D520 | G12 |
+
 ## Measurements and hand checks
 
 - G3, G4: hand checks by the wave driver before wave 1.
@@ -332,66 +357,66 @@ each is recorded.
 
 Status: planned
 Wave: 1
-Depends on: G1
+Depends on: G1 (done)
 Docker: none
-Architecture capture: W1: the reference's place in the repository
-(`tools/fake_aging/reference/shop/`) and the archive's path and name
-outside git, which chunks 11 and 12 read.
+Architecture capture: W1, for chunks 8, 11 and 12: the archive's path
+and name outside git; `extract.sh`'s arguments, its untracked working
+directory and its skip exit (what a test reading the reference does
+when the archive is absent); the archive's member names the three
+chunks read.
 
 - Goal: the research's real run of the shop, the only real-aging
-  reference, survives the research worktree: its small files committed,
-  everything archived once outside git with its path and checksum
-  recorded beside them (master spec 12.3).
+  reference, survives the research worktree as one archive outside
+  git, with only its pointer in git (master spec 12.3; spec D519).
 - Scope: in:
   - **read only** from
     `/home/bastien/work/db_audit_gm-wt/research-fake-aging/tools/research/fake_aging/results/`
     (untracked, about 1.9 GB): nothing written, moved, cleaned or
     deleted there, and the worktree's lock and its
     `IMPORTANT-KEEP-THIS-WORKTREE.md` left as they are;
-  - **committed, copied as is** (they are data, untracked on the
-    research branch, so a copy is the only way): every file and folder
-    of `results/` but the large ones, into
-    `tools/fake_aging/reference/shop/`: run R's M1 dump
-    (`m1-fa-real-20261115T0800/`, `m1-fa-real.log`), its M3 profile
-    (`m3-r-20261115.json`), its calibrations
-    (`calibrate-r-*-20261115.txt`), its tells (`m4-r-20261115.txt`), its
-    hand-over check (`fa-real-handover-check.txt`), and the F runs' M1
-    dumps, comparisons, profiles, tells and logs (`m1-fa-fake-*`,
-    `m1-compare-*`, `m3-f6-*`, `m3-compare-*`, `m4-f*`, `m7-*`,
-    `fa-fake-*.log`), about 1.6 MB;
-  - **archived outside git**: the whole `results/` folder, small files
-    included, as one `tar --zstd` archive at
-    `/home/bastien/archive/db_audit_gm/fake-aging-shop-reference/results-20261115.tar.zst`
-    (the default; the owner may name another place), its SHA-256 in a
-    `.sha256` file beside it; the large parts are run R's Prometheus
-    copy (`prom-r-20261115T0800/volume.tar`), its TSDB copy and
-    OpenMetrics dump (`r-dump/`, about 1.5 GB), the F runs' Prometheus
-    copies (`prom-f*`) and forged histories (`hist-f*`);
-  - `tools/fake_aging/reference/README.md`: what run R is (`fa-real`,
-    game `tarnbeck-outdoor-shop-z8415w`, 2026-11-14 to 15, the
-    research at `research/fake-aging` `10d1bc6`), what each committed
-    file is and which check reads it (the M1 and M3 comparisons, chunk
-    12; the calibrations, chunks 8 and 11), the archive's path, size
-    and SHA-256, a per-file SHA-256 manifest of the whole `results/`
-    folder (`MANIFEST.sha256`), and how to restore it.
+  - **no reference data in git** (spec D519), small files included;
+  - **archived outside git**, on armenelos: the whole `results/`
+    folder as one `tar --zstd` archive at
+    `/home/bastien/archive/db_audit_gm/fake-aging-shop-reference/results-20261115.tar.zst`,
+    its SHA-256 in `results-20261115.tar.zst.sha256` beside it. It
+    holds run R's M1 dump (`m1-fa-real-20261115T0800/`,
+    `m1-fa-real.log`), M3 profile (`m3-r-20261115.json`), calibrations
+    (`calibrate-r-*-20261115.txt`), tells (`m4-r-20261115.txt`),
+    hand-over check (`fa-real-handover-check.txt`), Prometheus copy
+    (`prom-r-20261115T0800/volume.tar`), TSDB copy and OpenMetrics dump
+    (`r-dump/`, about 1.5 GB), and the F runs' dumps, comparisons,
+    profiles, tells, logs, Prometheus copies and forged histories;
+  - **the pointer, in git**: `tools/fake_aging/reference/README.md`:
+    what run R is (`fa-real`, game `tarnbeck-outdoor-shop-z8415w`,
+    2026-11-14 to 15, the research at `research/fake-aging` `10d1bc6`),
+    the archive's path, size and SHA-256, what each member is and which
+    chunk reads it (the calibrations, chunks 8 and 11; the M1 dump and
+    the M3 profile, chunk 12), and how to extract it;
+    `tools/fake_aging/reference/MANIFEST.sha256`, a per-file SHA-256
+    manifest of the whole folder, member paths relative to `results/`;
+  - **`tools/fake_aging/reference/extract.sh`**: checks the archive's
+    SHA-256, extracts the members named into an untracked working
+    directory (`tools/fake_aging/reference/extracted/`, ignored by
+    `.gitignore`) and checks each against the manifest; with the
+    archive absent, says so and exits with the skip status the suites
+    read as a skip, never a failure.
   - Out: the verification tools (chunk 12), the calibration tool (chunk
-    11); lifting the worktree's lock (the owner's); the running `fa-real`
-    game, if it is still deployed (the owner's).
-- Files: `tools/fake_aging/reference/README.md`,
-  `tools/fake_aging/reference/MANIFEST.sha256`,
-  `tools/fake_aging/reference/shop/` (new, copied); outside git, the
-  archive and its `.sha256`.
+    11); lifting the worktree's lock (the owner's); tearing down the
+    live `fa-real` game (G12, the wave driver's).
+- Files: `tools/fake_aging/reference/{README.md,MANIFEST.sha256,extract.sh}`
+  (new); `.gitignore`; outside git, the archive and its `.sha256`.
 - Spec sections: [12.3](master-spec.md#123-the-reference),
   [9.12](master-spec.md#912-where-it-belongs-in-the-product); item 8.
 - Done when: the archive's checksum verifies; `tar --zstd -d` (compare)
   of the archive against the research worktree's `results/` reports no
   difference; `sha256sum -c MANIFEST.sha256` passes against the research
-  worktree's `results/` and, for the committed part, against
-  `tools/fake_aging/reference/shop/`; `git status` in the research
-  worktree is as it was before the chunk; the reference's README names
-  the path and checksum.
-- Verification: chunk checks; the compare and the two checksum runs
-  above.
+  worktree's `results/`; `extract.sh` extracts the calibrations into
+  the working directory, each member passing the manifest, and skips
+  with its message when pointed at a missing archive; `git status`
+  shows no reference data staged or tracked, and in the research
+  worktree is as it was before the chunk.
+- Verification: chunk checks; the compare, the checksum runs and the
+  two `extract.sh` runs above.
 - Split rule: none.
 
 ### Chunk 2 — Versions, `base:` and re-pins
@@ -587,7 +612,8 @@ in `domain.yaml` (master spec 6.5, 6.9), so chunk 7 reads them.
 
 Status: planned
 Wave: 1
-Depends on: chunk 2 (merge order: the version lines)
+Depends on: chunk 2 (merge order: the version lines); chunk 1 (the
+reference's extraction)
 Docker: heavy (the scheduler's image and unit tests, P0 in a throwaway
 `postgres` container, the fill on a fixture)
 Architecture capture: W1, for chunks 9, 10 and 11: the fill's interface
@@ -619,8 +645,11 @@ key's service times sit beside its `queries.yaml` and the file's form.
     lines' latencies and what the history's call-duration histograms
     read; fault parameters, not constants (fix 10, the queue's part);
     the shop's keys' service times, from the research's real run
-    (`calibrate-r-*-20261115.txt` in chunk 1's reference, `latency.py`'s
-    constants), beside the shop's and the campaign's `queries.yaml`;
+    (`calibrate-r-*-20261115.txt`, extracted from chunk 1's archive with
+    `extract.sh` into its untracked working directory; `latency.py`'s
+    constants), beside the shop's and the campaign's `queries.yaml`,
+    the figures copied as data with their source named, never the
+    reference's files;
   - **`gmctl fill`**: every scheduler node on one virtual clock; a
     pause at each `state` fault's virtual planting, its inject run
     unchanged, the instant recorded; the fill's sessions unseen as
@@ -988,7 +1017,9 @@ applied.
     the shared queue model; f9's `suppressed_by` hiding f4's trail;
     the calibration tool, `tools/fake_aging/calibrate.py`, from the
     research's `calibrate.py`, **copied and generalised** (scenario,
-    node, key and fault as arguments), its origin named;
+    node, key and fault as arguments), its origin named; the shop's
+    numbers read from chunk 1's archive through `extract.sh`, never
+    committed as files;
   - **11b, the campaign's ten**: P0's outcome applied (f1 to f4 and f7
     `supported`, or `tail-only` each with the tail its job's runs need);
     f5 `tail-only` planted in the tail, f6 `tail-only` one hour, f10
@@ -1127,8 +1158,10 @@ calls.
     profile and comparison; from the research's `m4_tells.sh`,
     `m1_dump.sh`, `m1_compare.py` and `m3_profile.py`, **copied and
     generalised** (scenario, nodes and keys as arguments), their origin
-    named; the comparisons reading chunk 1's committed reference, never
-    a new real run;
+    named; the comparisons reading run R's M1 dump and M3 profile,
+    extracted from chunk 1's archive with `extract.sh` into its
+    untracked working directory, never a new real run, and skipping
+    with their message when the archive is absent;
   - **the short fake games**, one script (`tools/tests/smoke-fake-aging.sh`,
     new) run on `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign`:
     a selection whose tail fits a floor capped at 15 minutes (the shop:
