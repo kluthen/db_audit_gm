@@ -1,6 +1,6 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v5. No master spec. Bastion-related items moved in from
+Status: draft v6. No master spec. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486); fake aging joined on
 2026-11-15 (D489–D495); the GM's feedback in two parts on 2026-11-16
@@ -190,10 +190,130 @@ heading stays for the links to it.
 ## Questions due in this version
 
 - O21: whether the other starter files may carry faults (narrowed by
-  D330 and D484: the data register and the network overview may).
-- O32: the language of player-facing material, the website included.
+  D330 and D484: the data register and the network overview may);
+  item 17 below.
+- O32: the language of player-facing material, the website included;
+  item 18 below.
 - O260–O268, the network overview's: closed as recommended (D487,
   D488).
 - O271, O272, fake aging's: closed (D494, players never told; D495,
   the shop and the campaign)
   ([fake-aging.md](fake-aging.md#questions-for-the-owner)).
+
+## Pending owner rulings before consolidation
+
+Everything still tagged (proposed) or unsettled in v0.6's drafting, as
+of 2026-11-16, each with its recommendation. Answer "ok with proposed",
+or name exceptions by number. Not listed: the estimates to be measured
+(fake aging 2.4) and the technical unknowns (fake aging 9), which the
+build settles, not the owner.
+
+**Fake aging** ([fake-aging.md](fake-aging.md))
+
+1. **The mode and the GM's steps.** The GM picks the mode per game:
+   real when the time available covers the scenario's aging, fake
+   otherwise or when a quick game is asked for; the virtual span is the
+   scenario's declared aging; commands `render --aging fake`, `fill`,
+   `clean-restart`, `history`; a failed history import recorded, never
+   a teardown. Recommended: as proposed. Lives in: 1.1–1.3.
+2. **The fault format.** `aging.fake` (support, reason, tail minimum,
+   instants the tail covers, planting in the tail, what the fill
+   emulates) under the existing `aging:` block; a mandatory `history:`
+   with two new kinds (`gauge_before`, `daily_spike`); a fault not
+   assessed is refused in a fake game; the answer key's maintenance
+   restart item; the campaign's f10 stays real-only, its redesign not
+   in v0.6. Recommended: as proposed, into formats.md at consolidation.
+   Lives in: 2.1, 2.4.
+3. **The tail.** At least 1 h, longer as the selected faults need;
+   capped to 15 minutes in tests only. Recommended: as proposed. Lives
+   in: 2.2.
+4. **Calibration.** One short real run (under 30 minutes) per fault
+   version, the fault planted at once and its job moved into the
+   window; each key's service time beside the `queries.yaml` that
+   defines it, the model's code in the scheduler brick (the results had
+   put the constants in the brick). Recommended: as proposed. Lives in:
+   2.3.
+5. **The fix list's additions and one departure.** Added: autovacuum
+   through the fill (a short naptime), the data files' modification
+   times, the monitoring's sessions emulated, fault parameters instead
+   of constants. Departure: the table and index statistics are kept at
+   the restart (the results proposed a reset, which would wipe f4's and
+   f9's evidence). Recommended: as proposed. Lives in: 3.
+6. **The limits' documentation and the product's shape.** The limits
+   in the GM's guide to aging, each fault's `reason` and `gm.md` note,
+   a generated "Fake aging" section in the scenario document, the
+   game's record; the research's pieces mapped to the scheduler's fill
+   mode, `gmctl` steps and test tools, the recorded baseline left in
+   research. Recommended: as proposed. Lives in: 4, 5.
+7. **Verification.** v0.6's gate: one short check (under 30 minutes,
+   a short-tail selection) on the shop and one on the campaign; one
+   blind read of each, once; the full selections with their long tails
+   in v1.0 gating; R's reference kept, its small files committed and
+   its Prometheus copy archived outside git with its path and
+   checksum. Recommended: as proposed. Lives in: 7;
+   [roadmap](../README.md#v10-gating).
+
+**The GM's feedback** ([above](#the-gms-feedback-d497))
+
+8. **Its form.** The customer side first, in the GM's voice from the
+   customer's point of view, then the teaching moment; D9's content
+   becomes the customer side, D13 and D18 untouched; gm-stance.md takes
+   the text at consolidation. Recommended: as proposed. Lives in: "The
+   GM's feedback (D497)".
+
+**The network overview** ([network-overview.md](network-overview.md))
+
+9. **The page's shape.** One entry per node, grouped (database
+   servers, applications and engines, monitoring, then the third
+   parties' table), a one-line-per-node summary on top, the fixed
+   header text. The tags left on O264's and O267's text are stale (both
+   accepted, D487) and go at consolidation. Recommended: as proposed.
+   Lives in: 1, 6.
+10. **Consistent with the data register by construction.** A database
+    server's entry links its register entries and never restates the
+    register's columns. Recommended: as proposed. Lives in: 3.
+11. **Its generation.** A GM skill, `network-overview`, on the
+    `data-register` model (the true overview sealed in `gm/`, the
+    handout, `overview_diff:`), run at Setup step 2 between the register
+    and the scenario document, checked by the loader; required of every
+    scenario listing `domains:`, fixtures exempt, v0.4's shop and
+    earlier exempt until next revised; `description:` required on the
+    customer's nodes then. Recommended: as proposed. Lives in: 4, 8.
+12. **The traps.** The generic catalogue N1–N10, class M by default
+    (N5 may rise to V or D); v0.6 builds the family and at least one
+    trap with its short test. Recommended: as proposed. Lives in: 5, 9.
+
+**This page**
+
+13. **The documentation website.** It carries the starter pack, the
+    customer's handouts each a page, and every topology brick's
+    `docs/player.md`. Recommended: as proposed. Lives in: "In scope".
+14. **General-use tooling.** The bastion has the PostgreSQL 18 client
+    tools, `ssh`, `procps`, `less`, `nano`, `vim-tiny` and `curl`.
+    Recommended: add `jq` (for Prometheus' API) and `tmux`, nothing
+    heavier; more on a player's need. Lives in: "In scope".
+15. **Reports published on the bastion.** The stack's own reports
+    (pgBadger's HTML and the like) readable through the web front, a
+    "Reports" entry under the home page's sites. Recommended: yes.
+    Lives in: "In scope".
+16. **A status page for each third party** (D274), not yet designed.
+    Recommended: one page per partner with a `player_doc`, under the
+    home page's sites, showing the incidents the scenario marks as
+    admitted by that partner, each from its start time: a live site
+    like Grafana, not a handout, so D488 doesn't apply; designed in the
+    master spec. Lives in: "In scope".
+
+**Open questions due in v0.6**
+
+17. **O21**, the other starter files carrying faults. Recommended: only
+    the handouts describing the system may carry a planted inaccuracy
+    (the data register, the network overview); the README and the rules
+    (the game's how-to), the data policy (the norm audited against)
+    and `partners.md` (no access, so unverifiable) never do; the story
+    and the issues may be mistaken only as the customer's belief (a
+    false alarm, as today). Closes O21. Lives in:
+    [open-questions.md](../../open-questions.md) O21.
+18. **O32**, the language of player-facing material. Recommended:
+    English everywhere, the website and the feedback included; a
+    scenario language option later, not in v0.6. Closes O32. Lives in:
+    [open-questions.md](../../open-questions.md) O32.
