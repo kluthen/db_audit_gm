@@ -1,0 +1,14 @@
+# vet-housing's overview fragment (v0.6 master spec 6.5, 6.9; capture W1
+# item 6): each login role data/schema.sql creates, one line each, in the
+# customer's words. The part has no job of its own. The network overview
+# reads it (master spec 8.2, "Fed and used by").
+roles:
+  - role: housing_app
+    who: the practice software's housing screens
+    reads: the units, the displays, the placements, the feeding plans and the care log, and of the record what placing an animal needs
+    writes: animals placed, moved and released, diets and feeding orders, a unit marked to clean
+  - role: housing_ward
+    who: the ward service, the carers' actions on the displays
+    reads: the units, the placements, the feeding plans, the care log and the units' board
+    writes: care events, a unit marked clean
+jobs: []

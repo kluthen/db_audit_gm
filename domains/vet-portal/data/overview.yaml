@@ -1,0 +1,16 @@
+# vet-portal's overview fragment (v0.6 master spec 6.5, 6.9; capture W1 item
+# 6): each login role data/schema.sql creates and the pg_cron job of
+# data/cron.sql, one line each, in the customer's words. The network overview
+# reads it (master spec 8.2, "Fed and used by", "Background tasks").
+roles:
+  - role: portal_api
+    who: the owners' portal API
+    reads: the owners' animals, ownerships, herds and documents, as each account may see them, its own account and the portal's settings
+    writes: logins and sessions, documents viewed, consent changes, an account's notification choices
+  - role: portal_housekeeping
+    who: the portal's nightly housekeeping
+    reads: the sessions
+    writes: old sessions deleted
+jobs:
+  - job: portal.sessions.purge
+    what: the night's purge of sessions ended or expired more than 30 days ago

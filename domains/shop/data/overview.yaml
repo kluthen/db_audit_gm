@@ -1,0 +1,37 @@
+# The shop's overview fragment (v0.6 master spec 6.5, 6.9; capture W1 item
+# 6): each login role data/schema.sql creates and each job of
+# producers/producer/jobs.yaml, one line each, in the customer's words. The
+# network overview reads it (master spec 8.2, "Fed and used by", "Background
+# tasks"); the shop's scenarios keep their README node table (8.7).
+roles:
+  - role: shop_app
+    who: the web shop, through the connection pooler
+    reads: the catalogue, the customers, the orders and the best sellers
+    writes: orders and their lines, stock and customer updates, delivery events, consent changes
+  - role: shop_reports
+    who: the back office
+    reads: every business table, customers' names and e-mail addresses included
+    writes: nothing
+  - role: shop_etl
+    who: the hourly sales roll-up into the reporting database
+    reads: the orders without the customer, their lines and the products
+    writes: nothing
+  - role: shop_crm
+    who: the win-back and mailing jobs
+    reads: the customers, their consent history, the orders, the campaigns and the leads
+    writes: leads, the mailing outbox and the job runs log
+  - role: shop_customs
+    who: the export declaration jobs
+    reads: the orders, their lines, the export countries and a customer's name and address
+    writes: the customs outbox, incidents and the job runs log
+  - role: customs_gw
+    who: the customs gateway's callback
+    reads: the customs outbox
+    writes: the customs acknowledgements
+  - role: shop_refresh
+    who: the hourly refresh of the best sellers
+    reads: the best sellers' sources
+    writes: the best sellers list
+jobs:
+  - job: close-day
+    what: "the close of day: shipped orders invoiced, the customers' lifetime value updated"
