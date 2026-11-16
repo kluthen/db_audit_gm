@@ -874,6 +874,9 @@ clock about 1 h 42 min.
   `documentalist` or `data-steward` sync; the dependency check was G5.
 - **G10.1** added (wave 1's forms as built), held by `spec-writer`.
 - `doc-ids compare main v0.6-w1`: 0 collisions, 0 warnings.
+- **Cost figures:** not recorded. `agent-stats wave 1` (`--line` and
+  `--md`) printed nothing in 300 s each and was killed, as
+  `agent-stats chunk 1 --line` had hung earlier in the wave.
 
 Open after wave 1: G6 (security preflight on `jq`/`tmux`) before chunk 6;
 capture W2; G10.1; the owner's two minor questions above; the merge into
