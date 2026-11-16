@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v13
+Status: draft v14
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -44,7 +44,8 @@ outside the project's concern.
    their state faults right after deployment (D39, D83). From v0.3 a
    scenario with scheduler nodes runs in real time for as long as it
    declares, at least eight hours (D114, D150); a scenario with none has
-   no aging, as in v0.2 (D157).
+   no aging, as in v0.2 (D157). From v0.6 the GM ages a game in one of
+   two modes, real or fake (D489; "Aging" below).
 7. **Solvability probes** — every hidden fault's evidence is confirmed
    reachable as the player user (proposed for generated scenarios; not in
    v0.1, where a manual play-through stands in, D38; see
@@ -120,10 +121,29 @@ v0.3 games run on always-on hosts, which stay up for the whole aging
 the load it was designed for (D129).
 
 **From v0.6, a second mode, fake aging, for quick games** (D489–D493):
-the past filled in minutes on a virtual clock, a maintenance restart,
-a real tail, forged Prometheus history; its faults curated to what it
-can fake. Real aging stays for extended games. Its design, being
-drafted, is [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md).
+real aging stays for extended games; the GM chooses the mode per game
+at setup ([gm-stance.md](gm-stance.md) "Aging feasibility"). A fake
+game's timeline is computed from the planned hand-over H: its virtual
+T0 is H minus the scenario's declared aging; `gmctl fill` runs the
+producers, consumers and jobs from the virtual T0 to the anchor in
+minutes, the database's time-of-day functions bound to the virtual
+instant, statistics off and the real-clock actors (`pg_cron`, the
+cron daemon, archiving) off; `gmctl clean-restart` pads the WAL, resets
+the statement and shared statistics, removes the fill's logs, sets the
+data files' modification times, and restarts every service of the game
+at one instant, the monitoring included (the "maintenance restart",
+the anchor, D507); a real tail of at least an hour runs to H;
+`gmctl history` imports a forged Prometheus history about twelve
+minutes into the tail; the early check runs halfway through the tail,
+by H minus one hour, never before the import (D507). Each fault
+declares whether fake aging can make its evidence (`supported`,
+`tail-only`, `real-only`) and its Prometheus trail (`history:`), and a
+fake game holds only eligible faults (D491). No sped-up or fake clock:
+the fill compresses only the past, the game is played in real time.
+The design, the fix list and the documented limits are in the
+[v0.6 master spec](versions/v0.6/master-spec.md), section 9; the
+game's own record is its restart record in the local implementation
+([formats.md](formats.md) "Local implementation").
 
 Each fault instance states how long its evidence takes to appear: its
 aging minimum ([formats.md](formats.md)). v0.1 and v0.2 have no aging:
@@ -135,9 +155,11 @@ counted, hand-over once the faults are planted (D157, D158).
 v0.3 has no time compression either (D132): players verify a fix to a
 daily job by moving its time. Time compression is visible (a crontab
 reading `*/5` for a "daily" backup is itself something an auditor would
-flag) and collides with schedule faults. Still open beyond v0.3 (O22):
-whether forged history, a sped-up clock or time compression ever return,
-and which version copies aged volumes to a class's hosts (D125).
+flag) and collides with schedule faults. O22 is closed (D493): forged
+Prometheus history and a compressed fill before the game return with
+fake aging; a sped-up clock and time compression in play do not. A
+quick game ages on the class's own hosts; copying aged volumes to them
+is no longer planned, moving a real-aged game being O232's.
 
 ## Hand-over: the starter pack
 
@@ -150,7 +172,10 @@ The player gets:
   which may or may not be correctly configured, with the web interfaces
   published by the bastion's web front and opened with the per-game tools
   password (D68, D77, D79). A topology may have no
-  monitoring at all, and how well it is tooled can be a finding (D65);
+  monitoring at all, and how well it is tooled can be a finding (D65).
+  From v0.6 the front's home page links every site of the game and
+  every document handed over, each a page of the documentation site,
+  with the reports folder and a status page per partner (D480, D501);
 - at the very least, a list of all node names;
 - ideally, a short documentation of the topology and a rough description of
   what is going on in the system;
@@ -159,9 +184,29 @@ The player gets:
   applying it), *fix* (alter the system so it works), *improve*
   (alter it so it works better).
 
+- from v0.6, in a scenario listing `domains:`, the **network overview**:
+  the customer's inventory of its nodes, a handout that may be
+  incomplete or wrong but for its **Your access** column, the game's
+  rule (D483–D485, D487).
+
 Nodes are addressed by name, not IP: overlay IPs change on restart (see
-[platform.md](platform.md)). Whether the starter documentation may itself
-carry faults: O21. Language of player-facing material: O32.
+[platform.md](platform.md)).
+
+**Handouts are static snapshots** (D488): what the customer gave the
+DBA at the mission's start, generated once at setup and never
+re-rendered in play; they describe the system as designed, before any
+planted fault; only the live tools they link to follow the system. A
+fix that leaves one out of date is expected, never a fault.
+
+**Which starter files may carry a planted inaccuracy** (D502, closing
+O21): only the handouts describing the system, the data register and
+the network overview. Never the README and the rules, the data policy
+or `partners.md`. The story and the issues may be mistaken only as the
+customer's belief, a false alarm.
+
+**Language** (D503, closing O32): every player-facing material is in
+English, the documentation site and the feedback included; a scenario
+language option may come later.
 
 ## The game
 

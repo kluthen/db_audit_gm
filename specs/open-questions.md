@@ -38,7 +38,9 @@ O271 and O272 raised with its draft and closed the same day by the
 owner (D494, D495). On 2026-11-16 the owner agreed to every pending
 v0.6 point as recommended, closing O21 (D502) and O32 (D503); the
 same day the merge of `main` brought O269 into v0.6 (D476), settled as
-proposed (D510).
+proposed (D510), and v0.6 was consolidated into its
+[master spec](versions/v0.6/master-spec.md) (D514); O251 and O269 stay
+open until built.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);

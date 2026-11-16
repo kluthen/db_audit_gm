@@ -233,3 +233,15 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   page, the v1.0 gating additions no longer `(proposed)` (D498). Now
   in: [fake aging](versions/v0.6/fake-aging.md#22-the-tails-length) 2.2;
   [versions/v0.6/README.md](versions/v0.6/README.md).
+- **D513 (2026-11-16, spec-writer, at consolidation, as D501 left it):
+  the partners' status pages: a fault instance's `admitted:` marks the
+  incident; render writes a root-only status file to the bastion, which
+  renders the pages itself each minute; no route to a partner's node
+  (D273).** Now in: [master spec](versions/v0.6/master-spec.md#76-the-partners-status-pages)
+  7.6; [formats.md](formats.md) "Scenario", "Partners".
+- **D514 (2026-11-16, the owner's "have a reviewer check out spec v0.6
+  then consolidate"): v0.6 consolidated into its master spec and access
+  model, for the owner's review;** the access model a delta on v0.5's,
+  which stays in force for the rest. Drafts kept as the working record.
+  Now in: [versions/v0.6/master-spec.md](versions/v0.6/master-spec.md),
+  [versions/v0.6/access-model.md](versions/v0.6/access-model.md).

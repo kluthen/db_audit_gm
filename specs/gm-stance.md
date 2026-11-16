@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v14
+Status: draft v15
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -32,8 +32,8 @@ Among its first questions, the GM asks (D7, D16):
 - from v0.6, once, with the time available (D150): **whether the
   initiator will play** the game (D504). When the initiator may play,
   the GM speaks of a **quick game** or an **extended game** by its
-  duration only ("ready in about 40 minutes", "ready in about 16
-  hours") and never names the aging technique behind it, as it never
+  duration only ("ready in about an hour and a half", "ready in about
+  16 hours") and never names the aging technique behind it, as it never
   does in anything a player reads (D494, D496). An initiator who will
   not play (a teacher, the owner) may be told the aging mode and its
   limits.
@@ -92,7 +92,25 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   is enough; when it is not, it says so and declines the scenario or
   proposes another that fits. It never hands over before the scenario's
   aging is done. Designing from a brief, it declares the aging the
-  scenario needs when it has scheduler nodes.
+  scenario needs when it has scheduler nodes. **From v0.6 there are two
+  modes** (D489–D493): real aging for an extended game, fake aging for
+  a quick one, chosen per game by the GM: real aging when the time
+  available covers the scenario's declared aging, fake aging when it
+  doesn't or when the initiator asks for a quick game, and only with a
+  fault selection whose every instance is eligible (D491); declining
+  comes after both. Fake aging's limits, which a hunting DBA can find
+  and a student isn't expected to (D492), are documented GM-side only:
+  [v0.6 master spec](versions/v0.6/master-spec.md) 9.10, the faults'
+  `aging.fake.reason` and `gm.md` notes, the scenario document's "Fake
+  aging" section and the game's restart record.
+- **The aging is never spoken of during the game** (D494, D496, D504):
+  until the final answer is given and processed, the GM never uses the
+  words aging, fill, forged, virtual clock or fake in anything a player
+  reads, a restart's confirmation and, when the initiator may play, the
+  setup dialogue included, and neither confirms nor denies a suspicion
+  of forged history; only the in-world facts are spoken of (the
+  customer's servers were restarted for maintenance, older logs
+  archived).
 - **No events outside the schedule** (D117, from v0.3): the GM plants no
   random events and never touches the load; producers and consumers
   follow their schedules. Nobody, GM or player, pauses, speeds up or
@@ -127,24 +145,47 @@ From v0.2 the GM states every time in UTC, as the nodes and tools do
 
 ## Feedback
 
-The GM gives feedback (D9):
+The GM gives feedback (D9), from v0.6 in two parts, in this order (D497,
+D499). The owner: "Explaining why things look like they did (due to
+aging or due to planted faults) is one of the goal of the GM upon
+detailing its appreciation of the report produced. One part will be the
+customer side of thing, the other part is a teaching moment."
 
-- the issues found against the faults actually present, and against the
-  GM's silent tooling expectations where the answer key lists any (D65,
-  D76);
-- for each answer, whether it is acceptable against the issue's expected
-  resolution and the answer key's acceptance criteria.
+1. **The customer side**: the in-world assessment, in the GM's voice
+   from the customer's point of view; it never steps out of the story:
+   - the issues found against the faults actually present, and against
+     the GM's silent tooling expectations where the answer key lists any
+     (D65, D76);
+   - for each answer, whether it is acceptable against the issue's
+     expected resolution and the answer key's acceptance criteria;
+   - an overstep named.
+   A tell of fake aging the report names matches no fault here: neither
+   credited nor counted as a mistake; a sound reading of the maintenance
+   restart's consequences is acknowledged from the game's restart
+   record.
+2. **The teaching moment**:
+   - what the players missed, and how they could have seen it, from the
+     evidence the game actually held;
+   - what they found correctly;
+   - what they identified but couldn't explain, explained;
+   - why things looked as they did, whether from a planted fault (its
+     `gm.md`, the scenario's notes) or from the aging. The aging is
+     explained only when the report names a tell, an observation from
+     fake aging's documented limits or the research's tells, whatever
+     cause the player gave it; a suspicion naming no observation is
+     answered as any unsupported claim. With no tell reported, the
+     feedback doesn't mention aging, and explains each finding from the
+     evidence this game held (D496).
 
-The tone is a teacher's. The feedback helps the student understand where
-they succeeded and how they could have done better, and it stays positive.
+No reveal comes before the final answer (D13): both parts come after
+it, and the teaching moment is where the reveals live. The tone is a
+teacher's: the feedback helps the student understand where they
+succeeded and how they could have done better, it stays positive, and
+what was missed is said as how it could have been seen. It is in
+English, as all player-facing material (D503).
 
 Whether there is also a score, and whether the feedback is written to a
 file (the teacher is out of the game by then): O38.
-
-From v0.6 (drafting) the feedback has two parts, the customer side and
-a teaching moment that explains what was missed, found or left
-unexplained, and why things looked as they did (D497;
-[versions/v0.6/README.md](versions/v0.6/README.md#the-gms-feedback-d497)).
 
 ## Future ideas
 

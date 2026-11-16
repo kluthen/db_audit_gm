@@ -1,8 +1,13 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v8. No master spec yet; every drafting point ruled on
-2026-11-16 (D498–D503); the review's findings closed the same day
-(D504–D512), consolidation next. Bastion-related items moved in from
+Status: draft v9. **Consolidated** on 2026-11-16 into the
+[master spec](master-spec.md) and its [access model](access-model.md),
+for the owner's review (D514); the build plan follows the owner's
+approval. Every drafting point ruled on 2026-11-16 (D498–D503); the
+review's findings closed the same day (D504–D512); the partners' status
+pages designed at consolidation (D513). This page and its two drafts
+stay as the working record until v0.6's archive; where they and the
+master spec differ, the master spec wins. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486); fake aging joined on
 2026-11-15 (D489–D495); the GM's feedback in two parts on 2026-11-16
@@ -69,9 +74,11 @@ players (D480).
   partner with a `player_doc`, under the home page's sites, showing the
   incidents the scenario marks as admitted by that partner, each from
   its start time. A live site like Grafana, not a handout, so D488
-  doesn't apply. Its design (where the scenario marks an incident
-  admitted, how the page renders) is the master spec's; whatever it
-  is, it never routes from the bastion to a third party's node (D273).
+  doesn't apply. Its design is the master spec's
+  ([7.6](master-spec.md#76-the-partners-status-pages), D513): a fault
+  instance's `admitted:` marks the incident, render writes a root-only
+  status file to the bastion, which renders the pages itself; never a
+  route from the bastion to a third party's node (D273).
 - **O251's loader refusal** (a bastion mapping `partners.md` exactly
   when the third parties carry a `player_doc`), in v0.6's first chunk
   that touches `tools/gm/model.py` (D486); **O269's beside it** (each
@@ -133,7 +140,8 @@ What it refines (D499, no conflict found):
   feedback's language is settled: English, as all player-facing
   material (D503, O32 closed).
 
-gm-stance.md "Feedback" takes this text at consolidation.
+[gm-stance.md](../../gm-stance.md) "Feedback" took this text at
+consolidation (draft v15).
 
 ## Short tests (D314, D511)
 
@@ -271,6 +279,9 @@ items (D501), O21 (D502) and O32 (D503). None pending. The review of
 the drafting (REJECT, 2026-11-16) was closed by D504–D512; next,
 consolidation. The two questions' answers, which have no other page
 yet:
+
+Both now also stand in [scenario-lifecycle.md](../../scenario-lifecycle.md)
+"Hand-over" and the master spec (7.4, 11).
 
 - **Starter files and planted inaccuracies** (D502, O21): only the
   handouts describing the system may carry one, the data register and

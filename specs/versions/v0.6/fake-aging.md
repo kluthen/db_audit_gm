@@ -1,6 +1,8 @@
 # Fake aging: a second aging mode
 
-Status: draft v5, 2026-11-16. The owner's direction of 2026-11-15
+Status: draft v5, 2026-11-16, **consolidated** the same day into the
+[master spec](master-spec.md), section 9, which wins where they differ
+(D514); kept as the working record. The owner's direction of 2026-11-15
 (D489–D491) and spec-writer's reading of it on the bar (D492); O22
 closed (D493); the owner's rulings of the same day: the players are
 never told about the aging process (D494, O271 closed), v0.6 covers
@@ -86,8 +88,8 @@ the GM makes for it is eligible (section 2).
   D150's setup dialogue, whether the initiator will play the game (a
   student playing alone does). When the initiator may play, the
   dialogue speaks of a **quick game** or an **extended game** by
-  duration only ("ready in about 40 minutes" or "ready in about 16
-  hours"), and never names the technique: no aging, fill, forged,
+  duration only ("ready in about an hour and a half" or "ready in about
+  16 hours"), and never names the technique: no aging, fill, forged,
   virtual clock or fake, as 4.1 holds for anything a player reads. An
   initiator who will not play (a teacher, the owner) may be told the
   mode and its limits.
@@ -273,7 +275,7 @@ history:                        # mandatory unless support is real-only
   anchor: 2026-11-21T11:00:00Z        # the planned restart, H minus the tail
   tail: 3h
   handover_planned: 2026-11-21T14:00:00Z
-  refused: [{instance: f10, reason: <its aging.fake.reason>}]
+  refused: []                         # each {instance, reason}; the shop's full selection refuses none
   restart:
     at: 2026-11-21T11:00:04Z          # measured, every service's start
     story_line: >-                    # as rendered into the starter pack

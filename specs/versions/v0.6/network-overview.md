@@ -1,6 +1,9 @@
 # v0.6 — the network overview, a player handout
 
-Status: draft v4. Draft v4 closes the review's findings: N9, the
+Status: draft v4, **consolidated** on 2026-11-16 into the
+[master spec](master-spec.md), section 8, which wins where they differ
+(D514); kept as the working record, its section 7 the worked
+illustration. Draft v4 closes the review's findings: N9, the
 page's absence, dropped (D505); scenarios without an overview keep
 their README node table (D511); O269's refusal beside O251's (D510).
 The rulings are settled (D480–D485), and the owner
