@@ -877,6 +877,14 @@ clock about 1 h 42 min.
 - **Cost figures:** not recorded. `agent-stats wave 1` (`--line` and
   `--md`) printed nothing in 300 s each and was killed, as
   `agent-stats chunk 1 --line` had hung earlier in the wave.
+- **Over 300k context:** chunk 8b's `coding-leader` (a0a3adacdf99c0ba2):
+  419k tokens, 185 tool calls, about 7 h 22 min, past the rotation point
+  the brief sets (about 100 tool calls). It built `gmctl fill`, its
+  fixture and fixes 3, 7 and 9, and ran the fixture's fill several times
+  under the lock, and it didn't stop at a WIP commit. It stayed alive
+  after its report until 2026-11-16 evening. For wave 2: rotate a chunk
+  owner at its WIP point instead of letting it carry on, and end it once
+  it has reported.
 
 Open after wave 1: G6 (security preflight on `jq`/`tmux`) before chunk 6;
 capture W2; G10.1; the owner's two minor questions above; the merge into
