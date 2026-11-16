@@ -4,7 +4,7 @@
 **Ref:** `ISS-006`
 **Date:** 2026-11-16
 **Severity:** Medium
-**Status:** Open
+**Status:** In Progress
 **Component:** `bricks/health-check/tests/run-stack-test.sh`
 **Affects:** `bricks/health-check/validator/validate.sh` (the cron rule), `bricks/health-check/rootfs/usr/local/sbin/gm-validate`, `bricks/health-check/rootfs/etc/s6-overlay/s6-rc.d/cron/run`, `bricks/health-check/rootfs/usr/local/lib/gm/healthcheck`, `bricks/health-check/brick.yaml` (`healthcheck:`); every v0.6 wave gate (each brick's stack test) and the release gate
 **Seen on:** armenelos swarm; v0.6 chunk 2 (2026-11-16); `health-check` 0.1.1, image byte-identical to 0.1.0; `sh bricks/health-check/tests/run-stack-test.sh`
@@ -124,18 +124,21 @@ Even the log-line wait leaves a tiny gap (the line is printed just before
 | Likelihood | High in the stack test (2 of 3 runs at chunk 2); low in play (only in a fresh container's first seconds) |
 | Impact | Medium: a wave or release gate goes red with nothing broken; reruns cost time under the host lock |
 | Detectability | High: one RED line naming cron, in the test's output |
-| Current mitigation | rerun the stack test |
+| Current mitigation | the stack test waits, bounded (90 s), for the cron daemon before `gm-validate` (78fe203, test-only); a player or GM can still meet the false red in a fresh container's first seconds |
 
 ---
 
 ## Recommended fix
 
-**Short term:** in the test, after the report-only redeploy's
-`wait_healthy`, wait, bounded (for example 90 s, as at line 209), until
+**Short term (applied, 78fe203, test-only):** in the test, after the
+report-only redeploy's `wait_healthy`, wait, bounded (90 s), until
 `ps -C cron` finds the daemon in the new container, before calling
-`gm-validate`; fail with an explicit message past the bound.
+`gm-validate`; fail with an explicit message past the bound
+("report-only: no cron daemon 90 s after the container was healthy").
+The brick and its image are unchanged.
 
-**Medium term:** pick one of, with the brick's next version:
+**Medium term (open, not decided):** pick one of, with the brick's next
+version:
 - `gm-validate`'s cron rule waits, bounded (a few tens of seconds, past
   the cron service's 30 s host wait plus its first run), for the cron
   daemon before reporting it red, so a player or GM meets no false red
@@ -164,6 +167,10 @@ redeploy's `gm-validate` step green each time.
 - Not investigated here (no docker run when filing): the duration of the
   report-only container's host wait and first checks run, and the time to
   its first healthy probe.
+- v0.6 wave 1 gate (2026-11-16, armenelos, `health-check` 0.1.1, image
+  4382f30f251c): with the wait, 4 green runs out of 4. The first run's
+  wait read "waited 2s" (the race met, and covered); the next three, on
+  the committed fix, read "waited 0s", 97 PASS, 0 FAIL, 179 to 211 s each.
 
 ---
 
@@ -188,3 +195,8 @@ redeploy's `gm-validate` step green each time.
 ## Change log
 
 - **2026-11-16**: filed (v0.6 wave 1, from chunk 2's stack-test runs).
+- **2026-11-16**: short-term fix applied in the stack test (78fe203,
+  test-only): a bounded wait for the cron daemon before the report-only
+  `gm-validate`; 3 consecutive green runs at the wave 1 gate. Status In
+  Progress: the medium-term options (the validator's cron rule waiting,
+  or the healthcheck covering cron) stay open for the brick's next version.
