@@ -80,6 +80,9 @@ recorded in sections 6, 6.2, 6.3 and 6.4 and in formats.md v33 (gate
 G19; spec D459, D465, D468, D469); the scenario document showing a
 cascade's backlog (6.3, 15; spec D472); the portal's messages as built,
 naming the recipient and a reminder's due date (9.7, 12.2; spec D473).
+On 2026-11-14, at v0.5's close, the partners' database's admission
+made exact against chunk 11's measure: by role and password, not by
+address (10.2; spec D474).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -2566,8 +2569,10 @@ round-trip partner, either side asking.
   closed by its own access rules: its database's `pg_hba.conf` admits
   only the partners' own roles on their database, every other line for
   that database a `reject`, the roles' passwords secrets mounted on the
-  partners' nodes only (how that form holds on one Swarm network, whose
-  task addresses change, is the build's to verify). As
+  partners' nodes only. On one Swarm network, whose task addresses
+  change, the form admits by role and password, not by address (chunk
+  11's measure): the guarantee is the passwords, a known gap of the
+  access model (13). As
   with a real lab, its API is reachable from outside, its database is
   not. Separate networks wait for later.
 - **Its interface stays callable**: a player may call a partner's public

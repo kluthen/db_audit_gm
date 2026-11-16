@@ -10,7 +10,10 @@ partners' database from the network, and reads it on its node (8; spec
 D383); and a known gap added, the partner credentials the starter pack
 hands over, kept and tracked (13; spec D395, O231); after chunk 16, the portal's answers to a closed account as built
 (9.3; spec D428); on 2026-11-09, by wave 4's preflight, the GM check
-role's read policy on tables with row security (8; spec D432). Revises the [v0.4 access model](../v0.4/access-model.md),
+role's read policy on tables with row security (8; spec D432); on
+2026-11-14, at v0.5's close, a known gap made exact against what chunk
+11 measured: the partners' database admits by role and password, not
+by address (13; spec D474). Revises the [v0.4 access model](../v0.4/access-model.md),
 which it replaces for v0.5 games; "Changes from v0.4" at the end lists
 what moved.
 
@@ -525,10 +528,18 @@ be inferred; the web front on plain HTTP. Added:
   traffic or post to cold storage's upload endpoint. Forbidden by the
   rules, not prevented; the checks judge the customer's side, and the
   feedback names the overstep.
-- **How the partners' database admits only their own nodes** on one
-  Swarm network, whose task addresses change, is the build's to verify;
-  until then the guarantee rests on the roles' passwords being mounted
-  on the partners' nodes only.
+- **The partners' database admits by role and password, not by
+  address** (verified by chunk 11 on one Swarm network). Its
+  `pg_hba.conf` lists the partners' roles on one `samenet` line and
+  refuses every other role from the network, but `samenet` covers the
+  whole game network: a partner's role with its password would get in
+  from any node, the bastion included. No address form tells the
+  partners' nodes apart (a task's address changes when it restarts, a
+  service name arrives from the load balancer's address, a host name
+  never matches). The guarantee rests on the partners' role passwords
+  being mounted on the partners' nodes only (`postgres` brick
+  `docs/gm.md`, the partners' `pg_hba` form). Admission by address, if
+  wanted, is a question for v0.6.
 - **The partners' stubs are in the repository**: reading them there is
   the trust the repository already accepts.
 - **`dba` bypasses every fictional rule**, the portal's row-level

@@ -261,8 +261,9 @@ instances:
     evidence:
       - where: bastion
         source: the data register, ~/data-register.md (and the web front's "Data register")
-        how: grep -n -i 'cold storage' ~/data-register.md
-        shows: nothing; no entry's Shared with or Where names the vault
+        how: grep -n '\*\*Shared with\*\*\|\*\*Where\*\*' ~/data-register.md | grep -i 'cold storage'
+        shows: nothing; no entry's Shared with or Where names the vault (vet-machinery-monitoring's Kept
+          for line names it as where the raw vitals end, not as a recipient)
       - where: bastion
         source: records' archive settings and cold storage's manifests
         how: psql -h records -c 'SHOW archive_command'; curl -s "http://cold-storage:8000/manifests?type=basebackup&source=records"
@@ -551,8 +552,11 @@ instances:
     evidence:
       - where: node:records
         source: the server log
-        how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
-        shows: vet_app's writes on owners with names and phone numbers in clear
+        how: "grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 10"
+        shows: >-
+          vet_app's writes on owners as `execute` lines of unnamed statements (the producers use the
+          extended protocol), names and phone numbers in clear on the `DETAIL:  Parameters:` line after
+          each
       - where: node:records
         source: /etc/postgresql/postgresql.conf
         how: grep -n log_statement /etc/postgresql/postgresql.conf

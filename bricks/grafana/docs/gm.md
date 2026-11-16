@@ -523,6 +523,14 @@ rules evaluated every minute, none firing), so `disk_growth_per_hour` went
 from a provisional `2M` to `1M`. Its snapshot stop: `grafana` down 7 s
 (13:46:57Z to 13:47:04Z, a 1.7M `grafdata` copied on the VPS).
 
+These figures were measured on earlier versions. 0.3.0 (Grafana 13.3.1)
+has not been measured at rest, and they stand until an aging measures the
+node (v1.0 gating). The whole clinic's first deployment (G13, 2026-11-13,
+`aldermoor-centre` on armenelos plus the VPS, the node on the VPS, about
+70 minutes from T0, `docker stats` every 2 minutes, no dashboard opened)
+read it at 220M mean and 223M peak, 2.6 % of a CPU mean and 14.4 % peak:
+a smoke reading, not a footprint.
+
 What makes it grow:
 
 - **Memory**: dashboards being viewed (each panel's queries go through

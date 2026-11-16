@@ -15,42 +15,19 @@ Questions resolved by the close of v0.4 (O104–O110, O115–O117, O119–O125,
 O129, O131–O134, O140, O146 and O161–O163, and O111's v0.4 part) are
 listed in
 [archive/v0.4/open-questions-resolved.md](archive/v0.4/open-questions-resolved.md).
-Take the next number from `doc-ids`; no ID is reused.
+Questions resolved by the close of v0.5 (O47, O79, O80, O111's v0.5
+part, O112–O114, O118, O126–O128, O137, O139, O144, O145, O147–O149,
+O151–O156, O158, O164, O165, O168–O190, O192–O215, O217–O220,
+O223–O227, O229, O235, O236, O239–O243, O247 and O250) are listed in
+[archive/v0.5/open-questions-resolved.md](archive/v0.5/open-questions-resolved.md)
+and mapped in [archive/v0.5/README.md](archive/v0.5/README.md#where-it-now-lives).
+O166, O167, O191, O216, O221, O222, O228, O230, O233, O244, O245 and
+O248 were reserved during v0.5 and never used. Take the next number
+from `doc-ids`; no ID is reused.
 
-On 2026-10-31 v0.5 was centred on domain definition and the clinic
-(D233), and its questions retargeted: O53 and O54 to later, version not
-set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
-during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
-O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
-O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
-O154 (D303), O153 (D304), O155 (D306),
-O156 (D307), O158 (D314), O164 (D315), O165 (D316). Raised with the
-four remaining parts' drafts on 2026-11-03 and resolved the same day,
-the owner accepting the recommendations as a whole: O168–O179
-`vet-scheduling` (D317), O180–O190 `vet-housing` (D318), O192–O203
-`vet-machinery` (D319), O204–O215 `vet-portal` (D320), each question's
-text on its part's page under "Questions for the owner"; with D321
-(appointment reminders) and D322, D323 (the initial load and
-composition, feeding O111). O166, O167, O191 and O216 were reserved and
-never used. Raised with a scenario's data register, a player handout
-(D329–D331), and resolved the same day, the owner accepting the
-recommendations: O217 (D333), O218 (D334), O219 (D335), each
-question's text on
-[versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#questions-for-the-owner).
-Resolved at consolidation: O111, its v0.5 part, the domain format
-written into [formats.md](formats.md) v28 (D338). Resolved at the
-master spec's approval: O220, the monitoring breadth (D340).
-O221 and O222 were reserved and never used. Resolved at the build plan's
-approval, as it recommended: O223–O227 (D343), their text in
-[versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
-O230 was reserved and never used (chunk 9's stop, settled as D372–D380
-without a question).
-O233 was reserved and never used (capture W3's corrections, settled as
-D401–D407). O244 and O245 were reserved and never used (capture W4's
-corrections, settled as D431–D437). O248 was reserved and never used
-(wave 4's gate G18 and the owner's rulings of 2026-11-10, settled as
-D443–D457 with O247).
+v0.5 retargeted its questions on 2026-10-31 (D233): O53 and O54 to
+later, version not set (D237); O21 and O135 to v0.6; O24 and O25 to
+v1.0+ (D248).
 
 v0.6's drafting opened on 2026-11-13 (branch `v0.6-spec`): O135
 resolved by the owner's rulings of that day (D480, D481), O21 narrowed
@@ -233,148 +210,15 @@ O136, raised by D230, waits for a later version.
   fault turns on it. Refs:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 11.6, 22.
 
-## v0.5: domains
+## v0.5: carried forward
 
-Raised when the owner set business domains for v0.5 on 2026-10-28
-(D192). v0.4 ships the first, the shop (O108). The veterinary clinic
-added on 2026-10-30 (D196). O111, the last of them, closed at
-consolidation (D338); O220, raised by it, closed at the master spec's
-approval (D340). O223–O227, raised with the build plan, closed at its
-approval (D343). O229, raised for capture W3, closed by it as
-recommended (D404). O235 and O236, raised by the documents' as-built
-passes on chunks 15a and 14, closed by the driver as recommended (D418,
-D419), kept here verbatim until v0.5's archive moves them. O239 to
-O242, raised by the documents' as-built passes on chunks 13 and 16
-(D422, D423), closed by the driver as recommended (D424–D427), are kept
-likewise, and so is O243, raised by the same pass and closed by capture
-W4 (D432). O247, raised by placing the owner's security rulings of
-2026-11-10, closed by the owner (D458), and O250, raised by chunk 27's
-stop (D469) and closed by the owner as proposed (D471), are kept
-likewise; O249 and O251 (raised at wave 5's gate) are open:
+Raised during v0.5's build and release gate and still open at its close
+(2026-11-14); v0.5's resolved questions are archived
+([archive/v0.5/open-questions-resolved.md](archive/v0.5/open-questions-resolved.md)).
+O249 and O251 were raised at wave 5's gate, O251 placed in v0.6 by the
+owner; O269 and O270 were raised by G13 and placed at v0.5's close
+(D476).
 
-- **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
-  `biomed`'s registry (another database), so as built (chunk 15)
-  `pacs.worklist.schedule` takes the procedure's machine for the
-  animal's section, with no fallback to another in-service machine (13
-  for 12), and `pacs.study.acquire` takes any due entry, whatever the
-  machine's status; the approved text schedules and acquires on
-  in-service machines only. What players could see: (a) in the loaded
-  history, likely studies acquired on a machine during one of its
-  recorded downtimes (the quarterly services at 08:00 local, 3 to 5
-  hours, on 7–10 and 16; repairs of 2 to 30 hours on 7–9 and 11–15),
-  across `pacs` and `biomed`, not yet measured; (b) live, nothing at
-  default (no stream sets a machine `down`), but a story taking an
-  imaging machine down keeps getting studies on it, where the GM notes
-  say they wait. No fault of the ten reads it; T209's witness (bookings
-  and `lab_batches` against the status) and T217's (studies past the QA
-  date) stand. Recommended: the `pacs` load derives the downtime
-  windows by `biomed`'s formulas and keeps the history's studies out of
-  them (13 for 12, else after the window), checked in `pacs` by the same
-  formula; live, accepted for v0.5, the GM notes saying that a story
-  taking an imaging machine down stops its acquisitions itself; a
-  PACS-side modality list later if a story needs it. Refs:
-  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
-  [wave log](versions/v0.5/wave-log.md) (chunk 15).
-- **O236** (v0.5, wave 3; **closed**, D419, as recommended; raised by D417) — T163's witness
-  ("open placements outside isolation whose animal has a current
-  `infectious` alert") has a baseline in the clean data as built
-  (chunk 14): with two, one and two isolation units against up to four,
-  three and six infectious animals at once, 47 of the year's 249
-  infectious stays waited in an ordinary unit, up to three days on the
-  farm, and 5 never got in; live, `housing.move` takes them in at a
-  poisson 0.08/h. The witness therefore fires without the fault, and
-  the policy's "an isolation unit's occupant never shares the ward's
-  ordinary units" reads against those waits. T163 is not among the ten.
-  Recommended: its witness becomes an infectious animal outside
-  isolation while an isolation unit of its section has stood clean and
-  free for more than a day, which the baseline never shows; the policy's
-  rule 2 kept, "as soon as one is free" covering the waits. Refs:
-  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
-  (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
-- **O239** (v0.5, wave 3; **closed**, D424, as recommended; raised by D422) — An urgent imaging request
-  on a machine not around the clock (the MRIs 9 and 10, the gamma camera
-  16: Monday to Friday 08:00–18:00) made after the imaging day can only
-  be booked at the next one: the load does so (chunk 13), and purpose
-  11's `book-requests`, calling `sched_free_slots`, will too. BS3 ("an
-  urgent one starting the same day") and T113's witness ("urgent
-  requests whose booking is not today") then fire without the fault, and
-  `book-requests`' text ("an urgent one at the first slot today (the CT
-  around the clock)") says nothing for them. T113 is not among the ten;
-  chunk 21 builds BS3. Recommended: BS3 and `book-requests` read "an
-  urgent one at its machine's first free slot from the request: the same
-  day on a machine around the clock, the next imaging day's opening
-  otherwise", T113's witness "urgent requests booked after their
-  machine's first free slot". Refs:
-  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record)
-  (BS3, T113), [wave log](versions/v0.5/wave-log.md) (chunk 13).
-- **O240** (v0.5, wave 3; **closed**, D425, as recommended; raised by D422) — The load records the
-  history's absences that start after T0 (the seven planned weeks')
-  before T0, `absent` ones too, the core's draw knowing no future:
-  players reading `sched_absences` find unplanned absences known weeks
-  ahead, which reads as pre-booked sick leave, a health inference about
-  a named staff member near rule 4 and T120. Not counted at the build
-  (a few periods). No fault of the ten reads it. Recommended: kept for
-  v0.5, with a false-alarm line ("sick leave booked weeks ahead": an
-  `absent` period ahead is an absence the rota manager knew of, recorded
-  by its kind only); the alternative, an `absent` period starting after
-  T0 written as `leave`, is one expression in `load.sql` (the core's
-  history never reads the future). Refs:
-  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
-  ("As built"), [wave log](versions/v0.5/wave-log.md) (chunk 13).
-- **O241** (v0.5, wave 3; **closed**, D426, as recommended; raised by D423) — The desk's stream
-  `portal.desk-consent` draws an owner from 2 to 10 000 without knowing
-  the accounts (`pms` cannot read `portal`), so about one call in thirty
-  names a closed account's owner and `portal_desk_consent` refuses it: a
-  422, an error in `pms`' log, about one every ten weekdays at intensity
-  1.0, which players can read as a fault. Recommended: kept as the
-  desk's real behaviour (a receptionist trying a client who left), with
-  a false-alarm line in the portal's traps ("the desk's consent call
-  fails now and then": a closed account, answered by its `status`); the
-  alternative, the stream skipping the loaded closed accounts by
-  `portal_account`'s formula, still meets those closed in play. Refs:
-  [vet-portal](versions/v0.5/vet-portal-domain.md#the-applications-and-their-nodes-d276),
-  [wave log](versions/v0.5/wave-log.md) (chunk 16b).
-- **O242** (v0.5, wave 3; **closed**, D427, as recommended; raised by D423) — T274's witness quotes
-  "about one withdrawal every three days" and its fix "the policy"; as
-  built (chunk 16) about half the `owners.keeper` ticks find a consent
-  to change (222 of the 414 active horse owners hold one), so
-  withdrawals come about every five or six days, and the withdrawal is
-  tested in the helper `portal_keeper_granted`, the keeping's end in
-  `portal_animals_scope`. T274 is not among the ten. Recommended: its
-  witness "about one withdrawal every five or six days; the planted
-  history", fixed on "the helper or the policy"; the traffic unchanged.
-  Refs: [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies)
-  (T274), [wave log](versions/v0.5/wave-log.md) (chunk 16).
-- **O243** (v0.5, wave 4; **closed**, D432, option A, a `gm_check_read` policy per table with row security; raised by D423) —
-  `gm_check` reads no row of a `portal` table: `pg_read_all_data` does
-  not bypass row-level security, which is forced on all ten (chunk 16).
-  Purpose 16's history (`portal_outbox`'s sent rows through `gm_src_*`,
-  D404) and every GM check reading `portal` as `gm_check` (RL1 to RL6,
-  MS1 to MS6, s5's) need a way in, while the access model keeps
-  `gm_check`'s v0.4 reads on every instance in scope. A policy for
-  `gm_check` (through a purpose's `ddl:`, say) is in players' sight in
-  `pg_policies` and theirs to drop; other ways (the reads as another
-  role, or on the GM's own plane) change the checks' mechanism. Only the
-  coherence check, as `postgres`, is unaffected. Open: no
-  recommendation here; W4 weighs it with chunk 21's purposes. Refs:
-  [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320),
-  [access model](versions/v0.5/access-model.md),
-  [build plan](versions/v0.5/build-plan.md) chunks 21, 25.
-- **O247** (v0.5, wave 5; **closed** by D458, 2026-11-10: rebuild 0.3.0; raised by D448) —
-  `grafana`'s data-source plugin update (brotli GO-2026-6888, chunk 34):
-  `grafana` 0.3.0 rebuilt, or 0.3.1? The advisor's triage, accepted on
-  2026-11-10, names 0.3.1, and the patch-bump rule (D445) gives a
-  changed image the next patch version; but the same day the owner kept
-  `bastion` 0.5.0 for `curl` because 0.5.0 is unreleased (D443), and
-  master spec 6.7 folds a change into an unreleased version. `grafana`
-  0.3.0 is v0.5's own bump, unreleased like `bastion` 0.5.0. 0.3.1 means a
-  version never released replaced before release, every `grafana` pin
-  re-pinned (the existing monitoring scenarios and the fixtures with a
-  `grafana` node) and the faults applying to it listing 0.3.1.
-  Recommended: rebuild 0.3.0 (its tag moved, as `bastion` 0.5.0's), D445
-  binding released versions; chunk 34 is written so, 0.3.1 adding the
-  re-pins to its commit. Refs: [build plan](versions/v0.5/build-plan.md)
-  chunk 34; [master spec](versions/v0.5/master-spec.md) 6.7.
 - **O249** (later, before the clinic is first played, v1.0 gating;
   raised by D467) — The partner stubs' reference counters: the
   authority's `AMU<year>-NNNN` and the head office's `HO<YYYYMM>-NNNN`
@@ -387,22 +231,10 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   history's own `load_epoch` derivation, a test reading the first live
   reference. Refs: `purposes/vet-antimicrobial-use/` and
   `purposes/vet-head-office-figures/` (`material/receiver/`);
-  [build plan](versions/v0.5/build-plan.md) release gate item 12.
-- **O250** (v0.5 release; **closed** by D471, 2026-11-12: a v0.5 known limit, as proposed; raised by D469) — The governance
-  check set on the whole clinic: G1 walks the standby as a location of
-  its own (a standby is no location, so its every classed column would
-  read a breach), and G3's transformer path stops at the first job with
-  an HTTP connection ("not a database node's database"), so
-  `check-governance.sh` on `interfaces` and `backoffice` reads 2. Neither
-  touches a v0.5 gate run (the load-only fixture has no standby and no
-  transformer) nor a clinic check in play (none calls the set).
-  Proposed: name it a v0.5 known limit (master spec 18.4, release gate
-  item 6), fixed when a scenario first calls the set there (the walk
-  judging a standby's databases at its primary's location, a non-SQL
-  connection no database path). Refs: `tools/gm/governance.sh`;
-  [build plan](versions/v0.5/build-plan.md) chunks 27, 38.
-- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12; **placed**,
-  D486: v0.6's first chunk touching `tools/gm/model.py`) — The
+  [build plan](archive/v0.5/build-plan.md) release gate item 12.
+- **O251** (soon, v0.6; raised at wave 5's gate, 2026-11-12; **placed**
+  in v0.6 by the owner, 2026-11-13 (D486): v0.6's first chunk touching
+  `tools/gm/model.py`) — The
   loader does not enforce the format rule that a bastion maps
   `partners.md: player/partners.md` exactly when the scenario's
   `third_parties:` carry a `player_doc` (formats.md "Partners"). It
@@ -416,6 +248,32 @@ likewise; O249 and O251 (raised at wave 5's gate) are open:
   converse), with a unit test; no v0.5 chunk. Refs: `tools/gm/model.py`
   (`PARTNERS_SEED_FILE`); `.claude/skills/scenario-format/SKILL.md`
   (third parties); [formats.md](formats.md) "Partners".
+- **O269** (soon, v0.6; raised by G13's finding 1, filed as ISS-001;
+  D476) — The loader does not check that a `seed-file` fault instance's
+  `seed_changes` lines appear in the scenario's copies of the seed
+  files, where formats.md (fault "Injection") puts them. In
+  `aldermoor-centre` the lines of s2, s7 and s8 were missing; the format
+  check, `compose --check`, chunk 27's runs and wave 5's gate all
+  passed, and only the whole-clinic run saw it (fixed in the scenario,
+  `0118c90`). A v0.5 known limit: the line in the scenario's copy is
+  the GM's to check. To settle in v0.6: a loader refusal (each selected
+  instance's lines found in its node's copy, with a unit test) or a
+  check item of the `scenario-format` skill. Proposed: the loader
+  refusal, since the skill's check is the GM reading by hand. Refs:
+  `issues/ISS-001_20261114_loader_misses_unplanted_seed_faults.md`;
+  `tools/gm/model.py`; [formats.md](formats.md) "Fault definition".
+- **O270** (later, v1.0 gating's setup; raised by G13's finding 4,
+  filed as ISS-002; D476) — The whole clinic's `load-data` takes about
+  28 minutes (1671 s and 1652 s at G13), about 17 of them `partners-db`
+  at its 0.5 CPU limit building vet-lab's partners' orders; meanwhile
+  cold storage answered 503 to lab's `vault-post` 66 times before T0,
+  so lab's `pg_stat_archiver` shows failures at the hand-over that no
+  fault explains. A v0.5 known limit. To settle before the clinic is
+  first played: raise `partners-db`'s CPU during the load, compute the
+  orders once, or have cold storage answer during the load; and what
+  the GM's notes say until then. Refs:
+  `issues/ISS-002_20261114_clinic_load_slow_vault_503.md`;
+  [versions/README.md](versions/README.md#v10-gating).
 
 
 ## v0.6: the network overview

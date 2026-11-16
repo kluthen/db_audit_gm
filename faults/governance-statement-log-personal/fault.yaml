@@ -57,8 +57,13 @@ injection:
 evidence:
   - where: node
     source: the server log
-    how: "grep -h -E 'statement: (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 5"
-    shows: the practice software's INSERT and UPDATE statements on owners, names, phone numbers and addresses in clear
+    how: "grep -h -E -A1 '(statement|execute [^:]+): (INSERT|UPDATE).*owners' /var/log/postgresql/postgresql-*.log | tail -n 10"
+    shows: >-
+      the practice software's INSERT and UPDATE statements on owners, names,
+      phone numbers and addresses in clear: in the statement itself (simple
+      protocol, "statement:"), or on the DETAIL line after it (extended
+      protocol: an "execute" line of an unnamed statement, then
+      "DETAIL:  Parameters: $1 = ...")
   - where: node
     source: /etc/postgresql/postgresql.conf
     how: grep -n log_statement /etc/postgresql/postgresql.conf
