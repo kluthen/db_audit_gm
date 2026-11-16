@@ -1,0 +1,19 @@
+# Service times of the web shop's keys (v0.6 master spec 9.7; capture W1
+# item 9): the database's work for one call, in seconds, lognormal (median,
+# sigma of its logarithm), read by gmctl fill from this folder, never a seed
+# file, never on a node. The keys the campaign shares with the shop copy the
+# shop's figures; its own keys (consent.unsubscribe, consent.unsubscribe-v2,
+# consent.subscribe) are measured by a short real run (v0.6 chunk 11b), and
+# until then the fill refuses this node, naming them.
+source: >-
+  copied from scenarios/tarnbeck-outdoor-shop/nodes/producer/service-times.yaml:
+  research/fake-aging 10d1bc6, run R (fa-real, 2026-11-14 to 15), the queue
+  model's figures (latency.py, SERVICE) as compared with R's log in
+  calibrate-r-producer-20261115.txt
+keys:
+  orders.place: {median: 0.0050, sigma: 0.35}
+  catalog.lookup: {median: 0.0011, sigma: 0.35}
+  orders.detail: {median: 0.0014, sigma: 0.35}
+  orders.status: {median: 0.0036, sigma: 0.35}
+  deliveries.ingest: {median: 0.0026, sigma: 0.35}
+  orders.close-day: {median: 2.0, sigma: 0.20}
