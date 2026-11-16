@@ -405,7 +405,9 @@ from (4.1).
 The owner, 2026-11-15: "players are never meant to be told about aging
 process" (D494). Refined on 2026-11-16 (D496): "if the tell has been
 reported in the report, the gm may include the information about the
-aging process. The game is already concluded, thus it's okay."
+aging process. The game is already concluded, thus it's okay." The
+three readings below (when the game is concluded, what a reported tell
+is, no mention without one) were okayed by the owner on 2026-11-16.
 
 **During the game: never.** The game is concluded when the players
 have given their final answer and the GM has processed it
@@ -428,11 +430,12 @@ have given their final answer and the GM has processed it
   reported" means the report names an observation from section 4's
   table or the results' tells, whatever cause the player gave it: "the
   statistics were reset this morning", "autovacuum barely ran on
-  products", "this history looks generated" all count. A suspicion
-  that names no observation is answered as any unsupported claim is:
-  what would have backed it, then the explanation.
-- **When no tell is reported, the feedback doesn't mention aging**
-  (chosen, following "if the tell has been reported"). The teaching
+  products", "the graphs before 11:00 look generated: negative scrape
+  durations" all count. A suspicion that names no observation ("this
+  history looks generated") is answered as any unsupported claim is:
+  noted as not backed by the report's evidence. It reports no tell, so
+  the aging isn't explained (next item).
+- **When no tell is reported, the feedback doesn't mention aging.** The teaching
   part doesn't need it to stay truthful: it explains each missed or
   unexplained finding from the evidence this game actually held (the
   tail's log, the forged graphs as they read), never from evidence a

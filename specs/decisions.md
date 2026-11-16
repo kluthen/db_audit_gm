@@ -1713,6 +1713,10 @@ D337, D341, D359, D371, D392, D429, D430 and D470 were reserved and never used).
   the feedback doesn't mention aging (spec-writer's reading of "if the
   tell has been reported"). Now in:
   [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#41-what-the-players-are-told-and-when-d494-d496).
+  *Owner ok, 2026-11-16, relayed by the coordinator, on its three
+  readings: concluded once the final answer is processed (no aging
+  words before, D126's confirmation included); a tell reported is a
+  named observation, whatever its cause; none reported, no mention.*
 - **D497 (2026-11-16, same ruling; refines D9): The GM's appreciation
   of a report has two parts: the customer side, an in-world
   assessment, then a teaching moment** (what was missed and how it
