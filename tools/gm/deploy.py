@@ -422,6 +422,8 @@ def generate_credentials(ldir, impl, keygen=ssh_keygen, certgen=openssl_certific
     os.chmod(sdir, 0o700)
     passwords, pairs, certificates = {}, [], []
     for sec in impl["secrets"]:
+        if sec["kind"] == localimpl.RENDERED:
+            continue                # render wrote it (the partners' status file, W2 item 1)
         if sec["kind"] == localimpl.PASSWORD:
             passwords[sec["secret"]] = sec.get("handed_over") is True
         elif sec["kind"] == localimpl.CERTIFICATE:

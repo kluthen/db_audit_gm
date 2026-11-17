@@ -1,0 +1,22 @@
+# queries.yaml of partners-backend, the partners' back end (fixture-partners,
+# v0.5 chunk 11a; capture W2 item 6, "A misbehaviour key"). Each partner's
+# baseline key <prefix>.normal upserts its state's baseline rows; a fault's
+# key <prefix>.<behaviour> upserts other values (here alpha.slow, f1's: its
+# status answers 4 s late). Each tick a call on the partner's hostname.
+queries:
+  alpha.normal:
+    sql: >-
+      INSERT INTO alpha.state (hostname, name, value) VALUES ('alpha-lab', 'delay_ms', '0')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  alpha.slow:
+    sql: >-
+      INSERT INTO alpha.state (hostname, name, value) VALUES ('alpha-lab', 'delay_ms', '4000')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  beta.normal:
+    sql: >-
+      INSERT INTO beta.state (hostname, name, value) VALUES ('beta-lab', 'delay_ms', '0')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
+  alpha.tick:
+    call: POST /tick
+  beta.tick:
+    call: POST /tick

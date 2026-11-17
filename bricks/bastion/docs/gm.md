@@ -155,9 +155,11 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 
 | What | Path | Notes |
 |---|---|---|
-| Starter pack | `/opt/gm/starter/` | configs `README.md`, `story.md`, `issues.md` and, when mapped, `data-policy.md`, `partners.md`, `data-register.md`, read-only |
-| Resolved starter files | `/run/gm/starter/partners.md` | root, `0700` dir: `partners.md` with its credentials written in, the source of the home's copy and of the page |
-| Player home | `/home/player` | volume `home`; `player`, `0750` |
+| Starter pack | `/opt/gm/starter/` | configs `README.md`, `story.md`, `issues.md` and, when mapped, `data-policy.md`, `partners.md`, `data-register.md`, `network-overview.md`, read-only |
+| Resolved starter files | `/run/gm/starter/partners.md` | root, `0700` dir: `partners.md` with its credentials written in, the source of the home's copy and of `/docs/partners` |
+| Brick pages | `/opt/gm/docs/bricks/<brick-id>.md` | v0.6: configs `<game_id>_bastion_doc-<brick-id>`, each brick's `docs/player.md`, one per brick of a node the players may reach, written by `gmctl fit` (capture W2 item 1); root, `0444` |
+| Player home | `/home/player` | volume `home`; `player`, `0751` (v0.6: the front's account passes through to `~/reports/` alone) |
+| Reports folder | `/home/player/reports/` | v0.6: `player`, `0755`, made by the entrypoint when missing (a link or a file in its place is replaced); served at `/reports/` |
 | Starter marker | `/home/player/.gm-starter-copied` | root, `0444` |
 | Inner-hop key | `/home/player/.ssh/id_ed25519` | `player`, `0600`, rewritten at each start |
 | `.pgpass` | `/home/player/.pgpass` | `*:*:*:dba:<password>`, `player`, `0600`, rewritten at each start |
@@ -172,7 +174,10 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Web front directory | `/run/web-front/` | root:www-data, `0750`, rewritten at each start, routes or none; `tmp/` (www-data, `0700`) holds nginx's pid and temporary files |
 | Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
 | Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
-| Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.html` (the page at `/`, see "Web front" under "Access") and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route, from which nginx answers `/<name>` with the redirect to `/<name>/` |
+| Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.html` (the home at `/`, see "Web front" under "Access"), `docs/<id>.html` and `docs/bricks/<brick-id>.html` (the documentation site) and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route (and `routes/reports/`), from which nginx answers `/<name>` with the redirect to `/<name>/` |
+| Page renderers | `/usr/local/lib/gm/pages.sh`, `/usr/local/lib/gm/html-ids`, `/usr/local/lib/gm/render-status` | v0.6: the page functions (`md_page`: `cmark-gfm -e table`, then `html-ids`), sourced by the entrypoint and `render-status`; `html-ids` gives each heading its GitHub id, points links between starter files to `/docs/` and, with the status map, links each partner's status page under its heading; `render-status` writes the partners' status pages |
+| Partners' status file | `/opt/gm/secrets/partners_status.json` | v0.6: secret `<game_id>_partners_status`, kind `rendered`, written by `gmctl render` (and a restart's re-render) into `local/<playground>/secrets/partners_status.json`, mounted only when a third party has a player document; root, `0400`: it holds incidents still to come (capture W2 item 1) |
+| Status pages | `/run/web-front/www/status/<id>/index.html` | v0.6: root:www-data, `0750` folders, `0440` pages, rewritten every minute by the s6 service `status-pages` (root), each through a temporary file moved into place |
 | Web front service | `/etc/s6-overlay/s6-rc.d/web-front/run` | nginx as `www-data` |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -360,30 +365,62 @@ override it in `~/.ssh/config`; nothing in the game depends on it.
 
 Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
 
-- **Where**: `http://<host>:<port>/`, the page, and
+- **Where**: `http://<host>:<port>/`, the home, and
   `http://<host>:<port>/<route>/`, `<port>` being the port the local
   implementation recorded for container port 8080 (default 8080),
   `<route>` a key of `web_routes`. With the v0.2 monitoring bricks:
-  `/prometheus/` and `/grafana/`. `/<route>` redirects to `/<route>/`;
-  any other path answers 404.
-- **The page** (`/`, D221, D222): one HTML page (`text/html`, UTF-8),
-  the front's home, holding the starter pack as handed over (the mounted
-  `/opt/gm/starter/`, never the players' home copies), rendered at each
-  start by `cmark-gfm -e table` (GitHub tables; raw HTML replaced by a
-  `raw HTML omitted` comment, `cmark-gfm`'s safe default, never
-  `--unsafe`). A header line and a list of links to the sections
-  present, then one `<section id="...">` per element present, in this
-  order: `readme` (`README.md`), `story` (`story.md`), `issues`
-  (`issues.md`), `data-policy` (`data-policy.md`, only when the scenario
-  maps it), `partners` (`partners.md`, its credentials written in) and
-  `data-register` (`data-register.md`), each only when mapped (v0.5,
-  master spec 7.3), `web-interfaces` (a heading and one link `/<route>/` per
-  route, only when `GM_WEB_ROUTES` has one). An absent element leaves
-  nothing: no empty section, no link to it. The elements are one list in
-  `gm-entrypoint` (`PAGE_ELEMENTS`, one line `<kind> <id> <source>
-  <title>`, kinds `markdown` and `routes`), so a later element (a
-  reporting tool, spec O135) joins by a line there, a new kind by its
-  branch in `page_element`; none does in v0.4.
+  `/prometheus/` and `/grafana/`. `/<route>` redirects to `/<route>/`.
+  The front's own (v0.6, master spec 7.1 to 7.5; capture W2 item 2):
+  `/docs/<id>`, `/docs/bricks/<brick-id>`, `/reports/` (and, with
+  partners, `/status/<id>/`); a route named `docs`, `reports` or
+  `status` is refused (by the loader, and by the entrypoint). Any other
+  path answers 404.
+- **The home** (`/`, v0.6 master spec 7.2): one HTML page (`text/html`,
+  UTF-8), a header naming the customer (the first `# ` heading of the
+  handed-over `story.md`), then two lists: **Sites** (`<section
+  id="sites">`: one link `/<route>/` per route of `GM_WEB_ROUTES`, then
+  **Reports**, `/reports/`, always) and **Documents** (`<section
+  id="documents">`: one link `/docs/<id>` per starter file present, in
+  this order: `readme`, `story`, `issues`, `data-policy`, `partners`,
+  `data-register`, `network-overview`; then **Tools**, one link
+  `/docs/bricks/<brick-id>` per brick page delivered, by its first
+  heading, by brick id). An absent element leaves nothing: no link, no
+  page.
+- **The documentation site** (`/docs/`, master spec 7.3): each page
+  rendered at each start from the starter pack as handed over (the
+  mounted `/opt/gm/starter/`, `partners.md` with its credentials written
+  in, never the players' home copies) and from the brick pages
+  (`/opt/gm/docs/bricks/`), by `cmark-gfm -e table` (GitHub tables; raw
+  HTML replaced by a `raw HTML omitted` comment, `cmark-gfm`'s safe
+  default, never `--unsafe`), then `html-ids`: every heading gets an id
+  by GitHub's rule (so `partners.md#<anchor>` resolves), and a link to
+  a starter file (`partners.md#x`) points to its page (`/docs/partners#x`).
+  Each page links home. nginx: `location /docs/`, `try_files $uri.html
+  =404`.
+- **The partners' status pages** (`/status/<id>/`, master spec 7.6;
+  capture W2 items 1 and 2): one per third party with a player document,
+  written every minute by the s6 service `status-pages` (root, running
+  `render-status`, then sleeping 60 s) from the status file, which only
+  root reads: the partner's name, "Operational" or "Incident ongoing"
+  (an admitted incident started and not ended), each admitted incident
+  whose start has passed, newest first, its title, text, start and, once
+  passed, end, in UTC; an incident not yet started is absent. Linked from
+  the home's Sites by the partner's name and from the partner's section
+  of `/docs/partners` ("Status page", under the heading whose id is the
+  `player_doc`'s anchor). Without the status file `status-pages` asks s6
+  not to restart it (down, as `web-front` without its configuration) and
+  no `/status/` page exists. A live page, not a handout: the
+  static-snapshot rule does not apply. Never a route to a third party's
+  node. In a fake game the instants fall where the virtual timeline puts
+  them (`render.t0_instant` reads `timeline.virtual_t0`, chunk 9).
+- **Reports** (`/reports/`, master spec 7.5): `~/reports/` served
+  read-only (GET and HEAD) as nginx's directory listing, with
+  `Content-Security-Policy: sandbox allow-scripts` on every answer, the
+  files' types from `/etc/nginx/mime.types`; `disable_symlinks on`, so a
+  link a player makes there is never followed; anything outside the
+  folder, a missing file or another method: 404. The front never reaches
+  into a database node: the players bring a report in one hop, `scp
+  <node>:pgbadger.html ~/reports/`.
 - **Authentication**: HTTP basic, user `player`, password the per-game
   `tools_password`, on every path, `/` included. Without it, or with a
   wrong user or password: `401` with `WWW-Authenticate: Basic
@@ -404,7 +441,7 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   the other routes keep working.
 - **Without routes** (no web interface in the topology): the front runs
   all the same, on the published port 8080, behind the tools password,
-  and serves the page alone, with no web-interface section or link; the
+  and serves its own pages alone, with no route on the home; the
   GM hands over the tools password in every game (D224; v0.3's D103 no
   longer holds).
 - **Process**: nginx (master and one worker) as `www-data` under s6
@@ -480,6 +517,22 @@ the page alone, where v0.3's bastion without routes, with no nginx, used
 per starter file, and holds nothing after; with its two libraries it adds
 about 860 KiB to the image (`dpkg`'s installed sizes: 370, 380 and 108
 KiB). The figures in `brick.yaml` are unchanged.
+
+At rest in v0.6 (chunk 6: the home, the documentation site, the reports
+folder, `jq` and `tmux`): measured in the stack test (armenelos, Docker
+29.9.3, idle, 2026-11-17), the bastion's container uses 5.5 MiB of memory
+with routes and 5.0 MiB without; nginx's master and worker show 13.2 MiB
+resident with routes and 12.3 MiB without: as v0.4 and v0.5. The pages
+are rendered once at start-up and hold nothing after: a few kilobytes
+each under `/run/web-front/www/` (the `run` volume), one per starter file
+and brick page. `jq` and `tmux` run only when a player starts them; with
+their four libraries they add 3.6 MiB to the image (`dpkg`'s installed
+sizes: `jq` 125, `libjq1` 439, `libonig5` 677, `tmux` 1209,
+`libevent-core-2.1-7t64` 306, `libjemalloc2` 876 KiB; the image 199 MB,
+from 195). What grows: `~/reports/`, the reports the players bring there
+(a pgBadger report is a few megabytes, pgCluu's folder a few more), on
+the `home` volume; covered by `disk_growth_per_hour`. The figures in
+`brick.yaml` are unchanged.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -629,7 +682,9 @@ interface (`tests/fixtures/stub-upstream.pl`, a Perl script in
 `debian:13-slim` that answers with the request it received) as a
 three-service stack (`tests/stack.test.yml`, stack `gmtest-bastion`),
 with the starter pack of `tests/fixtures/starter/` (a README with a table
-and a `<script>`, and a data policy). It
+and a `<script>`, a data policy, partners, a data register and a network
+overview) and two brick pages (this brick's and the `postgres` brick's
+`docs/player.md`, as `gmctl fit` delivers them). It
 logs in with the password on the published SSH port (`GMTEST_BASTION_PORT`,
 default 22222), checks the four starter files in the home and the inner
 hop by key and `psql`, replaces each node in turn (the player having
@@ -639,15 +694,24 @@ and `other=stub:9091` (nothing listens there): 401 and the challenge
 without the tools password, with a wrong one or another user name; the
 stub reached under `/stub/` with the path and query unchanged, no
 `Authorization` header upstream, `Host` and `X-Forwarded-Proto` set, the
-stub's own challenge hidden; the page (its sections in order, its links
-only to them and the routes, the README's table as an HTML table, raw
-HTML omitted, the player's edit absent); the redirect, 404, 502 on
+stub's own challenge hidden; the home (the customer named, Sites, then
+Documents and Tools, its links only to the routes, Reports, the seven
+documents and the two brick pages, each answering 200 and 401 without the
+password); the documentation site (the README's table as an HTML table,
+raw HTML omitted, the player's edits absent, GitHub heading ids, links
+between starter files pointing to `/docs/`, 404 for a brick not
+delivered); `jq` (on the stub's answer in Prometheus' API form, through
+`curl`) and `tmux` as `player`; a pgBadger report made on `db`, copied
+into `~/reports/` in one hop, listed and served with the sandbox header,
+and nothing outside the folder (a link, `..`, a POST: 404); the redirect, 404, 502 on
 `/other/`; nginx as `www-data`; the health check failing while the front
 is stopped. Then it empties the routes (port 8080 and `tools_password`
 kept): the front up, 401 without the password, the page alone, no
 web-interface section or link, the health check green, the data policy
-copied again; then removes the data policy: no `~/data-policy.md`, no
-section, no link; then removes `issues.md`: the container refused. The
+copied again; then removes the data policy, the partners, the register
+and the overview and sets two routes (master spec 12.1): the home lists
+the two routes, Reports and the three documents, no dead link; then
+removes `issues.md`: the container refused. The
 validator is green in every state that starts. It removes everything it created, volumes, configs and secrets
 included. Needs a swarm manager, the bastion and postgres images built,
 `debian:13-slim`, `curl`, and an OpenSSH client 8.4 or later on the host

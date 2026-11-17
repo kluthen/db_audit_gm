@@ -43,14 +43,17 @@ is part of what you audit. A run on a large log uses this node's memory
 and CPU, shared with PostgreSQL; `pgbadger --help` lists the options to
 restrict it (`--begin`, `--end`, one file at a time).
 
-To read the report on your own machine, copy it out in two hops. From the
-bastion:
+To read the report, bring it to the bastion's `~/reports/` folder in one
+hop. From the bastion:
 
 ```
-scp <node>:pgbadger.html .
+scp <node>:pgbadger.html ~/reports/
 ```
 
-then, from your machine, `sftp` to the bastion and `get pgbadger.html`.
+then open `http://<address>:<web port>/reports/` in your browser (the
+bastion's web site, with the tools password) and click the report. No
+copy to your own machine is needed. The folder is served read-only, and
+only what is in it.
 
 ## pgCluu
 
@@ -69,8 +72,9 @@ pgcluu --disable-sar -o ~/pgcluu-report ~/pgcluu-stats
 (`-D` puts it in the background; `pgcluu_collectd -k -f <pid file>` stops
 it early). A collection runs queries on this node, sharing its memory and
 CPU with PostgreSQL. The system statistics (`sar`) are not available
-here. `pgcluu` writes into a directory that must exist. Read the report as pgBadger's: from the bastion, `scp -r
-<node>:pgcluu-report .`, then `sftp` to your machine and open
+here. `pgcluu` writes into a directory that must exist. Read the report
+as pgBadger's: from the bastion, `scp -r <node>:pgcluu-report ~/reports/`,
+then open `/reports/pgcluu-report/` on the bastion's web site and click
 `index.html`. Each run prints a harmless `Duplicate specification` line.
 
 ## Query statistics

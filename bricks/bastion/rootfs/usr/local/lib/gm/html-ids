@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+# html-ids (DO NOT TAMPER): the bastion's filter of a page cmark-gfm
+# rendered (v0.6 master spec 7.3; capture W2 item 2), stdin to stdout:
+#   - every <h1> to <h6> gets an id by GitHub's rule: the heading's text,
+#     tags removed and entities decoded, lower-cased; every character but
+#     letters, digits, spaces, `-` and `_` dropped; spaces to `-`; a repeat
+#     suffixed -1, -2... So a link that works in the GM's Markdown preview
+#     (partners.md#the-regions-practices) works here. Bytes: perl-base has
+#     no Unicode tables, so a non-ASCII character is kept as it is, but the
+#     typographic quotes, dashes and ellipsis, which are dropped.
+#   - a link to one of the starter pack's files (`partners.md#x`) points to
+#     its page under /docs/ (`/docs/partners#x`).
+#   - with a status map (argument 1: lines `<anchor> <partner id>`), a link
+#     to /status/<partner id>/ under the heading whose id is <anchor>.
+use strict;
+use warnings;
+
+my %docs = ('README.md' => 'readme', 'story.md' => 'story', 'issues.md' => 'issues',
+            'data-policy.md' => 'data-policy', 'partners.md' => 'partners',
+            'data-register.md' => 'data-register', 'network-overview.md' => 'network-overview');
+my %status;
+if (@ARGV && $ARGV[0] ne '') {
+    open(my $fh, '<', $ARGV[0]) or die "html-ids: $ARGV[0]: $!\n";
+    while (my $line = <$fh>) {
+        chomp $line;
+        my ($anchor, $id) = split / /, $line, 2;
+        $status{$anchor} = $id if defined $id && $id =~ /^[a-z][a-z0-9-]*$/;
+    }
+    close $fh;
+}
+my %seen;
+
+sub slug {
+    my ($text) = @_;
+    $text =~ s/<[^>]*>//g;
+    $text =~ s/&lt;/</g; $text =~ s/&gt;/>/g; $text =~ s/&quot;/"/g;
+    $text =~ s/&#39;/'/g; $text =~ s/&amp;/&/g;
+    $text =~ s/\xe2\x80[\x93\x94\x98\x99\x9c\x9d\xa6]//g;   # – — ‘ ’ “ ” …
+    $text = lc $text;
+    $text =~ s/[^a-z0-9 _\x80-\xff-]//g;
+    $text =~ s/ /-/g;
+    return $text;
+}
+
+sub heading {
+    my ($n, $inner) = @_;
+    my $base = slug($inner);
+    my $id = $base;
+    if (exists $seen{$base}) { $seen{$base}++; $id = "$base-$seen{$base}"; }
+    else { $seen{$base} = 0; }
+    my $out = "<h$n id=\"$id\">$inner</h$n>";
+    $out .= "\n<p class=\"status-link\"><a href=\"/status/$status{$id}/\">Status page</a></p>"
+        if exists $status{$id};
+    return $out;
+}
+
+local $/;
+my $html = <STDIN>;
+$html = '' unless defined $html;
+$html =~ s{<h([1-6])>(.*?)</h\1>}{heading($1, $2)}gse;
+$html =~ s{href="(?:\./)?([A-Za-z0-9._-]+\.md)(#[^"]*)?"}
+          {exists $docs{$1} ? "href=\"/docs/$docs{$1}" . ($2 // '') . '"'
+                            : "href=\"$1" . ($2 // '') . '"'}ge;
+print $html;
