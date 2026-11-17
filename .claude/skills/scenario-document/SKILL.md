@@ -30,7 +30,11 @@ or triggers; see "The v0.4 items" below) and v0.5's
 item 5 of `specs/versions/v0.5/wave-log.md`: the "Third parties",
 "Composition" and "Data register" sections, a `pg_cron` job a purpose's
 `ddl:` schedules, a false alarm; see "The v0.5 items" and "The data
-register (v0.5)" below). The template's sections follow the keys of the
+register (v0.5)" below) and v0.6's (`specs/versions/v0.6/master-spec.md`,
+6.1, 6.2 and 8, with capture W2 item 6 of
+`specs/versions/v0.6/wave-log.md`: a node's description, site and users,
+the "Network overview" section and the overview beside each fault; see
+"The network overview (v0.6)" below). The template's sections follow the keys of the
 format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -309,6 +313,43 @@ round:
 The register's entries are not copied: the GM reads
 `gm/data-register.yaml` itself on a restart. A scenario without
 `governance.register` keeps the v0.4 document.
+
+## The network overview (v0.6)
+
+A node's `description:`, `site:` and `users:` (v0.6 master spec 6.1) are
+lines of its subsection, each an "if:" block. A scenario with a network
+overview (`gm/network-overview.yaml`, master spec 8.4; every scenario
+listing `domains:`, a fixture exempt) gets an "if:" block after "Data
+register", on its model. The
+[network-overview](../network-overview/SKILL.md) skill generates the
+overview after the register and before this document (Setup step 2: the
+format check, the register, the overview, the document), so this document
+reads its outputs, never the other way round:
+
+- the handout's path and its mapping (the bastion's `network-overview.md`),
+  the true overview's path, the header's customer;
+- its counts: the entries per group (database servers, applications and
+  APIs, integration and back-office engines, monitoring) and the
+  third-party rows;
+- **one table per overview fault instance**, its `overview_diff:` as the
+  answer key writes it: node, field, true value, value handed out,
+  `absent` for an entry missing or invented.
+
+**Beside each fault** (master spec 8.2; W2 item 6): in section 6, each
+answer-key instance on a customer node gains one line, "The overview
+beside it", quoting that node's handout lines whose source its definition's
+`seed_changes` touch: `postgresql.conf`, the **Applications** and
+**Backups** lines; a crontab, `jobs.yaml` or `cron.sql`, the **Background
+tasks** lines; `schedule.yaml` or `api.yaml`, the **Fed and used by** and
+**Uses** lines; otherwise (a state, parameter or topology fault, or a
+seed change of another file), a link to the node's entry. These are the
+lines that can hide or help a system fault: the GM reviews that the page
+shows the system as designed. An instance on the bastion (a register or
+an overview fault) gets no such line.
+
+The entries are not copied: the GM reads `gm/network-overview.yaml` itself
+on a restart. A scenario without an overview has no such section and no
+such lines.
 
 ## What it does not describe
 

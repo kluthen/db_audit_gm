@@ -416,8 +416,8 @@ players should not be watching it.
      producer). Never write `coherence:`: `load-data` writes it at
      setup ([Setup](#setup), step 11).
 
-  Then, as for any scenario, the register and the document, in Setup
-  step 2's order.
+  Then, as for any scenario, the register, the network overview and the
+  document, in Setup step 2's order.
 - **Third parties** (`third_parties:`, v0.5 master spec 10; access
   model 10): the customer's partners, on the three shared `no-access`
   nodes, played by no one: their stubs answer by themselves, and you
@@ -510,11 +510,21 @@ injection script names): players should not be watching it.
    missing or stale (the loader refuses it: "stale register: regenerate
    with the data-register skill"): the true register
    `gm/data-register.yaml`, the handout `player/data-register.md` and each
-   register fault's `register_diff:` (master spec 13.3). Then check that
+   register fault's `register_diff:` (master spec 13.3). Then, for a
+   scenario with a network overview (every scenario listing `domains:`,
+   a `fixture-` one exempt; v0.6 master spec 8.4), check it is current
+   and generate or regenerate it with the network-overview skill when it
+   is missing or stale (the loader refuses it: "stale overview:
+   regenerate with the network-overview skill"), after the register,
+   which it digests: the true overview `gm/network-overview.yaml`, the
+   handout `player/network-overview.md` and each overview fault's
+   `overview_diff:`. The order is format, register, overview, document.
+   Then check that
    `README.md` exists and matches the authoritative files; if not,
    regenerate it with the scenario-document skill, which reads the
-   register's outputs: a restarted GM grounds itself on it, and reads the
-   true register with it, never showing or quoting it during the game. The
+   register's and the overview's outputs: a restarted GM grounds itself
+   on it, and reads the true register and the true overview with it,
+   never showing or quoting either during the game. The
    three monitoring bricks are *fixable* only in v0.2 (a known limit,
    spec D108): never offer a *report-only* write policy for a
    `prometheus`, `postgres-exporter` or `grafana` node; the loader refuses
