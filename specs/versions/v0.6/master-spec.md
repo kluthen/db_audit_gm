@@ -19,6 +19,9 @@ D525). Amended in wave 2, from capture W2's preflight corrections and
 the owner's answers: 8.7's README named as the starter pack's
 `player/README.md`; fix 11's DDL rule (9.9; spec D529); the fill's
 pause plantings at their virtual instant (9.4, fix 11; spec D527).
+Amended during chunk 9: where `gm_vclock` sits on a path, for the
+sessions and the cover (9.4, fix 11; spec D530); a covered instant's
+lead in the tail (9.6; spec D532).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -970,10 +973,20 @@ procedure with its own `SET search_path` never sees the fill's session
 path, so the fill covers it for its span. At its start, in each database
 it writes, it finds every function and procedure outside the system
 schemas and the bricks' own `gm_*` schemas whose own settings
-(`proconfig`) set `search_path`, and alters that setting to `gm_vclock`
-followed by the routine's own path, with `pg_catalog` right after
-`gm_vclock` when the path doesn't name it (where PostgreSQL searched it
-implicitly); the routine's other settings stay as they are. Each cover
+(`proconfig`) set `search_path`, and alters that setting to put
+`gm_vclock` right before `pg_catalog`: just ahead of it where the path
+names it; where it doesn't (PostgreSQL searched it implicitly, first),
+`gm_vclock, pg_catalog` at the path's end, ahead of a final `pg_temp`.
+So the path's first schema, where the routine creates what it names
+unqualified, stays first (a path that starts with `pg_catalog` creates
+nothing unqualified, and `gm_vclock` heads it); the routine's other
+settings stay as they are. The fill's own sessions, and fix 11's,
+place `gm_vclock` on their path by the same rule. The price: a function
+in a schema listed before `pg_catalog`, named and typed as a built-in,
+would win over the built-in in those sessions; no scenario has one. The
+shim's drop refuses, naming them, objects inside `gm_vclock` other than
+its own functions, as it refuses objects outside that depend on them.
+Each cover
 is listed in `fill.quiet` with the routine, its database and its
 original setting, and restored to exactly that at the fill's end, on a
 failure too. After each planting at a pause the fill looks again: a
@@ -1023,13 +1036,16 @@ The tail is the longest of:
   an hour of genuine traffic and the import is done well before the
   hand-over;
 - each selected fault's `tail_minimum`;
-- for each `tail_covers` instant, the time from it to H;
+- for each `tail_covers` instant, the time from one floor before it to
+  H, so the instant has the floor's hour of genuine traffic before it,
+  clear of the restart and the history import;
 - for each instance planted in the tail, the time from its planting
   moment to H; that moment lies inside the tail, at least the instance's
   aging minimum before H, so the tail is never shorter than that
   minimum.
 
-Tests may cap the floor, as v0.3's rehearsal capped the aging minimum.
+Tests may cap the floor, as v0.3's rehearsal capped the aging minimum;
+a covered instant's lead is capped with it.
 
 ### 9.7 Every number is measured
 
@@ -1119,7 +1135,7 @@ Every fixable caveat is fixed.
 | 8 | Data files' modification times | each data file set to its last virtual write before the restart (file times, not the clock) |
 | 9 | Monitoring's footprint in the database | the fill opens the exporter's and pgwatch's sessions at the scrape rate in virtual time |
 | 10 | Fault parameters, not constants | the queue model and the overlays read the instance's parameters and the keys' measured service times |
-| 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means: every session given `gm.vclock` at the virtual T0 and `gm_vclock` first on its path, so the time-of-day functions it calls read that instant; in the SQL `load-data` sends, the time-of-day keywords bound to it outside DDL, and in DDL every unqualified `now()` and its kin written `pg_catalog.`, so a stored default or view binds the real function, as a real load leaves it, and the shim's drop reaches no customer object; inject's scripts run unchanged, with the session means only. So the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The fill's plantings at its pauses take the same session means at the pause's virtual instant (9.4 step 5). The real mode is unchanged |
+| 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means: every session given `gm.vclock` at the virtual T0 and the path `"$user", public, gm_vclock, pg_catalog` (the default path, `gm_vclock` placed by 9.4's rule), so the time-of-day functions it calls read that instant and what it creates unqualified lands where a real load puts it; in the SQL `load-data` sends, the time-of-day keywords bound to it outside DDL, and in DDL every unqualified `now()` and its kin written `pg_catalog.`, so a stored default or view binds the real function, as a real load leaves it, and the shim's drop reaches no customer object; inject's scripts run unchanged, with the session means only. So the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The fill's plantings at its pauses take the same session means at the pause's virtual instant (9.4 step 5). The real mode is unchanged |
 
 **Not done, on purpose**: resetting the table and index statistics at
 the clean-up. It would hide the last-use times, but it zeroes the dead

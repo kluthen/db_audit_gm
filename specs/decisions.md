@@ -330,3 +330,27 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   `pg_catalog.`;** a stored default or view would otherwise bind the
   shim's function, and the shim's drop would take it. Now in:
   [master spec](versions/v0.6/master-spec.md#99-the-fix-list) 9.9 fix 11.
+- **D530 (2026-11-17, spec-writer, chunk 9a's blocker 1): `gm_vclock`
+  goes right before `pg_catalog` on every path P0 sets** (the seed's,
+  the plantings', the fill's sessions, the cover), at the path's end
+  when it doesn't name `pg_catalog`. First on the path it was the
+  creation schema: an unqualified `CREATE` failed or landed in the shim,
+  dropped with it (9a's scratch load; the clinic's partition routines
+  under the cover). The checked drop also refuses objects inside the shim.
+  Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
+  9.4, 9.9 fix 11; [build plan](versions/v0.6/build-plan.md) chunk 9.
+- **D532 (2026-11-17, spec-writer, chunk 9a's blocker 2): a
+  `tail_covers` instant counts from one floor (an hour) before it,** so
+  the shop's full selection keeps 9.8's three hours, anchor 11:00. 9.6
+  as written gave two hours with the noon instant at the restart's own
+  minute, which the research's run sheet (10d1bc6) rejected for that
+  reason; the approved figure is the intent, the rule is corrected. Now in:
+  [master spec](versions/v0.6/master-spec.md#96-the-tails-length) 9.6.
+- **D533 (2026-11-17, spec-writer, chunk 9a's blocker 3): `fixture-fill`'s
+  f8 becomes a scenario-local fixture fault,** `fixture-dropped-index`
+  (as in `fixture-v06-refusals`), its `aging.fake` and `history:` the
+  fixture's own, so 9b's fake run still plants it at its pause; the
+  catalogue's `pg-join-index-missing` stays unassessed for chunk 11.
+  Rejected: leaving f8 out (chunk 8's pause check lost), a provisional
+  assessment on the catalogue fault (chunk 11's), a harness override.
+  Now in: [build plan](versions/v0.6/build-plan.md) chunk 9.
