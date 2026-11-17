@@ -2094,3 +2094,20 @@ the driver.
   (containers 0.7–2.3 s later), for chunk 10's rebase; the shop's
   `bytes_per_hour` includes the seed load (a remeasure can ride on 11b);
   the 6.9 example's `history` key is chunk 10's.
+
+### Gate fixes after the gate — 2026-11-17
+
+- 504fa50 (chunk 7's): the overview's Node health links in master spec
+  8.6's form, `/grafana/d/node-health/node-health?var-node=<name>&from=now-6h&to=now`;
+  header lines the same without a node (bastion's with `var-node=bastion`).
+  Skill, template and aldermoor's overview regenerated (23 lines each,
+  85 input digests unchanged); overview tests 31 OK, `check_scenario`
+  5/5 and 32/32, `check_domain_dir` 0. The dashboard has no `node`
+  variable yet (chunk 5, wave 4): until then each link shows every node
+  over 6 h.
+- 9860cb1: the api and scheduler stack tests take the prebuilt image
+  (exit 2 if missing), as the other eight do; scheduler's test-only
+  `unit-test` stage build kept (separate tag). Reruns: api 89/0,
+  scheduler 179/0, both image ids and libpq5 17.12-0+deb13u1 unchanged.
+  api's `docs/gm.md` stack-test line corrected to postgres 0.5.1 by the
+  driver.
