@@ -1262,6 +1262,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir, catalog_root,
                out)
     _check_v06(data, nodes, faults, scheduled, minimum, sdir, out)
+    _check_network_overview(data, nodes, faults, sdir, catalog_root, out)
 
     if out:
         return None, out
@@ -2116,6 +2117,7 @@ def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
                 out.append(f"{label}: instances[{iid}].acceptable.{name}: missing")
         _check_behavioural(entry, fault, label, out)
         _check_register_diff(entry, fault, out)
+        _check_overview_diff(entry, fault, out)
     for entry in entries:
         evidence = entry.get("evidence")
         for i, item in enumerate(evidence if isinstance(evidence, list) else []):
@@ -3196,6 +3198,7 @@ def check_domain_dir(domain_dir, label_base=None):
     for path in _domain_sql_files(domain_dir, data):
         _check_security_definer(path, _rel(path, base), out)
     _check_part_sql(domain_dir, data, base, out)
+    check_domain_overview(domain_dir, data, base, label, out)
     purposes = data.get("purposes")
     for pid in purposes if isinstance(purposes, list) else []:
         if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
@@ -7355,6 +7358,862 @@ def _check_declared_lines(data, nodes, faults, sdir, out):
                                f"of fault {fault.id}'s seed_changes is not in {rel}: a seed-file "
                                'change is in the scenario\'s copy from T0 (formats.md, fault '
                                '"Injection"; spec D510)')
+
+
+# --- v0.6: the network overview (build plan chunk 7; master spec 6.1, 6.2,
+# --- 6.5, 6.10, 8.1 to 8.4; capture W2 items 3 to 5 of
+# --- specs/versions/v0.6/wave-log.md) ---
+
+OVERVIEW_FILE = "gm/network-overview.yaml"      # the true overview (generated, sealed)
+OVERVIEW_HANDOUT = "player/network-overview.md"  # the handout, the bastion's seventh seed file
+OVERVIEW_SKILL = "the network-overview skill"
+OVERVIEW_TOP_KEYS = ("generated_from", "header", "entries", "third_parties")
+OVERVIEW_HEADER_KEYS = ("customer", "network", "bastion", "node_health", "trust")
+OVERVIEW_GROUPS = ("database", "application", "integration", "monitoring")   # 8.1's order
+# an entry's fields, under the names overview_diff: uses (W2 item 3; master spec 6.2)
+OVERVIEW_FIELDS = ("description", "site", "system", "applications", "sizing", "databases",
+                   "fed_and_used_by", "uses", "users", "third_parties", "tasks", "backups")
+OVERVIEW_LIST_FIELDS = ("databases", "fed_and_used_by", "uses", "users", "third_parties",
+                        "tasks", "backups")
+OVERVIEW_ENTRY_KEYS = ("node", "group", "role", "access", "activity") \
+    + tuple(f for f in OVERVIEW_FIELDS if f != "site")
+OVERVIEW_DIFF_FIELDS = OVERVIEW_FIELDS + ("entry",)
+OVERVIEW_DIFF_KEYS = ("node", "field", "true", "handed_out")
+OVERVIEW_ABSENT = "absent"          # an entry diff's true or handed_out: missing or invented
+TASK_SOURCES = ("jobs", "crontab", "pg_cron", "purpose")
+BACKUP_KINDS = ("standby", "wal-archive", "base-backup", "vault", "check", "none")
+OVERVIEW_THIRD_KEYS = ("id", "name", "hostname", "anchor")
+# the access mapping (master spec 8.3): a write policy's Your access, its first word
+OVERVIEW_ACCESS = {"fixable": "write", "report-only": "read-only", "no-access": "none"}
+# the seed files the entries' fields read (master spec 8.2, 8.4), digested
+OVERVIEW_SEEDS = ("postgresql.conf", "crontab", "jobs.yaml", "schedule.yaml", "api.yaml",
+                  "exporter.conf", "sources.yaml", "health.yaml", "prometheus.yml")
+OVERVIEW_FRAGMENT = "data/overview.yaml"        # a domain's overview fragment (6.5)
+DOMAIN_OVERVIEW_ROLE_KEYS = ("role", "who", "reads", "writes")
+DOMAIN_OVERVIEW_JOB_KEYS = ("job", "what")
+USER_KEYS = ("who", "database", "role")
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_ACCESS_BULLET_RE = re.compile(r"^\s*[-*]\s+\*\*Your access\*\*:\s*(.*?)\s*$")
+_ENV_LINE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\s*=")
+
+
+def overview_header_lines(header):
+    """The handout's header block (W2 item 4): `# Network overview:
+    <customer>`, then the network, bastion, Node health and trust lines, one
+    paragraph each, as the true overview's header holds them."""
+    header = _dict(header)
+    return [f"# Network overview: {header.get('customer')}"] + \
+        [str(header.get(k)) for k in OVERVIEW_HEADER_KEYS[1:]]
+
+
+def overview_customer_nodes(data, sdir=None, catalog_root=REPO_ROOT):
+    """The customer's nodes, in scenario.yaml's order: every node but the
+    bastion and the third parties' (master spec 8.3; third_party_nodes)."""
+    third = third_party_nodes(data, sdir, catalog_root)
+    return [n for n in _dict(data).get("nodes") or [] if isinstance(n, dict)
+            and n.get("role") != "bastion" and n.get("name") not in third]
+
+
+def _has_overview(data, sdir):
+    """A scenario with a network overview: gm/network-overview.yaml exists,
+    or its bastion maps network-overview.md."""
+    if (Path(sdir) / OVERVIEW_FILE).is_file():
+        return True
+    return any(OVERVIEW_SEED_FILE in _dict(n.get("seed_files"))
+               for n in _dict(data).get("nodes") or []
+               if isinstance(n, dict) and n.get("role") == "bastion")
+
+
+def _composed_domains(data):
+    """The composed domain ids: domains:, or v0.4's domain:."""
+    if isinstance(data.get("domains"), list):
+        return [e.get("id") for e in data["domains"] if isinstance(e, dict)
+                and isinstance(e.get("id"), str) and PURPOSE_ID_RE.match(e["id"])]
+    did = data.get("domain")
+    return [did] if isinstance(did, str) and PURPOSE_ID_RE.match(did) else []
+
+
+def _purpose_ids(data):
+    entries = data.get("purposes")
+    return [e["id"] for e in entries if isinstance(e, dict) and isinstance(e.get("id"), str)
+            and PURPOSE_ID_RE.match(e["id"])] if isinstance(entries, list) else []
+
+
+def overview_inputs(data, sdir, catalog_root=REPO_ROOT):
+    """{label: path} of the files a scenario's network overview is generated
+    from (master spec 8.4; W2 item 3), in generated_from's order:
+    scenario.yaml; each customer node's seed files the fields read and its
+    data file; each customer node's brick.yaml at its pinned version; each
+    composed domain's overview fragment and data/cron.sql; each purposes:
+    entry's purpose.yaml and ddl: files (their pg_cron jobs); the bastion's
+    partners.md when mapped;
+    gm/data-register.yaml when present; gm/answer-key.yaml;
+    player/story.md. Labels scenario-relative, a catalogue file's prefixed
+    catalog/."""
+    sdir, root = Path(sdir), Path(catalog_root)
+    data = _dict(data)
+    found = {"scenario.yaml": sdir / "scenario.yaml"}
+    customer = overview_customer_nodes(data, sdir, catalog_root)
+    for node in customer:
+        seeds = _dict(node.get("seed_files"))
+        for fname in OVERVIEW_SEEDS:
+            rel = seeds.get(fname)
+            if isinstance(rel, str):
+                found[rel] = sdir / rel
+        rel = _dict(node.get("data")).get("file")
+        if isinstance(rel, str):
+            found[rel] = sdir / rel
+    for node in customer:
+        ref = _dict(node.get("brick"))
+        if not (isinstance(ref.get("id"), str) and isinstance(ref.get("version"), str)):
+            continue
+        for base, prefix in ((sdir, ""), (root, CATALOG_PREFIX)):
+            path = base / "bricks" / ref["id"] / "brick.yaml"
+            if NAME_RE.match(ref["id"]) and path.is_file():
+                found.setdefault(f"{prefix}bricks/{ref['id']}/brick.yaml", path)
+                break
+    for did in _composed_domains(data):
+        meta = _yaml_or_none(root / "domains" / did / "domain.yaml")
+        fragment = _dict(meta).get("overview")
+        rel = f"domains/{did}/{fragment if isinstance(fragment, str) else OVERVIEW_FRAGMENT}"
+        found[CATALOG_PREFIX + rel] = root / rel
+        if (root / "domains" / did / CRON_FILE).is_file():
+            rel = f"domains/{did}/{CRON_FILE}"
+            found[CATALOG_PREFIX + rel] = root / rel
+    for pid in _purpose_ids(data):
+        rel = f"purposes/{pid}/purpose.yaml"
+        found[CATALOG_PREFIX + rel] = root / rel
+        for _, ddl in purpose_ddl(_yaml_or_none(root / rel)):
+            found[f"{CATALOG_PREFIX}purposes/{pid}/{ddl}"] = root / "purposes" / pid / ddl
+    for node in data.get("nodes") or []:
+        if isinstance(node, dict) and node.get("role") == "bastion":
+            rel = _dict(node.get("seed_files")).get(PARTNERS_SEED_FILE)
+            if isinstance(rel, str):
+                found[rel] = sdir / rel
+    if (sdir / REGISTER_FILE).is_file():
+        found[REGISTER_FILE] = sdir / REGISTER_FILE
+    found["gm/answer-key.yaml"] = sdir / "gm" / "answer-key.yaml"
+    found["player/story.md"] = sdir / "player" / "story.md"
+    return found
+
+
+
+def crontab_entries(text):
+    """[(line number, schedule, command, description)] of a crontab's
+    entries: blank, comment and environment lines skipped; the description
+    the comment line directly above the entry (master spec 6.6; W1 item 6),
+    None when there is none."""
+    found = []
+    lines = text.splitlines()
+    for number, line in enumerate(lines, 1):
+        entry = line.strip()
+        if not entry or entry.startswith("#") or entry.startswith("@") \
+                or _ENV_LINE_RE.match(entry):
+            continue
+        fields = entry.split(None, 5)
+        if len(fields) < 6:
+            continue
+        above = lines[number - 2].strip() if number > 1 else ""
+        description = above.lstrip("#").strip() if above.startswith("#") else None
+        found.append((number, " ".join(fields[:5]), fields[5], description or None))
+    return found
+
+
+def _fault_lines(data, faults, node_name, fname):
+    """The lines the selected instances on `node_name` declare in a seed
+    file `fname` (resolved): the faults', never the design's (master spec
+    8.2, "the system as designed")."""
+    found = []
+    for inst in _dict(data).get("fault_instances") or []:
+        if not (isinstance(inst, dict) and inst.get("node") == node_name):
+            continue
+        fault = (faults or {}).get(inst.get("id"))
+        if fault is None:
+            continue
+        changes = _dict(fault.data.get("injection")).get("seed_changes")
+        for change in changes if isinstance(changes, list) else []:
+            lines = _dict(change).get("lines")
+            if _dict(change).get("file") == fname and isinstance(lines, list):
+                values = instance_values(fault.data, inst)
+                found += [resolve_placeholders(ln, values) for ln in lines
+                          if isinstance(ln, str) and ln.strip()]
+    return found
+
+
+def _read_text(path):
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, TypeError):
+        return None
+
+
+def _uri_parts(value):
+    """(user, host, database) of a libpq URI or of the exporter's
+    host:port/db form; None for a part not given."""
+    text = value.strip().strip("'\"")
+    for scheme in ("postgresql://", "postgres://"):
+        if text.startswith(scheme):
+            text = text[len(scheme):]
+    user = None
+    if "@" in text:
+        user, text = text.rsplit("@", 1)
+        user = user.split(":", 1)[0] or None
+    text = text.split("?", 1)[0]
+    hostport, _, database = text.partition("/")
+    return user, hostport.split(":", 1)[0], database or None
+
+
+def _monitor_connections(node, sdir):
+    """[(target node, database, role, source)] of a monitoring node's seed
+    (MONITOR_SEEDS): the exporter's DATA_SOURCE_URI and DATA_SOURCE_USER,
+    pgwatch's enabled URI sources, health-check's instances."""
+    brick_id = node_brick_id(node)
+    fname = MONITOR_SEEDS.get(brick_id)
+    if fname is None:
+        return []
+    rel, path = _seed_path(node, sdir, fname)
+    if path is None:
+        return []
+    found = []
+    if brick_id == "postgres-exporter":
+        settings = {}
+        for line in (_read_text(path) or "").splitlines():
+            key, sep, value = line.strip().partition("=")
+            if sep and not key.startswith("#"):
+                settings[key.strip()] = value.strip()
+        if settings.get("DATA_SOURCE_URI"):
+            user, host, database = _uri_parts(settings["DATA_SOURCE_URI"])
+            found.append((host, database, settings.get("DATA_SOURCE_USER") or user, rel))
+        return found
+    content = _yaml_or_none(path)
+    if brick_id == "pgwatch":
+        for entry in content if isinstance(content, list) else []:
+            if isinstance(entry, dict) and entry.get("is_enabled") is True \
+                    and isinstance(entry.get("conn_str"), str) and "://" in entry["conn_str"]:
+                user, host, database = _uri_parts(entry["conn_str"])
+                found.append((host, database, user, rel))
+        return found
+    instances = _dict(content).get("instances")
+    for inst in instances if isinstance(instances, list) else []:
+        if isinstance(inst, dict) and isinstance(inst.get("host"), str):
+            found.append((inst["host"], inst.get("dbname"), inst.get("user"), rel))
+    return found
+
+
+def overview_connections(data, sdir, catalog_root=REPO_ROOT):
+    """[(node, target node, database, role or None, source)] of every
+    database connection a customer node's composed configs make to a
+    customer database node (master spec 8.4's coverage): a scheduler node's
+    schedule.yaml, an api node's api.yaml, a monitoring node's seed."""
+    sdir = Path(sdir)
+    customer = overview_customer_nodes(data, sdir, catalog_root)
+    names = {n.get("name") for n in customer}
+    found = []
+    for node in customer:
+        name = node.get("name")
+        for fname in ("schedule.yaml", "api.yaml"):
+            rel, path = _seed_path(node, sdir, fname)
+            if path is None:
+                continue
+            for conn in _dict(_dict(_yaml_or_none(path)).get("connections")).values():
+                if not (isinstance(conn, dict) and conn.get("driver") == "sql/postgresql"):
+                    continue
+                m = TARGET_RE.match(conn.get("target")) \
+                    if isinstance(conn.get("target"), str) else None
+                if m and m.group(1) in names:
+                    found.append((name, m.group(1), m.group(4), conn.get("role"), rel))
+        for host, database, role, rel in _monitor_connections(node, sdir):
+            if host in names:
+                found.append((name, host, database, role, rel))
+    return list(dict.fromkeys(found))
+
+
+def overview_tasks(data, sdir, catalog_root=REPO_ROOT, faults=None):
+    """[(node, task, source kind, source)] of every scheduled task on a
+    customer node (master spec 8.2, 8.4): each job of a scheduler node's
+    jobs.yaml (by name); each crontab entry (by its description, else its
+    command), a fault's declared line aside; each pg_cron job a composed
+    domain's data/cron.sql or a purpose's ddl: schedules (by name)."""
+    sdir = Path(sdir)
+    customer = overview_customer_nodes(data, sdir, catalog_root)
+    names = {n.get("name") for n in customer}
+    root = Path(catalog_root)
+    found = []
+    for node in customer:
+        name = node.get("name")
+        rel, path = _seed_path(node, sdir, "jobs.yaml")
+        if path is not None:
+            for job in _dict(_yaml_or_none(path)).get("jobs") or []:
+                if isinstance(job, dict) and isinstance(job.get("name"), str):
+                    found.append((name, job["name"], "jobs", rel))
+        rel, path = _seed_path(node, sdir, "crontab")
+        if path is not None:
+            skip = [_normal_line(ln) for ln in _fault_lines(data, faults, name, "crontab")]
+            for _, at, command, description in crontab_entries(_read_text(path) or ""):
+                if _normal_line(f"{at} {command}") in skip:
+                    continue
+                found.append((name, description or command, "crontab", rel))
+    for entry in data.get("domains") or [] if isinstance(data.get("domains"), list) else []:
+        did = _dict(entry).get("id")
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            continue
+        text = _read_text(root / "domains" / did / CRON_FILE)
+        if text is None:
+            continue
+        nodes = list(dict.fromkeys(loc.partition("/")[0]
+                                   for _, loc in _domain_entry_locations(entry)))
+        for _, job, _, _ in cron_jobs(text):
+            if job is not None and len(nodes) == 1 and nodes[0] in names:
+                found.append((nodes[0], job, "pg_cron", f"domains/{did}/{CRON_FILE}"))
+    for entry in data.get("purposes") or [] if isinstance(data.get("purposes"), list) else []:
+        pid = _dict(entry).get("id")
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            continue
+        purpose = _yaml_or_none(root / "purposes" / pid / "purpose.yaml")
+        parts = _dict(_dict(entry).get("parts"))
+        for part, rel in purpose_ddl(purpose):
+            location = parts.get(part)
+            text = _read_text(root / "purposes" / pid / rel)
+            node = location.partition("/")[0] if isinstance(location, str) else None
+            if text is None or node not in names:
+                continue
+            for _, job, _, _ in cron_jobs(text):
+                if job is not None:
+                    found.append((node, job, "pg_cron", f"purposes/{pid}/{rel}"))
+    return list(dict.fromkeys(found))
+
+
+def overview_backups(data, sdir, catalog_root=REPO_ROOT, faults=None):
+    """[(node, kind, what, source)] of what protects a customer node's data
+    that the coverage reads (master spec 8.4): each standby (on its
+    primary, `what` the standby's name), each archive_mode = on (`what` the
+    setting), each base backup line of a crontab (`what` its command); a
+    fault's declared line aside."""
+    sdir = Path(sdir)
+    customer = overview_customer_nodes(data, sdir, catalog_root)
+    names = {n.get("name") for n in customer}
+    found = []
+    for node in customer:
+        name = node.get("name")
+        primary = node.get("standby_of")
+        if isinstance(primary, str) and primary in names:
+            found.append((primary, "standby", name, "scenario.yaml"))
+        rel, path = _seed_path(node, sdir, POSTGRESQL_CONF)
+        if path is not None:
+            skip = [_normal_line(ln) for ln in _fault_lines(data, faults, name, POSTGRESQL_CONF)]
+            kept = "\n".join(ln for ln in (_read_text(path) or "").splitlines()
+                             if _normal_line(ln.split("#", 1)[0]) not in skip)
+            mode = _conf_text_value(read_conf_settings(kept).get("archive_mode"))
+            if mode in ("on", "always"):
+                found.append((name, "wal-archive", f"archive_mode = {mode}", rel))
+        rel, path = _seed_path(node, sdir, "crontab")
+        if path is not None:
+            for _, at, command, _ in crontab_entries(_read_text(path) or ""):
+                if "pg_basebackup" in command:
+                    found.append((name, "base-backup", command, rel))
+    return found
+
+
+def overview_databases(data, sdir, catalog_root=REPO_ROOT):
+    """[(node, database, source)] of every database of every customer
+    database node: its data.databases, and what its data file, its
+    domains and its purposes create (node_creates)."""
+    sdir = Path(sdir)
+    found = []
+    for node in overview_customer_nodes(data, sdir, catalog_root):
+        if node.get("role") != "database" or node.get("standby_of"):
+            continue
+        name = node.get("name")
+        for db in _dict(node.get("data")).get("databases") or []:
+            if isinstance(_dict(db).get("name"), str):
+                found.append((name, db["name"], "scenario.yaml"))
+        created = node_creates(sdir, data, node, catalog_root)
+        for db in sorted(created.databases) if created is not None else []:
+            found.append((name, db, created.file or "scenario.yaml"))
+    seen, unique = set(), []
+    for item in found:
+        if item[:2] not in seen:
+            seen.add(item[:2])
+            unique.append(item)
+    return unique
+
+
+def _overview_required(data):
+    """A played scenario listing domains: has a network overview (master
+    spec 6.1, 8.4); a fixture exempt, as from the register (spec D434)."""
+    return _register_required(data)
+
+
+def _check_node_overview_keys(data, nodes, required, out):
+    """description:, site: and users: on the nodes (master spec 6.1, 6.10):
+    their shapes; description: on every customer node of a scenario with an
+    overview (`required`, the customer nodes' names)."""
+    for node in nodes:
+        name = node.get("name")
+        p = f"scenario.yaml: nodes[{name}]"
+        desc = node.get("description")
+        if "description" in node:
+            if not (isinstance(desc, str) and desc.strip() and "\n" not in desc.strip()):
+                out.append(f"{p}.description: {desc!r} is not one line of text (master spec 6.1)")
+        elif name in required:
+            out.append(f"{p}.description: missing: every customer node of a scenario with an "
+                       "overview has one (master spec 6.1)")
+        if "site" in node and not (isinstance(node["site"], str) and node["site"].strip()):
+            out.append(f"{p}.site: {node['site']!r} is not a non-empty string: where the node "
+                       "stands, or no site: (master spec 6.1)")
+        if "users" not in node:
+            continue
+        users = node["users"]
+        if not isinstance(users, list):
+            out.append(f"{p}.users: not a list of {{who, database, role}} (may be []; master "
+                       "spec 6.1)")
+            continue
+        for i, user in enumerate(users):
+            up = f"{p}.users[{i}]"
+            if not isinstance(user, dict):
+                out.append(f"{up}: not a mapping {{who, database, role}}")
+                continue
+            for key in user:
+                if key not in USER_KEYS:
+                    out.append(f"{up}.{key}: not a key of a user ({', '.join(USER_KEYS)})")
+            if not (isinstance(user.get("who"), str) and user["who"].strip()):
+                out.append(f"{up}.who: missing or empty: who works on the node")
+            for key in ("database", "role"):
+                if key in user and not (isinstance(user[key], str) and user[key].strip()):
+                    out.append(f"{up}.{key}: {user[key]!r} is not a name")
+                elif key in user and node.get("role") != "database":
+                    out.append(f"{up}.{key}: only on a database node (the database they work "
+                               "in, the role they connect as)")
+
+
+def _check_network_overview(data, nodes, faults, sdir, catalog_root, out):
+    """The network overview (master spec 6.1, 6.10, 8.1 to 8.4; W2 items 3
+    to 5): required of a played scenario listing domains:, a fixture
+    exempt; when a scenario has one, checked in full: the customer nodes'
+    descriptions, the bastion's mapping and the handout, the digests, the
+    entries and their coverage, the handout's header, Your access and no
+    third party's node named. A miss is a generation error, never a
+    fault."""
+    sdir = Path(sdir)
+    has = _has_overview(data, sdir)
+    customer = [n.get("name") for n in overview_customer_nodes(data, sdir, catalog_root)]
+    _check_node_overview_keys(data, nodes, set(customer) if has or _overview_required(data)
+                              else set(), out)
+    if not has:
+        if _overview_required(data):
+            out.append(f"scenario.yaml: a scenario listing domains: has a network overview: "
+                       f"{OVERVIEW_FILE} missing (master spec 6.1, 8.4): generate it with "
+                       f"{OVERVIEW_SKILL}")
+        return
+    why = "(master spec 6.1, 8.4)"
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        p = f"scenario.yaml: nodes[{node.get('name')}].seed_files.{OVERVIEW_SEED_FILE}"
+        mapped = _dict(node.get("seed_files")).get(OVERVIEW_SEED_FILE)
+        if mapped is None:
+            out.append(f"{p}: missing: the scenario has a network overview, but the bastion maps "
+                       f"no {OVERVIEW_SEED_FILE} {why}")
+        elif mapped != OVERVIEW_HANDOUT:
+            out.append(f"{p}: {mapped}, not {OVERVIEW_HANDOUT} {why}")
+    hpath = sdir / OVERVIEW_HANDOUT
+    if not hpath.is_file():
+        out.append(f"{OVERVIEW_HANDOUT}: missing file (the network overview's handout, always "
+                   f"present in a scenario that has an overview; generate it with "
+                   f"{OVERVIEW_SKILL}) {why}")
+    tpath = sdir / OVERVIEW_FILE
+    if not tpath.is_file():
+        out.append(f"{OVERVIEW_FILE}: missing file (the true overview; generate it with "
+                   f"{OVERVIEW_SKILL}) {why}")
+        return
+    overview = _load_yaml(tpath, OVERVIEW_FILE, out, strict=True)
+    if not isinstance(overview, dict):
+        if overview is not None:
+            out.append(f"{OVERVIEW_FILE}: top level: not a mapping")
+        return
+    for key in OVERVIEW_TOP_KEYS:
+        if key not in overview:
+            out.append(f"{OVERVIEW_FILE}: {key}: missing")
+    header = overview.get("header")
+    if "header" in overview:
+        if not isinstance(header, dict):
+            out.append(f"{OVERVIEW_FILE}: header: not a mapping of "
+                       f"{', '.join(OVERVIEW_HEADER_KEYS)}")
+        else:
+            for key in OVERVIEW_HEADER_KEYS:
+                if not (isinstance(header.get(key), str) and header[key].strip()):
+                    out.append(f"{OVERVIEW_FILE}: header.{key}: missing or empty (master spec "
+                               "8.1's fixed text, as rendered)")
+    _check_overview_digests(overview, data, sdir, catalog_root, out)
+    entries = _check_overview_entries(overview, data, nodes, sdir, catalog_root, out)
+    _check_overview_coverage(entries, overview, data, sdir, catalog_root, faults, out)
+    if hpath.is_file():
+        _check_overview_handout(hpath, overview, entries, data, sdir, catalog_root, out)
+
+
+def _check_overview_digests(overview, data, sdir, catalog_root, out):
+    stale = f"stale overview: regenerate with {OVERVIEW_SKILL}"
+    listed = overview.get("generated_from")
+    if not isinstance(listed, dict):
+        if "generated_from" in overview:
+            out.append(f"{OVERVIEW_FILE}: generated_from: not a mapping of each input's path to "
+                       f"sha256:<hex>: {stale}")
+        return
+    expected = overview_inputs(data, sdir, catalog_root)
+    for rel, path in expected.items():
+        if rel not in listed:
+            out.append(f"{OVERVIEW_FILE}: generated_from: {rel} not listed, an input of the "
+                       f"overview: {stale}")
+            continue
+        digest = file_digest(path)
+        if digest is None:
+            out.append(f"{OVERVIEW_FILE}: generated_from: {rel}: the file cannot be read: {stale}")
+        elif listed[rel] != digest:
+            out.append(f"{OVERVIEW_FILE}: generated_from: {rel} changed since the overview was "
+                       f"generated (its digest differs): {stale}")
+    for rel in listed:
+        if rel not in expected:
+            out.append(f"{OVERVIEW_FILE}: generated_from: {rel} is no input of the overview: "
+                       f"{stale}")
+
+
+def _check_overview_entries(overview, data, nodes, sdir, catalog_root, out):
+    """Each entry's keys and shapes; the entries per customer node (exactly
+    one each; the bastion and the third parties' nodes in none); the access
+    mapping; the third-party table. Returns {node: entry}."""
+    gen = f"a generation error: regenerate with {OVERVIEW_SKILL}"
+    by_name = {n.get("name"): n for n in nodes}
+    customer = [n.get("name") for n in overview_customer_nodes(data, sdir, catalog_root)]
+    third = third_party_nodes(data, sdir, catalog_root)
+    records = overview.get("entries")
+    if "entries" in overview and not isinstance(records, list):
+        out.append(f"{OVERVIEW_FILE}: entries: not a list")
+        records = []
+    entries, counts = {}, {}
+    for i, entry in enumerate(records or []):
+        if not isinstance(entry, dict):
+            out.append(f"{OVERVIEW_FILE}: entries[{i}]: not a mapping")
+            continue
+        name = entry.get("node")
+        p = f"{OVERVIEW_FILE}: entries[{name if isinstance(name, str) else i}]"
+        for key in OVERVIEW_ENTRY_KEYS:
+            if key not in entry:
+                out.append(f"{p}.{key}: missing")
+        for key in entry:
+            if key not in OVERVIEW_ENTRY_KEYS + ("site",):
+                out.append(f"{p}.{key}: not a key of an entry")
+        if "group" in entry and entry["group"] not in OVERVIEW_GROUPS:
+            out.append(f"{p}.group: {entry['group']!r} is not one of {', '.join(OVERVIEW_GROUPS)}")
+        for key in OVERVIEW_LIST_FIELDS:
+            if key in entry and not isinstance(entry[key], list):
+                out.append(f"{p}.{key}: not a list")
+        _check_overview_records(entry, p, out)
+        if name in by_name and by_name[name].get("role") == "bastion":
+            out.append(f"{p}: {name} is the bastion, never an entry (master spec 8.3): {gen}")
+            continue
+        if name in third:
+            out.append(f"{p}: {name} is a third party's node, never an entry (master spec 8.3): "
+                       f"{gen}")
+            continue
+        if name not in by_name:
+            out.append(f"{p}: {name!r} is no node of the topology: {gen}")
+            continue
+        counts[name] = counts.get(name, 0) + 1
+        entries[name] = entry
+        _check_overview_access(entry, by_name[name], p, out)
+    for name in customer:
+        if not counts.get(name):
+            out.append(f"{OVERVIEW_FILE}: entries: customer node {name} is in no entry (master "
+                       f"spec 8.4): {gen}")
+        elif counts[name] > 1:
+            out.append(f"{OVERVIEW_FILE}: entries: customer node {name} is in {counts[name]} "
+                       f"entries; each in exactly one (master spec 8.4): {gen}")
+    table = overview.get("third_parties")
+    if "third_parties" in overview and not isinstance(table, list):
+        out.append(f"{OVERVIEW_FILE}: third_parties: not a list")
+        table = []
+    ids = set()
+    for i, row in enumerate(table or []):
+        if not isinstance(row, dict):
+            out.append(f"{OVERVIEW_FILE}: third_parties[{i}]: not a mapping")
+            continue
+        for key in OVERVIEW_THIRD_KEYS:
+            if key not in row:
+                out.append(f"{OVERVIEW_FILE}: third_parties[{row.get('id', i)}].{key}: missing")
+        ids.add(row.get("id"))
+    for pid in _third_party_docs(data):
+        if pid not in ids:
+            out.append(f"{OVERVIEW_FILE}: third_parties: {pid}, a partner with a player_doc, is "
+                       f"in no row (master spec 8.3): {gen}")
+    return entries
+
+
+def _check_overview_records(entry, p, out):
+    """The record shapes of the list fields the coverage reads (W2 item 3)."""
+    shapes = {"databases": ("database",), "fed_and_used_by": ("what",), "uses": ("what",),
+              "users": ("who",), "tasks": ("task", "when", "what", "source"),
+              "backups": ("kind", "line")}
+    for key, required in shapes.items():
+        items = entry.get(key)
+        for i, item in enumerate(items if isinstance(items, list) else []):
+            ip = f"{p}.{key}[{i}]"
+            if not isinstance(item, dict):
+                out.append(f"{ip}: not a mapping")
+                continue
+            for k in required:
+                if k not in item:
+                    out.append(f"{ip}.{k}: missing")
+            if key in ("fed_and_used_by", "uses") and not ("node" in item or "partner" in item):
+                out.append(f"{ip}: neither node nor partner")
+            if key == "tasks" and "source" in item and item["source"] not in TASK_SOURCES:
+                out.append(f"{ip}.source: {item['source']!r} is not one of "
+                           f"{', '.join(TASK_SOURCES)}")
+            if key == "backups" and "kind" in item and item["kind"] not in BACKUP_KINDS:
+                out.append(f"{ip}.kind: {item['kind']!r} is not one of {', '.join(BACKUP_KINDS)}")
+
+
+def _check_overview_access(entry, node, p, out):
+    """Your access (master spec 8.3, never a deviation): the write policy's
+    word first; a report-only node's write overrides named."""
+    access = entry.get("access")
+    word = OVERVIEW_ACCESS.get(node.get("write_policy"))
+    if word is None or "access" not in entry:
+        return
+    text = access if isinstance(access, str) else ""
+    first = re.split(r"[;,(\s]", text.strip(), maxsplit=1)[0] if text.strip() else ""
+    missing = [o for o in node.get("write_overrides") or []
+               if isinstance(o, str) and o not in text] \
+        if node.get("write_policy") == "report-only" else []
+    if first != word or missing:
+        extra = f"; write: {', '.join(missing)}" if missing else ""
+        out.append(f"{p}.access: {access!r} is not the write policy's {word}{extra} (master spec "
+                   f"8.3: never a deviation): a generation error: regenerate with "
+                   f"{OVERVIEW_SKILL}")
+
+
+def _check_overview_coverage(entries, overview, data, sdir, catalog_root, faults, out):
+    """Coverage (master spec 8.4; W2 item 5): every database connection under
+    its target's fed_and_used_by; every task under its node's tasks; every
+    standby, archive_mode = on and base backup line under some backups;
+    every database of every database node under its databases."""
+    gen = f"a generation error: regenerate with {OVERVIEW_SKILL}"
+    rule = f"(master spec 8.4): {gen}"
+
+    def items(name, key):
+        value = _dict(entries.get(name)).get(key)
+        return [i for i in value if isinstance(i, dict)] if isinstance(value, list) else []
+
+    for node, target, database, role, source in overview_connections(data, sdir, catalog_root):
+        if target not in entries:
+            continue                         # reported as a customer node in no entry
+        if not any(i.get("node") == node and i.get("database") == database
+                   and (role is None or i.get("role") == role)
+                   for i in items(target, "fed_and_used_by")):
+            as_role = f" as {role}" if role else ""
+            out.append(f"{OVERVIEW_FILE}: {node} -> {target}/{database}{as_role} ({source}) is "
+                       f"under no entry's fed_and_used_by {rule}")
+    for node, task, _, source in overview_tasks(data, sdir, catalog_root, faults):
+        if node in entries and not any(i.get("task") == task for i in items(node, "tasks")):
+            out.append(f"{OVERVIEW_FILE}: {task} ({source}) is under no entry's tasks {rule}")
+    every = [i for name in entries for i in items(name, "backups")]
+    for node, kind, what, source in overview_backups(data, sdir, catalog_root, faults):
+        if node not in entries:
+            continue
+        if kind == "standby":
+            if not any(i.get("kind") == "standby" and what in str(i.get("line"))
+                       for i in every):
+                out.append(f"{OVERVIEW_FILE}: {node}: the standby {what} (standby_of) is under "
+                           f"no entry's backups {rule}")
+        elif not any(i.get("kind") == kind for i in items(node, "backups")):
+            shown = what if kind == "wal-archive" else f'base backup line "{what}"'
+            out.append(f"{OVERVIEW_FILE}: {node}: {shown} ({source}) is under no entry's "
+                       f"backups {rule}")
+    for node, database, source in overview_databases(data, sdir, catalog_root):
+        if node in entries and not any(i.get("database") == database
+                                       for i in items(node, "databases")):
+            out.append(f"{OVERVIEW_FILE}: {node}: database {database} ({source}) is under no "
+                       f"entry's databases {rule}")
+
+
+def _handout_sections(text):
+    """{node: [its lines]} of the handout's `### <node>` sections, and the
+    lines before the first `## ` heading (the header block)."""
+    header, sections, current = [], {}, None
+    seen_h2 = False
+    for line in text.splitlines():
+        m = _HEADING_RE.match(line)
+        if m and len(m.group(1)) == 2:
+            seen_h2, current = True, None
+            continue
+        if m and len(m.group(1)) == 3:
+            current = m.group(2).strip().strip("`")
+            sections.setdefault(current, [])
+            continue
+        if not seen_h2:
+            header.append(line)
+        elif current is not None:
+            sections[current].append(line)
+    return header, sections
+
+
+def _check_overview_handout(hpath, overview, entries, data, sdir, catalog_root, out):
+    """The handout (master spec 8.3, 8.4; W2 items 4 and 5): no third
+    party's node named; the header and each entry's Your access equal to
+    the true overview's, text for text."""
+    text = _read_text(hpath)
+    if text is None:
+        out.append(f"{OVERVIEW_HANDOUT}: cannot be read")
+        return
+    for name in sorted(third_party_nodes(data, sdir, catalog_root)):
+        if re.search(rf"(?<![A-Za-z0-9_.-]){re.escape(name)}(?![A-Za-z0-9_-])", text):
+            out.append(f"{OVERVIEW_HANDOUT}: names {name}, a third party's node (master spec "
+                       "8.3)")
+    header, sections = _handout_sections(text)
+    if isinstance(overview.get("header"), dict):
+        shown = [ln.strip() for ln in header if ln.strip()]
+        if shown != overview_header_lines(overview["header"]):
+            out.append(f"{OVERVIEW_HANDOUT}: the header differs from the true overview's "
+                       "(master spec 8.1: never a deviation)")
+    for name, lines in sections.items():
+        entry = entries.get(name)
+        if entry is None or not isinstance(entry.get("access"), str):
+            continue
+        for line in lines:
+            m = _ACCESS_BULLET_RE.match(line)
+            if m and m.group(1) != entry["access"]:
+                out.append(f'{OVERVIEW_HANDOUT}: {name}: Your access reads "{m.group(1)}", not '
+                           f'the true overview\'s "{entry["access"]}" (master spec 8.3: never a '
+                           "deviation)")
+
+
+def _is_overview_fault(fault_data):
+    """A network-overview fault: a seed-file change of the bastion's
+    network-overview.md (master spec 6.3)."""
+    changes = _dict(fault_data.get("injection")).get("seed_changes")
+    return any(isinstance(c, dict) and c.get("file") == OVERVIEW_SEED_FILE
+               for c in changes) if isinstance(changes, list) else False
+
+
+def _check_overview_diff(entry, fault, out):
+    """overview_diff: (master spec 6.2): exactly on a network-overview
+    fault's instance, a non-empty list of {node, field, true, handed_out},
+    field one of 6.2's, never access nor the header, never an {absent:
+    true} item; an entry item's true or handed_out `absent`."""
+    p = f"gm/answer-key.yaml: instances[{entry.get('instance')}].overview_diff"
+    overview = _is_overview_fault(fault.data)
+    if "overview_diff" not in entry:
+        if overview:
+            out.append(f"{p}: missing (fault {fault.id} is a network-overview fault: the node, "
+                       "the field, the true value and the value handed out; master spec 6.2)")
+        return
+    if not overview:
+        out.append(f"{p}: fault {fault.id} is no network-overview fault (a seed-file change of "
+                   f"the bastion's {OVERVIEW_SEED_FILE}; master spec 6.3), so its instance takes "
+                   "no overview_diff")
+    diff = entry["overview_diff"]
+    if not (isinstance(diff, list) and diff):
+        out.append(f"{p}: not a non-empty list of items {{node, field, true, handed_out}} "
+                   "(master spec 6.2)")
+        return
+    for i, item in enumerate(diff):
+        ip = f"{p}[{i}]"
+        if not isinstance(item, dict):
+            out.append(f"{ip}: not a mapping (node, field, true, handed_out)")
+            continue
+        keys = _register_diff_keys(item)
+        if keys.count("true") > 1:
+            out.append(f"{ip}: true twice, as YAML's boolean key and as \"true\": write one "
+                       "(spec D353)")
+        if "absent" in keys:
+            out.append(f"{ip}: {{absent: ...}} is no item of an overview_diff: the page is never "
+                       "absent (master spec 6.2)")
+            continue
+        for key in OVERVIEW_DIFF_KEYS:
+            if key not in keys:
+                out.append(f"{ip}.{key}: missing")
+        for key in keys:
+            if key not in OVERVIEW_DIFF_KEYS:
+                out.append(f"{ip}.{key}: not a key of an overview_diff item "
+                           f"({', '.join(OVERVIEW_DIFF_KEYS)})")
+        if not (isinstance(item.get("node"), str) and item["node"].strip()):
+            if "node" in item:
+                out.append(f"{ip}.node: {item['node']!r} is not a node's name")
+        field_ = item.get("field")
+        if field_ in ("access", "header"):
+            out.append(f"{ip}.field: {field_} is never a field of an overview_diff: Your access "
+                       "and the header are the game's rule, never a deviation (master spec 6.2, "
+                       "8.1, 8.3)")
+        elif "field" in item and field_ not in OVERVIEW_DIFF_FIELDS:
+            out.append(f"{ip}.field: {field_!r} is not one of {', '.join(OVERVIEW_DIFF_FIELDS)}")
+        elif field_ == "entry" and OVERVIEW_ABSENT not in (register_diff_true(item),
+                                                           item.get("handed_out")):
+            out.append(f"{ip}: field entry (a whole entry missing or invented): its true or "
+                       f"handed_out is {OVERVIEW_ABSENT} (master spec 6.2)")
+
+
+def check_domain_overview(domain_dir, data, base, label, out):
+    """A domain's overview fragment (master spec 6.5, 6.9; W1 item 6):
+    declared, present, shaped, and covering every login role its schema
+    files create and every job its customer producers' jobs.yaml and its
+    data/cron.sql give."""
+    rel = data.get("overview")
+    if rel is None:
+        out.append(f"{label}: overview: missing: every domain declares its overview fragment, "
+                   f"{OVERVIEW_FRAGMENT} (master spec 6.5)")
+        return
+    path = _inside(domain_dir, rel) if isinstance(rel, str) else None
+    if path is None or not path.is_file():
+        return                               # reported with the domain's files
+    shown = _rel(path, base)
+    content = _load_yaml(path, shown, out, strict=True)
+    if content is None:
+        return
+    if not isinstance(content, dict):
+        out.append(f"{shown}: top level: not a mapping (roles, jobs)")
+        return
+    named = {}
+    for key, fields in (("roles", DOMAIN_OVERVIEW_ROLE_KEYS), ("jobs", DOMAIN_OVERVIEW_JOB_KEYS)):
+        items = content.get(key)
+        if not isinstance(items, list):
+            out.append(f"{shown}: {key}: {'missing' if key not in content else 'not a list'} "
+                       "(may be [])")
+            items = []
+        named[key] = set()
+        for i, item in enumerate(items):
+            if not isinstance(item, dict):
+                out.append(f"{shown}: {key}[{i}]: not a mapping ({', '.join(fields)})")
+                continue
+            for f in fields:
+                value = item.get(f)
+                if not (isinstance(value, str) and value.strip() and "\n" not in value.strip()):
+                    out.append(f"{shown}: {key}[{i}].{f}: missing or not one line")
+            named[key].add(item.get(fields[0]))
+    for _, schema in _domain_schema_files(domain_dir, data):
+        text = _read_text(schema) if schema is not None else None
+        if text is None:
+            continue
+        for role in data_file_creates(text, _rel(schema, base)).logins:
+            if role not in named["roles"]:
+                out.append(f"{shown}: roles: {role} missing, a login role the domain creates "
+                           f"({_rel(schema, base)}) (master spec 6.5)")
+    producers = data.get("producers")
+    folder = _inside(domain_dir, producers) if isinstance(producers, str) else None
+    jobs = []
+    if folder is not None and folder.is_dir():
+        for jobs_file in sorted(folder.glob("*/jobs.yaml")):
+            if jobs_file.parent.name in ("api", "partners"):
+                continue
+            for job in _dict(_yaml_or_none(jobs_file)).get("jobs") or []:
+                if isinstance(job, dict) and isinstance(job.get("name"), str):
+                    jobs.append((job["name"], _rel(jobs_file, base)))
+    cron = domain_dir / CRON_FILE
+    for _, job, _, _ in cron_jobs(_read_text(cron) or "") if cron.is_file() else []:
+        if job is not None:
+            jobs.append((job, _rel(cron, base)))
+    for job, source in dict.fromkeys(jobs):
+        if job not in named["jobs"]:
+            out.append(f"{shown}: jobs: {job} missing, a job the domain creates ({source}) "
+                       "(master spec 6.5)")
 
 
 # --- the accessors (W1 item 4): parse, never check; never raise on a checked

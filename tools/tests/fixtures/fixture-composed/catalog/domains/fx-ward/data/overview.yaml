@@ -1,0 +1,10 @@
+# fx-ward's overview fragment (v0.6 master spec 6.5, 6.9): its login role
+# and its pg_cron job, one line each.
+roles:
+  - role: ward_app
+    who: the ward software
+    reads: the ward's tables
+    writes: the ward's tables
+jobs:
+  - job: fx-ward-tidy
+    what: the ward's nightly tidy-up
