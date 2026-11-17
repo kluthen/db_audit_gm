@@ -1590,3 +1590,68 @@ Figures: 1 agent, 113 tool calls, 22.9M tokens in / 121k out, max
 context 321k, $8.45 at API prices. **Over 300k context** (321k), and
 past the ~100-call rotation point by 13 calls; it finished and merged
 at that point rather than stopping at a WIP commit.
+
+### Chunk 6 — merged (153fc24), 2026-11-17
+
+6a 147782e (the front, the documentation site, the reports, the tools),
+6b 0566c62 (the status pages, render's status file, `fixture-status`);
+merged after chunk 7 without conflict. Every Done when item met: the
+bastion's stack test 136/0; `fixture-status`'s run 27/0 in 381 s with
+the deployment; two routes and three documents listed, the four others
+404, no dead link (`/other/` 502 by design); pages from the starter pack
+as handed over; 401 without the password, `/status/` included; no page
+for a third party's brick; `jq` 1.7.1 reading a Prometheus-format API
+through `curl` as `player`, `tmux` 3.5a; a pgBadger report listed and
+served with the sandbox header, symlinks, `..` and POST 404; the status
+pages (f1 only, then f2 once started, "Operational" for the other
+partner; the file root 0400, unreadable by `player`; no `proxy_pass` in
+the front). Footprint (Docker 29.9.3, 2026-11-17): container 5.5 MiB
+with routes, 5.0 without; nginx 13.2 MiB resident with routes, 12.3
+without; image 199 MB (from 195 MB, `jq`/`tmux` and their libraries
+3.6 MiB); `brick.yaml`'s figures unchanged. Unit suite on its branch
+1381 OK, 2 skipped; 494 related tests on the merged tree.
+
+**W2-w (as built):**
+- Brick pages: config kind `brick-doc`, name
+  `<game_id>_<bastion node>_doc-<brick-id>`, the brick's
+  `docs/player.md` at `/opt/gm/docs/bricks/<id>.md` (0:0, 0444), one per
+  brick of a node outside `third_party_nodes`, in topology order, built
+  at fit (`localimpl.brick_doc_configs`, `documented_bricks`); counted
+  in `_derived_lengths` (game ids shorter where brick ids are long);
+  render refuses "the brick pages changed since gmctl fit: fit again".
+- Status secret: kind `rendered`, name `partners_status` (Swarm
+  `<gid>_partners_status`), file `local/<pg>/secrets/partners_status.json`
+  (0600 in 0700), at `/opt/gm/secrets/partners_status.json` (root
+  0400); declared on the bastion when a third party has a `player_doc`;
+  written in `write_rendered`, so a restart rewrites it; skipped by
+  `generate_credentials`. `render.t0_instant(timeline, rendered_at=None)`:
+  `virtual_t0`, else the timeline's `rendered_at`, else the argument.
+- The front: W2 item 2's locations plus `location = /reports` 301;
+  `/reports/` with `limit_except GET`, `mime.types`, `error_page 403
+  404 =404`; `/status/<id>` 301 to the slash; the entrypoint refuses a
+  route named `docs`, `reports` or `status`.
+- Renderers: `/usr/local/lib/gm/pages.sh`; `/usr/local/lib/gm/html-ids`
+  (perl: GitHub-style ids, `<file>.md#x` links to `/docs/<id>#x`, a
+  "Status page" link under each partner); `/usr/local/lib/gm/render-status`
+  (jq). s6 longrun `status-pages`: render, sleep 60 s; `s6-svc -O`
+  without the file; left out of `brick.yaml`'s `processes`.
+- The home 0751; `~/reports/` `player` 0755, recreated if missing, a
+  link or a file. The customer's name from `story.md`'s first `# `.
+- Choices W2 left open: render refuses a `handover-<N>h` moment in a
+  game rendered without `--handover`; tools listed alphabetically;
+  `html-ids` on bytes (perl-base has no Unicode tables), so a
+  non-ASCII heading may differ from GitHub's id (every anchor today is
+  ASCII).
+
+Outside its Files: `test_fit.py`, `test_teardown.py`, `test_inject.py`
+(config counts, the game-id bound). `fixture-status`'s `README.md` is a
+hand-written stub. **For chunk 9:** `state.secret_files` labels the
+`rendered` secret "password" and names it `partners_status` without
+`.json` (`gmctl status`'s display only; `state.py` is chunk 9's).
+**Risk:** a game deployed before this merge needs its bastion restarted
+for the pages. **Next:** G7.
+
+Figures: 1 agent, 139 tool calls, 30.1M tokens in / 132k out, max
+context 324k, $10.21 at API prices. **Over 300k context** (324k), and
+39 calls past the ~100-call rotation point; it finished and merged
+instead of stopping at a WIP commit.

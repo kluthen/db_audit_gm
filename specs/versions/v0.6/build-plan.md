@@ -785,7 +785,11 @@ key's service times sit beside its `queries.yaml` and the file's form.
 
 ### Chunk 6 — `bastion` 0.6.0: the front, the documentation site, the reports, the status pages
 
-Status: planned
+Status: merged (w2, 153fc24)
+Record: 6a 147782e, 6b 0566c62, merge 153fc24. As W2 items 1 and 2, with
+choices W2 left open recorded as W2-w in the wave log; `fixture-status`'s
+run places f2's start by rewriting the status file (`--handover` takes
+whole hours only).
 Wave: 2
 Depends on: chunks 2, 3; G6; G3, G4
 Docker: heavy (the bastion's image, its stack test, the status fixture)
