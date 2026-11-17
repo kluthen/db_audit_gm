@@ -1856,3 +1856,54 @@ W2 item 14's "9 does not change `bricks/scheduler/program/`" is
 superseded: 9b changes it (chunk 15 merged). Chunk 15's section, as
 built, still says "`gm_vclock` first on the path"; chunk 9's text
 carries the change.
+
+### Chunk 9b — WIP (4fe88e9), rotated at ~97 calls, 2026-11-17
+
+On `v0.6-c9-restart` over 9a's 2af490b: a6b5abc (v0.6-w2 taken in),
+8474542 (WIP: D530's program and host changes, D532's lead, D533's
+`fixture-dropped-index`, the two `wal-rate.yaml`), 4fe88e9 (WIP:
+`gmctl clean-restart`, 11 unit tests, the verb, `gmctl.md`'s row). Met
+by unit tests: the shop's 3 h / 11:00 and a capped floor with a covered
+instant; `TestP0`'s cover forms by 9.4's rule and an unqualified
+`CREATE TABLE` landing in `public`; `fill-sql --drop` refusing a table
+inside `gm_vclock`; clean-restart refusing a node without
+`wal-rate.yaml`; a synthetic cover item restored. Scheduler unit runner
+113 OK, replay guard green; `scheduler:0.4.0` rebuilt (sha256:bfa1d9fb…).
+Full tools suite 1454 with one failure (`TestNoLoadControl.test_verbs`,
+the new verb), fixed in 4fe88e9, not rerun whole. Left: the fixture run
+(every deployment item of the Done when) and the merge.
+
+**W2-x additions, accepted by the driver:**
+- `wal-rate.yaml`: `bytes_per_hour: 43881262` for the shop, from the
+  reference's `m1-fa-real-20261115T0800/shared_stats.csv`
+  (`pg_stat_wal.wal_bytes` 1055344352 over 86580 s); it includes the
+  seed load, so it overstates the steady rate (chunk 11 measures the
+  campaign's; worth a remeasure then). `fixture-fill`'s is the shop's.
+- clean-restart's order: the fill's unrestored items (covers first, in
+  `restore.database`) and a leftover `gm_vclock` dropped; WAL padded
+  with `pg_logical_emit_message` in 1 MiB to 24 × `bytes_per_hour`,
+  `CHECKPOINT; pg_switch_wal()` twice, `{padded_bytes, pg_wal_bytes,
+  seconds}` in `clean_restart.wal`; `pg_stat_statements_reset()` and
+  `pg_stat_reset_shared(NULL)`; the hold's and the fill's left-off
+  `ALTER SYSTEM` restores sent **before** the stop (they need a running
+  server; they take effect at the start), the cron daemon's script not
+  run (the fresh container brings cron back); PostgreSQL stopped fast,
+  every service scaled to 0; helper containers clear `pglog`, empty
+  `pgblog`, set data files' mtimes (not `pg_wal`, `postmaster.*`); the
+  record's `restart: {at, story_line, explains}`, the stack rewritten
+  `held=False`; one `docker service scale -d …=1`, `restart.at` the
+  issue instant to the second.
+- `explains`: 9.10's rows `{observation, where, in_world}`, the archive
+  row only with an archiving item, the cover row only with a cover.
+- **Last virtual write** (a choice; the capture gave no means): before
+  the fill, the virtual T0 minus the gap to the fill's start; during
+  it, the fill's real span mapped linearly onto virtual T0 → anchor;
+  after it, the anchor.
+- Risks: `restart.at` is the scale's issue instant, not a measured
+  start; several hosts untested (`restart.volume_name`); the padding's
+  time not yet measured.
+
+Figures so far (chunk 9, three agents: 9a, 9b, and the earlier
+blockers' run is spec-writer's, not counted here): 250 tool calls,
+34.1M tokens in / 218k out, max context 245k, $14.09 at API prices.
+A fresh owner resumes for the fixture run.
