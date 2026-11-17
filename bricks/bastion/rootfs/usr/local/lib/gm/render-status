@@ -1,0 +1,48 @@
+#!/bin/sh
+# render-status (DO NOT TAMPER): the partners' status pages (v0.6 master
+# spec 7.6; capture W2 items 1 and 2), run as root every minute by the s6
+# service `status-pages`. From the game's status file, a GM-owned secret
+# readable by root only (it holds incidents still to come), it writes one
+# page per partner, /run/web-front/www/status/<id>/index.html: the
+# partner's name, its state ("Operational", or "Incident ongoing" while an
+# admitted incident has started and not ended), and each admitted incident
+# whose start has passed, newest first: its title, its text, its start
+# and, once passed, its end, in UTC. An incident not yet started is not on
+# the page. Each page is written to a temporary file and moved into place,
+# root:www-data 0440.
+set -eu
+STATUS_FILE=/opt/gm/secrets/partners_status.json
+STATUS_DIR=/run/web-front/www/status
+. /usr/local/lib/gm/pages.sh
+
+[ -f "$STATUS_FILE" ] || exit 0
+now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+install -d -o root -g www-data -m 0750 "$STATUS_DIR"
+for id in $(jq -r '.partners[].id' "$STATUS_FILE"); do
+    printf '%s\n' "$id" | grep -Eqx '[a-z][a-z0-9-]{0,62}' \
+        || { echo "render-status: '$id' is not a partner's id" >&2; exit 1; }
+    install -d -o root -g www-data -m 0750 "$STATUS_DIR/$id"
+    title=$(jq -r --arg id "$id" '.partners[] | select(.id == $id) | .name + " — status" | @html' \
+        "$STATUS_FILE")
+    body=$(jq -r --arg id "$id" --arg now "$now" '
+        def utc: sub("T"; " ") | sub(":[0-9]{2}Z$"; " UTC");
+        .partners[] | select(.id == $id) as $p
+        | ($p.incidents | map(select(.start <= $now))) as $started
+        | ($started | map(select(.end == null or .end > $now))) as $ongoing
+        | "<h1>\($p.name | @html)</h1>",
+          "<p class=\"state\">Status: <strong>"
+            + (if ($ongoing | length) > 0 then "Incident ongoing" else "Operational" end)
+            + "</strong></p>",
+          "<p class=\"updated\">Updated \($now | utc).</p>",
+          (if ($started | length) > 0 then "<h2>Incidents</h2>"
+           else "<p>No incident reported.</p>" end),
+          ($started | sort_by(.start) | reverse | .[]
+           | "<section class=\"incident\">",
+             "<h3>\(.title | @html)</h3>",
+             "<p>\(.text | @html)</p>",
+             "<p>Started \(.start | utc)"
+               + (if .end != null and .end <= $now then ", ended \(.end | utc)" else "" end)
+               + ".</p>",
+             "</section>")' "$STATUS_FILE")
+    { page_open "$title"; printf '%s\n' "$body"; page_close; } | put_page "$STATUS_DIR/$id/index.html"
+done

@@ -1,6 +1,7 @@
 """Stack file and envelope file rendering (tools/gm/render.py)."""
 
 import datetime
+import json
 import shutil
 import subprocess
 import sys
@@ -1798,3 +1799,112 @@ class TestBrickPages(PartnersRendered):
         sc = model.load_scenario(self.scenario)
         self.assertIn(("_bastion_doc-bastion", localimpl.OBJECT_NAME_MAX),
                       localimpl._derived_lengths(sc))
+
+
+STATUS_FIXTURE = FIXTURES / "fixture-status"
+
+
+class StatusRendered(PartnersRendered):
+    """A fresh copy of fixture-status: alpha-lab admits f1 (from T0) and f2
+    (from handover-2h), beta-lab nothing (master spec 7.6)."""
+
+    def setUp(self):
+        ScenarioCopyTest.setUp(self)
+        self.scenario = self.tmp / "fixture-status"
+        shutil.copytree(STATUS_FIXTURE, self.scenario)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def status(self):
+        return json.loads((self.ldir / "secrets" / "partners_status.json").read_text())
+
+
+class TestStatusFile(StatusRendered):
+    """render's status file (master spec 6.7, 7.6; capture W2 item 1)."""
+
+    def test_declared_on_the_bastion_as_a_rendered_secret(self):
+        self.fit()
+        sec = [s for s in self.impl["secrets"] if s["kind"] == localimpl.RENDERED]
+        self.assertEqual(sec, [{"name": f"{self.gid}_partners_status", "secret": "partners_status",
+                                "kind": "rendered",
+                                "file": "local/laptop/secrets/partners_status.json"}])
+        self.assertIn({"name": f"{self.gid}_partners_status",
+                       "path": "/opt/gm/secrets/partners_status.json", "uid": 0, "gid": 0,
+                       "mode": "0400"}, self.impl["nodes"]["bastion"]["secrets"])
+        for name in ("partners-api", "partners-backend", "partners-db"):
+            self.assertNotIn("partners_status", str(self.impl["nodes"][name]["secrets"]))
+
+    def test_instants_from_the_planned_handover_and_the_render(self):
+        self.fit()
+        self.render(handover_at(16))
+        timeline = self.impl["timeline"]
+        planned = render.from_iso(timeline["planned_handover"])
+        self.assertEqual(self.status(), {
+            "generated_at": timeline["rendered_at"],
+            "partners": [
+                {"id": "alpha-lab", "name": "Alpha Laboratories", "anchor": "alpha-laboratories",
+                 "incidents": [
+                     {"instance": "f1", "title": "Slow status answers",
+                      "text": "Our status endpoint answers slowly. Our engineers are looking "
+                              "into it.",
+                      "start": timeline["rendered_at"], "end": None},
+                     {"instance": "f2", "title": "Planned maintenance of our database",
+                      "text": "Our database is under maintenance; answers may be slower than "
+                              "usual.",
+                      "start": render.iso(planned - datetime.timedelta(hours=2)), "end": None}]},
+                {"id": "beta-lab", "name": "Beta Laboratories", "anchor": "beta-laboratories",
+                 "incidents": []}]})
+        stack = self.stack["services"]["bastion"]["secrets"]
+        self.assertIn({"source": f"{self.gid}_partners_status",
+                       "target": "/opt/gm/secrets/partners_status.json",
+                       "uid": "0", "gid": "0", "mode": 0o400}, stack)
+
+    def test_file_and_folder_modes(self):
+        self.fit()
+        self.render()
+        path = self.ldir / "secrets" / "partners_status.json"
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_until_and_start_order(self):
+        def change(data):
+            f1, f2 = data["fault_instances"]
+            f1["admitted"]["from"] = "handover-3h"
+            f1["admitted"]["until"] = "handover-1h"
+        self.edit_yaml("scenario.yaml", change)
+        self.fit()
+        self.render(handover_at(16))
+        planned = render.from_iso(self.impl["timeline"]["planned_handover"])
+        at = lambda h: render.iso(planned - datetime.timedelta(hours=h))
+        alpha = self.status()["partners"][0]["incidents"]
+        self.assertEqual([(i["instance"], i["start"], i["end"]) for i in alpha],
+                         [("f1", at(3), at(1)), ("f2", at(2), None)])
+
+    def test_a_left_out_instance_admits_nothing(self):
+        self.fit()
+        render.render(self.scenario, "laptop", handover=handover_at(16), test_leave_out="f2")
+        self.assertEqual([i["instance"] for i in self.status()["partners"][0]["incidents"]],
+                         ["f1"])
+
+    def test_t0_reads_the_virtual_t0_first(self):
+        self.assertEqual(render.t0_instant({"virtual_t0": "2026-11-20T01:00:00Z",
+                                            "rendered_at": "2026-11-21T09:00:00Z"}),
+                         "2026-11-20T01:00:00Z")
+        self.assertEqual(render.t0_instant({"rendered_at": "2026-11-21T09:00:00Z"}),
+                         "2026-11-21T09:00:00Z")
+        self.assertEqual(render.t0_instant(None, "2026-11-21T10:00:00Z"), "2026-11-21T10:00:00Z")
+        self.assertEqual(render.t0_instant({"planned_handover": "2026-11-21T14:00:00Z"},
+                                           "2026-11-21T10:00:00Z"), "2026-11-21T10:00:00Z")
+
+    def test_a_handover_moment_needs_the_planned_handover(self):
+        with self.assertRaisesRegex(model.GmError, "f2: admitted.from: handover-2h .*--handover"):
+            render.admitted_instant("handover-2h", None, "2026-11-21T10:00:00Z",
+                                    "fault instance f2: admitted.from")
+
+    def test_no_status_file_without_partners(self):
+        ScenarioCopyTest.setUp(self)        # fixture-audit: no third_parties:
+        self.ldir = self.scenario / "local" / "laptop"
+        self.fit()
+        render.render(self.scenario, "laptop")
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertFalse([s for s in impl["secrets"] if s["kind"] == localimpl.RENDERED])
+        self.assertFalse((self.ldir / "secrets" / "partners_status.json").exists())

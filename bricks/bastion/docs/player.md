@@ -46,6 +46,12 @@ The documents are shown as they were handed over: never your own edits
 system as it was at the mission's start, and stay so: a fix you make may
 leave one of them out of date, and that is expected.
 
+A partner's **status page** (`/status/<partner>/`, also linked from the
+partner's section of the partners' page) is the partner's own: what it
+admits of its incidents, as it says them, with their start and end in
+UTC. It shows "Operational", or "Incident ongoing" while an incident it
+admits is under way. A partner says only what it knows or will say.
+
 ## Reports
 
 Your home has a folder `~/reports/`, served read-only at

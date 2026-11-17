@@ -85,6 +85,8 @@ only), the network carries it, `ipam: {config: [{subnet}]}`.
 """
 
 import datetime
+import json
+import os
 import re
 import secrets as _random
 import shutil
@@ -94,6 +96,7 @@ from pathlib import Path
 import yaml
 
 from . import localimpl
+from .model import admitted_incidents
 from .model import (CUSTOMER_TIMEZONE, HANDOVER_MOMENT_RE, REPO_ROOT, WEEKDAYS, GmError,
                     has_scheduler_nodes, is_scheduler_node, load_scenario, parse_cpu,
                     parse_duration, parse_mode)
@@ -311,6 +314,74 @@ def moment_instant(moment, planned, rendered_at):
     if m is None:
         return rendered_at
     return iso(planned - datetime.timedelta(hours=int(m.group(1))))
+
+
+def t0_instant(timeline, rendered_at=None):
+    """T0 as a UTC instant (capture W2 item 1): a fake game's virtual T0
+    (`virtual_t0`, chunk 9's key), else the render time, as moment_instant
+    takes it (`rendered_at`, the timeline's, else the one given: a game
+    without a timeline)."""
+    timeline = timeline or {}
+    return timeline.get("virtual_t0") or timeline.get("rendered_at") or rendered_at
+
+
+def admitted_instant(moment, timeline, rendered_at, where):
+    """An `admitted:` moment as a UTC instant (master spec 7.6):
+    `handover-<N>h` N hours before the planned hand-over, `T0`
+    t0_instant. GmError for a hand-over moment in a game rendered without
+    `--handover`."""
+    m = HANDOVER_MOMENT_RE.match(str(moment))
+    if m is None:
+        return t0_instant(timeline, rendered_at)
+    planned = (timeline or {}).get("planned_handover")
+    if planned is None:
+        raise GmError(f"{where}: {moment} is a moment before the hand-over: give the planned "
+                      "hand-over, --handover <UTC date and hour> (2026-10-27T14:00Z)")
+    return iso(from_iso(planned) - datetime.timedelta(hours=int(m.group(1))))
+
+
+def status_file(scenario, impl, timeline, rendered_at):
+    """The game's status file (master spec 6.7, 7.6; capture W2 item 1):
+    each third party with a player document, in `third_parties:` order
+    (its id, name and the anchor of its section in the partners' page, or
+    None), and the incidents it admits, in start order: those of the
+    instances the game plants (inject.fault_instances: the test harness's
+    and, from chunk 9, the refused instances left out), as UTC instants."""
+    from . import inject                    # inject imports render
+    planted = {inst["id"] for inst, _ in inject.fault_instances(scenario, impl)}
+    incidents = {}
+    for adm in admitted_incidents(scenario):
+        if adm.instance not in planted:
+            continue
+        where = f"fault instance {adm.instance}: admitted"
+        incidents.setdefault(adm.by, []).append({
+            "instance": adm.instance, "title": adm.title, "text": adm.text,
+            "start": admitted_instant(adm.start, timeline, rendered_at, where + ".from"),
+            "end": admitted_instant(adm.end, timeline, rendered_at, where + ".until")
+            if adm.end is not None else None})
+    partners = []
+    for entry in localimpl.status_partners(scenario):
+        doc = str(entry["player_doc"])
+        partners.append({"id": entry.get("id"), "name": entry.get("name"),
+                         "anchor": doc.partition("#")[2] or None,
+                         "incidents": sorted(incidents.get(entry.get("id"), []),
+                                             key=lambda i: i["start"])})
+    return {"generated_at": (timeline or {}).get("rendered_at") or rendered_at,
+            "partners": partners}
+
+
+def write_status_file(path, status):
+    """The status file, 0600 in its 0700 folder (as deploy's secrets)."""
+    path = Path(path)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(path.parent, 0o700)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(status, fh, indent=1, ensure_ascii=False)
+        fh.write("\n")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
 
 
 def render_schedule(doc, shift, planned, seed, rendered_at):
@@ -786,7 +857,12 @@ def write_rendered(scenario, playground, ldir, impl, timeline):
     timeline in `implementation.yaml` and the stack file. Returns
     `(envelope files, node config files, rendered files, stack file)`.
     Also a restart's (chunk 11): its new game id, the planned hand-over
-    kept, a new seed."""
+    kept, a new seed. v0.6: with partners holding a player document, the
+    partners' status file too (`rendered` secret, capture W2 item 1),
+    computed first, so a refusal writes nothing."""
+    status = [(sec, status_file(scenario, impl, timeline, localimpl.now_iso()))
+              for sec in impl.get("secrets") or [] if sec.get("kind") == localimpl.RENDERED
+              and sec.get("secret") == localimpl.PARTNERS_STATUS]
     envelope_files = []
     for node in scenario.nodes:
         name = node["name"]
@@ -813,6 +889,9 @@ def write_rendered(scenario, playground, ldir, impl, timeline):
                                                                seed_name)
             localimpl.write_text(path, rendered_seed_text(scenario, node, seed_name, timeline))
             rendered_files.append(path)
+
+    for sec, content in status:
+        write_status_file(scenario.dir / sec["file"], content)
 
     if timeline is None:
         impl.pop(localimpl.TIMELINE, None)

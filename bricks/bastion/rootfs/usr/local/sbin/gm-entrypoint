@@ -25,7 +25,9 @@
 #      then Tools, each brick's page), the documentation site under /docs/
 #      rendered from the starter pack as handed over (/opt/gm/starter) and
 #      the brick pages (/opt/gm/docs/bricks), the reports folder at
-#      /reports/; a route `name=host:port:console` is cold storage's
+#      /reports/, and, with the partners' status file, one status page per
+#      partner at /status/<id>/ (written every minute by the s6 service
+#      `status-pages`, v0.6 master spec 7.6); a route `name=host:port:console` is cold storage's
 #      console, proxied for GET / and GET /manifests alone (v0.5 master
 #      spec 7.3, D363).
 set -eu
@@ -41,6 +43,7 @@ SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
 REPORTS_DIR=$PLAYER_HOME/reports    # the stack's reports, served at /reports/ (master spec 7.5)
 BRICK_DOCS_DIR=/opt/gm/docs/bricks  # the brick pages render delivers (capture W2 item 1)
+STATUS_FILE=/opt/gm/secrets/partners_status.json   # the partners' status file (W2 item 1)
 WEB_DIR=/run/web-front
 WEB_PORT=8080
 WEB_USER=player                     # the basic-authentication user name
@@ -284,7 +287,8 @@ unset tools_password hash
 # directory per route (and reports/, for /reports), for which nginx's
 # static module answers /<name> with a 301 to /<name>/; the pages.
 install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes" \
-    "$WEB_DIR/www/routes/reports" "$WEB_DIR/www/docs" "$WEB_DIR/www/docs/bricks"
+    "$WEB_DIR/www/routes/reports" "$WEB_DIR/www/docs" "$WEB_DIR/www/docs/bricks" \
+    "$WEB_DIR/www/status"
 for name in $web_names; do
     install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www/routes/$name"
 done
@@ -303,10 +307,29 @@ data-policy data-policy.md Data policy
 partners partners.md Partners
 data-register data-register.md Data register
 network-overview network-overview.md Network overview'
+# The partners' status pages (master spec 7.6; capture W2 items 1 and 2):
+# with the status file (root's alone), each partner's page is linked from
+# the home's Sites by its name, and from its section of the partners' page
+# (the status map: lines `<anchor> <id>`, for html-ids).
+status_links=
+: > /run/gm/status-map
+if [ -f "$STATUS_FILE" ]; then
+    jq -e '.partners | type == "array"' "$STATUS_FILE" >/dev/null 2>&1 \
+        || die "$STATUS_FILE is not the partners' status file"
+    jq -r '.partners[] | select(.anchor != null) | "\(.anchor) \(.id)"' "$STATUS_FILE" \
+        > /run/gm/status-map || die "could not read $STATUS_FILE"
+    status_links=$(jq -r '.partners[]
+        | "<li><a href=\"/status/\(.id | @uri)/\">\(.name | @html)</a></li>"' "$STATUS_FILE") \
+        || die "could not read $STATUS_FILE"
+    [ -z "$status_links" ] || status_links="$status_links
+"
+fi
 doc_links=
 while read -r id file title; do
     [ -f "$STARTER_DIR/$file" ] || continue
-    md_page "$(starter_source "$file")" "$title" > /run/gm/page.html \
+    map=
+    [ "$id" != partners ] || map=/run/gm/status-map
+    md_page "$(starter_source "$file")" "$title" "$map" > /run/gm/page.html \
         || die "could not render $STARTER_DIR/$file"
     put_page "$WEB_DIR/www/docs/$id.html" < /run/gm/page.html
     doc_links="$doc_links<li><a href=\"/docs/$id\">$title</a></li>
@@ -328,7 +351,7 @@ for f in "$BRICK_DOCS_DIR"/*.md; do
     tool_links="$tool_links<li><a href=\"/docs/bricks/$id\">$(printf '%s' "$title" | html_escape)</a></li>
 "
 done
-rm -f /run/gm/page.html
+rm -f /run/gm/page.html /run/gm/status-map
 
 # The home (master spec 7.2): a header naming the customer (the story's
 # first heading), Sites (the routes, Reports), Documents (each page above),
@@ -340,7 +363,7 @@ for name in $web_names; do
 "
 done
 site_links="$site_links<li><a href=\"/reports/\">Reports</a></li>
-"
+$status_links"
 {
     page_open "$customer" home
     cat <<HOME
@@ -364,7 +387,7 @@ HOME
     printf '</section>\n'
     page_close
 } | put_page "$WEB_DIR/www/index.html"
-unset doc_links tool_links site_links customer
+unset doc_links tool_links site_links status_links customer
 
 cat > "$WEB_DIR/nginx.conf" <<EOF
 # nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
@@ -441,6 +464,18 @@ http {
             include /etc/nginx/mime.types;
             default_type application/octet-stream;
             add_header Content-Security-Policy "sandbox allow-scripts" always;
+            error_page 403 404 =404 /.gm-not-found;
+        }
+        # The partners' status pages (master spec 7.6): /status/<id>/,
+        # written every minute by the s6 service status-pages; a partner
+        # without a player document, or any other path: 404.
+        location /status/ {
+            root $WEB_DIR/www;
+            types { }
+            default_type text/html;
+            charset utf-8;
+            index index.html;
+            try_files \$uri \$uri/ =404;
             error_page 403 404 =404 /.gm-not-found;
         }
         # Any other path: 404. /<name>, a directory of www/routes, has

@@ -560,6 +560,13 @@ code=$(web "$URL/cold-storage/manifests")
 [ "$code" = 401 ] && pass "console: without the tools password, 401" || fail "console without the password: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 200 ] && pass "the other routes still answer" || fail "/stub/ after /other/: $code"
+# No status file in this stack (no partner's status page): the s6 service
+# status-pages stays down, /status/ answers 404 (master spec 7.6).
+st=$(gm /command/s6-svstat -o up,wantedup /run/service/status-pages 2>&1)
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/status/northfield-lab/")
+[ "$st" = "false false" ] && [ "$code" = 404 ] \
+    && pass "without the status file: status-pages down ($st), /status/northfield-lab/ 404" \
+    || fail "without the status file: status-pages $st, /status/: $code"
 users=$(gm ps -o user= -C nginx | sort -u | tr '\n' ' ')
 [ "$users" = "www-data " ] && pass "nginx runs as www-data" || fail "nginx users: $users"
 m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/htpasswd /run/web-front/nginx.conf /run/web-front/www/index.html | tr '\n' ' ')

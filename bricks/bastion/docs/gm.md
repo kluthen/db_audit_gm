@@ -175,7 +175,9 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
 | Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
 | Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.html` (the home at `/`, see "Web front" under "Access"), `docs/<id>.html` and `docs/bricks/<brick-id>.html` (the documentation site) and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route (and `routes/reports/`), from which nginx answers `/<name>` with the redirect to `/<name>/` |
-| Page renderers | `/usr/local/lib/gm/pages.sh`, `/usr/local/lib/gm/html-ids` | v0.6: the page functions (`md_page`: `cmark-gfm -e table`, then `html-ids`), sourced by the entrypoint; `html-ids` gives each heading its GitHub id and points links between starter files to `/docs/` |
+| Page renderers | `/usr/local/lib/gm/pages.sh`, `/usr/local/lib/gm/html-ids`, `/usr/local/lib/gm/render-status` | v0.6: the page functions (`md_page`: `cmark-gfm -e table`, then `html-ids`), sourced by the entrypoint and `render-status`; `html-ids` gives each heading its GitHub id, points links between starter files to `/docs/` and, with the status map, links each partner's status page under its heading; `render-status` writes the partners' status pages |
+| Partners' status file | `/opt/gm/secrets/partners_status.json` | v0.6: secret `<game_id>_partners_status`, kind `rendered`, written by `gmctl render` (and a restart's re-render) into `local/<playground>/secrets/partners_status.json`, mounted only when a third party has a player document; root, `0400`: it holds incidents still to come (capture W2 item 1) |
+| Status pages | `/run/web-front/www/status/<id>/index.html` | v0.6: root:www-data, `0750` folders, `0440` pages, rewritten every minute by the s6 service `status-pages` (root), each through a temporary file moved into place |
 | Web front service | `/etc/s6-overlay/s6-rc.d/web-front/run` | nginx as `www-data` |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -395,6 +397,22 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   a starter file (`partners.md#x`) points to its page (`/docs/partners#x`).
   Each page links home. nginx: `location /docs/`, `try_files $uri.html
   =404`.
+- **The partners' status pages** (`/status/<id>/`, master spec 7.6;
+  capture W2 items 1 and 2): one per third party with a player document,
+  written every minute by the s6 service `status-pages` (root, running
+  `render-status`, then sleeping 60 s) from the status file, which only
+  root reads: the partner's name, "Operational" or "Incident ongoing"
+  (an admitted incident started and not ended), each admitted incident
+  whose start has passed, newest first, its title, text, start and, once
+  passed, end, in UTC; an incident not yet started is absent. Linked from
+  the home's Sites by the partner's name and from the partner's section
+  of `/docs/partners` ("Status page", under the heading whose id is the
+  `player_doc`'s anchor). Without the status file `status-pages` asks s6
+  not to restart it (down, as `web-front` without its configuration) and
+  no `/status/` page exists. A live page, not a handout: the
+  static-snapshot rule does not apply. Never a route to a third party's
+  node. In a fake game the instants fall where the virtual timeline puts
+  them (`render.t0_instant` reads `timeline.virtual_t0`, chunk 9).
 - **Reports** (`/reports/`, master spec 7.5): `~/reports/` served
   read-only (GET and HEAD) as nginx's directory listing, with
   `Content-Security-Policy: sandbox allow-scripts` on every answer, the

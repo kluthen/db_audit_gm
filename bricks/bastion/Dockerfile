@@ -108,10 +108,12 @@ COPY validator/validate.sh /opt/gm/validator/validate.sh
 RUN set -eux; \
     chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/bin /opt/gm/validator \
         /etc/ssh/sshd_config /etc/ssh/ssh_config.d/gm-game.conf /etc/motd /etc/profile.d/gm-bastion.sh; \
-    chown root:root /usr/local/lib/gm/healthcheck /usr/local/lib/gm/html-ids /usr/local/lib/gm/pages.sh; \
+    chown root:root /usr/local/lib/gm/healthcheck /usr/local/lib/gm/html-ids /usr/local/lib/gm/pages.sh \
+        /usr/local/lib/gm/render-status; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/lib/gm/healthcheck /opt/gm/validator/validate.sh \
-        /usr/local/lib/gm/html-ids \
-        /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/web-front/run; \
+        /usr/local/lib/gm/html-ids /usr/local/lib/gm/render-status \
+        /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/web-front/run \
+        /etc/s6-overlay/s6-rc.d/status-pages/run; \
     chmod 0644 /usr/local/lib/gm/pages.sh; \
     printf '# A\n\n## B c\n\n## B c\n\n[p](partners.md#b-c)\n' | cmark-gfm -e table \
         | perl /usr/local/lib/gm/html-ids | grep -q '<h2 id="b-c-1">'; \
@@ -128,5 +130,6 @@ EXPOSE 22 8080
 # gm-entrypoint prepares /run, the sshd host key, the password, the
 # player's home, starter pack and ~/reports/, the web front's
 # configuration, password file and pages, then execs s6-overlay's /init,
-# which supervises `sshd` and `web-front`.
+# which supervises `sshd`, `web-front` and `status-pages` (the partners'
+# status pages, every minute, when the game has a status file).
 ENTRYPOINT ["/usr/local/sbin/gm-entrypoint"]
