@@ -2044,3 +2044,24 @@ expected; autovacuum during the fill 99 runs on `products`, 1 on
 `pg_wal` 1,056,964,608 bytes after the checkpoints; starts +0.9 to +2.3 s
 from `restart.at`; `stats_reset` 8 s before it. `/home` 14 GB free.
 Removed: the superseded `api:0.1.0` tag. Nothing left running.
+
+### G9.1's post-change check — 2026-11-17, CLEAR with one follow-up
+
+`security-advisor`, 3768038 (`.tech` only). The rebuilt images match
+the gate's dpkg diffs. Clean: postgres 18.7 (the 2026-11-12 batch, 52
+CVEs on 18), libpq 17.12 in scheduler, api, health-check (DSA-6625-1,
+47 on 17), pgbouncer 1.26.1, c-ares 1.34.9-1~deb13u1 (DSA-6626-1):
+**the c-ares item in `.tech` closed**, its `[[ignore]]` removed.
+`cve-watch check` 75 findings before and after, none new (all already
+in `SECURITY_TODO.md`).
+
+Follow-up for the owner: the pinned `pg_cron` 1.6.8-1.pgdg13+2 and
+`pgaudit` 18.0-3.pgdg13+1 were built before 18.7 and lack the extension
+half of CVE-2026-6460 (18.7's notes: C extensions need rebuilding).
+PGDG's +3/+2 are the same sources rebuilt and do install on 18.7 (the
+gate's note that they need "above 18.7" was wrong). Not reachable here
+(only the superuser and the game's service roles connect). Proposed:
+re-pin in `bricks/postgres/Dockerfile` now, postgres 0.5.1 being
+unreleased, `--no-cache` rebuild and its stack test. Also: pgAudit 18.1
+(upstream 2026-11-17, not yet in PGDG) changes which audit lines are
+logged, so it is a game-content decision for later.
