@@ -869,7 +869,10 @@ status service's s6 name.
 
 ### Chunk 7 — The network overview: the skill, the loader's checks, the clinic's overview
 
-Status: planned
+Status: merged (w2, 4f96311)
+Record: 7a 50ee241, 7b 90c74b0, merge 4f96311. Differs from W2 only in
+the connection error text naming the target node (W2-z, wave log); the
+domain template's `overview:` still marked optional (enforced in code).
 Wave: 2
 Depends on: chunks 2, 3, 4; G2 (done)
 Docker: none
