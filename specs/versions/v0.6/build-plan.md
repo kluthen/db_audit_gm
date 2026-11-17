@@ -1,15 +1,17 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v6 (2026-11-17): chunk 9's three blockers settled into 9b's
-Scope, Files and Done when: `gm_vclock` right before `pg_catalog` on
-every path (spec D530), a covered instant's lead in the tail (spec
-D532), `fixture-fill`'s f8 a fixture fault (spec D533). v5 wrote in
-capture W2's preflight corrections (spec D527 to D529).
+Status: v7 (2026-11-17): after wave 2's gate, G10.1 and G10.2 done
+(formats.md v36, spec D534); chunk 11 gains the campaign's two
+`wal-rate.yaml` (capture W2 item 11, which no chunk's Files carried);
+chunk 12 gains an instance's `admitted:` in the scenario document
+(spec D537). v6 settled chunk 9's three blockers (spec D530, D532,
+D533); v5 wrote in capture W2's preflight corrections (spec D527 to
+D529).
 Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
-[formats.md](../../formats.md) v35. No design set (no interface to
+[formats.md](../../formats.md) v36. No design set (no interface to
 design, spec D2). Where this plan and those documents disagree, they win
 and the plan is corrected.
 
@@ -1318,7 +1320,13 @@ applied.
     numbers from one short real run of the fault, under 30 minutes,
     planted at once with its job moved into the window, a fault with no
     Prometheus trail `- kind: none`; any campaign-only key's service
-    time; whether f4's check needs the 12:00 close in the tail;
+    time; whether f4's check needs the 12:00 close in the tail; the
+    WAL rate of each of the campaign's primaries, `db` and `reporting`
+    (`wal-rate.yaml`, formats.md v36; capture W2 item 11), which
+    chunk 12's short game needs for `clean-restart`: `bytes_per_hour`
+    from `pg_stat_wal.wal_bytes` over one of its short real runs at the
+    scenario's load, the data load excluded, its `source:` naming the
+    run;
   - each `gm.md`'s "Fake aging" note for `tail-only` and `real-only`.
   - Out: a fault no covered scenario uses (stays not assessed); the
     clinic's faults; the scenario document's "Fake aging" section
@@ -1327,7 +1335,9 @@ applied.
   `faults/{purpose-mail-overlapping-window,purpose-leads-stale-consent,purpose-mail-outside-hours,purpose-watermark-misses-updates,purpose-etl-role-expired,security-crontab-superuser,purpose-day-boundary-wrong-zone,purpose-receiver-down-unnoticed,governance-personal-copied,purpose-heavy-job-on-database-node}/{fault.yaml,gm.md}`;
   `tools/fake_aging/calibrate.py` (new); `tools/fake_aging/calibration/`
   (new: each run's output); the campaign's service times beside its
-  `queries.yaml` if a key is campaign-only.
+  `queries.yaml` if a key is campaign-only;
+  `scenarios/tarnbeck-outdoor-campaign/nodes/{db,reporting}/wal-rate.yaml`
+  (new).
 - Spec sections: [9.5](master-spec.md#95-fault-eligibility),
   [9.7](master-spec.md#97-every-number-is-measured),
   [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates),
@@ -1339,7 +1349,9 @@ applied.
   `tail-only` and `real-only` fault's `gm.md` has its note; every
   calibration run is recorded with its wall time, each under 30
   minutes; the campaign's short fill recorded with its wall time and
-  f4's and f7's result, their `aging.fake.support` following it.
+  f4's and f7's result, their `aging.fake.support` following it; the
+  campaign's two `wal-rate.yaml` present, each tracing to a recorded
+  run.
 - Verification: chunk checks; the calibration runs, one at a time,
   under the lock.
 - Split rule: 11a the shop's ten and the calibration tool; 11b the
@@ -1473,24 +1485,35 @@ calls.
     `scenario-document` skill and its template): each instance's
     support, the tail the full selection needs, the instances refused
     with their reasons, the limits touching its evidence; every
-    scenario's `README.md` regenerated.
+    scenario's `README.md` regenerated;
+  - **an instance's `admitted:` in the scenario document** (master
+    spec 7.6, spec D537), in the same skill and template: beside the
+    instances' planting moments, a table of the instances a partner
+    admits (instance, partner, title, `from`, `until` as written) and
+    each one's text, as `fixture-v06-refusals`' hand-rendered
+    `README.md` shows it; that fixture's and `fixture-status`'s
+    `README.md` regenerated.
   - Out: the full selections with their real tails, the blind reads
     (v1.0 gating); the recorded baseline and the research's run scripts
     (stay research).
 - Files: `tools/fake_aging/{tells.sh,m1_dump.sh,m1_compare.py,m3_profile.py}`
   (new), `tools/fake_aging/README.md` (new); `tools/tests/smoke-fake-aging.sh`
   (new); `.claude/skills/scenario-document/{SKILL.md,template.md}`;
-  `scenarios/*/README.md`.
+  `scenarios/*/README.md`;
+  `tools/tests/fixtures/{fixture-status,fixture-v06-refusals}/README.md`.
 - Spec sections: [12.1](master-spec.md#121-short-tests-only),
   [9.10](master-spec.md#910-documented-limits),
   [9.12](master-spec.md#912-where-it-belongs-in-the-product),
-  [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates); items 5.
+  [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates),
+  [7.6](master-spec.md#76-the-partners-status-pages); items 5.
 - Done when: each short fake game passes every check above in under 30
   minutes, its wall time, the fill's duration and the import's time
   recorded; the shop's M1 and M3 comparisons within the reference's
   tolerances; the scenario document's section present for the shop and
   the campaign, and stating "not assessed" where a scenario's faults
-  are; every `README.md` fresh.
+  are; `fixture-status`'s and `fixture-v06-refusals`' scenario
+  documents generated with the admitted incidents shown; every
+  `README.md` fresh.
 - Verification: chunk checks; the two short games, one at a time,
   under the lock.
 - Split rule: 12a the tools, the script and the shop's game; 12b the

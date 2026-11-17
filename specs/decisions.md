@@ -354,3 +354,30 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   Rejected: leaving f8 out (chunk 8's pause check lost), a provisional
   assessment on the catalogue fault (chunk 11's), a harness override.
   Now in: [build plan](versions/v0.6/build-plan.md) chunk 9.
+- **D534 (2026-11-17, spec-writer, gates G10.1 and G10.2 after wave 2's
+  gate): waves 1 and 2's forms written as built,** each checked against
+  the code on `v0.6-w2`; none contradicts the spec, which they complete.
+  Now in: [formats.md](formats.md) v36 "Scenario", "Layout", "Local
+  implementation"; [master spec](versions/v0.6/master-spec.md#67-the-local-implementation)
+  6.7, 6.9, 9.4 step 1, 9.9 fix 8.
+- **D535 (2026-11-17, spec-writer, confirming chunk 9's choice the wave
+  driver accepted): `gmctl clean-restart` is refused before the planned
+  anchor,** since the fill's rows run up to it; the restart's measured
+  instant then starts the tail and the earliest hand-over counts from
+  it. Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
+  9.4 steps 6 and 9, 6.9.
+- **D536 (2026-11-17, spec-writer, confirming chunk 9's choice the wave
+  driver accepted): the statistics reset is the maintenance's step before
+  the stop,** so `stats_reset` falls seconds before the postmaster's
+  start; statistics survive a clean shutdown, so it reads as the
+  maintenance resetting them, and no session is needed after the start.
+  9.9 fix 2's "there" meant the restart, not the deploy. Now in:
+  [master spec](versions/v0.6/master-spec.md#99-the-fix-list) 9.4 step 6,
+  9.9 fix 2, 9.10.
+- **D537 (2026-11-17, spec-writer, chunk 7's note routed to G10.2): the
+  scenario document shows each instance's `admitted:`** beside its
+  planting moment; no section had it, so a GM learnt what a status page
+  will say only from `scenario.yaml`. Placed in chunk 12, which already
+  revises the skill and regenerates the documents. Now in:
+  [master spec](versions/v0.6/master-spec.md#76-the-partners-status-pages)
+  7.6; [build plan](versions/v0.6/build-plan.md) chunk 12.

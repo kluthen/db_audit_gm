@@ -21,7 +21,14 @@ the owner's answers: 8.7's README named as the starter pack's
 pause plantings at their virtual instant (9.4, fix 11; spec D527).
 Amended during chunk 9: where `gm_vclock` sits on a path, for the
 sessions and the cover (9.4, fix 11; spec D530); a covered instant's
-lead in the tail (9.6; spec D532).
+lead in the tail (9.6; spec D532). Amended after wave 2's gate (gates
+G10.1, G10.2): the forms as built, stated in formats.md v36 (6.7, 6.9;
+spec D534); the story line's wording (9.4); `clean-restart` never
+before the planned anchor, the tail counting from the restart's
+instant (9.4, 6.9; spec D535); the statistics reset in the restart's
+procedure, before the stop (9.4, 9.9 fix 2, 9.10; spec D536); a data
+file's last virtual write (9.9 fix 8); the scenario document showing an
+instance's `admitted:` (7.6; spec D537).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -326,13 +333,21 @@ above it. The overview's **Background tasks** read it.
   rendered, the documented limits that hold in this game, each with
   what it shows, where, and its in-world explanation) and the history
   import's result. GM-side, out of the players' reach like the answer
-  key.
+  key. The game's progress through the fake steps (the deploy's hold,
+  the fill, the clean-up) is in `state.yaml`, beside the rest of its
+  progress.
 - **The partners' status file**: render turns each planted instance's
   `admitted:` into UTC instants, as it turns a schedule's timeline
   changes, and writes it as a GM-owned secret mounted on the bastion
   (section 7.6).
 - The bastion also receives, as configs, the player documentation of
   each brick it documents (section 7.3).
+
+Their forms as built (the timeline's keys, the record as written,
+`state.yaml`'s `hold`, `fill` and `clean_restart`, a `fill.quiet` item
+and the cover's, the status file's JSON and its `rendered` secret, the
+`brick-doc` configs) are in [formats.md](../../formats.md)
+"Local implementation" (v36).
 
 ### 6.8 Versions and pins
 
@@ -435,8 +450,8 @@ tail: 3h
 handover_planned: 2026-11-21T14:00:00Z
 refused: []                        # each {instance, reason}; the shop's full selection refuses none
 restart:
-  at: 2026-11-21T11:00:04Z         # measured
-  story_line: The servers were restarted this morning at 11:00 for maintenance;
+  at: 2026-11-21T11:00:14Z         # measured: the one start's instant, never before the anchor
+  story_line: The servers were restarted for maintenance on 2026-11-21 at 11:00 UTC;
     older logs were archived.
   explains:
     - {observation: statement and shared statistics reset at 11:00,
@@ -630,6 +645,11 @@ an incident the partner doesn't admit.
 In a fake game, an incident's instants fall where the virtual timeline
 puts them, real instants in the past or the tail; the page shows them
 as any other.
+
+**For the GM**: the scenario document shows each instance's admitted
+incident beside the instance (the partner, the title, the text, `from`
+and `until` as written), so the GM knows what a status page will say
+and when without reading `scenario.yaml`.
 
 ### 7.7 General-use tooling
 
@@ -912,8 +932,11 @@ Steps 1 to 4 are today's setup.
 
 1. `gmctl render --aging fake`: the timeline above, written into the
    restart record (6.7). The starter pack's story line on the restart is
-   rendered with the planned time: "the servers were restarted this
-   morning at 11:00 for maintenance; older logs archived".
+   rendered with the planned anchor's date and time, appended to the
+   story: "The servers were restarted for maintenance on 2026-11-21 at
+   11:00 UTC; older logs were archived." (a date and UTC, since the
+   anchor need not fall in the morning and every time the game shows is
+   UTC).
 2. `gmctl deploy`, the monitoring (Prometheus, Grafana, the exporters,
    pgwatch) kept scaled to zero until the restart.
 3. `gmctl load-data`, on the virtual T0's clock (fix 11), and unseen as
@@ -935,14 +958,22 @@ Steps 1 to 4 are today's setup.
    off as in step 3. The real-clock actors stay off: `pg_cron`, the
    database node's cron daemon, archiving. No `pg_cron` job runs in the
    fill; its runs are the tail's.
-6. **`gmctl clean-restart`**: the WAL padded and checkpointed; the
-   statement and shared statistics reset; the fill's PostgreSQL, pooler
-   and cron logs removed; the data files' modification times set to
-   their virtual times; then **every service of the game restarted at
-   the same instant, the monitoring scaled up from zero in that same
+6. **`gmctl clean-restart`**, never before the planned anchor (refused
+   until it comes: the fill's rows run up to it, so a restart before it
+   would leave the last of them dated after the restart, in the future);
+   the GM waits out whatever is left between the fill's end and the
+   anchor (minutes: the fill's slack). In order: what the fill
+   left unrestored put back; the WAL padded and checkpointed; the
+   statement and shared statistics reset, as the maintenance's own
+   step before the stop, so `stats_reset` falls seconds before the
+   postmaster's start; the stop; the fill's PostgreSQL, pooler and cron
+   logs removed; the data files' modification times set to their
+   virtual times; then **every service of the game restarted at the
+   same instant, the monitoring scaled up from zero in that same
    restart**, so no start time stands apart; standbys and base backups,
-   where a scenario has them, built after it. Its instant is the
-   anchor, recorded in the restart record.
+   where a scenario has them, built after it. Its instant, at or just
+   after the anchor, is recorded in the restart record (`restart.at`),
+   and every later step counts the tail from it.
 7. `gmctl start-load` right after the restart, T0 recorded as the
    virtual T0, writing no `reload status=ok` line (the purpose checks
    date their judged moment from that line).
@@ -961,7 +992,8 @@ Steps 1 to 4 are today's setup.
    present, the fill's plantings included; every scheduler key running;
    no node unhealthy; the outages) and reads the import's result. Then
    the hand-over check, the hand-over snapshot and the hand-over, as
-   today. The earliest hand-over is the anchor plus the tail.
+   today. The earliest hand-over is the restart's instant plus the
+   tail.
 
 **Planting times**: a `state` fault planted between the virtual T0 and
 the anchor is planted by the fill; one planted in the tail by a host
@@ -1126,13 +1158,13 @@ Every fixable caveat is fixed.
 | # | Fix | How |
 |---|---|---|
 | 1 | Generator bugs | noise clamped at zero and scaled to the value (no negative scrape duration); start times constant, stepping only at a restart; the forged past draws the restart itself at the anchor: a `pg_up` and `up` blip, start times stepping, the restarted processes' counters resetting at that instant |
-| 2 | A coherent restart | one event: every service of the game restarted at the anchor (fresh process namespaces, so start times and process IDs agree with it), the statement and shared statistics reset there and not at the deploy, no `reload status=ok` line; the PostgreSQL, pooler and cron logs start there; the forged log volume grows through the day and drops at the restart; the story line names the restart |
+| 2 | A coherent restart | one event: every service of the game restarted at the anchor (fresh process namespaces, so start times and process IDs agree with it), the statement and shared statistics reset as part of that maintenance and not at the deploy (the reset is its step before the stop: statistics survive a clean shutdown, so `stats_reset` seconds before the postmaster's start reads as the maintenance resetting them, then restarting), no `reload status=ok` line; the PostgreSQL, pooler and cron logs start there; the forged log volume grows through the day and drops at the restart; the story line names the restart |
 | 3 | Statistics off during the load and the fill | the fill's sessions run as `load-data`'s: `pg_stat_statements` not tracking, no statement log, no pgaudit; `track_counts` stays on, since autovacuum and the faults read the table statistics |
 | 4 | WAL, checkpoints, the LSN | at the clean-up, the WAL padded with `pg_logical_emit_message` to a day's worth at the scenario's measured WAL rate, then `CHECKPOINT` and `pg_switch_wal()` twice, so the fill's segments are recycled; the checkpointer and WAL statistics reset with the shared ones |
 | 5 | Calibrated overlays | the measured costs; a `gauge_before` for a dropped index's size; no overlay below the night's floor; activity gauges drawn around the tail's median with the real spread; database size growing with the load's shape |
 | 6 | One baseline | the profile baseline is the product's only one; the recorded baseline stays a research tool |
 | 7 | Autovacuum through the fill | `autovacuum_naptime` lowered for the fill, so autovacuum visits a table as often per dirtied row as in a real day; no manual `VACUUM`, which would count apart and be a tell |
-| 8 | Data files' modification times | each data file set to its last virtual write before the restart (file times, not the clock) |
+| 8 | Data files' modification times | each data file set to its last virtual write before the restart (file times, not the clock): a file last written during the fill at its instant on the fill's clock (the fill's real span mapped linearly onto the virtual T0 to the anchor), one written before the fill as far before the virtual T0 as it was before the fill's start, one written after it (the clean-up's checkpoints) at the anchor; `pg_wal` and `postmaster.*` left as they are |
 | 9 | Monitoring's footprint in the database | the fill opens the exporter's and pgwatch's sessions at the scrape rate in virtual time |
 | 10 | Fault parameters, not constants | the queue model and the overlays read the instance's parameters and the keys' measured service times |
 | 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means: every session given `gm.vclock` at the virtual T0 and the path `"$user", public, gm_vclock, pg_catalog` (the default path, `gm_vclock` placed by 9.4's rule), so the time-of-day functions it calls read that instant and what it creates unqualified lands where a real load puts it; in the SQL `load-data` sends, the time-of-day keywords bound to it outside DDL, and in DDL every unqualified `now()` and its kin written `pg_catalog.`, so a stored default or view binds the real function, as a real load leaves it, and the shim's drop reaches no customer object; inject's scripts run unchanged, with the session means only. So the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The fill's plantings at its pauses take the same session means at the pause's virtual instant (9.4 step 5). The real mode is unchanged |
@@ -1150,7 +1182,7 @@ isn't expected to find these; a DBA hunting with superuser access can.
 
 | Limit | Where it shows | Covered by the story? | Curation |
 |---|---|---|---|
-| The restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | `pg_postmaster_start_time()`, `ps`, `stats_reset`, the log folder | yes | none |
+| The restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time (seconds before the postmaster's start), the logs' first lines | `pg_postmaster_start_time()`, `ps`, `stats_reset`, the log folder | yes | none |
 | No log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | yes, "older logs archived" | a fault whose evidence is a pre-restart log line is `real-only`, or `tail-only` planted in the tail |
 | Real-clock actors start at the restart: `pg_cron`'s run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | those views | partly | a fault read through these is `tail-only` with enough tail, or `real-only` |
 | The data files' inode change times are the fill's real minutes | `pg_stat_file()`, `stat`, `ls -lc` | partly | none |
