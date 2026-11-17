@@ -24,22 +24,34 @@ virtual clock from the virtual T0 to the anchor:
      autovacuum naptime lowered (fix 7: NAPTIME), the real-clock actors
      off (pg_cron's launches, the cron daemon, archiving), each listed in
      `fill.quiet` with how to restore it; P0's `gm_vclock` schema in each
-     database the fill writes;
+     database the fill writes; then P0's cover there (master spec 9.4,
+     spec D523, capture W2 item 13): each function and procedure pinning
+     its own `search_path` (the program's `fill-sql --cover`) listed in
+     `fill.quiet` with the routine, its database and its original setting,
+     then its setting put under `gm_vclock`. An actor `state.yaml`'s `hold`
+     lists (turned off at the deploy) is neither turned off again nor
+     listed (W2 item 10);
   4. the program: its JSON on standard input, a `PAUSE <instant>` at each
      `state` fault instance's virtual planting (its inject scripts run
-     unchanged on their nodes, recorded under `plantings.<id>`, attempt
+     unchanged on their nodes with fix 11's session means at the pause's
+     virtual instant, PGOPTIONS; recorded under `plantings.<id>`, attempt
      `by: fill` at the real instant with `virtual_at`, `planted_at` the
-     virtual instant), then `DONE` or `FAILED`;
+     virtual instant; then the cover's look again: a routine the planting
+     replaced or added is covered), then `DONE` or `FAILED`;
   5. the outputs: each node's log lines appended to its
      `/var/log/scheduler/scheduler.log`, its sequences' positions installed
      for the tail's program, its metrics record kept in
      `local/<playground>/fill/<node>.metrics.jsonl` (read by `gmctl
      history`);
-  6. P0's schema dropped, the quieting of the sessions and the naptime
-     restored; the real-clock actors left off for `clean-restart` (W1 item
-     8), `fill.outcome` recorded. A failure drops the schema and restores
-     what the end restores, records `failed` with its reason and stops: the
-     GM tears the game down.
+  6. the covers, the quieting of the sessions and the naptime restored
+     (each in its `restore.database`, `postgres` when absent), P0's schema
+     dropped (checked: `fill-sql --drop`); the real-clock actors left off
+     for `clean-restart` (W1 item 8), `fill.outcome` recorded: `ok` when
+     the program ended `DONE` and every planting succeeded, even if a
+     restore or the drop failed (those items left without `restored_at`
+     for clean-restart, the problems in `fill.reason`; W2 item 13). A
+     failure restores what the end restores, drops the schema, records
+     `failed` with its reason and stops: the GM tears the game down.
 
 The stage stays `injected`.
 """
@@ -174,6 +186,20 @@ STAT_STATEMENTS_COLLECTOR = "--collector.stat_statements"
 STAT_STATEMENTS_SQL = ("SELECT userid, dbid, queryid, calls, total_exec_time, rows "
                        "FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 100")
 EXPORTER_APPLICATION = ""           # postgres_exporter's sessions name none
+
+# What the fill (and the deploy's hold, capture W2 item 10, whose items take
+# this form) calls each real-clock actor in `fill.quiet`: an actor the hold
+# lists for a node is the hold's to restore.
+PG_CRON_WHAT = "pg_cron's job runs"
+ARCHIVING_WHAT = "archiving"
+CRON_WHAT = "the cron daemon"
+
+# P0's cover (capture W2 item 13): the item's `what`, and fix 11's session
+# means for the plantings at a pause (spec D527, W2 item 9): `gm.vclock` at
+# the pause's virtual instant and the shim first on the path, through
+# PGOPTIONS, the inject scripts otherwise unchanged.
+COVER_WHAT = "P0's cover: search_path of {kind} {signature} in {database} (spec D523)"
+VCLOCK_PATH = 'gm_vclock,pg_catalog,"$user",public'
 
 CRON_SERVICE = "/run/service/cron"
 CRON_CHECK = f"/command/s6-svstat -o up {CRON_SERVICE} 2>/dev/null || echo false"
@@ -589,10 +615,12 @@ def _system_restore(auto, name):
             else f"ALTER SYSTEM RESET {name};")
 
 
-def settings_plan(node, survey, sessions):
+def settings_plan(node, survey, sessions, held=()):
     """(the SQL quieting `node` for the fill, [quiet item]) from its survey
     (W1 item 8: each item says what was turned off, how, and how to
-    restore it; `left_off` items stay off for clean-restart)."""
+    restore it; `left_off` items stay off for clean-restart). An actor
+    whose `what` is in `held` (the deploy's hold, W2 item 10) is left to
+    the hold: neither turned off again nor listed."""
     auto, settings, roles = survey["auto"], survey["settings"], survey["roles"]
     names = [(n, v) for n, v in QUIET_SETTINGS if n in settings]
     sql, items = [], []
@@ -617,27 +645,55 @@ def settings_plan(node, survey, sessions):
                   "restore": {"user": "postgres",
                               "sql": [_system_restore(auto, "autovacuum_naptime"),
                                       "SELECT pg_catalog.pg_reload_conf();"]}})
-    if PG_CRON_SWITCH in settings:
+    if PG_CRON_SWITCH in settings and PG_CRON_WHAT not in held:
         sql.append(f"ALTER SYSTEM SET {PG_CRON_SWITCH} = off;")
-        items.append({"node": node, "what": "pg_cron's job runs",
+        items.append({"node": node, "what": PG_CRON_WHAT,
                       "how": f"ALTER SYSTEM SET {PG_CRON_SWITCH} = off", "left_off": True,
                       "restore": {"user": "postgres",
                                   "sql": [_system_restore(auto, PG_CRON_SWITCH)]}})
     archiving = settings.get("archive_mode") in ("on", "always") and (
         settings.get("archive_command") not in (None, "", "(disabled)")
         or settings.get("archive_library") not in (None, ""))
-    if archiving:
+    if archiving and ARCHIVING_WHAT not in held:
         sql.append(f"ALTER SYSTEM SET archive_command = {quote_literal(ARCHIVE_OFF)};")
         restore = [_system_restore(auto, "archive_command")]
         if settings.get("archive_library"):
             sql.append("ALTER SYSTEM SET archive_library = '';")
             restore.append(_system_restore(auto, "archive_library"))
-        items.append({"node": node, "what": "archiving",
+        items.append({"node": node, "what": ARCHIVING_WHAT,
                       "how": f"ALTER SYSTEM SET archive_command = '{ARCHIVE_OFF}' (segments "
                              "marked archived, none sent: the archive has the fill's gap)",
                       "left_off": True, "restore": {"user": "postgres", "sql": restore}})
     sql.append("SELECT pg_catalog.pg_reload_conf();")
     return UNSEEN_SQL + "\n".join(sql) + "\n", items
+
+
+def held_whats(st, node):
+    """The `what` of each item the deploy's hold (`state.yaml` `hold`, W2
+    item 10) lists for `node`."""
+    hold = st.get("hold") or {}
+    return {i.get("what") for i in hold.get("items") or [] if isinstance(i, dict) and i.get("node") == node}
+
+
+def cover_item(node, database, row):
+    """The `fill.quiet` item of one routine pinning its own search_path (W2
+    item 13) from a row of the program's COVER_SQL: W1-x's form plus
+    `routine` and `restore.database`."""
+    return {"node": node,
+            "what": COVER_WHAT.format(kind=row["kind"], signature=row["signature"], database=database),
+            "how": row["cover"].rstrip(";"), "left_off": False,
+            "routine": {"database": database, "kind": row["kind"], "signature": row["signature"],
+                        "original": row["setting"]},
+            "restore": {"user": "postgres", "database": database, "sql": [row["restore"]]}}
+
+
+def session_means(env, at):
+    """A pause's planting environment: the instance's, with fix 11's session
+    means at the virtual instant `at` in PGOPTIONS (spec D527)."""
+    env = dict(env or {})
+    means = f"-c gm.vclock={at} -c search_path={VCLOCK_PATH}"
+    env["PGOPTIONS"] = f"{env['PGOPTIONS']} {means}" if env.get("PGOPTIONS") else means
+    return env
 
 
 # --- Reaching the nodes ---------------------------------------------------------
@@ -730,7 +786,8 @@ class FillResult:
             v = self.done["visits"]
             out.append(f"  visits: {v.get('sessions')} sessions, {v.get('errors')} errors")
         for item in self.quiet:
-            state = "left off for clean-restart" if item["left_off"] else "restored"
+            state = ("left off for clean-restart" if item["left_off"] else "restored"
+                     if item.get("restored_at") else "not restored: clean-restart restores it")
             out.append(f"  {item['node']}: {item['what']}: {state}")
         out.append(f"Stage {INJECT_STAGE} (unchanged)."
                    + (" Next: gmctl clean-restart." if self.ok else
@@ -747,7 +804,8 @@ class FillRun:
         self.nodes, self.out = nodes, out
         self.result = FillResult(impl["game_id"], iso(plan.vt0), iso(plan.anchor))
         self.quiet = []                 # every item, as recorded
-        self.shims = []                 # (postgres node, database) holding gm_vclock
+        self.shims = []                 # (postgres node, database) holding gm_vclock: the cover looks there
+        self.sql = {}                   # fill-sql's SQL by option, read once
         self.limits = None
         self.proc = None
 
@@ -790,14 +848,17 @@ class FillRun:
                                       argv=psql_argv("postgres", tuples=True)),
                        f"node {pg}: the settings' survey")
             survey = json.loads(_text(r).strip().splitlines()[-1])
-            sql, items = settings_plan(pg, survey, sessions)
+            held = held_whats(self.st, pg)
+            sql, items = settings_plan(pg, survey, sessions, held)
             self.quiet += items
             self.record(quiet=self.quiet)
             _check(self.nodes.run(pg, "postgres", stdin=sql, argv=psql_argv("postgres")),
                    f"node {pg}: quieting the fill's sessions, the naptime and the real-clock actors")
+            if CRON_WHAT in held:
+                continue
             r = self.nodes.run(pg, "root", stdin=CRON_CHECK + "\n")
             if _text(r).strip() == "true":
-                item = {"node": pg, "what": "the cron daemon", "how": CRON_OFF, "left_off": True,
+                item = {"node": pg, "what": CRON_WHAT, "how": CRON_OFF, "left_off": True,
                         "restore": {"user": "root", "script": CRON_ON}}
                 self.quiet.append(item)
                 self.record(quiet=self.quiet)
@@ -812,13 +873,50 @@ class FillRun:
             _check(self.nodes.run(pg, "postgres", stdin=sql, argv=psql_argv(database)),
                    f"node {pg}: P0's gm_vclock in {database}")
 
+    def program_sql(self, option):
+        """`fill-sql <option>`'s SQL, read once from the program."""
+        if option not in self.sql:
+            r = _check(self.nodes.run(self.plan.fill_node, "root", argv=(*PROGRAM, "fill-sql", option)),
+                       f"the program's fill-sql {option}")
+            self.sql[option] = _text(r)
+        return self.sql[option]
+
     def drop_sql(self):
-        if not hasattr(self, "_drop"):
-            r = _check(self.nodes.run(self.plan.fill_node, "root",
-                                      argv=(*PROGRAM, "fill-sql", "--drop")),
-                       "the program's fill-sql --drop")
-            self._drop = _text(r)
-        return self._drop
+        return self.program_sql("--drop")
+
+    def cover(self):
+        """P0's cover (W2 item 13), at the fill's start and after each
+        planting: in each database holding the shim, every routine pinning
+        its own search_path that is not under the cover (new, or redefined
+        by a planting: its setting then taken as the original) is listed in
+        `fill.quiet` (one item per node, database and signature), recorded,
+        then covered."""
+        for pg, database in self.shims:
+            r = _check(self.nodes.run(pg, "postgres", stdin=UNSEEN_SQL + self.program_sql("--cover"),
+                                      argv=psql_argv(database, tuples=True)),
+                       f"node {pg}: the routines pinning their own search_path in {database}")
+            for line in _text(r).splitlines():
+                if not line.startswith("{"):
+                    continue
+                row = json.loads(line)
+                item = next((i for i in self.quiet if i["node"] == pg
+                             and (i.get("routine") or {}).get("database") == database
+                             and i["routine"].get("signature") == row["signature"]), None)
+                if row["covered"]:
+                    if item is None:
+                        raise GmError(f"node {pg}: {row['kind']} {row['signature']} in {database} is under "
+                                      "a cover no fill.quiet item lists: its original setting is unknown")
+                    continue
+                new = cover_item(pg, database, row)
+                if item is None:
+                    self.quiet.append(new)
+                else:
+                    item.update(new)
+                    item.pop("restored_at", None)
+                self.record(quiet=self.quiet)
+                _check(self.nodes.run(pg, "postgres", stdin=UNSEEN_SQL + row["cover"] + "\n",
+                                      argv=psql_argv(database)),
+                       f"node {pg}: P0's cover of {row['signature']} in {database}")
 
     def stage_files(self, sequences=None):
         """The other scheduler nodes' repository and jobs, copied into WORK on
@@ -859,7 +957,7 @@ class FillRun:
             try:
                 _, _, _, run_as, env, scripts = plan[iid]
                 for script, text, where in scripts:
-                    run = self.nodes.run(where, run_as, stdin=text, env=env,
+                    run = self.nodes.run(where, run_as, stdin=text, env=session_means(env, at),
                                          timeout=PAUSE_TIMEOUT)
                     _print_run(self.out, f"{iid} {script} ({where}, as {run_as})", run)
                     if not run.ok:
@@ -883,6 +981,7 @@ class FillRun:
                 self.out(f"fill: paused at virtual {at}")
                 try:
                     self.plant(at)
+                    self.cover()
                     self.stage_files()
                 except GmError as exc:
                     self.proc.stdin.write("STOP\n")
@@ -925,26 +1024,33 @@ class FillRun:
                        f"node {node}: {SEQUENCES}")
 
     def undo(self):
-        """P0's schema dropped and what the end restores restored; the
-        left-off items stay off. Returns the problems met (best effort)."""
+        """What the end restores restored, each item in its
+        `restore.database` (`postgres` when absent), the covers first, then
+        P0's schema dropped (the checked drop); the left-off items stay off.
+        Returns the problems met (best effort)."""
         problems = []
-        for pg, database in self.shims:
-            r = self.nodes.run(pg, "postgres", stdin=UNSEEN_SQL + self.drop_sql(),
-                               argv=psql_argv(database))
-            if not r.ok:
-                problems.append(f"{pg}/{database}: gm_vclock not dropped")
-        self.shims = []
         at = iso(now_utc())
-        for item in self.quiet:
+        for item in sorted(self.quiet, key=lambda i: "routine" not in i):
             if item["left_off"] or item.get("restored_at"):
                 continue
             r = self.nodes.run(item["node"], "postgres",
                                stdin=UNSEEN_SQL + "\n".join(item["restore"]["sql"]) + "\n",
-                               argv=psql_argv("postgres"))
+                               argv=psql_argv(item["restore"].get("database") or "postgres"))
             if r.ok:
                 item["restored_at"] = at
             else:
-                problems.append(f"{item['node']}: {item['what']} not restored")
+                lines = output_lines(r)
+                problems.append(f"{item['node']}: {item['what']} not restored"
+                                + (f" ({lines[-1]})" if lines else ""))
+        self.record(quiet=self.quiet)
+        for pg, database in self.shims:
+            r = self.nodes.run(pg, "postgres", stdin=UNSEEN_SQL + self.drop_sql(),
+                               argv=psql_argv(database))
+            if not r.ok:
+                lines = output_lines(r)
+                problems.append(f"{pg}/{database}: gm_vclock not dropped"
+                                + (f" ({lines[-1]})" if lines else ""))
+        self.shims = []
         if self.limits is not None:
             self.nodes.set_limits(self.plan.fill_node, self.limits)
             self.limits = None
@@ -959,6 +1065,7 @@ class FillRun:
             password = read_secret(self.ldir, MONITORING_SECRET) if self.plan.visits else None
             self.quiet_databases()
             self.create_shims()
+            self.cover()
             self.stage_files(sequences)
             self.limits = self.nodes.limits(self.plan.fill_node)
             self.nodes.set_limits(self.plan.fill_node, {**FILL_LIMITS,
@@ -984,14 +1091,16 @@ class FillRun:
                 raise
             raise GmError(f"the fill failed: {reason}; recorded in state.yaml. A failed fill is "
                           "never resumed: tear the game down (gmctl teardown)") from None
+        # The outcome is the program's (W2 item 13): an end restore or the
+        # shim's drop failing leaves the night's rows whole; the items stay
+        # without restored_at for clean-restart, the problems in the reason.
         problems = self.undo()
         self.result.done = done
         self.result.wall_s = time.monotonic() - started
         self.result.quiet = self.quiet
-        outcome = "failed" if problems else "ok"
-        self.result.outcome = outcome
+        self.result.outcome = "ok"
         self.result.reason = "; ".join(problems) or None
-        self.record(ended_at=iso(now_utc()), outcome=outcome, reason=self.result.reason,
+        self.record(ended_at=iso(now_utc()), outcome="ok", reason=self.result.reason,
                     quiet=self.quiet)
         return self.result
 

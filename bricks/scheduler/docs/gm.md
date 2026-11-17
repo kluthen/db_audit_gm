@@ -384,15 +384,32 @@ every change to `program/` keeps it green.
   `current_timestamp` and `current_date` become bound parameters holding
   the virtual instant; in the server-side functions it calls, the schema
   `gm_vclock` (`gm_scheduler fill-sql`, created by `gmctl fill` as
-  postgres, dropped with `fill-sql --drop`) shadows `now()`,
-  `transaction_timestamp()`, `statement_timestamp()` and
-  `clock_timestamp()` on the fill's own `search_path`, from the session
-  setting `gm.vclock` set at each transaction's start. A database without
-  the schema fails the fill. Out of its reach: `current_date`,
-  `current_timestamp` and `localtimestamp` written in a function's body, a
-  function with its own `SET search_path`, a `BEGIN ATOMIC` body and a
-  column's `DEFAULT now()`, which keep the real clock (`test_fill.py`,
-  `TestP0`).
+  postgres) shadows `now()`, `transaction_timestamp()`,
+  `statement_timestamp()` and `clock_timestamp()` on the fill's own
+  `search_path`, from the session setting `gm.vclock` set at each
+  transaction's start. A database without the schema fails the fill.
+  **The cover** (spec D523, capture W2 item 13): a function or procedure
+  with its own `SET search_path` never sees the session's path, so
+  `fill-sql --cover` lists, in a database holding the shim, every
+  function and procedure whose own settings (`proconfig`) set
+  `search_path`, outside `pg_catalog`, `information_schema`, `pg_toast`,
+  the temporary schemas and every `gm_*` schema, and not an extension's
+  member; each row gives the routine (its signature qualified), its
+  setting, the cover (`ALTER FUNCTION|PROCEDURE … SET search_path =
+  gm_vclock`, then `pg_catalog` when the path doesn't name it, then its
+  own path; its other settings, a `TimeZone`, untouched) and the restore
+  (back to exactly that setting, entries and order, acting only while the
+  routine is under that cover, so a routine gone or redefined since counts
+  as restored). `gmctl fill` lists each in `fill.quiet` before covering
+  it, looks again after each planting and restores them at its end. A
+  session without `gm.vclock` that calls a covered routine reads the real
+  clock. `fill-sql --drop` first fails, naming them, when an object
+  outside `gm_vclock` depends on its functions (a column default, a
+  view, a `BEGIN ATOMIC` body created through the shim), then drops the
+  schema; every drop of the shim uses it. Out of its reach:
+  `current_date`, `current_timestamp` and `localtimestamp` written in a
+  function's body, a `BEGIN ATOMIC` body and a column's `DEFAULT now()`,
+  which keep the real clock (`test_fill.py`, `TestP0`).
 - **The queue model** (`gm_scheduler/queue.py`): every latency the fill
   logs and records is the model's, never its own timing: the key's service
   time (`service-times.yaml` beside the scenario's `queries.yaml`,
@@ -743,7 +760,10 @@ must provide, its timeline needs and aging minimum included.
   rotated in a game: a few megabytes over a long aging).
 - The validator cannot see the schedule (above).
 - The fill (0.4.0) runs SQL keys and scripts only, and reaches the
-  database's clock in the forms the P0 entry above lists, no others.
+  database's clock in the forms the P0 entry above lists, no others. Each
+  routine it covered keeps a new catalog row version from the fill's
+  minutes (`pg_proc`'s `xmin`), its definition and settings identical
+  (master spec 9.10).
 - Error lines are not rate-limited: a target down for long fills the log
   at the streams' rates.
 - An HTTP call's `timeout` bounds the connection and the answer's head

@@ -273,6 +273,144 @@ class TestP0(unittest.TestCase):
         with self.assertRaisesRegex(FillError, "has no schema gm_vclock"):
             connect(HOST, PORT, "postgres", ADMIN, ADMIN_PASSWORD, "p0")
 
+    # --- the cover (master spec 9.4, spec D523; capture W2 item 13) ------------------
+
+    def cover_rows(self):
+        """COVER_SQL as gmctl fill sends it (psql runs both statements): its
+        rows, by signature."""
+        import psycopg
+        from gm_scheduler.fill import COVER_SQL
+        with psycopg.connect(host=HOST, port=PORT, dbname=DB, user=ADMIN, password=ADMIN_PASSWORD,
+                             autocommit=True) as conn:
+            cur = conn.cursor()
+            cur.execute(COVER_SQL)
+            while cur.description is None and cur.nextset():
+                pass
+            return {r["signature"]: r for (r,) in cur.fetchall()}
+
+    def proconfig(self, signature):
+        rows = admin("SELECT proconfig FROM pg_proc WHERE oid = to_regprocedure(%s)", (signature,))
+        return rows[0][0] if rows else "gone"
+
+    def test_the_cover_reaches_routines_pinning_their_own_path(self):
+        import psycopg
+        from gm_scheduler.fill import connect, set_clock
+        admin("DROP SCHEMA IF EXISTS p0_rpt, gm_p0 CASCADE")
+        admin("CREATE SCHEMA p0_rpt")
+        admin("CREATE SCHEMA gm_p0")
+        admin(f"GRANT USAGE ON SCHEMA p0_rpt TO {ROLE}")
+        admin("CREATE TABLE p0_rpt.closes (by text, at timestamptz, zone text)")
+        admin(f"GRANT ALL ON p0_rpt.closes TO {ROLE}")
+        self.addCleanup(admin, "DROP SCHEMA IF EXISTS p0_rpt, gm_p0 CASCADE")
+        # rpt.close_day()'s shape under the campaign's f7: its own path, then a TimeZone
+        admin("CREATE PROCEDURE p0_rpt.close_day(who text) LANGUAGE plpgsql "
+              "SET search_path = pg_catalog, pg_temp SET TimeZone = 'Etc/GMT-2' AS "
+              "$$BEGIN INSERT INTO p0_rpt.closes VALUES (who, now(), current_setting('TimeZone')); END$$")
+        admin("CREATE FUNCTION p0_rpt.p0_pinned_public() RETURNS timestamptz LANGUAGE plpgsql "
+              "SET search_path = public, pg_temp AS $$BEGIN RETURN now(); END$$")
+        # written back exactly: a quoted name and the empty path
+        admin("CREATE FUNCTION p0_rpt.p0_user_path(integer) RETURNS timestamptz LANGUAGE sql "
+              "SET search_path = \"$user\", public AS $$SELECT now()$$")
+        admin("CREATE FUNCTION p0_rpt.p0_empty_path() RETURNS timestamptz LANGUAGE sql "
+              "SET search_path = '' AS $$SELECT now()$$")
+        # left alone: a gm_* schema's routine, one without its own path
+        admin("CREATE FUNCTION gm_p0.pinned() RETURNS timestamptz LANGUAGE sql "
+              "SET search_path = pg_catalog AS $$SELECT now()$$")
+        admin("CREATE FUNCTION p0_rpt.unpinned() RETURNS timestamptz LANGUAGE sql "
+              "SET TimeZone = 'UTC' AS $$SELECT now()$$")
+        mine = ("p0_rpt.close_day(text)", "p0_rpt.p0_pinned_public()", "p0_rpt.p0_user_path(integer)",
+                "p0_rpt.p0_empty_path()")
+        before = {s: self.proconfig(s) for s in (*mine, "gm_p0.pinned()", "p0_rpt.unpinned()")}
+        self.assertEqual(before["p0_rpt.close_day(text)"], ["search_path=pg_catalog, pg_temp", "TimeZone=Etc/GMT-2"])
+        self.assertEqual(before["p0_rpt.p0_empty_path()"], ['search_path=""'])
+
+        # the signatures qualified: the query runs with pg_catalog alone on its path
+        found = rows = self.cover_rows()
+        for s in mine:
+            self.assertIn(s, found)
+            self.assertFalse(found[s]["covered"])
+        self.assertNotIn("gm_p0.pinned()", rows)
+        self.assertNotIn("p0_rpt.unpinned()", rows)
+        close = found["p0_rpt.close_day(text)"]
+        self.assertEqual((close["kind"], close["setting"]), ("procedure", "pg_catalog, pg_temp"))
+        self.assertEqual(close["cover"],
+                         "ALTER PROCEDURE p0_rpt.close_day(text) SET search_path = gm_vclock, pg_catalog, pg_temp;")
+        self.assertEqual(found["p0_rpt.p0_pinned_public()"]["cover"],
+                         "ALTER FUNCTION p0_rpt.p0_pinned_public() SET search_path = gm_vclock, pg_catalog, "
+                         "public, pg_temp;")
+
+        covered = [found[s] for s in mine]
+        self.addCleanup(lambda: [admin(r["restore"]) for r in covered])
+        for r in covered:
+            admin(r["cover"])
+        self.assertEqual(self.proconfig("p0_rpt.close_day(text)"),
+                         ["search_path=gm_vclock, pg_catalog, pg_temp", "TimeZone=Etc/GMT-2"])
+        self.assertEqual(self.proconfig("p0_rpt.p0_empty_path()"), ['search_path=gm_vclock, pg_catalog, ""'])
+        self.assertTrue(all(r["covered"] for s, r in self.cover_rows().items() if s.startswith("p0_rpt.")))
+
+        # a fill session reads the virtual clock through them
+        vt = ts("2025-06-01T08:00:00Z")
+        virtual = datetime.datetime.fromtimestamp(vt, UTC)
+        conn = connect(HOST, PORT, DB, ROLE, PASSWORD, "p0")
+        self.addCleanup(conn.close)
+        set_clock(conn, vt)
+        conn.execute("CALL p0_rpt.close_day('fill')")
+        self.assertEqual(conn.execute("SELECT p0_rpt.p0_pinned_public()").fetchone()[0], virtual)
+        self.assertEqual(conn.execute("SELECT p0_rpt.p0_user_path(1)").fetchone()[0], virtual)
+        self.assertEqual(conn.execute("SELECT p0_rpt.p0_empty_path()").fetchone()[0], virtual)
+        # a session without gm.vclock reads the real clock through the same routines
+        with psycopg.connect(host=HOST, port=PORT, dbname=DB, user=ROLE, password=PASSWORD,
+                             autocommit=True) as real:
+            real.execute("CALL p0_rpt.close_day('real')")
+            real_now = real.execute("SELECT p0_rpt.p0_pinned_public()").fetchone()[0]
+            self.assertLess(abs((real_now - datetime.datetime.now(UTC)).total_seconds()), 60)
+        closes = dict((by, (at, zone)) for by, at, zone in admin("SELECT by, at, zone FROM p0_rpt.closes"))
+        self.assertEqual(closes["fill"], (virtual, "Etc/GMT-2"))       # its TimeZone untouched
+        self.assertLess(abs((closes["real"][0] - datetime.datetime.now(UTC)).total_seconds()), 60)
+
+        # restored exactly: entries and order; again, nothing changes; a routine gone counts as restored
+        for r in covered:
+            admin(r["restore"])
+            admin(r["restore"])
+        after = {s: self.proconfig(s) for s in before}
+        self.assertEqual(after, before)
+        admin("DROP FUNCTION p0_rpt.p0_empty_path()")
+        admin(found["p0_rpt.p0_empty_path()"]["restore"])
+        self.assertEqual(self.proconfig("p0_rpt.p0_empty_path()"), "gone")
+
+    def test_the_checked_drop(self):
+        from gm_scheduler.fill import VCLOCK_DROP, VCLOCK_SQL
+        import psycopg
+        admin("DROP TABLE IF EXISTS p0_bound")
+        admin("CREATE TABLE p0_bound (id int, at timestamptz DEFAULT gm_vclock.now())")
+        self.addCleanup(admin, "DROP TABLE IF EXISTS p0_bound")
+        with self.assertRaises(psycopg.Error) as caught:
+            admin(VCLOCK_DROP)
+        self.assertIn("gm_vclock not dropped: default value for column at of table p0_bound depend(s) on its "
+                      "functions", str(caught.exception))
+        self.assertTrue(admin("SELECT to_regnamespace('gm_vclock') IS NOT NULL")[0][0])
+        self.assertEqual(admin("SELECT count(*) FROM p0_bound"), [(0,)])
+        admin("DROP TABLE p0_bound")
+        admin(VCLOCK_DROP)
+        self.assertFalse(admin("SELECT to_regnamespace('gm_vclock') IS NOT NULL")[0][0])
+        admin(VCLOCK_DROP)                  # without the schema: nothing to do
+        admin(VCLOCK_SQL)                   # back for the class's other tests
+
+
+class TestFillSql(unittest.TestCase):
+    def test_fill_sql_prints_the_programs_sql(self):
+        import contextlib
+        from gm_scheduler.__main__ import main
+        from gm_scheduler.fill import COVER_SQL, VCLOCK_DROP, VCLOCK_SQL
+        for argv, sql in ((["fill-sql"], VCLOCK_SQL), (["fill-sql", "--drop"], VCLOCK_DROP),
+                          (["fill-sql", "--cover"], COVER_SQL)):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(main(argv), 0)
+            self.assertEqual(out.getvalue(), sql)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            main(["fill-sql", "--drop", "--cover"])
+
 
 @needs_pg
 class TestFillRun(unittest.TestCase):
