@@ -3,12 +3,14 @@
 # v0.4 build plan, chunk 3b: the transformer node; v0.5 build plan, chunk 4:
 # the caller node, the HTTP driver).
 #
-# Builds the scheduler image and its unit-test stage (the throwaway
-# PostgreSQL `db`) from this worktree, deploys them as a Swarm stack
-# (stack.test.yml) with seed files and secrets as external configs and
-# secrets created here, then checks, from a client container on the
-# stack's network (SSH as player, HTTP as another node would) and from
-# the GM side (docker exec):
+# Takes the scheduler image as built (never built here: a cached build
+# would re-tag it with stale packages), builds its unit-test stage (the
+# throwaway PostgreSQL `db` and the stub server's image, a test-only tag
+# that never re-tags the brick's image) from this worktree, deploys them as
+# a Swarm stack (stack.test.yml) with seed files and secrets as external
+# configs and secrets created here, then checks, from a client container
+# on the stack's network (SSH as player, HTTP as another node would) and
+# from the GM side (docker exec):
 #   - idle at start: no call, status idle, scheduler_running 0;
 #   - schedule.yaml unreadable by player and by the service account,
 #     visible in listings, on no volume; the role's password in no
@@ -56,8 +58,9 @@
 # job is run by hand: each runs at its time, which player moves.
 # Everything it creates is removed on exit, volumes included.
 #
-# Needs: a swarm manager (docker swarm init). On the build host, run it
-# under the host lock:
+# Needs: a swarm manager (docker swarm init), the image built locally:
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0 bricks/scheduler
+# On the build host, run it under the host lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/scheduler/tests/run-stack-test.sh
 set -eu
 
@@ -145,9 +148,12 @@ if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; 
     exit 2
 fi
 
-# --- the images, from this worktree (capture W1 item 9) ----------------------
-info "building $IMAGE and $DB_IMAGE from $BRICK"
-docker build -q -t "$IMAGE" "$BRICK" >/dev/null
+docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    echo "image $IMAGE is missing; build it first (see this script's header)" >&2; exit 2; }
+
+# --- the images: the brick's as built, the test-only stage from this worktree -
+info "image $IMAGE: $(docker image inspect -f '{{.Id}}' "$IMAGE")"
+info "building $DB_IMAGE (the unit-test stage) from $BRICK"
 docker build -q --target unit-test -t "$DB_IMAGE" "$BRICK" >/dev/null
 # `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
 if out=$(sh "$BRICK/../../tools/tests/check-base.sh" "$BRICK" "$IMAGE"); then pass "$out"; else fail "$out"; fi

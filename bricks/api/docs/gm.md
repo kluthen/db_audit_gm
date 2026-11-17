@@ -267,7 +267,9 @@ with the domains' and purposes' chunks, not with this brick.
 - **Unit tests**: `sh bricks/api/tests/run-unit-tests.sh` (the `unit-test`
   stage, with a throwaway PostgreSQL).
 - **Stack test**: `sh bricks/api/tests/run-stack-test.sh` (about 8
-  minutes; needs `postgres` 0.5.0's image): both nodes started before
+  minutes; needs the api image built first, `docker build -t
+  127.0.0.1:5000/dbagm/api:0.1.1 bricks/api`, and `postgres` 0.5.0's
+  image; it builds neither): both nodes started before
   their database, waiting and then answering; dispatch by hostname over
   nine aliases, 401s, the application role, the transaction-local
   setting, `SECURITY DEFINER`, a partner calling back; the player's `db/`

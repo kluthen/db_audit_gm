@@ -754,7 +754,10 @@ must provide, its timeline needs and aging minimum included.
   `sh bricks/scheduler/tests/run-stack-test.sh` (the brick as a
   scheduler node, a transformer node and, from 0.3.0, a caller node on
   HTTP connections to a stub server started after it, with a throwaway
-  PostgreSQL, as a Swarm stack); both under the host lock.
+  PostgreSQL, as a Swarm stack; it needs the scheduler image built
+  first, `docker build -t 127.0.0.1:5000/dbagm/scheduler:0.4.0
+  bricks/scheduler`, and builds only the `unit-test` stage); both under
+  the host lock.
 
 ## Known limits
 
