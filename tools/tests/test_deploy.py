@@ -159,6 +159,7 @@ class TestDeploy(RenderedGame):
         labels = {"com.docker.stack.namespace": gid, "dbagm.game": gid}
         self.assertEqual(fake.names("config"), sorted([
             f"{gid}_bastion_README.md", f"{gid}_bastion_story.md", f"{gid}_bastion_issues.md",
+            f"{gid}_bastion_doc-bastion", f"{gid}_bastion_doc-postgres",
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",

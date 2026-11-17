@@ -4,8 +4,10 @@
 # the test sees what the web front forwards. It also sends a challenge of
 # its own, which the front must not pass on. Also a partner's endpoint
 # (v0.5 chunk 17a): GET /orders answers 200 only with `Authorization: Bearer
-# <the credential>`, the file /opt/partner/credential, else 401. Runs in
-# debian:13-slim (perl-base only); listens on port 9090.
+# <the credential>`, the file /opt/partner/credential, else 401. v0.6
+# (chunk 6): GET /api/v1/query answers as Prometheus' API does, a vector of
+# one sample, for jq on the bastion. Runs in debian:13-slim (perl-base
+# only); listens on port 9090.
 use strict;
 use warnings;
 use IO::Socket::INET;
@@ -29,6 +31,14 @@ while (my $client = $server->accept) {
         print $client ($ok ? "HTTP/1.1 200 OK" : "HTTP/1.1 401 Unauthorized")
             . "\r\nContent-Type: text/plain\r\nContent-Length: " . length($body)
             . "\r\nConnection: close\r\n\r\n$body";
+        close $client;
+        next;
+    }
+    if ($request =~ m{^GET /api/v1/query[?]}) {
+        my $body = '{"status":"success","data":{"resultType":"vector","result":'
+            . '[{"metric":{"__name__":"up","job":"postgres"},"value":[1763380800,"1"]}]}}';
+        print $client "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+            . "Content-Length: " . length($body) . "\r\nConnection: close\r\n\r\n$body";
         close $client;
         next;
     }

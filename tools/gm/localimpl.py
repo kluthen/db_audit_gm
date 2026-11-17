@@ -79,7 +79,7 @@ from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, REPO_ROO
                     RESERVED_DB_ROLES, SUBSTITUTION_RE, GmError, handed_over_credentials,
                     has_scheduler_nodes,
                     is_scheduler_node, is_seed_folder_entry, mounted_items, node_creates,
-                    parse_mode, parse_size)
+                    parse_mode, parse_size, third_party_nodes)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
@@ -141,6 +141,16 @@ MOUNTED_CONFIG = "mounted"
 NODE_CONFIG = "node-config"
 MOUNTED_UID, MOUNTED_GID = 0, 0
 DEFAULT_ENTRY = "default"           # a node-map entry: the brick's processes
+
+# The brick pages (v0.6 master spec 7.3; capture W2 item 1): one config
+# `<game_id>_<bastion>_doc-<brick-id>` per brick of a node the players may
+# reach (every node but a third party's, the bastion included), in topology
+# order, its file the brick's docs/player.md, on the bastion at
+# /opt/gm/docs/bricks/<brick-id>.md, root-owned, read-only.
+BRICK_DOC_CONFIG = "brick-doc"
+BRICK_DOC_SOURCE = "docs/player.md"
+BRICK_DOC_DIR = "/opt/gm/docs/bricks"
+BRICK_DOC_UID, BRICK_DOC_GID, BRICK_DOC_MODE = 0, 0, "0444"
 
 # Parameter faults (capture W1, item 8), applied when the implementation is
 # written, before the mounted material is derived (master spec 6.4, 8).
@@ -662,6 +672,10 @@ def _derived_lengths(scenario, catalog_root=REPO_ROOT):
             parts.append((f"_{name}_{item.get('name')}-{len(files)}", OBJECT_NAME_MAX))
             for other in scenario.nodes:
                 parts.append((f"_{other['name']}_{item.get('name')}.conf", OBJECT_NAME_MAX))
+    bastion = bastion_node(scenario)
+    if bastion is not None:
+        for bid, _ in documented_bricks(scenario):
+            parts.append((f"_{bastion}_doc-{bid}", OBJECT_NAME_MAX))
     return parts
 
 
@@ -1172,6 +1186,50 @@ def _scenario_relative(scenario, path):
     return Path(os.path.relpath(Path(path).resolve(), Path(scenario.dir).resolve())).as_posix()
 
 
+def bastion_node(scenario):
+    """The name of the scenario's bastion node (role `bastion`), or None."""
+    for node in scenario.nodes:
+        if node.get("role") == BASTION_ROLE:
+            return node["name"]
+    return None
+
+
+def documented_bricks(scenario):
+    """`[(brick id, brick)]`: each brick a node the players may reach runs
+    (every node not in model.third_party_nodes, the bastion included), in
+    topology order, once per brick id (master spec 7.3)."""
+    third = third_party_nodes(scenario.data, scenario.dir)
+    out = {}
+    for node in scenario.nodes:
+        if node["name"] in third:
+            continue
+        brick = scenario.bricks[node["name"]]
+        out.setdefault(brick.id, brick)
+    return list(out.items())
+
+
+def brick_doc_configs(scenario, game_id):
+    """`{bastion node: [config]}`: the brick pages the bastion serves, one
+    config per documented brick (capture W2 item 1), its `file` the brick's
+    docs/player.md relative to the scenario folder; `{}` without a bastion.
+    GmError when a page is missing or empty (Swarm refuses an empty
+    config)."""
+    bastion = bastion_node(scenario)
+    if bastion is None:
+        return {}
+    configs = []
+    for bid, brick in documented_bricks(scenario):
+        source = Path(brick.dir) / BRICK_DOC_SOURCE
+        if not source.is_file() or source.stat().st_size == 0:
+            raise GmError(f"brick {bid}: {BRICK_DOC_SOURCE} is missing or empty: the bastion "
+                          "serves it as the brick's page (master spec 7.3)")
+        configs.append({"kind": BRICK_DOC_CONFIG, "name": f"{game_id}_{bastion}_doc-{bid}",
+                        "file": _scenario_relative(scenario, source),
+                        "path": posixpath.join(BRICK_DOC_DIR, f"{bid}.md"),
+                        "uid": BRICK_DOC_UID, "gid": BRICK_DOC_GID, "mode": BRICK_DOC_MODE})
+    return {bastion: configs}
+
+
 def mounted_configs(scenario, params, playground, game_id):
     """`{node: [config]}` for every node of the topology: the mounted items'
     files (one config each, shared by the receiving nodes, its `file` the
@@ -1229,6 +1287,7 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
     gid = game_id
     local_rel = f"local/{playground}"
     mounted = mounted_configs(scenario, node_parameters(scenario), playground, gid)
+    brick_docs = brick_doc_configs(scenario, gid)
     nodes = {}
     for node in scenario.nodes:
         name = node["name"]
@@ -1243,6 +1302,7 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
                 "path": pc["path"], "uid": pc["uid"], "gid": pc["gid"], "mode": pc["mode"],
             })
         configs += mounted[name]
+        configs += brick_docs.get(name, [])
         node_secrets = []
         for sec in node_secret_declarations(scenario, node):
             sname = f"{gid}_{sec['name']}"

@@ -4,7 +4,10 @@
 # released with v0.5, plus `base:` and the seventh optional seed file,
 # network-overview.md (v0.6 master spec 6.1, 6.4 and 6.8; capture W1 items 1
 # and 2 of specs/versions/v0.6/wave-log.md); 6.8's other changes come with
-# their chunks. Roles, growth
+# their chunks. Chunk 6 (master spec 7.1 to 7.7; capture W2 items 1 and 2):
+# the front's home, the documentation site (/docs/<id>,
+# /docs/bricks/<brick-id>, the brick pages gmctl delivers as configs at
+# /opt/gm/docs/bricks/), ~/reports/ served at /reports/, jq and tmux. Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
@@ -168,7 +171,7 @@ volumes:
     path: /run                      # needs exec; emptied by the entrypoint at each start
 processes:
   - sshd
-  - web-front                       # nginx: the starter-pack page and the routes, in every game
+  - web-front                       # nginx: the home, /docs/, /reports/ and the routes, in every game
 snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
                                     # 7.3 to 7.5); run, emptied at every start, is never copied
   home: copy

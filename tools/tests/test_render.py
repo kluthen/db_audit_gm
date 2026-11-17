@@ -326,7 +326,10 @@ class TestMountedMaterial(RenderedMounted):
         # each mounted file is one config, shared by the nodes receiving it
         self.assertEqual(sorted(self.stack["configs"]), sorted(
             [f"{self.gid}_monitor_node-health-1", f"{self.gid}_monitor_node-health-2",
-             f"{self.gid}_bastion_node-health.conf", f"{self.gid}_monitor_node-health.conf"]))
+             f"{self.gid}_bastion_node-health.conf", f"{self.gid}_monitor_node-health.conf",
+             # the brick pages, on the bastion (v0.6 capture W2 item 1)
+             f"{self.gid}_bastion_doc-fixture-front", f"{self.gid}_bastion_doc-fixture-app",
+             f"{self.gid}_bastion_doc-fixture-monitor"]))
 
     def test_shaped_parameters_in_the_stack(self):
         self.fit_render()
@@ -471,6 +474,7 @@ class TestRender(RenderedFixture):
         self.assertEqual([v["target"] for v in bastion["volumes"]],
                          ["/home/player", "/var/lib/gm-sshd-keys", "/run"])
         self.assertEqual(sorted(c["target"] for c in bastion["configs"]), [
+            "/opt/gm/docs/bricks/bastion.md", "/opt/gm/docs/bricks/postgres.md",
             "/opt/gm/starter/README.md", "/opt/gm/starter/issues.md",
             "/opt/gm/starter/story.md"])
         self.assertEqual(bastion["ports"], [
@@ -839,7 +843,8 @@ class TestRenderV03(V03Rendered):
             [c["file"] for c in fitted["producer"]["configs"]],
             [rel + "producer/schedule.yaml", "nodes/producer/queries.yaml",
              "nodes/producer/builders/revenue.py", rel + "producer/jobs.yaml"])
-        self.assertEqual([c["file"] for c in fitted["bastion"]["configs"]],
+        self.assertEqual([c["file"] for c in fitted["bastion"]["configs"]
+                          if c["kind"] != localimpl.BRICK_DOC_CONFIG],
                          [rel + "bastion/README.md", rel + "bastion/story.md",
                           "player/issues.md"])
         self.render(handover_at(16))
@@ -1714,3 +1719,82 @@ class TestDomainLoginRoles(test_model.V05ComposedTest):
                          ["xlab"])
         self.assertEqual(localimpl.data_login_roles(sc, sc.node("standby"), self.catalog_root),
                          [])
+
+
+PARTNERS_FIXTURE = FIXTURES / "fixture-partners"
+
+
+class PartnersRendered(ScenarioCopyTest):
+    """A fresh copy of fixture-partners: the bastion, the customer's one
+    node, and the partners' three shared nodes under alpha-lab and
+    beta-lab, both with a player document."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-partners"
+        shutil.copytree(PARTNERS_FIXTURE, self.scenario)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def fit(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+
+    def render(self, handover=None):
+        result = render.render(self.scenario, "laptop", handover=handover or handover_at(16))
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        return result
+
+
+class TestBrickPages(PartnersRendered):
+    """The brick pages the bastion serves (v0.6 master spec 7.3; capture W2
+    item 1): one config per brick of a node the players may reach, built
+    at fit, never a third party's."""
+
+    def test_one_page_per_reachable_brick_at_fit(self):
+        self.fit()
+        docs = [c for c in self.impl["nodes"]["bastion"]["configs"]
+                if c["kind"] == localimpl.BRICK_DOC_CONFIG]
+        # partners-api, partners-backend and partners-db are the partners':
+        # api, scheduler and postgres have no page here
+        self.assertEqual([(c["name"], c["path"], c["uid"], c["gid"], c["mode"]) for c in docs],
+                         [(f"{self.gid}_bastion_doc-bastion", "/opt/gm/docs/bricks/bastion.md",
+                           0, 0, "0444")])
+        self.assertEqual((self.scenario / docs[0]["file"]).resolve(),
+                         (FIXTURES.parents[2] / "bricks/bastion/docs/player.md").resolve())
+        for name in ("partners-api", "partners-backend", "partners-db"):
+            self.assertFalse([c for c in self.impl["nodes"][name]["configs"]
+                              if c["kind"] == localimpl.BRICK_DOC_CONFIG])
+
+    def test_a_customer_node_brings_its_page_once(self):
+        def customer_db(data):
+            data["third_parties"][0]["nodes"] = ["partners-api", "partners-backend"]
+            data["third_parties"][1]["nodes"] = ["partners-api", "partners-backend"]
+        self.edit_yaml("scenario.yaml", customer_db)
+        sc = model.load_scenario(self.scenario)
+        if "partners-db" in model.third_party_nodes(sc.data, sc.dir):
+            self.skipTest("partners-db stays a partner's node by its owners")
+        self.assertEqual([bid for bid, _ in localimpl.documented_bricks(sc)],
+                         ["bastion", "postgres"])
+
+    def test_the_bastion_mounts_them(self):
+        self.fit()
+        self.render()
+        mounts = {c["source"]: c["target"] for c in self.stack["services"]["bastion"]["configs"]}
+        self.assertEqual(mounts[f"{self.gid}_bastion_doc-bastion"],
+                         "/opt/gm/docs/bricks/bastion.md")
+
+    def test_render_refuses_pages_changed_since_fit(self):
+        self.fit()
+        self.impl["nodes"]["bastion"]["configs"] = [
+            c for c in self.impl["nodes"]["bastion"]["configs"]
+            if c["kind"] != localimpl.BRICK_DOC_CONFIG]
+        localimpl.write_implementation(self.ldir, self.impl)
+        with self.assertRaisesRegex(model.GmError, "the brick pages changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16))
+
+    def test_names_bound_the_game_id(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertIn(("_bastion_doc-bastion", localimpl.OBJECT_NAME_MAX),
+                      localimpl._derived_lengths(sc))

@@ -704,6 +704,10 @@ def _check_fit(scenario, impl, playground):
             [c for c in impl["nodes"][name]["configs"] if c.get("kind") in kinds]
             != mounted[name] for name in mounted):
         raise GmError("the mounted material changed since gmctl fit: fit again")
+    docs = localimpl.brick_doc_configs(scenario, impl["game_id"])
+    if any([c for c in inode["configs"] if c.get("kind") == localimpl.BRICK_DOC_CONFIG]
+           != docs.get(name, []) for name, inode in impl["nodes"].items()):
+        raise GmError("the brick pages changed since gmctl fit: fit again")
     for node in scenario.nodes:
         if [c for c in impl["nodes"][node["name"]]["configs"]
                 if c.get("kind") == localimpl.SEED_KIND] \
