@@ -120,7 +120,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
-| 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | chunks merged (2026-11-17); gate next |
+| 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
 | 3 | 10, 11, 13 | wave 2 | planned |
 | 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
 

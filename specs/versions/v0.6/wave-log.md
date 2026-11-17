@@ -2111,3 +2111,72 @@ the driver.
   scheduler 179/0, both image ids and libpq5 17.12-0+deb13u1 unchanged.
   api's `docs/gm.md` stack-test line corrected to postgres 0.5.1 by the
   driver.
+
+### Wave 2 report — 2026-11-17
+
+Chunks merged: 6, 7, 15, 9; none moved. Gate green (above), G7, G9.1's
+builds and post-change check, G10.1, G10.2 done. `doc-ids compare main
+v0.6-w2`: 0 collisions. Head f83805b.
+
+Over 300k context: chunk 6's and chunk 7's owners (324k, 321k), both
+single owners past 100 calls before rotation was enforced in the
+briefs; chunk 9 split across owners with a hard stop stayed at 245k.
+
+Waiting on the owner: the merge into `main`; the pg_cron +3 / pgaudit +2
+re-pin (security-advisor recommends it now, postgres 0.5.1 unreleased:
+`--no-cache` rebuild and its stack test); the older fixture READMEs;
+pgAudit 18.1 later (game content). For wave 3 (chunks 10, 11, 13; fresh
+session): plan v7 (chunks 11 and 12 revised, D537); notes in "G10.2 and
+G10.1 done" above; worktree `v0.6-spec` still exists (owner's call).
+
+#### v0.6 wave 2
+
+- Time: 2026-11-17 09:43 → 2026-11-17 23:27 (13h43)
+- Agents: 17 · tool calls: 1,304 · model turns: 1,273
+- Tokens in: 196.0M (fresh 3k, cache write 3.7M, cache read 192.3M) · out: 1.1M
+- Max context: 324k (coding-leader: Chunk 6 bastion 0.6.0 owner)
+- Cost: $79.73 at API list prices (checked 2026-11-12)
+- Ends: at its last tagged agent (not merged yet)
+
+#### By role
+| role | agents | calls | tokens in | out | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| coding-leader | 7 | 658 | 110.5M | 656k | $45.38 | 57% | 324k |
+| coding-executor | 3 | 315 | 48.5M | 134k | $14.37 | 18% | 292k |
+| spec-writer | 3 | 178 | 21.3M | 129k | $9.22 | 12% | 232k |
+| driver (top level) | 1 | 49 | 9.1M | 89k | $6.89 | 9% | 238k |
+| security-advisor | 3 | 104 | 6.6M | 62k | $3.87 | 5% | 132k |
+
+#### By chunk
+| chunk | agents | calls | tokens in | out | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 6 | 1 | 139 | 30.1M | 132k | $10.21 | 13% | 324k |
+| 7 | 1 | 113 | 22.9M | 121k | $8.45 | 11% | 321k |
+| 9 | 4 | 324 | 43.2M | 275k | $19.82 | 25% | 245k |
+| 15 | 1 | 63 | 8.6M | 78k | $4.20 | 5% | 208k |
+| outside chunks |  |  |  |  | $37.05 | 46% |  |
+
+#### By activity (tool calls)
+| activity | calls | share | writes | results |
+|---|---:|---:|---:|---:|
+| dispatch | 14 | 1% |  | 15k |
+| doc-get | 28 | 2% |  | 154k |
+| plan | 128 | 10% | 19 | 524k |
+| spec | 48 | 4% | 2 | 176k |
+| other docs | 209 | 16% | 47 | 624k |
+| source | 438 | 34% | 64 | 1.3M |
+| git | 76 | 6% |  | 110k |
+| shell other | 312 | 24% | 28 | 439k |
+| skills | 5 | 0% |  | 173 |
+| other files | 3 | 0% |  | 43k |
+| other tools | 43 | 3% |  | 37k |
+
+#### Largest contexts
+| agent | task | calls | max ctx | cost |
+|---|---:|---:|---:|---:|
+| ! coding-leader | Chunk 6 bastion 0.6.0 owner | 139 | 324k | $10.21 |
+| ! coding-leader | Chunk 7 network overview owner | 113 | 321k | $8.45 |
+| coding-executor | v0.6 wave 2 gate run | 247 | 292k | $12.48 |
+| coding-leader | Draft capture W2 for wave 2 | 73 | 263k | $5.38 |
+| coding-leader | Chunk 9a timeline owner | 96 | 245k | $5.98 |
+(! = over 300k tokens of context)
