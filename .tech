@@ -38,7 +38,20 @@
 # (Debian, --no-install-recommends, unpinned), 163 packages: the 157 of 0.5.0,
 # six new (jq, libjq1, libonig5, tmux, libevent-core-2.1-7t64, libjemalloc2;
 # libutempter0 absent) and PGDG libpq5 and postgresql-client-18 moved from
-# 18.6 to 18.7-1.pgdg13+2. The Go binaries downloaded as release tarballs
+# 18.6 to 18.7-1.pgdg13+2. v0.6 wave 2's gate G9.1 (2026-11-17, PostgreSQL's
+# 2026-11-12 security release): postgres 0.5.1 (c2ebb6cceaed), pgbouncer
+# 0.1.2 (387417b98d9e), scheduler 0.4.0 (c368bd08207f), api 0.1.1
+# (4518e6873dde) and health-check 0.1.1 (d27fee8b444b) rebuilt --no-cache
+# --pull, same tags (unreleased); dpkg-query read in each by the advisor the
+# same day and diffed against the previous image: postgres libpq5,
+# postgresql-18 and postgresql-client-18 18.6 -> 18.7-1.pgdg13+2;
+# pgbouncer the same client pair, libcares2 1.34.5-1+deb13u1 ->
+# 1.34.9-1~deb13u1, and PGDG postgresql-client, -client-common, -common and
+# -common-dev 293.pgdg13+1 -> 295.pgdg13+1; scheduler and api libpq5 17.11 ->
+# 17.12-0+deb13u1; health-check libpq5 and postgresql-client-17 the same;
+# nothing else. A cached docker build of a brick keeps its old apt layer:
+# security updates arrive only with --no-cache. The Go binaries downloaded
+# as release tarballs
 # (prometheus, promtool, grafana and its bundled Prometheus data source
 # plugin, postgres_exporter, pgwatch) are described by one CycloneDX SBOM
 # each, bricks/<brick>/sbom/<binary>.cdx.json, which osv-scanner reads on
@@ -137,27 +150,27 @@ source = "Debian curl and libcurl4t64 8.14.1-2+deb13u7 (trixie-security's latest
 
 [[platform]]
 name = "PostgreSQL (server and client tools)"
-version = "18.6"
+version = "18.7"
 cpe = "cpe:2.3:a:postgresql:postgresql"
-source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.5.1 (server, TLS on, standby and WAL archiving) and pgbouncer 0.1.2 (client; dpkg-query 2026-11-16); bastion 0.6.0, rebuilt 2026-11-17 (G7), runs postgresql-client-18 and libpq5 18.7-1.pgdg13+2. Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time. 18.7 (2026-11-12) fixes PostgreSQL's 18.7 batch (postgresql.org/support/security: about 50 CVEs affecting 18, server and client, several CVSS 8.8), which affects the 18.6 server in postgres 0.5.1 and the client in pgbouncer 0.1.2; NVD has no CPE configuration for them yet (cve-watch latest --version 18.6: 0, 2026-11-17), so the sweep does not raise them. A rebuild of those bricks picks up 18.7 (trixie-pgdg's current)"
+source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.7-1.pgdg13+2 (trixie-pgdg's current): postgres 0.5.1 (server, TLS on, standby and WAL archiving; image c2ebb6cceaed) and pgbouncer 0.1.2 (client; 387417b98d9e), both rebuilt --no-cache at v0.6 wave 2's gate G9.1, dpkg-query 2026-11-17; bastion 0.6.0 (client, rebuilt at G7) the same. Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time, so a cached build keeps the old minor. 18.7 (2026-11-12) fixes PostgreSQL's 2026-11-12 batch (postgresql.org/support/security: 52 CVEs affecting 18, server and client, many CVSS 8.8); that page lists no advisory affecting 18.7 and no out-of-cycle release since (checked 2026-11-17). NVD has no CPE configuration for the batch yet (cve-watch latest --version 18.7: 0, 18.6: 0, 2026-11-17), so the sweep never raised it. CVE-2026-6460 (composite datums vs ALTER ... SET DATA TYPE, 8.8) needs C extensions rebuilt against 18.7 for full protection: see pg_cron and pgaudit below. Players are the superuser dba and the other roles are the game's own services, so the batch's unprivileged-user attacks had no attacker here; the fix is in anyway. Watch: postgresql.org/support/security"
 
 [[platform]]
 name = "PostgreSQL client library and psql 17 (libpq; scheduler, api and health-check)"
-version = "17.11"
+version = "17.12"
 cpe = "cpe:2.3:a:postgresql:postgresql"
-source = "Debian libpq5 17.11-0+deb13u1 (apt, unpinned; dpkg-query 2026-11-16): scheduler 0.4.0, pulled by python3-psycopg; api 0.1.1, installed directly under pure-Python psycopg 3.3.7 (psycopg.pq.__impl__ python, libpq 170011, never psycopg[binary]; gate G6); health-check 0.1.1, libpq5 and postgresql-client-17 17.11-0+deb13u1 (with postgresql-client 17+278, postgresql-client-common 278) pulled by check-postgres 2.26.0-2, Debian's psql 17 run by check_postgres against PostgreSQL 18.6 over TLS (every chosen action tested on 18; gate G9, 2026-11-04). Clients only, no server. trixie-security carries 17.12-0+deb13u1 (Debian tracker, 2026-11-17), fixing the 2026-11-12 batch's client-side CVEs (pg_dump, pg_restore and libpq); a rebuild of the three bricks picks it up, NVD does not match them yet"
+source = "Debian libpq5 17.12-0+deb13u1 (trixie-security, DSA-6625-1; apt, unpinned; the three images rebuilt --no-cache at v0.6 wave 2's gate G9.1, dpkg-query 2026-11-17): scheduler 0.4.0 (c368bd08207f), pulled by python3-psycopg; api 0.1.1 (4518e6873dde), installed directly under pure-Python psycopg 3.3.7 (psycopg.pq.__impl__ python, never psycopg[binary]; gate G6); health-check 0.1.1 (d27fee8b444b), libpq5 and postgresql-client-17 17.12-0+deb13u1 (with postgresql-client 17+278, postgresql-client-common 278) pulled by check-postgres 2.26.0-2, Debian's psql 17 run by check_postgres against PostgreSQL 18 over TLS (every chosen action tested on 18; gate G9, 2026-11-04). Clients only, no server. DSA-6625-1 fixes the 47 CVEs of the 2026-11-12 batch that touch 17 (Debian tracker; OSV Debian:13 postgresql-17 17.11-0+deb13u1: 47, 17.12-0+deb13u1: 0, 2026-11-17); NVD matches neither version yet (cve-watch latest --version 17.12: 0). The api and scheduler stack tests rebuilt their image with a cached docker build at G9.1 and brought back 17.11 (being fixed): read dpkg-query again after any rebuild of those two"
 
 [[platform]]
 name = "PgBouncer"
 version = "1.26.1"
 cpe = "cpe:2.3:a:pgbouncer:pgbouncer"
-source = "bricks/pgbouncer/Dockerfile ARG PGBOUNCER_PACKAGE=1.26.1-1.pgdg13+1 (PGDG, owner ruling D177)"
+source = "bricks/pgbouncer/Dockerfile ARG PGBOUNCER_PACKAGE=1.26.1-1.pgdg13+1 (PGDG, owner ruling D177), unchanged in the G9.1 rebuild (dpkg-query 2026-11-17). 1.26.1 (2026-10-14) is upstream's latest and fixes CVE-2026-107348/-107349/-107350; NVD (cve-watch latest --version 1.26.1): 0, 2026-11-17. Watch: pgbouncer.org/changelog.html"
 
 [[platform]]
 name = "c-ares (pgbouncer brick)"
-version = "1.34.5"
+version = "1.34.9"
 cpe = "cpe:2.3:a:c-ares:c-ares"
-source = "Debian libcares2 1.34.5-1+deb13u1 in pgbouncer 0.1.2 (the 0.1.1 image; apt, unpinned; dpkg-query 2026-11-09 and 2026-11-16), PgBouncer's resolver for its [databases] hosts through Docker's embedded DNS on the overlay. NVD matches only CVE-2025-62408 on 1.34.5, fixed by Debian's backport (DSA-6084-1, 1.34.5-1+deb13u1). The Debian tracker lists CVE-2026-33630, -69184, -69186 and 11 GHSA entries open in trixie with no DSA (upstream fixed in >= 1.34.7; 2026-11-09): a pgbouncer rebuild picks up Debian's fix when it lands (apt unpinned). Watch: the Debian tracker's c-ares"
+source = "Debian libcares2 1.34.9-1~deb13u1 (trixie-security, DSA-6626-1; apt, unpinned) in pgbouncer 0.1.2, rebuilt --no-cache at v0.6 wave 2's gate G9.1 (image 387417b98d9e, dpkg-query 2026-11-17; 1.34.5-1+deb13u1 before), PgBouncer's resolver for its [databases] hosts through Docker's embedded DNS on the overlay. 1.34.9 (2026-10-20) is upstream's latest; it and DSA-6626-1 close everything open since v0.4: CVE-2025-62408, CVE-2026-33630, -69184, -69186 (DSA-6626-1) and the 11 GHSA advisories of 1.34.9 (tracker TEMP entries, trixie (security) fixed at 1.34.9-1~deb13u1). Checked 2026-11-17: NVD (cve-watch latest --version 1.34.9) 0; OSV Debian:13 c-ares 1.34.9-1~deb13u1 0 (1.34.5-1+deb13u1: 4); the Debian tracker's c-ares lists nothing open in trixie (security). Watch: the Debian tracker's c-ares and github.com/c-ares/c-ares security advisories"
 
 [[platform]]
 name = "nginx (bastion web front, health-check status page)"
@@ -168,7 +181,7 @@ source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.6.0 (the 0.5.0 image, rebu
 [[platform]]
 name = "pg_cron (PostgreSQL extension, postgres brick)"
 version = "1.6.8"
-source = "bricks/postgres/Dockerfile ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2 (PGDG postgresql-18-cron, pinned and asserted by dpkg-query at build; v0.4 gate G5) in postgres 0.5.1. No CPE exists on NVD (checked 2026-10-30), no OSV ecosystem; watch github.com/citusdata/pg_cron (no repository advisory as of 2026-10-30) and the Debian tracker's pg-cron"
+source = "bricks/postgres/Dockerfile ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2 (PGDG postgresql-18-cron, pinned and asserted by dpkg-query at build; v0.4 gate G5) in postgres 0.5.1 (dpkg-query 2026-11-17, G9.1). No CPE exists on NVD (checked 2026-10-30), no OSV ecosystem. Upstream 1.6.8 is the latest release, no repository advisory (2026-11-17). PGDG's newer build 1.6.8-1.pgdg13+3 is the same source rebuilt against PostgreSQL 18.7 (changelog: no source changes) and Depends postgresql-18 (>> 18.7), which 18.7-1.pgdg13+2 satisfies; the pinned +2 was built before 18.7, so it lacks the extension half of CVE-2026-6460 (18.7's notes: full protection needs C extensions rebuilt). Not reachable as an attack here (only the superuser dba and the game's own service roles connect; pg_cron reads its own cron.job table), but open until the pin moves to +3 (advisor, 2026-11-17). Watch: github.com/citusdata/pg_cron and the Debian tracker's pg-cron"
 
 [[platform]]
 name = "cron (Debian, postgres and health-check bricks)"
@@ -188,12 +201,12 @@ source = "bricks/postgres/Dockerfile ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1 (PGDG pg
 [[platform]]
 name = "check_postgres (health-check brick)"
 version = "2.26.0"
-source = "bricks/health-check/Dockerfile ARG CHECK_POSTGRES_PACKAGE=2.26.0-2 (Debian check-postgres, no recommends, pinned and asserted by dpkg-query and --version at build; gate G9) in health-check 0.1.1. Perl script on Debian perl 5.40.1-6+deb13u1 over Debian psql/libpq 17.11 (entry above), run as postgres from its spool crontab every five minutes (--timeout=15, each run bounded at 30 s) against the scenario's PostgreSQL 18 nodes over TLS, the password in PGPASSFILE, never --dbpass. No CPE exists on NVD (checked 2026-11-04); OSV Debian:13 check-postgres clean, no issue on the Debian tracker. Upstream (github.com/bucardo/check_postgres) dormant since its 2.26.0 release in 2023: a future fix may come only as a Debian patch. Watch: the Debian tracker's check-postgres and perl"
+source = "bricks/health-check/Dockerfile ARG CHECK_POSTGRES_PACKAGE=2.26.0-2 (Debian check-postgres, no recommends, pinned and asserted by dpkg-query and --version at build; gate G9) in health-check 0.1.1. Perl script on Debian perl 5.40.1-6+deb13u1 over Debian psql/libpq 17.12 (entry above), run as postgres from its spool crontab every five minutes (--timeout=15, each run bounded at 30 s) against the scenario's PostgreSQL 18 nodes over TLS, the password in PGPASSFILE, never --dbpass. No CPE exists on NVD (checked 2026-11-04); OSV Debian:13 check-postgres clean, no issue on the Debian tracker. Upstream (github.com/bucardo/check_postgres) dormant since its 2.26.0 release in 2023: a future fix may come only as a Debian patch. Watch: the Debian tracker's check-postgres and perl"
 
 [[platform]]
 name = "pgaudit (PostgreSQL extension, postgres brick)"
 version = "18.0"
-source = "bricks/postgres/Dockerfile ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1 (PGDG postgresql-18-pgaudit, pinned and asserted by dpkg-query and pgaudit.so at build; v0.5 gate G5) in postgres 0.5.1, from v0.5. Writes DDL, WRITE and ROLE lines to the file log the players read; 18.0 redacts passwords in role statements itself (password <REDACTED>), PostgreSQL's own statement logging does not, so the password sessions run with pgaudit.log and statement logging off. No CPE exists on NVD (checked 2026-11-03), no OSV ecosystem (CVE-2025-23413 is F5's, not pgaudit's); watch github.com/pgaudit/pgaudit security advisories and releases"
+source = "bricks/postgres/Dockerfile ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1 (PGDG postgresql-18-pgaudit, pinned and asserted by dpkg-query and pgaudit.so at build; v0.5 gate G5) in postgres 0.5.1, from v0.5 (dpkg-query 2026-11-17, G9.1). Writes DDL, WRITE and ROLE lines to the file log the players read; 18.0 redacts passwords in role statements itself (password <REDACTED>), PostgreSQL's own statement logging does not, so the password sessions run with pgaudit.log and statement logging off. No CPE exists on NVD (checked 2026-11-03), no OSV ecosystem (CVE-2025-23413 is F5's, not pgaudit's), no repository advisory (2026-11-17). PGDG's newer build 18.0-3.pgdg13+2 is the same source rebuilt against PostgreSQL 18.7 (no source changes) and Depends postgresql-18 (>> 18.7), satisfied by 18.7-1.pgdg13+2; the pinned +1 was built before 18.7 and lacks the extension half of CVE-2026-6460, as pg_cron above (not reachable as an attack here; open until the pin moves to +2). Upstream released pgAudit 18.1 on 2026-11-17 (not in PGDG yet): bug fixes with no advisory, one a use-after-free reading an object's name after an event trigger, others changing which lines are logged (a statement's own permission check only, no non-enforcing checks, COPY rows with pgaudit.log_rows), so taking it changes what the players read. Watch: github.com/pgaudit/pgaudit security advisories and releases, PGDG pgaudit-18"
 
 [[platform]]
 name = "cmark-gfm (bastion starter-pack page)"
@@ -556,13 +569,6 @@ reason = "aws-sdk-go v1 S3 Crypto SDK, no fix will exist; s3crypto not linked in
 approved_by = "bastien"
 until = 2027-05-01
 
-# c-ares (Debian libcares2 1.34.5-1+deb13u1, pgbouncer)
-
-[[ignore]]
-id = "CVE-2025-62408"
-reason = "fixed by Debian backport 1.34.5-1+deb13u1 (DSA-6084-1)"
-approved_by = "bastien"
-until = 2027-02-01
 
 # curl (Debian 8.14.1-2+deb13u7, eight bricks; gate G11.2, owner accepted 2026-11-10).
 # Review at the next trixie curl security upload if it comes before 2027-02-01.
