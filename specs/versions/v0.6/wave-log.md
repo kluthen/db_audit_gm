@@ -1726,3 +1726,38 @@ Figures: 1 agent, 63 tool calls, 8.6M tokens in / 78k out, max context
 `cpe:2.3:a:jqlang:jq`, and the 17 backported CVEs get `[[ignore]]`
 entries ("fixed by Debian backport in 1.7.1-6+deb13u4 or earlier",
 review 2027-02-01 or the next trixie jq upload).
+
+### G7 — dependency post-change check: CLEAR, 2026-11-17
+
+`security-advisor`, 2f242e5 (`.tech` only). dpkg-query 2026-11-17:
+`bastion` 0.6.0 (b8ae4d82a6cd, Debian 13.7, 163 packages) has `jq`/`libjq1`
+1.7.1-6+deb13u4, `libonig5` 6.9.9-1+b1, `tmux` 3.5a-3,
+`libevent-core-2.1-7t64` 2.1.13-stable-1~deb13u1, `libjemalloc2` 5.3.0-3,
+no `libutempter0`; against 0.5.0, those six plus PGDG `libpq5` and
+`postgresql-client-18` 18.6 → 18.7-1.pgdg13+2 (the tag now names a new
+package list; v0.6 unreleased, so folded into 0.6.0). `grafana` 0.4.0
+and `postgres-exporter` 0.2.1 already carry jq deb13u4: no rebuild for
+jq. `.tech`: `[stack]` `tools` and `bastion_tools` keys; `[[platform]]`
+jq (`cpe:2.3:a:jqlang:jq`, 1.7.1) and tmux
+(`cpe:2.3:a:tmux_project:tmux`, 3.5a); **17 jq `[[ignore]]` entries**
+(the owner's "CPE + 17 ignores"), each re-checked on the Debian tracker
+as fixed at or below deb13u4, `approved_by = "bastien"`, until
+2027-02-01 or the next trixie jq upload; PostgreSQL 18's entry records
+the bastion's client at 18.7. `cve-watch lint` exit 0 (ten old
+no-CPE warnings); `cve-watch check` 75 findings before and after (none
+from this change), accepted 94 → 111.
+
+Expected later: CVE-2026-39956 and CVE-2026-40164 (jq, fixed in
+deb13u2, not yet matched by NVD) will surface in a sweep and need
+their own approved ignores.
+
+**PostgreSQL's 2026-11-12 security release** (about 50 CVEs on 18.x,
+several CVSS 8.8, fixed in 18.7; NVD not yet analysed, so the sweep
+won't raise them): `postgres` 0.5.1's server and `pgbouncer` 0.1.2's
+client are at 18.6; `scheduler`, `api` and `health-check` have Debian
+libpq 17.11 (trixie-security has 17.12). No Dockerfile pins those
+versions, and every one of these bricks is at its unreleased v0.6
+version, so the plan's gate rule applies: rebuilt, the change folds
+into the unreleased version with a post-change check. The cached apt
+layer would keep 18.6, so the driver added **G9.1**: the five built
+with `--no-cache` at wave 2's gate, then `security-advisor`.
