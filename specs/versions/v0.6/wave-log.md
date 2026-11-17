@@ -1520,3 +1520,19 @@ The capture's (choice) points are accepted as drafted. Corrections 1 to
 correction touches chunk 6, so it starts at once (G6 cleared). Chunk 7
 starts once the plan revision is committed (its Files gain the
 `player/README.md`s and the clinic's data register).
+
+### Chunk 6 started; plan v5 (ae35c7a), 2026-11-17
+
+- Chunk 6 (`bastion` 0.6.0) dispatched to a `coding-leader` at 578a87f,
+  branch `v0.6-c6-bastion`.
+- `spec-writer` applied W2's corrections 1 to 8 (none declined) and
+  answer 3: build plan v5, ae35c7a. **D527**: the fill's pause plantings
+  at the pause's virtual instant (master spec 9.4 step 5; chunk 15),
+  answers 1 and 2 recorded as confirming D523 and D525. **D528**: an
+  ineligible instance refused, not the game (access model 7).
+  **D529**: inside DDL, `now()` and its kin written `pg_catalog.` (9.9
+  fix 11). D526 listed under "Never issued". G10.2 added (W2's forms,
+  after wave 2's gate). `doc-ids lint spec` and `doc-get lint plan`
+  clean. Noted for chunk 15: an inject script whose DDL used an
+  unqualified `now()` would bind the shim at a pause; the checked drop
+  catches it; none does today.
