@@ -896,6 +896,44 @@ the wave's merge; `v0.6-spec` (worktree, merged into `main` at 819baab).
 
 ## Wave 2 — started 2026-11-17
 
+Chunks 6, 7, 9, 15 (κ = 2). Branch `v0.6-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.6-w2`, cut from `main` at ea13456
+(wave 1 merged).
+
+### Gates checked at the start
+
+- G3 (network at image build time), hand check 2026-11-17: Debian's
+  trixie `Release`, `trixie-pgdg` `Release`, GitHub's s6-overlay,
+  Prometheus, `postgres_exporter` and pgwatch releases, and the
+  Dockerfile's Grafana download
+  (`dl.grafana.com/grafana/release/13.3.1/grafana_13.3.1_42849527790_linux_amd64.tar.gz`)
+  answer 200. Cleared for wave 2.
+- G4 (swarm), hand check 2026-11-17: armenelos active, Leader; the VPS
+  `vps-5718ad52` `Ready`, `Drain`. No stack deployed. Cleared for wave 2.
+- Host: `/home` 89 % used, 15G free.
+- G6 (dependency preflight on `bastion` 0.6.0's `jq` and `tmux`),
+  `security-advisor`, 2026-11-17: **CLEAR WITH NOTES**. Six packages
+  come in with `--no-install-recommends` (apt simulate in a throwaway
+  `debian:13-slim`, Debian 13.7): `jq` and `libjq1` 1.7.1-6+deb13u4,
+  `libonig5` 6.9.9-1+b1, `tmux` 3.5a-3, `libevent-core-2.1-7t64`
+  2.1.13-stable-1~deb13u1, `libjemalloc2` 5.3.0-3; `libutempter0` (a
+  Recommends) not installed. The note: DEBIAN-CVE-2025-9403 on jq, open
+  in every suite, Debian "unimportant" (testsuite only, `jq
+  --run-tests`), not reachable. NVD's 17 matches on jq 1.7.1 are all
+  fixed in trixie at or below deb13u4 (backport false positives).
+  Nothing for tmux 3.5a (CVE-2026-11623 is 3.6a's), oniguruma, libevent
+  or jemalloc. Packages left unpinned. `.tech` unchanged.
+  **For G7:** add `jq` and `tmux` `[[platform]]` entries (CPEs
+  `cpe:2.3:a:jqlang:jq`, `cpe:2.3:a:tmux_project:tmux`; source strings
+  naming the Debian versions above, the images, the use, and the two
+  notes); `jq` is already in the grafana and postgres-exporter images
+  and `.tech` does not record it, so G7 dpkg-queries them too. **Owner
+  decision at G7:** with `jq`'s CPE set, the sweep raises the 17
+  backported CVEs, which would need 17 `[[ignore]]` entries approved
+  ("fixed by Debian backport in 1.7.1-6+deb13u4 or earlier", review
+  2027-02-01 or the next trixie jq upload); the alternative is no CPE
+  and the Debian tracker only.
+
 ### Capture W2 — the bastion's front and status file, the overview's form, the fake timeline, the seed's clock and the restart, the cover (chunks 6, 7, 9, 15; read by 10 to 14)
 
 Drafted 2026-11-17 for the wave driver, before any code. Sources: the
@@ -1445,7 +1483,7 @@ outcome rule; the checked drop.
    `clean_restart`; `timeline`'s fake keys; `wal-rate.yaml`; the cover
    item; `--test-tail-floor`.
 
-### Questions for the owner
+### Questions for the owner (as drafted)
 
 Two, already put after wave 1 (plan v4 entry); W2 is drafted on the
 recommended answers and marks what depends on them.
@@ -1462,3 +1500,23 @@ recommended answers and marks what depends on them.
    shim already there), a change to 9.4 step 5 for spec-writer. If not
    adopted, chunk 11 assesses such a fault `tail-only` with a tail
    planting.
+
+### Owner answers, 2026-11-17
+
+All three as recommended:
+1. "Auto-discover (Recommended)": the cover finds its routines itself
+   (D523 as written). Item 13 stands.
+2. "Include plantings (Recommended)": D525 reaches the T0 plantings (as
+   written). Item 9 stands.
+3. "Virtual instant (Recommended)": the fill's pause plantings run with
+   the same session means at the pause's virtual instant (`fill.py`,
+   chunk 15); a change to master spec 9.4 step 5, for `spec-writer` to
+   record.
+
+### W2 reviewed by the driver, 2026-11-17
+
+The capture's (choice) points are accepted as drafted. Corrections 1 to
+8 and answer 3 go to `spec-writer` before chunks 7, 9 and 15 start; no
+correction touches chunk 6, so it starts at once (G6 cleared). Chunk 7
+starts once the plan revision is committed (its Files gain the
+`player/README.md`s and the clinic's data register).
