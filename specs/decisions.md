@@ -28,7 +28,8 @@ README:
 Archived IDs keep their meaning and are cited as they are. Never issued:
 D232 and D259 (v0.4); D337, D341, D359, D371, D392, D429, D430 and D470
 (reserved during v0.5 and never used); D477–D479 (set aside for v0.5's
-close, unused at its archive). The live entries below are v0.6's, from
+close, unused at its archive); D526 (reserved during v0.6's wave 2,
+never used). The live entries below are v0.6's, from
 D480 on. Take the next number from `doc-ids`; no ID is reused.
 
 - **D480 (2026-11-13, owner ruling, relayed by the coordinator): The
@@ -309,3 +310,23 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   9.4 said nothing of the seed's clock. Now in:
   [master spec](versions/v0.6/master-spec.md#99-the-fix-list) 9.4, 9.9;
   [build plan](versions/v0.6/build-plan.md) chunk 9.
+- **D527 (2026-11-17, owner answer "Virtual instant (Recommended)",
+  relayed by the wave driver after capture W2): the fill's pause
+  plantings run with D525's session means at the pause's virtual
+  instant** (`gm.vclock` and `gm_vclock` first on the path, through
+  `PGOPTIONS`), not on the real clock, so a planting at virtual 02:00
+  writes 02:00. The same answers confirmed D523 ("Auto-discover") and
+  D525 ("Include plantings") as written. Now in:
+  [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
+  9.4 step 5, 9.9 fix 11; [build plan](versions/v0.6/build-plan.md) chunk 15.
+- **D528 (2026-11-17, spec-writer, capture W2's preflight correction 7,
+  accepted by the wave driver): in a fake game an ineligible instance is
+  refused, not the game,** which renders and runs without it, the
+  refusal in the restart record; 6.9's `refused:` and 12.2's "f10
+  refused" already read so. Now in:
+  [access model](versions/v0.6/access-model.md#7-denial-behaviour) 7.
+- **D529 (2026-11-17, spec-writer, capture W2's preflight correction 6):
+  in DDL run under fix 11's means, `now()` and its kin are written
+  `pg_catalog.`;** a stored default or view would otherwise bind the
+  shim's function, and the shim's drop would take it. Now in:
+  [master spec](versions/v0.6/master-spec.md#99-the-fix-list) 9.9 fix 11.

@@ -8,6 +8,8 @@ their assignment and lifecycle, its permission matrix, conditions,
 denial behaviour, the fiction's access, the partners in the fiction,
 its audited operations and its known gaps. This document states only
 what v0.6 adds or changes; where they disagree, this one wins.
+Amended in wave 2, from capture W2's preflight correction 7: a fake
+game's refusal is the instance's, not the game's (7; spec D528).
 
 ## 1. Purpose and scope
 
@@ -114,8 +116,10 @@ acting as a `player`.
   player during the game: answered in-world only (the customer's
   servers were restarted for maintenance; older logs archived); never
   confirmed or denied.
-- A fake game holding a `real-only` or unassessed fault: refused by
-  `gmctl render`, naming the reason, before deployment.
+- A `real-only` or unassessed fault instance in a fake game: the
+  instance is refused by `gmctl render`, naming its reason, before
+  deployment; the game is rendered and runs without it, the refusal
+  listed in the restart record (master spec 6.9).
 
 ## 8. Elevation, delegation and non-human actors
 
