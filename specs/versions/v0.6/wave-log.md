@@ -893,3 +893,572 @@ capture W2; G10.1; the owner's two minor questions above; the merge into
 `v0.6-c1-reference`, `v0.6-c2-versions`, `v0.6-c3-loader`,
 `v0.6-c4-overview-inputs`, `v0.6-c8-fill` (no worktrees), removed with
 the wave's merge; `v0.6-spec` (worktree, merged into `main` at 819baab).
+
+## Wave 2 — started 2026-11-17
+
+### Capture W2 — the bastion's front and status file, the overview's form, the fake timeline, the seed's clock and the restart, the cover (chunks 6, 7, 9, 15; read by 10 to 14)
+
+Drafted 2026-11-17 for the wave driver, before any code. Sources: the
+capture lines of chunks 6, 7, 9 and 15 and the Depends and capture lines
+of chunks 10 to 14 (plan v4); their spec packs (master spec 6.7, 6.9,
+6.10, 7.1 to 7.7, 8.1 to 8.4, 8.7, 9.3 to 9.6, 9.9, 9.10; access model
+4 and 7); [formats.md](../../formats.md) v35; spec D515 to D525; W1 and
+its as-built records (W1-w, W1-x, W1-y, W1-z, plan v4); the code on
+`v0.6-w2` at ea13456 (`tools/gm/{render,deploy,localimpl,restart,fill,inject,aging,model}.py`,
+the bastion's `brick.yaml`, `gm-entrypoint` and s6 services,
+`bricks/scheduler/program/gm_scheduler/{fill,__main__}.py`, the
+`scenario-document` and `data-register` skills, the clinic's and the
+shop's files). W1's rules hold: the spec is cited, not restated;
+**(choice)** marks a point the sources left open, settled with its
+reason; each item names its writer and its readers; chunk internals stay
+out. As-built records: **W2-w** (chunk 6: the front's files, the status
+file and the brick pages as built, the footprint), **W2-x** (chunk 9: the
+record as written, the clock means' findings per scenario, the shop's
+WAL rate and its source member, the fixture's figures), **W2-y** (chunk
+15: `fill-sql`'s options as built, `TestP0`'s cases), **W2-z** (chunk 7:
+the clinic's counts, the loader's texts as built).
+
+Held, cited not restated: W1 items 0 (accessors), 4 (`admitted_incidents`,
+`fault_fake_aging`, `RESERVED_WEB_ROUTES`), 7 to 9 (the fill, its
+`state.yaml` record, `fill.quiet`, P0, what the fill leaves) and W1-x;
+the host timers' unit names `dbagm-<game_id>_<action>` (spec D173,
+`aging.unit_name`); the credentials written into `partners.md` by the
+entrypoint (spec D365, D433). Every instant W2 adds is UTC, written
+`YYYY-MM-DDTHH:MM:SSZ`; every duration W1's `<integer><s|m|h|d>`.
+
+**1. What render delivers to the bastion** (chunk 6 writes; 9 extends
+render; 14 reads)
+
+- **The brick pages (choice)**: a config kind `brick-doc`, one per brick
+  of a node the players may reach (every node not in
+  `model.third_party_nodes(data, sdir)`, the bastion included),
+  topology order, one per brick id: name `<game_id>_bastion_doc-<brick-id>`,
+  file the pinned brick's `docs/player.md` relative to the scenario
+  folder (as `mounted_configs` does), path
+  `/opt/gm/docs/bricks/<brick-id>.md`, `0:0`, `0444`. Built by
+  `build_implementation` (fit) and checked by `render._check_fit` ("the
+  brick pages changed since gmctl fit: fit again"), as the mounted
+  material is; the new names enter `_derived_lengths`. Why at fit: the
+  set depends on the topology only, and fit already derives every other
+  config.
+- **The status file (choice)**: JSON, since the bastion has `jq` (7.7)
+  and no YAML parser:
+
+  ```json
+  {"generated_at": "2026-11-21T09:00:00Z",
+   "partners": [{"id": "northfield-lab", "name": "Northfield Veterinary Laboratories",
+                 "anchor": "northfield-veterinary-laboratories",
+                 "incidents": [{"instance": "s11", "title": "Delayed results delivery",
+                                "text": "...", "start": "2026-11-21T08:00:00Z",
+                                "end": "2026-11-21T10:00:00Z"}]}]}
+  ```
+
+  Every third party with a `player_doc`, in `third_parties:` order, those
+  admitting nothing with `"incidents": []`; `anchor` the `player_doc`'s
+  fragment or `null` (W1-y); `end` `null` without `until`; incidents in
+  `start` order. Only planted instances: those of `inject.fault_instances
+  (scenario, impl)`, so whatever `localimpl.left_out(impl)` returns
+  admits nothing (item 7 adds the refused instances there). Instants:
+  `handover-<N>h` the planned hand-over minus N hours; `T0`
+  `render.t0_instant(timeline)`, which chunk 6 writes as
+  `timeline.get("virtual_t0") or timeline["rendered_at"]` (the render
+  time, as `moment_instant` takes it; without a timeline, the render
+  time), so chunk 9 sets the key and touches nothing of 6's. A real
+  game's `T0` incident thus shows from the render, before any player
+  arrives.
+- **Delivered as (choice)**: a secret of a new kind `rendered`, declared by
+  `localimpl.node_secret_declarations` on the bastion when some third
+  party carries a `player_doc` (as O251 maps `partners.md`): name
+  `partners_status`, Swarm `<game_id>_partners_status`, file
+  `local/<playground>/secrets/partners_status.json` (0600 in the 0700
+  folder), path `/opt/gm/secrets/partners_status.json`, `0:0`, `0400`.
+  Render writes it in `write_rendered`, so a restart's re-render
+  (`restart.py`) rewrites it with the rest; `deploy.generate_credentials`
+  skips kind `rendered`; `create_objects` creates it as any secret.
+
+**2. The front** (chunk 6 writes; 14 reads; 7's handout served)
+
+- **Paths**, under `/run/web-front/www/` (the existing `WEB_DIR/www`),
+  all behind the server's basic authentication:
+
+  | URL | File or source | nginx |
+  |---|---|---|
+  | `/` | `index.html` (the home) | the existing `location = /` |
+  | `/docs/<id>`, `<id>` one of `readme`, `story`, `issues`, `data-policy`, `partners`, `data-register`, `network-overview` | `docs/<id>.html` | `location /docs/ { root ...; default_type text/html; try_files $uri.html =404; }` |
+  | `/docs/bricks/<brick-id>` | `docs/bricks/<brick-id>.html`, from `/opt/gm/docs/bricks/<brick-id>.md` | the same location |
+  | `/reports/` | `/home/player/reports/` | `location /reports/ { alias /home/player/reports/; autoindex on; disable_symlinks on; add_header Content-Security-Policy "sandbox allow-scripts" always; }` |
+  | `/status/<id>/` | `status/<id>/index.html` | `location /status/ { root ...; index index.html; try_files $uri $uri/ =404; }` |
+
+  The docs and the home are rendered by the entrypoint at each start
+  (from `/opt/gm/starter`, the resolved `partners.md`, the brick
+  configs); the status pages by the service below. **`disable_symlinks
+  on` (choice)**: a player's link in `~/reports/` would otherwise serve
+  whatever `www-data` can read (7.5: nothing outside the folder).
+- **Heading ids (choice)**: cmark-gfm emits none, yet `player_doc`
+  fragments (`partners.md#the-regions-practices`) and the overview's
+  summary links need them. The page renderer gives every `<h1>` to
+  `<h6>` an `id` by GitHub's rule (lower-case; every character but
+  letters, digits, spaces, `-` and `_` dropped; spaces to `-`; a repeat
+  suffixed `-1`, `-2`), so a link that works in the GM's Markdown preview
+  works on the bastion; chunk 7 writes anchors by the same rule
+  (item 4). The partners' page gets, under each partner's heading, a link
+  to `/status/<id>/`.
+- **The status service (choice)**: s6 longrun `status-pages`
+  (`s6-rc.d/status-pages/`, in `user-bundles.d/user/contents.d/`), root,
+  running `/usr/local/lib/gm/render-status` then sleeping 60 s; each page
+  written to a temporary file and moved into place, `root:www-data`
+  `0440`. Without `/opt/gm/secrets/partners_status.json` it asks s6 not
+  to restart it (`s6-svc -O .`, as `web-front`) and no `/status/` page
+  exists. Page renderers live in `/usr/local/lib/gm/` (W2-w names them).
+- The home lists one status page per partner by `name`, read from the
+  status file by the entrypoint (root); its header names the customer by
+  the first `# ` heading of `story.md` **(choice**: 7.2's "from the
+  story", the one source chunk 7's overview header uses too).
+
+**3. The true overview, `gm/network-overview.yaml`** (chunk 7 writes; 13
+and 14 read)
+
+- **(choice)** Top keys, in order: `generated_from` (each input's
+  `sha256:<hex>`, as the register's; the inputs of 8.4 plus
+  `player/story.md`, item 2), `header`, `entries`, `third_parties`.
+  `header`: `customer`, `network`, `bastion`, `node_health`, `trust`, each
+  the fixed text of 8.1 as rendered.
+- **An entry**: `node`, `group` (`database`, `application`,
+  `integration`, `monitoring`: 8.1's groups), `role` (the skill's fixed
+  table), `access` and `activity`, then **the fields under the names
+  `overview_diff:` uses** (formats.md, 6.2): `description`, `site`
+  (absent when none), `system`, `applications`, `sizing`, `databases`,
+  `fed_and_used_by`, `uses`, `users`, `third_parties`, `tasks`, `backups`.
+  Scalars are the line as handed out; the fields the loader's coverage
+  reads are lists of records, each also rendered as one line:
+  `databases` `{database, holds, register: [<entry id>]}`;
+  `fed_and_used_by` and `uses` `{node, database, role, what}` (an HTTP
+  use `{node|partner, what}`); `users` `{who, database, role}`; `tasks`
+  `{task, when, zone, what, source: jobs|crontab|pg_cron|purpose}`;
+  `backups` `{kind: standby|wal-archive|base-backup|vault|check, line}`,
+  or the one item `{kind: none, line: none}`. Why the diff's names: a
+  diff's `field` is then a key of the entry, and its `true` one of that
+  field's rendered lines.
+- `third_parties`: `{id, name, hostname, anchor}`, one per partner with a
+  `player_doc`, access none implied.
+
+**4. The handout, `player/network-overview.md`** (chunk 7 writes; 6 serves
+it; 14 plants a change in it)
+
+- **(choice)** Layout: the header (8.1, its lines in `header`'s order);
+  `## Summary`, a table `Name | Role | Description | Your access`, each
+  name `[<node>](#<node>)`; one `##` section per group in 8.1's order
+  (`Database servers`, `Applications and APIs`, `Integration and
+  back-office engines`, `Monitoring`); each entry `### <node>` (anchor:
+  the node's name, which item 2's rule leaves unchanged); its fields as
+  one bullet each, `- **<Field>**: <line>`, a list field's items as
+  nested bullets, one line each; `## Third parties` closing, a table
+  `Partner | Hostname | Your access`, each partner linking
+  `partners.md#<anchor>`. One line per fact, so an overview fault's
+  change replaces whole lines of one entry and its diff names them.
+- The loader compares the header block and each entry's **Your access**
+  bullet with the true overview's, text for text.
+
+**5. The loader's texts** (chunk 7 writes; its unit tests read)
+
+- **(choice)** The register's pattern (`model.py`'s register check): the
+  file, the place, what is wrong, the rule, the way out. A miss is a
+  generation error (8.4), never a fault, so coverage texts end
+  `a generation error: regenerate with the network-overview skill`; a
+  stale digest `... changed since the overview was generated (its digest
+  differs): stale overview: regenerate with the network-overview skill`.
+  The named cases, each with its unit test (plan chunk 7, Done when):
+  - `gm/network-overview.yaml: entries: customer node <node> is in no entry (master spec 8.4): ...`
+  - `gm/network-overview.yaml: entries[<node>]: <node> is the bastion|a third party's node, never an entry (master spec 8.3): ...`
+  - `gm/network-overview.yaml: <node> -> <database> as <role> (<source>) is under no entry's fed_and_used_by (master spec 8.4): ...`
+  - `gm/network-overview.yaml: <task> (<source>) is under no entry's tasks (master spec 8.4): ...`
+  - `gm/network-overview.yaml: <node>: archive_mode = on (<file>) is under no entry's backups (master spec 8.4): ...`
+  - `player/network-overview.md: names <name>, a third party's node (master spec 8.3)`
+  - `player/network-overview.md: <node>: Your access reads "<x>", not the true overview's "<y>" (master spec 8.3: never a deviation)`
+  - `player/network-overview.md: the header differs from the true overview's (master spec 8.1: never a deviation)`
+  - the requirements: `scenario.yaml: a scenario listing domains: has a network overview: gm/network-overview.yaml missing (master spec 6.1, 8.4): generate it with the network-overview skill`;
+    `scenario.yaml: nodes[<node>].description: missing: every customer node of a scenario with an overview has one (master spec 6.1)`;
+    `domains/<id>/data/overview.yaml: roles|jobs: <name> missing, a login role|job the domain creates (<file>) (master spec 6.5)`.
+  W2-z records the full list as built.
+
+**6. The scenario document and the starter pack's README** (chunk 7
+writes; 12 and 13 read)
+
+- **"Network overview" section (choice)**, an `if:` block after "Data
+  register", on its model: the handout's path and its mapping, the true
+  overview's path; the header's customer; the counts (entries per group,
+  third-party rows); one table per overview fault instance, its
+  `overview_diff:` as the answer key writes it (node, field, true, handed
+  out, `absent` for an entry missing or invented). **Beside each fault**
+  (8.2): each answer-key instance on a customer node gains one line
+  quoting that node's entry lines whose 8.2 source its `seed_changes`
+  touch (`postgresql.conf`: Applications, Backups; a crontab, `jobs.yaml`
+  or `cron.sql`: Background tasks; a connection's file: Fed and used by,
+  Uses), else a link to the entry. Why: those are the lines that can
+  hide or help a system fault (8.5).
+- **8.7's README is the starter pack's `player/README.md`** (its "The
+  system" table and network paragraph, its "The web interfaces"), hand
+  written, not the scenario document: chunk 7 edits the clinic's
+  (one line pointing to the overview) and shrinks the web-interfaces
+  table of the four scenarios that have one to the home page's address
+  (Preflight corrections, item 1).
+
+**7. `gmctl render --aging fake`** (chunk 9 writes; 6's status file,
+10, 12, 13 read)
+
+- **(choice)** `--aging real|fake`, default `real`; `--handover` required
+  as today; a real render removes a leftover restart record.
+  `--test-tail-floor <duration>`, undocumented, the harness's alone,
+  recorded in `test_harness_override.tail_floor` (as `--test-leave-out`).
+  One pure function computes the timeline from a scenario, a planned
+  hand-over and a floor (`render.fake_timeline`, W2-x names it):
+  virtual T0, anchor, tail (9.6), the refused instances with reasons;
+  chunk 12's "Fake aging" section calls it.
+- **Refused instances (choice)**: an ineligible instance is refused, not
+  the game: render prints each with its reason (its `aging.fake.reason`,
+  or `not assessed: no aging.fake`), the record lists it (6.9), and
+  `timeline.refused` lists its id, which `localimpl.left_out(impl)` adds
+  to the harness's, so every verb (inject, fill, checks, the status
+  file, history) leaves it out through the one function. Why: 6.9 and
+  12.2 ("f10 refused") show a game running with refused instances. A
+  refused fault's seed changes stay in its copies (as the harness's
+  leave-outs): the GM replaces it (9.1). Preflight corrections, item 7.
+- **`implementation.yaml`'s `timeline`** in a fake game also carries
+  `virtual_t0`, `anchor`, `tail` and `refused`; the instances'
+  `planned_at` as today (from H); `moment_instant`'s `T0` and
+  `t0_instant` read `virtual_t0`.
+- **The story line (choice)**: in a scenario with scheduler nodes the
+  bastion's `story.md` is always a rendered seed file
+  (`localimpl.rendered_seed_names`), copied as is in a real game, so fit's
+  configs don't depend on the mode; in a fake game render appends one
+  paragraph: `The servers were restarted for maintenance on <YYYY-MM-DD>
+  at <HH:MM> UTC; older logs were archived.`, the planned anchor's.
+  Why a date and UTC: the anchor's hour need not be "this morning", and
+  every time the game shows is UTC (7.6).
+- **Monitoring at zero (choice)**: `localimpl.MONITORING_BRICKS =
+  ("prometheus", "grafana", "postgres-exporter", "pgwatch")` (9.4 step
+  2's list). In a fake game render writes `replicas: 0` for their nodes;
+  deploy's health wait skips them; clean-restart rewrites `stack.yml`
+  with every replica at 1 before its restart, so a later restart or
+  redeploy keeps the monitoring up.
+
+**8. The restart record as written** (chunk 9 writes; 10, 12, 13 read)
+
+- Exactly 6.9's form at `local/<playground>/fake-aging.yaml`; render
+  writes `mode`, `virtual_t0`, `anchor` (planned), `tail`,
+  `handover_planned`, `refused: [{instance, reason}]`; clean-restart
+  adds `restart: {at, story_line, explains: [{observation, where,
+  in_world}]}`; chunk 10 adds `history: {at, result, seam}`. **(choice)**
+  `explains` is 9.10's table kept where it holds in the game (a row on
+  archiving only with an archiving node, the covered routines' row only
+  when `fill.quiet` lists a cover). After the restart every verb takes
+  `restart.at` as the tail's start, the planned `anchor` before it.
+- **Progress stays in `state.yaml` (choice**, W1 item 7's rule): `hold`
+  (item 10), `fill` (W1), `clean_restart: {started_at, ended_at,
+  outcome, reason, wal: {<node>: {padded_bytes, pg_wal_bytes,
+  seconds}}}`. No new stage: the stage stays `injected` until
+  `start-load`, which in a fake game requires `clean_restart.outcome:
+  ok`.
+
+**9. The seed's and the T0 plantings' clock (D525)** (chunk 9 writes; 12
+reads; **depends on owner question 2**)
+
+- **(choice)** In a fake game, load-data and inject's T0 plantings run on
+  P0's means at the fixed instant `virtual_t0`:
+  - `gm_vclock` created, as postgres and unseen, in every database of
+    every `postgres` node, from `gm_scheduler fill-sql` run in the
+    game's first scheduler node (as `gmctl fill` gets it); dropped after
+    the verb by `fill-sql --drop` (item 13's checked drop);
+  - each session through `PGOPTIONS`: `-c gm.vclock=<virtual T0> -c
+    search_path=gm_vclock,pg_catalog,"$user",public`;
+  - `load_epoch` (`inject.load_epoch`) the virtual T0;
+  - in the SQL load-data sends, outside literals, comments and
+    dollar-quoted bodies (the splitter `model.sql_statements` uses):
+    `current_timestamp`, `current_date`, `localtimestamp`,
+    `current_time` and `localtime` replaced by their `gm_vclock.now()`
+    form in every statement but DDL, and in DDL (`CREATE`, `ALTER`)
+    every unqualified `now()`, `transaction_timestamp()`,
+    `statement_timestamp()` and `clock_timestamp()` written
+    `pg_catalog.<name>()`.
+  Why the DDL rule: a stored expression (a column default, a view, a
+  `BEGIN ATOMIC` body) binds the function it names when created, so an
+  unqualified `now()` resolved through the shim would bind
+  `gm_vclock.now()`, and the shim's drop would take it away
+  (`scenarios/tarnbeck-outdoor-campaign/data/reporting.sql:396`,
+  `DEFAULT now()`); qualified, the catalog holds what a real load leaves.
+  The keywords bind nothing and are left in DDL.
+- Inject scripts are shell programs run unchanged (as the fill runs them
+  at its pauses): they get the session means through `PGOPTIONS` only;
+  no script in `faults/*/inject/` uses a keyword today (they appear only
+  in `.sql.snippet` materials, which reach the seed's files).
+- What the means can't reach (a column's `DEFAULT now()` left to the
+  default, a keyword in a routine's body, a `CREATE TABLE AS` at load) is
+  reported by chunk 9's check (no value after the virtual T0 in any
+  `timestamptz`, `timestamp` or `date` column), each finding in W2-x,
+  never shifted after the fact. The real mode is unchanged.
+
+**10. The hold: the real-clock actors off from the deploy** (chunk 9
+writes; 15's fill reads; 9b restores)
+
+- **(choice)** In a fake game `gmctl deploy`, once the nodes are healthy
+  and before anything else, turns off on each `postgres` node what the
+  fill turns off as "left off" (`cron.launch_active_jobs = off`, the cron
+  daemon, archiving: W1-x's means), recorded in `state.yaml` as `hold:
+  {at, items: [<fill.quiet item>]}`, `left_off: true`. Why prevent
+  rather than clean (W1 item 8 left it to W2): what those actors do
+  between the deploy and the fill (an every-minute `pg_cron` job, as
+  `fixture-fill` has; a vault upload; a crontab job's effects) writes
+  real times into tables and the vault, which clean-restart could only
+  forge away, and it breaks item 9's "no time after the virtual T0".
+- The fill (chunk 15, fill.py) neither turns off again nor lists in
+  `fill.quiet` an actor the hold lists, so its restore stays the hold's
+  (the fill's survey would otherwise read the held value as the
+  original). clean-restart turns the hold's and the fill's left-off
+  items back on in its restart, as W1 item 8 says.
+
+**11. `gmctl clean-restart`** (chunk 9 writes; 10, 12 read)
+
+- Requires `fill.outcome: ok` (W1 item 7) and no `clean_restart.outcome:
+  ok` yet. Its order (9.4 step 6, 9.9 fixes 2, 4, 8), the contract
+  chunks 10 and 12 test against:
+  1. every `fill.quiet` item not `left_off` and without `restored_at`
+     restored by its `restore` in `restore.database` (absent: `postgres`)
+     or its root `script`, and `restored_at` set; a leftover `gm_vclock`
+     dropped in every database (item 13's checked drop); a failure here
+     stops it, recorded;
+  2. the WAL padded, then `CHECKPOINT` and `pg_switch_wal()` twice;
+  3. the statement, shared, checkpointer and WAL statistics reset
+     (never the table and index statistics, 9.9);
+  4. every service stopped; the PostgreSQL, pooler and cron logs
+     removed; each data file's modification time set to its last
+     virtual write; the hold's and the fill's left-off items restored
+     for the next start; `stack.yml` rewritten (item 7);
+  5. every service started at one instant, the monitoring with them;
+     the measured instant written as `restart.at`.
+- **The WAL rate (choice)**: `scenarios/<id>/nodes/<postgres
+  node>/wal-rate.yaml`, beside the node's seed files and never mapped,
+  as `service-times.yaml` is:
+
+  ```yaml
+  source: >-            # where it was measured: the run, its date, the file
+    research/fake-aging 10d1bc6, run R (fa-real, 2026-11-14 to 15), <member>
+  bytes_per_hour: 0     # WAL the node writes in an hour at the scenario's load, measured
+  ```
+
+  A day's worth is 24 times it. clean-restart refuses a `postgres` node
+  without one, naming the file. Chunk 9 writes the shop's (from the
+  reference, the member named in W2-x) and `fixture-fill`'s (the shop's,
+  with its source); chunk 11 the campaign's.
+
+**12. `start-load`, the timers, the outages** (chunk 9 writes; 10 and 13
+read)
+
+- **(choice)** In a fake game `start-load` records T0 as `virtual_t0`,
+  writes no `reload status=ok` line, creates plant timers for tail
+  plantings only (the fill planted the rest, W1 item 7), and schedules
+  the early check, unit `dbagm-<game_id>_early-check` (today's): with a
+  tail under two hours at the history's due time plus 5 min
+  (`EARLY_FLOOR`), else at the earlier of `restart.at` plus half the
+  tail and H minus one hour (9.4 step 9). The history import's unit is
+  **`dbagm-<game_id>_history`**, due `restart.at` plus 12 min
+  (`aging.HISTORY_AFTER`, chunk 9's constant); chunk 10 creates it in
+  `start-load` with its verb, and makes the early check wait, bounded,
+  for `history` in the record and read it.
+- **Outages (choice)**: in a fake game the outage window starts at
+  `restart.at`, never at the recorded T0: before it the nodes didn't
+  exist or the monitoring was at zero by design, and counting it would
+  push the earliest hand-over by the virtual span.
+
+**13. The cover** (chunk 15 writes; 9, 11, 12 read; **depends on owner
+question 1**)
+
+- **What it covers** (9.4, spec D523): in each database `gm_vclock` is
+  created in (the fill's sessions' databases), every routine with
+  `prokind` `f` or `p` whose `proconfig` has a `search_path=` entry,
+  outside `pg_catalog`, `information_schema`, `pg_toast`, the temporary
+  schemas and every schema `gm_*` (`gm_vclock`, `gm_check`, `gm_src_*`),
+  **and not an extension's member (choice**: `pg_depend` `deptype = 'e'`;
+  an extension's routines are not the scenario's, and altering one is a
+  change `ALTER EXTENSION` and a dump see). The covered path: 9.4's.
+- **Its `fill.quiet` item (choice)**, W1-x's form plus `routine` and
+  `restore.database`:
+
+  ```yaml
+  - node: reporting
+    what: "P0's cover: search_path of procedure rpt.close_day() in sales (spec D523)"
+    how: ALTER PROCEDURE rpt.close_day() SET search_path = gm_vclock, pg_catalog, pg_temp
+    left_off: false
+    routine: {database: sales, kind: procedure, signature: rpt.close_day(),
+              original: "pg_catalog, pg_temp"}
+    restore: {user: postgres, database: sales,
+              sql: ["ALTER PROCEDURE rpt.close_day() SET search_path = pg_catalog, pg_temp;"]}
+  ```
+
+  `restore.database` absent means `postgres`, so W1-x's items read as
+  before; the fill's end (`undo`) and clean-restart (item 11) both
+  connect to it. One item per database and signature, recorded before
+  the `ALTER` is sent; restored when `proconfig` equals the original,
+  entries and order. A routine gone at restore time counts as restored.
+- **After each planting** at a pause, the look again: a routine whose
+  `search_path` entry no longer starts with `gm_vclock` (replaced) or
+  that has no item (added) is covered, its item's `original` and
+  `restore` rewritten to the new setting.
+- **The fill's outcome (choice)**: the outcome is the program's: `ok`
+  when it ended `DONE` and every planting succeeded, even if an end
+  restore or the shim's drop failed; those items stay without
+  `restored_at`, the problems in `fill.reason`, and clean-restart
+  completes them (item 11, step 1). `FAILED` and `gmctl fill`'s own
+  failures stay `failed`, torn down (W1 item 7). This changes W1-x's
+  rule (`tools/gm/fill.py:991`, any end problem made the fill `failed`).
+  Why: an end restore failing leaves the night's rows whole, tearing a
+  complete fill down for a retryable `ALTER` is waste, and 9.4 gives the
+  leftover to clean-restart.
+- **The shim's drop never cascades onto a customer object (choice)**:
+  `fill-sql --drop` (today `DROP SCHEMA IF EXISTS gm_vclock CASCADE`,
+  `bricks/scheduler/program/gm_scheduler/fill.py:107`) first fails,
+  naming them, if any object outside `gm_vclock` depends on its
+  functions (a default, a view, a `BEGIN ATOMIC` body bound to the
+  shim), then drops; the fill's end, load-data's and inject's (item 9)
+  and clean-restart's drops all use it.
+- **What chunk 12's tells check reads**: no `proconfig` entry
+  `search_path=gm_vclock...` and no schema `gm_vclock` after
+  clean-restart.
+
+**14. Wave 2's order, owners and the interfaces across merges** (plan
+"Wave 2's order")
+
+- **Order**: 6 and 7 first; 9 in 7's slot, 15 the next free one. 6 and 7
+  merge in either order (no shared file); **15 before 9; 9 last**, after
+  6 and 15, taking `v0.6-w2` in first.
+- **Owners**:
+  - chunk 6: the bastion's brick but chunk 2's lines; `bricks/postgres/docs/player.md`;
+    in `tools/gm/`, items 1 and 2's parts of `localimpl.py` (the
+    `brick-doc` configs, the `rendered` kind, `partners_status`),
+    `render.py` (`t0_instant`, the status file in `write_rendered`, the
+    fit check), `deploy.py` (`generate_credentials`), `restart.py`;
+    `test_{render,deploy,restart}.py`; `fixture-status/`;
+  - chunk 7: `tools/gm/model.py`, alone in wave 2; the
+    `network-overview` skill; the `scenario-document` skill; the
+    `game-master` skill's `SKILL.md` (setup step 2); every scenario
+    document and the four `player/README.md`; the clinic's files; the
+    fixtures' catalogue domains;
+  - chunk 15: `bricks/scheduler/` (the program, its tests, `docs/gm.md`),
+    `tools/gm/fill.py`, `tools/tests/test_fill.py`, the fill's row of
+    `gmctl.md`;
+  - chunk 9: the rest of `render.py`, `deploy.py`, `localimpl.py` after 6;
+    `aging.py`, `state.py`, `inject.py`, `cleanrestart.py`, `__init__.py`;
+    their tests; the `gmctl.md` rows; `fixture-fill`'s run script and the
+    two `wal-rate.yaml`.
+- **What 9 builds on, fixed here so neither waits**: from 6, the status
+  file reading `timeline.virtual_t0` and `localimpl.left_out(impl)`, so
+  9 only writes `timeline`'s keys (item 7); from 15, the cover item and
+  `restore.database`, the hold read by the fill (item 10), the outcome
+  rule and the checked drop (item 13). **9 does not change
+  `bricks/scheduler/program/`**: its clock means are host-side
+  (`inject.py`) and take the shim from `fill-sql` as built by 15. 9 keeps
+  `inject.inject_plan`'s signature, which `fill.py` calls at its pauses.
+  Shared lists: `gmctl.md` (15, then 9), `tools/gm/__init__.py` (9 alone).
+- **What chunks 10 to 14 read from W2**: 10, items 7, 8, 11 and 12 (the
+  record, `restart.at`, the history unit and its due time, the outages,
+  `fill/<node>.metrics.jsonl` from W1); 11, items 11 (the campaign's
+  `wal-rate.yaml`) and 13 (f4's and f7's cover, f7's `TimeZone`
+  untouched); 12, items 7 (`fake_timeline`, refused), 8, 9's findings,
+  11 and 13's tells; 13, items 6 (setup step 2's order: format,
+  register, overview, document), 7, 8 and 12 (the verbs, the story line,
+  the record); 14, items 2 (paths, heading ids), 3, 4 and 5 (the form,
+  the layout, the loader accepting a handout that differs only where a
+  diff says).
+
+**Choices made here, not in the spec** (for the driver's review): the
+`brick-doc` configs built at fit; the status file's JSON form, its
+`rendered` secret kind, name and path; `t0_instant`; the front's
+locations and `disable_symlinks on`; GitHub-slug heading ids; the
+`status-pages` service; the customer's name from `story.md`'s heading;
+the true overview's keys (the diff's field names, the structured
+coverage fields); the handout's layout; the loader's text pattern; the
+scenario document's "Network overview" section and its lines beside each
+fault; refused instances left out through `left_out`; `--aging`,
+`--test-tail-floor`, `fake_timeline`; the story line's wording and the
+always-rendered `story.md`; `MONITORING_BRICKS` and the stack rewrite;
+`explains` filtered by the game; `hold` and `clean_restart` in
+`state.yaml`; D525's means (`PGOPTIONS`, `load_epoch`, keywords outside
+DDL, `pg_catalog.` in DDL); the hold at deploy; clean-restart's order;
+`wal-rate.yaml`; the fake early check's due time, the history unit and
+`HISTORY_AFTER`; outages from `restart.at`; extension members left
+uncovered; the cover item's `routine` and `restore.database`; the fill's
+outcome rule; the checked drop.
+
+### Preflight corrections for spec-writer
+
+1. **8.7's README is `player/README.md`, not the scenario document**
+   (master-spec.md:823-838; the clinic's `player/README.md:11-74` holds
+   "The system" table, the network paragraph and "The web interfaces";
+   `.claude/skills/scenario-document/SKILL.md:3,8`: `README.md` is the
+   scenario document; build-plan.md:900, :931). Chunk 7's Files gain
+   `scenarios/{aldermoor-centre,fernway-clinics-monitoring,tarnbeck-outdoor-campaign,tarnbeck-outdoor-shop}/player/README.md`
+   (the only four with a web-interfaces section); its Done when to read
+   "the clinic's `player/README.md` has no node table". The scenario
+   documents are still regenerated (item 6).
+2. **Chunk 7's Files gain the clinic's register**,
+   `scenarios/aldermoor-centre/{gm/data-register.yaml,player/data-register.md}`:
+   mapping the seventh seed file changes `scenario.yaml`, a register
+   input (`model.register_inputs`, tools/gm/model.py:6451; the clinic's
+   `gm/data-register.yaml:6`), so the register is regenerated before the
+   overview (W1 correction 3's case).
+3. **Chunk 9's Files** gain `scenarios/tarnbeck-outdoor-shop/nodes/db/wal-rate.yaml`
+   and `tools/tests/fixtures/fixture-fill/nodes/db/wal-rate.yaml` (new,
+   item 11). **Chunk 15's scope** gains reading `state.yaml`'s `hold`
+   (item 10), the outcome rule and the checked drop (item 13); its Files
+   are unchanged. Chunk 9's 9a gains "`gmctl deploy` holding the
+   real-clock actors off" (item 10; master-spec.md:923, "stay off").
+4. **clean-restart's leftover restore was unreachable**: W1 item 7
+   (clean-restart requires `fill.outcome: ok`) and `tools/gm/fill.py:991`
+   (any end problem makes the fill `failed`) leave no game where 9.4's
+   "`clean-restart` restores a cover still listed unrestored"
+   (master-spec.md:972) applies. Item 13's outcome rule settles it;
+   build-plan.md:995's "(a cover after a failed fill, chunk 15)" to read
+   "an item the fill's end could not restore".
+5. **`fill.quiet` restores ran in database `postgres` only**
+   (`tools/gm/fill.py:940-943`, `psql_argv("postgres")`); a cover's
+   `ALTER` must run in its own database: `restore.database` (item 13),
+   for G10.1's `fill.quiet` form.
+6. **Fix 11's means binds stored expressions** (master spec 9.9 fix 11:
+   "`gm_vclock` for the functions they call"): with the shim on the
+   session path during load-data's DDL, an unqualified `now()` in a
+   default binds `gm_vclock.now()`, and today's `CASCADE` drop
+   (`bricks/scheduler/program/gm_scheduler/fill.py:107`) would remove it
+   (`scenarios/tarnbeck-outdoor-campaign/data/reporting.sql:396`). Item 9's
+   DDL rule and item 13's checked drop settle it; 9.9 fix 11 to name the
+   rule. Build-plan.md:977's "the time-of-day keywords in ... the inject
+   scripts' SQL bound" holds for load-data's SQL only: inject scripts run
+   unchanged (item 9).
+7. **"Refused" read two ways**: access-model.md:117 ("A fake game holding
+   a `real-only` or unassessed fault: refused by `gmctl render`") against
+   6.9's `refused:` in a rendered game's record (master-spec.md:430) and
+   12.2's "f10 refused" in a run (master-spec.md:1323). Item 7 takes the
+   instance as refused and the game as running without it; access model
+   7 to say so.
+8. **For G10 after the wave's gate** (none contradicts the spec; formats.md
+   v35 and master spec 6.9 don't carry them): the status file's form and
+   secret, the `brick-doc` configs; the true overview's keys; the
+   restart record as written with `state.yaml`'s `hold` and
+   `clean_restart`; `timeline`'s fake keys; `wal-rate.yaml`; the cover
+   item; `--test-tail-floor`.
+
+### Questions for the owner
+
+Two, already put after wave 1 (plan v4 entry); W2 is drafted on the
+recommended answers and marks what depends on them.
+
+1. **The cover finds its routines itself, or reads a declared list?**
+   Recommended: auto-discovery (spec D523's default), given the clinic's
+   ~25 pinned routines and chunk 8's omission. Item 13 depends on it.
+2. **D525 reaches the T0 plantings, not only load-data?** Recommended:
+   keep. Item 9 depends on it. The same question reaches the fill's
+   pause plantings, which 9.4 step 5 runs unchanged on the real clock (a
+   pause at virtual 02:00 planted at real 10:45 writes 10:45, before the
+   anchor). Recommended: give them the same session means at the pause's
+   virtual instant (`PGOPTIONS` in `fill.py`'s planting, chunk 15, the
+   shim already there), a change to 9.4 step 5 for spec-writer. If not
+   adopted, chunk 11 assesses such a fault `tail-only` with a tail
+   planting.
