@@ -37,7 +37,7 @@ instances:
         a valid index whose first column is order_id exists on order_lines,
         whatever its name and however it was built.
     sealed_check:
-      script: faults/pg-join-index-missing/checks/fixed.sh
+      script: faults/fixture-dropped-index/checks/fixed.sh
       at_handover: 1
       notes: >-
         Planted during the aging, at handover-6h: in this fixture by gmctl

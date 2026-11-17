@@ -140,8 +140,9 @@ game `load-data`, and `inject`'s plantings at T0, run on the virtual T0's
 clock with P0's means. `gm_vclock` (`gm_scheduler fill-sql`, from the game's
 first scheduler node) is created, unseen, in every database of every primary
 `postgres` node, `template1` included, so a database the load creates has
-it too; every session gets `gm.vclock` at the virtual T0 and `gm_vclock`
-first on its path through PGOPTIONS (fill.session_means); `load_epoch` is
+it too; every session gets `gm.vclock` at the virtual T0 and the default
+path with `gm_vclock` right before `pg_catalog` (master spec 9.4's rule,
+spec D530) through PGOPTIONS (fill.session_means); `load_epoch` is
 the virtual T0. In the SQL load-data sends (virtual_sql), outside
 literals, comments, quoted identifiers and dollar-quoted bodies, the
 time-of-day keywords are replaced by their `gm_vclock.now()` form in every

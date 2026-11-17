@@ -196,10 +196,11 @@ CRON_WHAT = "the cron daemon"
 
 # P0's cover (capture W2 item 13): the item's `what`, and fix 11's session
 # means for the plantings at a pause (spec D527, W2 item 9): `gm.vclock` at
-# the pause's virtual instant and the shim first on the path, through
+# the pause's virtual instant and the default path with the shim placed by
+# master spec 9.4's rule, right before pg_catalog (spec D530), through
 # PGOPTIONS, the inject scripts otherwise unchanged.
 COVER_WHAT = "P0's cover: search_path of {kind} {signature} in {database} (spec D523)"
-VCLOCK_PATH = 'gm_vclock,pg_catalog,"$user",public'
+VCLOCK_PATH = '"$user",public,gm_vclock,pg_catalog'
 
 CRON_SERVICE = "/run/service/cron"
 CRON_CHECK = f"/command/s6-svstat -o up {CRON_SERVICE} 2>/dev/null || echo false"

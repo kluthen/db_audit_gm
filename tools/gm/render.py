@@ -532,14 +532,16 @@ def fake_timeline(scenario, planned, floor=None, left_out=()):
     reason}], fake_refusal). The tail is the longest of the floor (one
     hour; `floor`, the harness's cap, in seconds when shorter), each
     eligible selected fault's `tail_minimum`, each `tail_covers` instant to
-    H, and for each instance its fault plants in the tail (`plant_in:
+    H counted from one floor before it (the capped floor under the cap,
+    spec D532), and for each instance its fault plants in the tail (`plant_in:
     tail`) its planting moment to H, never less than its aging minimum.
     Instances in `left_out` (the harness's) are neither counted nor
     refused. GmError when the tail is not shorter than the aging."""
     aging = scenario.data.get("aging") or {}
     span = parse_duration(aging["minimum"])
     designed = str(aging.get("handover_at"))
-    tail = TAIL_FLOOR if floor is None else min(int(floor), TAIL_FLOOR)
+    lead = TAIL_FLOOR if floor is None else min(int(floor), TAIL_FLOOR)
+    tail = lead
     refused = []
     for inst in scenario.data.get("fault_instances") or []:
         if inst["id"] in left_out:
@@ -552,7 +554,7 @@ def fake_timeline(scenario, planned, floor=None, left_out=()):
         if fake.tail_minimum:
             tail = max(tail, int(fake.tail_minimum))
         for cover in fake.tail_covers:
-            tail = max(tail, covers_seconds(cover, designed))
+            tail = max(tail, lead + covers_seconds(cover, designed))
         if fake.plant_in == "tail":
             minimum = instance_minimum(scenario, inst)
             tail = max(tail, planting_seconds(inst, span),

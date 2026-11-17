@@ -1,0 +1,10 @@
+# The WAL rate of node db (v0.6 master spec 9.9 fix 4; capture W2 item 11):
+# the shop's (scenarios/tarnbeck-outdoor-shop/nodes/db/wal-rate.yaml), the
+# fixture's nodes and load being the shop's. Never mapped into the node.
+source: >-
+  the shop's: research/fake-aging 10d1bc6, run R (fa-real, 2026-11-14 to
+  15), reference member m1-fa-real-20261115T0800/shared_stats.csv:
+  pg_stat_wal.wal_bytes 1055344352 from its stats_reset
+  2026-11-14T07:57:23Z (the deploy) to 2026-11-15T08:00:23Z, 86580 s, the
+  data load included
+bytes_per_hour: 43881262    # WAL the node writes in an hour at the scenario's load, measured

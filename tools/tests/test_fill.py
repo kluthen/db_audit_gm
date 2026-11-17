@@ -354,7 +354,7 @@ class TestPlan(FilledGame):
                           HistoryEntry("queue", {"key": "orders.place", "node": "producer",
                                                  "lock": {"median": 1, "sigma": 0.1,
                                                           "blocks": ["orders.place"]}},
-                                       ("pg-join-index-missing",)),
+                                       ("fixture-dropped-index",)),
                           HistoryEntry("counter_per_call", {"series": "x", "key": "y",
                                                             "per_call": 1}, ()))}
         with mock.patch.object(model, "instance_history", lambda sc, iid: entries.get(iid)):
@@ -649,9 +649,9 @@ class TestCover(FilledGame):
         self.assertTrue(runs)
         for run in runs:        # each of f8's scripts, its own environment kept
             self.assertEqual(run["env"]["PGOPTIONS"],
-                             f'-c gm.vclock={self.f8_at} -c search_path=gm_vclock,pg_catalog,"$user",public')
+                             f'-c gm.vclock={self.f8_at} -c search_path="$user",public,gm_vclock,pg_catalog')
         self.assertEqual(fill.session_means({"PGOPTIONS": "-c work_mem=8MB"}, "X")["PGOPTIONS"],
-                         '-c work_mem=8MB -c gm.vclock=X -c search_path=gm_vclock,pg_catalog,"$user",public')
+                         '-c work_mem=8MB -c gm.vclock=X -c search_path="$user",public,gm_vclock,pg_catalog')
 
 
 class TestParsing(FilledGame):

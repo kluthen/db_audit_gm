@@ -1714,6 +1714,13 @@ class TestVirtualSql(unittest.TestCase):
         self.assertEqual(inject.virtual_sql("\\connect shop\nSELECT current_date + 28;"),
                          "\\connect shop\nSELECT CAST(gm_vclock.now() AS date) + 28;")
 
+    def test_the_session_path_keeps_public_the_creation_schema(self):
+        # spec D530: gm_vclock right before pg_catalog, so what load-data creates
+        # unqualified lands where a real load puts it
+        clock = inject.VirtualClock(vt0="2026-11-20T22:00:00Z", nodes=["db"], fill_node="sched")
+        self.assertEqual(clock.env["PGOPTIONS"],
+                         '-c gm.vclock=2026-11-20T22:00:00Z -c search_path="$user",public,gm_vclock,pg_catalog')
+
     def test_the_after_check_names_the_instant(self):
         sql = inject.after_virtual_t0_sql("2026-11-20T22:00:00Z")
         self.assertIn("'2026-11-20T22:00:00Z'", sql)

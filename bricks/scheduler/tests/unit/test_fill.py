@@ -268,6 +268,25 @@ class TestP0(unittest.TestCase):
             self.assertLess(abs((real.execute("SELECT p0_plpgsql_now()").fetchone()[0]
                                  - datetime.datetime.now(UTC)).total_seconds()), 60)
 
+    def test_the_session_path_places_the_shim_by_the_rule(self):
+        # master spec 9.4's rule (spec D530): right before pg_catalog, else at the
+        # end ahead of a final pg_temp; the first schema stays the creation schema
+        from gm_scheduler.fill import connect, vclock_path
+        self.assertEqual(vclock_path('"$user", public'), '"$user", public, gm_vclock, pg_catalog')
+        self.assertEqual(vclock_path("pg_catalog, pg_temp"), "gm_vclock, pg_catalog, pg_temp")
+        self.assertEqual(vclock_path("public, pg_temp"), "public, gm_vclock, pg_catalog, pg_temp")
+        self.assertEqual(vclock_path("rpt, pg_catalog, public"), "rpt, gm_vclock, pg_catalog, public")
+        self.assertEqual(vclock_path('""'), '"", gm_vclock, pg_catalog')
+        self.assertEqual(vclock_path("public, gm_vclock, pg_catalog"), "public, gm_vclock, pg_catalog")
+        conn = connect(HOST, PORT, DB, ADMIN, ADMIN_PASSWORD, "p0")
+        self.addCleanup(conn.close)
+        self.addCleanup(admin, "DROP TABLE IF EXISTS public.p0_landing")
+        self.assertEqual(conn.execute("SELECT current_setting('search_path')").fetchone()[0],
+                         '"$user", public, gm_vclock, pg_catalog')
+        conn.execute("CREATE TABLE p0_landing (id int)")      # a session's unqualified CREATE TABLE
+        self.assertEqual(admin("SELECT relnamespace::regnamespace::text FROM pg_class "
+                               "WHERE relname = 'p0_landing'"), [("public",)])
+
     def test_a_database_without_the_schema_fails_the_fill(self):
         from gm_scheduler.fill import FillError, connect
         with self.assertRaisesRegex(FillError, "has no schema gm_vclock"):
@@ -333,11 +352,17 @@ class TestP0(unittest.TestCase):
         self.assertNotIn("p0_rpt.unpinned()", rows)
         close = found["p0_rpt.close_day(text)"]
         self.assertEqual((close["kind"], close["setting"]), ("procedure", "pg_catalog, pg_temp"))
+        # the cover's forms by 9.4's rule (spec D530)
         self.assertEqual(close["cover"],
                          "ALTER PROCEDURE p0_rpt.close_day(text) SET search_path = gm_vclock, pg_catalog, pg_temp;")
         self.assertEqual(found["p0_rpt.p0_pinned_public()"]["cover"],
-                         "ALTER FUNCTION p0_rpt.p0_pinned_public() SET search_path = gm_vclock, pg_catalog, "
-                         "public, pg_temp;")
+                         "ALTER FUNCTION p0_rpt.p0_pinned_public() SET search_path = public, gm_vclock, "
+                         "pg_catalog, pg_temp;")
+        self.assertEqual(found["p0_rpt.p0_user_path(integer)"]["cover"],
+                         "ALTER FUNCTION p0_rpt.p0_user_path(integer) SET search_path = \"$user\", public, "
+                         "gm_vclock, pg_catalog;")
+        self.assertEqual(found["p0_rpt.p0_empty_path()"]["cover"],
+                         "ALTER FUNCTION p0_rpt.p0_empty_path() SET search_path = '', gm_vclock, pg_catalog;")
 
         covered = [found[s] for s in mine]
         self.addCleanup(lambda: [admin(r["restore"]) for r in covered])
@@ -345,7 +370,9 @@ class TestP0(unittest.TestCase):
             admin(r["cover"])
         self.assertEqual(self.proconfig("p0_rpt.close_day(text)"),
                          ["search_path=gm_vclock, pg_catalog, pg_temp", "TimeZone=Etc/GMT-2"])
-        self.assertEqual(self.proconfig("p0_rpt.p0_empty_path()"), ['search_path=gm_vclock, pg_catalog, ""'])
+        self.assertEqual(self.proconfig("p0_rpt.p0_pinned_public()"),
+                         ["search_path=public, gm_vclock, pg_catalog, pg_temp"])
+        self.assertEqual(self.proconfig("p0_rpt.p0_empty_path()"), ['search_path="", gm_vclock, pg_catalog'])
         self.assertTrue(all(r["covered"] for s, r in self.cover_rows().items() if s.startswith("p0_rpt.")))
 
         # a fill session reads the virtual clock through them
@@ -391,6 +418,14 @@ class TestP0(unittest.TestCase):
         self.assertTrue(admin("SELECT to_regnamespace('gm_vclock') IS NOT NULL")[0][0])
         self.assertEqual(admin("SELECT count(*) FROM p0_bound"), [(0,)])
         admin("DROP TABLE p0_bound")
+        # an object inside gm_vclock other than its four functions (spec D530)
+        admin("CREATE TABLE gm_vclock.p0_inside (id int)")
+        self.addCleanup(admin, "DROP TABLE IF EXISTS gm_vclock.p0_inside")
+        with self.assertRaises(psycopg.Error) as caught:
+            admin(VCLOCK_DROP)
+        self.assertIn("gm_vclock not dropped: table gm_vclock.p0_inside inside it", str(caught.exception))
+        self.assertEqual(admin("SELECT count(*) FROM gm_vclock.p0_inside"), [(0,)])
+        admin("DROP TABLE gm_vclock.p0_inside")
         admin(VCLOCK_DROP)
         self.assertFalse(admin("SELECT to_regnamespace('gm_vclock') IS NOT NULL")[0][0])
         admin(VCLOCK_DROP)                  # without the schema: nothing to do

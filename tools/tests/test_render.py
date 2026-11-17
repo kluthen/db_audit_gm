@@ -1938,12 +1938,20 @@ H = datetime.datetime(2026, 11, 21, 14, 0, tzinfo=datetime.timezone.utc)
 class TestFakeTimeline(unittest.TestCase):
 
     def test_the_shops_full_selection(self):
-        # 9.6's rules on 9.8's estimates: f4's 2h, f5's and f7's 12:00 to
-        # 14:00, the floor 1h: a 2h tail (spec 9.8's "3 h" is not derivable
-        # from them: reported to the driver)
+        # 9.6's rules on 9.8's estimates (spec D532): f4's 2h; f5's and f7's
+        # 12:00 counted from one floor before it, 11:00 to 14:00: a 3h tail
         tl = render.fake_timeline(_fake_scenario(SHOP_FAKE), H)
         self.assertEqual(tl, {"virtual_t0": "2026-11-20T22:00:00Z",
-                              "anchor": "2026-11-21T12:00:00Z", "tail": "2h", "refused": []})
+                              "anchor": "2026-11-21T11:00:00Z", "tail": "3h", "refused": []})
+
+    def test_a_covered_instant_under_a_capped_floor(self):
+        # the lead is capped with the floor (master spec 9.6, spec D532)
+        sc = _fake_scenario({"f5": {"support": "tail-only", "reason": "r", "tail_covers": ["13:30"]}})
+        self.assertEqual(render.fake_timeline(sc, H)["tail"], "90m")
+        tl = render.fake_timeline(sc, H, floor=600)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T13:20:00Z", "40m"))
+        tl = render.fake_timeline(_fake_scenario(SHOP_FAKE), H, floor=600)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T11:50:00Z", "130m"))
 
     def test_a_three_hour_minimum_gives_the_11_00_anchor(self):
         fakes = dict(SHOP_FAKE, f4={"support": "tail-only", "reason": "r", "tail_minimum": "3h"})
