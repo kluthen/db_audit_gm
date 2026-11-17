@@ -1761,3 +1761,70 @@ version, so the plan's gate rule applies: rebuilt, the change folds
 into the unreleased version with a post-change check. The cached apt
 layer would keep 18.6, so the driver added **G9.1**: the five built
 with `--no-cache` at wave 2's gate, then `security-advisor`.
+
+### Chunk 9a — WIP (2af490b), stopped on a blocker, 2026-11-17
+
+The driver split chunk 9 to force the rotation: a 9a owner (no merge),
+then a fresh 9b owner. 9a's owner stopped at ~100 calls with WIP commit
+2af490b on `v0.6-c9-restart` (worktree kept). 9a's unit Done when items
+pass (`TestFakeTimeline`, `test_the_floor_and_its_cap`,
+`test_ineligible_instances_refused_with_their_reason`, `TestRenderFake`,
+`TestFakeEarlyCheck`; render, deploy, aging, state, inject, fill,
+restart, fit, teardown tests OK). Chunk 6's `state.secret_files` bug
+fixed. Left for 9b's fixture run: the hold with no `pg_cron` run before
+the fill; no value after the virtual T0 (check written,
+`inject.after_virtual_t0_sql(vt0)`).
+
+**Blocked, routed to `spec-writer`:**
+1. **The session path's order** (W2 item 9, master spec 9.9 fix 11,
+   `fill.VCLOCK_PATH`): `gm_vclock` first makes it the creation schema,
+   so an unqualified `CREATE TABLE` in load-data (or in an inject at T0
+   or at a pause) fails for a non-owner ("permission denied for schema
+   gm_vclock") or lands in `gm_vclock` for `postgres`, to be dropped
+   with it. Shown on a scratch PostgreSQL 17 with
+   `fixture-fill/data/db.sql`. Proposed: `"$user",public,gm_vclock,pg_catalog`
+   (unqualified `now()` still reaches the shim before `pg_catalog`);
+   the same scratch load then ran whole, the latest `orders.placed_at`
+   exactly the virtual T0, nothing after it, the checked drop clean.
+   Not applied: the code still uses `fill.VCLOCK_PATH`.
+2. **The shop's tail**: 9.6's rules on 9.8's estimates give 2 h, anchor
+   12:00 (f4 `tail_minimum` 2h; f5, f7 `covers 12:00`); 9.8,
+   `fake-aging.md` and the Done when say 3 h, 11:00. 9a built 9.6 as
+   written (its test asserts 2h/12:00; a 3h `tail_minimum` gives 11:00).
+3. **f8 (`pg-join-index-missing`) in `fixture-fill` has no `aging.fake`**,
+   so a fake render refuses it and 9b's fixture run can't plant it;
+   faults' assessments are chunk 11's (wave 3).
+
+**W2-x so far** (9a's report, kept here for 9b and chunks 10 to 13):
+`render.fake_timeline(scenario, planned, floor=None, left_out=())` →
+`{virtual_t0, anchor, tail, refused: [{instance, reason}]}`; `--aging
+real|fake`, hidden `--test-tail-floor` (1m to 1h, recorded in
+`test_harness_override.tail_floor`); a fake render refused without a
+scheduler node or with the anchor past; `timeline` gains `virtual_t0`,
+`anchor`, `tail`, `refused`; `localimpl.left_out(impl)`; the record
+`{mode: fake, virtual_t0, anchor, tail, handover_planned, refused}`
+(`localimpl.write_restart_record`/`remove_restart_record`); `story.md`
+always a rendered bastion seed file in scheduler scenarios (games fitted
+before need `fit` again), the line "The servers were restarted for
+maintenance on <date> at <HH:MM> UTC; older logs were archived.";
+`MONITORING_BRICKS`, `monitoring_held`, `build_stack(..., held)` at
+`replicas: 0`, `write_rendered(..., record=None)` restoring 1 once the
+record has `restart`; the hold (`deploy.hold_actors`) on primaries after
+the health wait, items in `fill.quiet`'s form with chunk 15's `what`
+strings, `left_off: true`, `state.yaml` `hold: {at, items}`; the clock
+(`inject.clock_plan`/`set_clock`/`drop_clock`, shim in every connectable
+database and `template1`, `virtual_sql` rewriting keywords outside DDL
+and qualifying `now()` and its kin in `CREATE`/`ALTER`, the shim dropped
+after `composed_steps`); T0 plantings' `planted_at` the virtual T0;
+start-load (fake) requiring `clean_restart.outcome: ok` and `restart.at`,
+T0 the virtual T0, `load.anchor` = `restart.at`; `aging.HISTORY_ACTION`
+"history" (unit `dbagm-<gid>_history`), `HISTORY_AFTER` 12 min,
+`SHORT_TAIL` 2h, `fake_early_check_due`; outages from `load.anchor`;
+`state.aging_mode_lines` in status. For 9b: clean-restart writes
+`restart.at` and `clean_restart.outcome: ok`; the hold's restore is in
+`hold.items[].restore`. Risks: `gmctl restart` of a fake game rebuilds
+the timeline without the fake keys (chunk 11's area); the cron daemon
+back if a container restarts before clean-restart; data files running
+`SET search_path` (the clinic's domains, the campaign's
+`reporting.sql`, `shop-sales-reporting`) leave the clock, reported as
+findings; standbys outside the hold and the shim.
