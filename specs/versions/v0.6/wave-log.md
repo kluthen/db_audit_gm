@@ -2065,3 +2065,32 @@ re-pin in `bricks/postgres/Dockerfile` now, postgres 0.5.1 being
 unreleased, `--no-cache` rebuild and its stack test. Also: pgAudit 18.1
 (upstream 2026-11-17, not yet in PGDG) changes which audit lines are
 logged, so it is a game-content decision for later.
+
+### G10.2 and G10.1 done — 2026-11-17
+
+`spec-writer`, b2578a0 (formats.md v36, master spec, plan v7, D534–D537)
+and 53168e9 (gates). Every form checked against the code; none
+contradicts the spec. G10.1 done alongside (shared paragraphs; the
+fill's interface pointed to the scheduler's `docs/gm.md`): accepted by
+the driver.
+
+- Chunk 9's two choices confirmed: D535 (clean-restart refused before
+  the anchor; the earliest hand-over is `restart.at` plus the tail, no
+  upper bound), D536 (`stats_reset` seconds before the postmaster's
+  start).
+- `admitted:` in the scenario document: no chunk had it; chunk 12
+  revised (D537) to render it and regenerate fixture-status's and
+  fixture-v06-refusals' READMEs.
+- Chunk 11 revised: 11b measures the campaign's `wal-rate.yaml` for
+  `db` and `reporting` (W2 item 11 had no chunk; chunk 12's short game
+  needs it).
+- Found: the overview's Node health link differs from master spec 8.6
+  (built `/grafana/d/node-health?var-node=<node>`, default 1h; spec
+  `/grafana/d/node-health/node-health?var-node=<name>&from=now-6h&to=now`).
+  The driver's call: the code follows the spec; sent to a
+  `coding-executor` as a wave 2 fix (chunk 7's), clinic's overview
+  regenerated.
+- Notes for wave 3: `restart.at` is the instant the start is issued
+  (containers 0.7–2.3 s later), for chunk 10's rebase; the shop's
+  `bytes_per_hour` includes the seed load (a remeasure can ride on 11b);
+  the 6.9 example's `history` key is chunk 10's.
