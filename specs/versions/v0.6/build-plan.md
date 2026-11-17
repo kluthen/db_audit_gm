@@ -118,7 +118,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
-| 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | in progress (2026-11-17) |
+| 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | chunks merged (2026-11-17); gate next |
 | 3 | 10, 11, 13 | wave 2 | planned |
 | 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
 
@@ -959,7 +959,12 @@ them); the loader's error texts; the `scenario-document` skill's
 
 ### Chunk 9 — The restart and the timeline: `render --aging fake`, `clean-restart`, the restart record
 
-Status: in progress (9a WIP 2af490b; 9b from plan v6)
+Status: merged (w2, 3b9b1b7)
+Record: 9a 2af490b; 9b 8474542, 4fe88e9, 8cfcc87 (WIP points of the
+driver's rotation); merge 3b9b1b7. Spec D530, D532, D533 applied (plan
+v6). Added: clean-restart refused before the planned anchor (W2 item
+8's reading); the resets end in one session. `stats_reset` falls ~9 s
+before `restart.at` (reset before the stop, as captured): for G10.2.
 Wave: 2
 Depends on: chunks 3, 8; chunks 6 and 15 (merge order)
 Docker: heavy (deployments of `fixture-fill` with the fill and the

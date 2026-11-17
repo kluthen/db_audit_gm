@@ -1907,3 +1907,73 @@ Figures so far (chunk 9, three agents: 9a, 9b, and the earlier
 blockers' run is spec-writer's, not counted here): 250 tool calls,
 34.1M tokens in / 218k out, max context 245k, $14.09 at API prices.
 A fresh owner resumes for the fixture run.
+
+### Chunk 9 — merged (3b9b1b7), 2026-11-17
+
+The third owner (fixture run, 74 calls) committed 8cfcc87 and merged.
+9a = 2af490b; 9b = 8474542, 4fe88e9, 8cfcc87 (the driver's rotation
+points). Full tools suite 1456 OK, 2 skipped; `test_cleanrestart` and
+`test_deploy` 92 OK on `v0.6-w2`. Scheduler program unchanged since
+8474542 (113 OK, replay guard green then).
+
+**`fixture-fill`'s fake run** (`run-short-test.sh` rewritten: render
+`--aging fake --test-tail-floor`, deploy, load-data and inject on the
+virtual T0's clock, fill, clean-restart at the anchor after a refused
+early call, start-load, teardown), run 4: **65/0, 840 s** with the
+deployment (runs 2, 3: 850 s, 878 s, failing on the bugs below). Every
+deployment item of the Done when met: nothing refused; monitoring `0/0`
+at deploy; the hold recorded (`db: pg_cron's job runs`) and
+`cron.job_run_details` 0 before and after the fill; `gm_vclock` gone
+from every database after each drop; nothing after the virtual T0
+after load-data and inject, nothing after the anchor after the fill;
+f8 planted by the fill at virtual 14:00Z, the index gone; no fill
+statement in `pg_stat_statements`; every container (7 services, the
+monitoring's included) and the postmaster started 0.7 to 1.7 s after
+`restart.at`; one `stats_reset` instant; no log line from before the
+restart; the hold restored, `cron.launch_active_jobs` on; both
+scheduler logs keep the fill's lines byte for byte, no `reload
+status=ok`; `load.t0` the virtual T0, `load.anchor` `restart.at`; the
+record complete but `history`; nothing left after teardown.
+
+Figures (armenelos, 2026-11-17, run 4): deploy 15 s, load-data 16 s;
+fill 449 s for 904 virtual minutes; clean-restart 26 s, its padding
+1,085,863,544 bytes in 1.6 s (2.4 s, 2.2 s in runs 2, 3); `pg_wal`
+1,073,741,824 bytes after the checkpoints, 63 segments after the start;
+`restart.at` 14 s after the planned anchor; `stats_reset` 9 s before
+`restart.at`; 244 s waiting for the anchor; the exporter's sessions
+3626 against 3616 expected.
+
+**Fixed in the chunk** (found by the run): deploy's hold called
+`exec_node` while the stage was still `rendered` (unit tests had
+mocked it), now `exec_node(..., impl=)` inside deploy's setup step,
+with a test; `stats_reset` split over two seconds, now the resets end
+in one session (every database but `postgres`, then `postgres`'s
+statement reset and the shared reset together), with a test.
+
+**Added**: clean-restart refused before the planned anchor (the fill's
+rows run up to it; the owner's reading of W2 item 8), unit-tested,
+`gmctl.md` updated. In a fake game `pg_cron`'s launches are the hold's
+item, not `fill.quiet`'s. `explains` = `cleanrestart.EXPLAINS`' 11
+rows; `wal-rate.yaml` = `source:` + `bytes_per_hour`.
+
+**Reviewed by the driver:** both choices accepted, for G10.2 to write
+down: (1) the refusal before the anchor (a GM plans the anchor at the
+fill's end; the wait, 3 to 4 min here, is the fill's own slack); (2)
+`stats_reset` before `restart.at` by seconds (the reset before the
+stop, as captured; with statistics surviving a clean shutdown, a reset
+just before a maintenance restart reads as the maintenance itself).
+Spec 9.4's "reset there" is read as part of the restart's procedure,
+not after the postmaster's start; `spec-writer` to confirm at G10.2.
+
+**For the gate**: the cron daemon's hold and archiving aren't exercised
+by the fixture; data files' mtimes only unit-tested (1325 dated).
+
+Figures (chunk 9, `agent-stats`, 4 agents: 9a, 9b, the fixture run, and
+the blockers' `spec-writer`): 324 tool calls, 43.2M tokens in / 275k
+out, max context 245k, $19.82 at API prices. No owner over 300k; each
+stopped at its rotation point or finished before it.
+
+### Wave 2's chunks all merged, 2026-11-17
+
+6 (153fc24), 7 (4f96311), 15 (1aacf9e), 9 (3b9b1b7). Next: the wave
+gate (G9.1 included), then G10.2 by `spec-writer`.
