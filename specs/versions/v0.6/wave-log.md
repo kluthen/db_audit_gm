@@ -1828,3 +1828,31 @@ back if a container restarts before clean-restart; data files running
 `SET search_path` (the clinic's domains, the campaign's
 `reporting.sql`, `shop-sales-reporting`) leave the clock, reported as
 findings; standbys outside the hold and the shim.
+
+### Plan v6 (c87f332): chunk 9 unblocked, 2026-11-17
+
+`spec-writer` settled the three points itself (none changes how a game
+plays against the approved spec; nothing for the owner):
+- **D530**: `gm_vclock` placed right before `pg_catalog` on every path
+  P0 sets (both at the end, before a final `pg_temp`, when the path
+  doesn't name `pg_catalog`). The cover had the same flaw, with data
+  loss: the clinic's `vet-machinery` routines (`public, pg_temp`)
+  `EXECUTE 'CREATE TABLE … PARTITION OF …'`, which under today's cover
+  lands in `gm_vclock` and goes with its CASCADE. The checked drop also
+  refuses any object inside `gm_vclock` other than its four functions.
+  The cost (a same-named, same-signature function in `public` or
+  `"$user"` would win; none in any scenario) is in master spec 9.4.
+- **D532**: 9.6 corrected, not 9.8: a `tail_covers` instant counts from
+  one floor before it (the research's run sheet chose 3 h so f5's 12:00
+  run is not the restart's own minute). The shop: 3 h, anchor 11:00.
+- **D533**: `fixture-fill`'s f8 becomes a fixture-local
+  `fixture-dropped-index` (copied from `fixture-v06-refusals`, its own
+  `aging.fake: supported` and `history:`), so 9b's fake run still plants
+  it at its pause; the catalogue's `pg-join-index-missing` stays
+  unassessed until chunk 11.
+- D531 never issued (cited before reserving; renumbered).
+
+W2 item 14's "9 does not change `bricks/scheduler/program/`" is
+superseded: 9b changes it (chunk 15 merged). Chunk 15's section, as
+built, still says "`gm_vclock` first on the path"; chunk 9's text
+carries the change.

@@ -959,7 +959,7 @@ them); the loader's error texts; the `scenario-document` skill's
 
 ### Chunk 9 — The restart and the timeline: `render --aging fake`, `clean-restart`, the restart record
 
-Status: blocked (on the session path's order, the shop's tail, f8's `aging.fake`; wave log, "Chunk 9a — WIP")
+Status: in progress (9a WIP 2af490b; 9b from plan v6)
 Wave: 2
 Depends on: chunks 3, 8; chunks 6 and 15 (merge order)
 Docker: heavy (deployments of `fixture-fill` with the fill and the
