@@ -364,9 +364,15 @@ same "f2 planted: autovacuum off on orders" "autovacuum_enabled=off" "$(reloptio
 same "stage still load-started" load-started "$(stage)"
 
 # --- a few minutes of schedules ---------------------------------------------
-# The span judged: from the first whole minute after T0 for LOAD_MINUTES
-# minutes, each summary written within seconds after its minute.
-first_minute=$(( $(epoch "$T0") / 60 * 60 + 60 ))
+# The span judged: from the first whole minute after the last scheduler's
+# start (start-load's "running since" lines; T0 without them) for
+# LOAD_MINUTES minutes, each summary written within seconds after its
+# minute. start-load starts the schedulers one after the other, seconds
+# after T0, and a job's minute that began before its scheduler ran is never
+# replayed: with T0 at hh:mm:58 the first minute after T0 can come before
+# the producer runs its every-minute job (v0.6 wave 2 gate).
+last_start=$(printf '%s\n' "$out" | sed -n 's/^  [^:]*: running since \(.*Z\)$/\1/p' | sort | tail -n 1)
+first_minute=$(( $(epoch "${last_start:-$T0}") / 60 * 60 + 60 ))
 span_end=$(( first_minute + LOAD_MINUTES * 60 ))
 wait=$(( span_end + 15 - $(date +%s) ))
 if [ "$wait" -gt 0 ]; then
