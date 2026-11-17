@@ -104,7 +104,84 @@ CREATE FUNCTION gm_vclock.clock_timestamp() RETURNS timestamptz LANGUAGE sql VOL
            (pg_catalog.clock_timestamp() OPERATOR(pg_catalog.-) pg_catalog.transaction_timestamp())$$;
 GRANT USAGE ON SCHEMA gm_vclock TO PUBLIC;
 """
-VCLOCK_DROP = "DROP SCHEMA IF EXISTS gm_vclock CASCADE;\n"
+# The checked drop (capture W2 item 13): it first fails, naming them, when an
+# object outside gm_vclock depends on its functions (a column default, a view,
+# a BEGIN ATOMIC body bound to the shim when created through it), so the
+# CASCADE never reaches a customer object; then drops. Without the schema it
+# does nothing. Every drop of the shim uses it (`fill-sql --drop`): the fill's
+# end, load-data's, inject's and clean-restart's.
+VCLOCK_DROP = """\
+DO $gm_drop$
+DECLARE
+  bound text;
+BEGIN
+  SELECT pg_catalog.string_agg(DISTINCT pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid), '; '
+                               ORDER BY pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid))
+    INTO bound
+    FROM pg_catalog.pg_depend d
+    JOIN pg_catalog.pg_proc f ON d.refclassid = 'pg_catalog.pg_proc'::pg_catalog.regclass AND d.refobjid = f.oid
+    JOIN pg_catalog.pg_namespace n ON n.oid = f.pronamespace AND n.nspname = 'gm_vclock'
+   WHERE d.deptype IN ('n', 'a')
+     AND NOT (d.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+              AND d.objid IN (SELECT g.oid FROM pg_catalog.pg_proc g WHERE g.pronamespace = n.oid));
+  IF bound IS NOT NULL THEN
+    RAISE EXCEPTION 'gm_vclock not dropped: % depend(s) on its functions (bound to the fill''s clock: define them again with pg_catalog.now() or its kin, then drop it)', bound;
+  END IF;
+END $gm_drop$;
+DROP SCHEMA IF EXISTS gm_vclock CASCADE;
+"""
+# P0's cover (master spec 9.4, spec D523; capture W2 item 13): a function or
+# procedure with its own `SET search_path` never sees the fill's session
+# path, so for the fill's span its setting becomes `gm_vclock`, then
+# `pg_catalog` when the path doesn't name it (PostgreSQL searched it
+# implicitly), then its own path; its other settings stay. COVER_SQL, run as
+# postgres in each database holding the shim (`fill-sql --cover`), lists one
+# JSON object a line for every function and procedure whose own settings set
+# search_path, outside the system schemas, the temporary ones and every
+# `gm_*` schema, and not an extension's member: {kind, signature (qualified:
+# the query runs with pg_catalog alone on its path), setting (as proconfig
+# holds it), covered (already under a cover), cover (the ALTER), restore (the
+# ALTER back to `setting`, guarded: it acts only while the routine exists
+# under this cover, so a routine gone or redefined since counts as
+# restored)}. The setting is written back as its elements, each as
+# proconfig holds it (an identifier), the empty one as '': PostgreSQL stores
+# the same text again, entries and order.
+COVER_SQL = r"""SET search_path = pg_catalog;
+WITH pinned AS (
+  SELECT p.prokind, p.oid::regprocedure::text AS signature, substr(c.entry, 13) AS setting
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   CROSS JOIN LATERAL unnest(p.proconfig) AS c(entry)
+   WHERE p.prokind IN ('f', 'p')
+     AND c.entry LIKE 'search\_path=%'
+     AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+     AND n.nspname NOT LIKE 'pg\_temp\_%' AND n.nspname NOT LIKE 'pg\_toast\_temp\_%'
+     AND n.nspname NOT LIKE 'gm\_%'
+     AND NOT EXISTS (SELECT FROM pg_depend d
+                      WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+), parsed AS (
+  SELECT q.*, CASE q.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END AS word,
+         ARRAY(SELECT t.m[1] FROM regexp_matches(q.setting, '"(?:[^"]|"")*"|[^",[:space:]]+', 'g')
+                                  WITH ORDINALITY AS t(m, i) ORDER BY t.i) AS names
+    FROM pinned q
+), written AS (
+  SELECT r.*,
+         array_to_string(ARRAY(SELECT CASE WHEN u.x = '""' THEN '''''' ELSE u.x END
+                                 FROM unnest(r.names) WITH ORDINALITY AS u(x, i) ORDER BY u.i), ', ') AS path,
+         'gm_vclock, ' || CASE WHEN 'pg_catalog' = ANY (r.names) THEN '' ELSE 'pg_catalog, ' END AS head
+    FROM parsed r
+)
+SELECT json_build_object(
+         'kind', lower(word), 'signature', signature, 'setting', setting,
+         'covered', setting LIKE 'gm\_vclock, %',
+         'cover', format('ALTER %s %s SET search_path = %s%s;', word, signature, head, path),
+         'restore', format('DO $gm_cover$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_proc WHERE oid = '
+                           'pg_catalog.to_regprocedure(%L) AND %L = ANY (proconfig)) THEN ALTER %s %s SET '
+                           'search_path = %s; END IF; END $gm_cover$;',
+                           signature, 'search_path=' || head || setting, word, signature, path))
+  FROM written
+ ORDER BY signature;
+"""
 
 NOW_RE = re.compile(r"\bnow\s*\(\s*\)", re.I)
 CTS_RE = re.compile(r"\bcurrent_timestamp\b(?!\s*\()", re.I)
