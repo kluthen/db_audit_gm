@@ -1,6 +1,7 @@
 """Stack file and envelope file rendering (tools/gm/render.py)."""
 
 import datetime
+import json
 import shutil
 import subprocess
 import sys
@@ -326,7 +327,10 @@ class TestMountedMaterial(RenderedMounted):
         # each mounted file is one config, shared by the nodes receiving it
         self.assertEqual(sorted(self.stack["configs"]), sorted(
             [f"{self.gid}_monitor_node-health-1", f"{self.gid}_monitor_node-health-2",
-             f"{self.gid}_bastion_node-health.conf", f"{self.gid}_monitor_node-health.conf"]))
+             f"{self.gid}_bastion_node-health.conf", f"{self.gid}_monitor_node-health.conf",
+             # the brick pages, on the bastion (v0.6 capture W2 item 1)
+             f"{self.gid}_bastion_doc-fixture-front", f"{self.gid}_bastion_doc-fixture-app",
+             f"{self.gid}_bastion_doc-fixture-monitor"]))
 
     def test_shaped_parameters_in_the_stack(self):
         self.fit_render()
@@ -471,6 +475,7 @@ class TestRender(RenderedFixture):
         self.assertEqual([v["target"] for v in bastion["volumes"]],
                          ["/home/player", "/var/lib/gm-sshd-keys", "/run"])
         self.assertEqual(sorted(c["target"] for c in bastion["configs"]), [
+            "/opt/gm/docs/bricks/bastion.md", "/opt/gm/docs/bricks/postgres.md",
             "/opt/gm/starter/README.md", "/opt/gm/starter/issues.md",
             "/opt/gm/starter/story.md"])
         self.assertEqual(bastion["ports"], [
@@ -839,7 +844,8 @@ class TestRenderV03(V03Rendered):
             [c["file"] for c in fitted["producer"]["configs"]],
             [rel + "producer/schedule.yaml", "nodes/producer/queries.yaml",
              "nodes/producer/builders/revenue.py", rel + "producer/jobs.yaml"])
-        self.assertEqual([c["file"] for c in fitted["bastion"]["configs"]],
+        self.assertEqual([c["file"] for c in fitted["bastion"]["configs"]
+                          if c["kind"] != localimpl.BRICK_DOC_CONFIG],
                          [rel + "bastion/README.md", rel + "bastion/story.md",
                           "player/issues.md"])
         self.render(handover_at(16))
@@ -1714,3 +1720,191 @@ class TestDomainLoginRoles(test_model.V05ComposedTest):
                          ["xlab"])
         self.assertEqual(localimpl.data_login_roles(sc, sc.node("standby"), self.catalog_root),
                          [])
+
+
+PARTNERS_FIXTURE = FIXTURES / "fixture-partners"
+
+
+class PartnersRendered(ScenarioCopyTest):
+    """A fresh copy of fixture-partners: the bastion, the customer's one
+    node, and the partners' three shared nodes under alpha-lab and
+    beta-lab, both with a player document."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-partners"
+        shutil.copytree(PARTNERS_FIXTURE, self.scenario)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def fit(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+
+    def render(self, handover=None):
+        result = render.render(self.scenario, "laptop", handover=handover or handover_at(16))
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        return result
+
+
+class TestBrickPages(PartnersRendered):
+    """The brick pages the bastion serves (v0.6 master spec 7.3; capture W2
+    item 1): one config per brick of a node the players may reach, built
+    at fit, never a third party's."""
+
+    def test_one_page_per_reachable_brick_at_fit(self):
+        self.fit()
+        docs = [c for c in self.impl["nodes"]["bastion"]["configs"]
+                if c["kind"] == localimpl.BRICK_DOC_CONFIG]
+        # partners-api, partners-backend and partners-db are the partners':
+        # api, scheduler and postgres have no page here
+        self.assertEqual([(c["name"], c["path"], c["uid"], c["gid"], c["mode"]) for c in docs],
+                         [(f"{self.gid}_bastion_doc-bastion", "/opt/gm/docs/bricks/bastion.md",
+                           0, 0, "0444")])
+        self.assertEqual((self.scenario / docs[0]["file"]).resolve(),
+                         (FIXTURES.parents[2] / "bricks/bastion/docs/player.md").resolve())
+        for name in ("partners-api", "partners-backend", "partners-db"):
+            self.assertFalse([c for c in self.impl["nodes"][name]["configs"]
+                              if c["kind"] == localimpl.BRICK_DOC_CONFIG])
+
+    def test_a_customer_node_brings_its_page_once(self):
+        def customer_db(data):
+            data["third_parties"][0]["nodes"] = ["partners-api", "partners-backend"]
+            data["third_parties"][1]["nodes"] = ["partners-api", "partners-backend"]
+        self.edit_yaml("scenario.yaml", customer_db)
+        sc = model.load_scenario(self.scenario)
+        if "partners-db" in model.third_party_nodes(sc.data, sc.dir):
+            self.skipTest("partners-db stays a partner's node by its owners")
+        self.assertEqual([bid for bid, _ in localimpl.documented_bricks(sc)],
+                         ["bastion", "postgres"])
+
+    def test_the_bastion_mounts_them(self):
+        self.fit()
+        self.render()
+        mounts = {c["source"]: c["target"] for c in self.stack["services"]["bastion"]["configs"]}
+        self.assertEqual(mounts[f"{self.gid}_bastion_doc-bastion"],
+                         "/opt/gm/docs/bricks/bastion.md")
+
+    def test_render_refuses_pages_changed_since_fit(self):
+        self.fit()
+        self.impl["nodes"]["bastion"]["configs"] = [
+            c for c in self.impl["nodes"]["bastion"]["configs"]
+            if c["kind"] != localimpl.BRICK_DOC_CONFIG]
+        localimpl.write_implementation(self.ldir, self.impl)
+        with self.assertRaisesRegex(model.GmError, "the brick pages changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16))
+
+    def test_names_bound_the_game_id(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertIn(("_bastion_doc-bastion", localimpl.OBJECT_NAME_MAX),
+                      localimpl._derived_lengths(sc))
+
+
+STATUS_FIXTURE = FIXTURES / "fixture-status"
+
+
+class StatusRendered(PartnersRendered):
+    """A fresh copy of fixture-status: alpha-lab admits f1 (from T0) and f2
+    (from handover-2h), beta-lab nothing (master spec 7.6)."""
+
+    def setUp(self):
+        ScenarioCopyTest.setUp(self)
+        self.scenario = self.tmp / "fixture-status"
+        shutil.copytree(STATUS_FIXTURE, self.scenario)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def status(self):
+        return json.loads((self.ldir / "secrets" / "partners_status.json").read_text())
+
+
+class TestStatusFile(StatusRendered):
+    """render's status file (master spec 6.7, 7.6; capture W2 item 1)."""
+
+    def test_declared_on_the_bastion_as_a_rendered_secret(self):
+        self.fit()
+        sec = [s for s in self.impl["secrets"] if s["kind"] == localimpl.RENDERED]
+        self.assertEqual(sec, [{"name": f"{self.gid}_partners_status", "secret": "partners_status",
+                                "kind": "rendered",
+                                "file": "local/laptop/secrets/partners_status.json"}])
+        self.assertIn({"name": f"{self.gid}_partners_status",
+                       "path": "/opt/gm/secrets/partners_status.json", "uid": 0, "gid": 0,
+                       "mode": "0400"}, self.impl["nodes"]["bastion"]["secrets"])
+        for name in ("partners-api", "partners-backend", "partners-db"):
+            self.assertNotIn("partners_status", str(self.impl["nodes"][name]["secrets"]))
+
+    def test_instants_from_the_planned_handover_and_the_render(self):
+        self.fit()
+        self.render(handover_at(16))
+        timeline = self.impl["timeline"]
+        planned = render.from_iso(timeline["planned_handover"])
+        self.assertEqual(self.status(), {
+            "generated_at": timeline["rendered_at"],
+            "partners": [
+                {"id": "alpha-lab", "name": "Alpha Laboratories", "anchor": "alpha-laboratories",
+                 "incidents": [
+                     {"instance": "f1", "title": "Slow status answers",
+                      "text": "Our status endpoint answers slowly. Our engineers are looking "
+                              "into it.",
+                      "start": timeline["rendered_at"], "end": None},
+                     {"instance": "f2", "title": "Planned maintenance of our database",
+                      "text": "Our database is under maintenance; answers may be slower than "
+                              "usual.",
+                      "start": render.iso(planned - datetime.timedelta(hours=2)), "end": None}]},
+                {"id": "beta-lab", "name": "Beta Laboratories", "anchor": "beta-laboratories",
+                 "incidents": []}]})
+        stack = self.stack["services"]["bastion"]["secrets"]
+        self.assertIn({"source": f"{self.gid}_partners_status",
+                       "target": "/opt/gm/secrets/partners_status.json",
+                       "uid": "0", "gid": "0", "mode": 0o400}, stack)
+
+    def test_file_and_folder_modes(self):
+        self.fit()
+        self.render()
+        path = self.ldir / "secrets" / "partners_status.json"
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_until_and_start_order(self):
+        def change(data):
+            f1, f2 = data["fault_instances"]
+            f1["admitted"]["from"] = "handover-3h"
+            f1["admitted"]["until"] = "handover-1h"
+        self.edit_yaml("scenario.yaml", change)
+        self.fit()
+        self.render(handover_at(16))
+        planned = render.from_iso(self.impl["timeline"]["planned_handover"])
+        at = lambda h: render.iso(planned - datetime.timedelta(hours=h))
+        alpha = self.status()["partners"][0]["incidents"]
+        self.assertEqual([(i["instance"], i["start"], i["end"]) for i in alpha],
+                         [("f1", at(3), at(1)), ("f2", at(2), None)])
+
+    def test_a_left_out_instance_admits_nothing(self):
+        self.fit()
+        render.render(self.scenario, "laptop", handover=handover_at(16), test_leave_out="f2")
+        self.assertEqual([i["instance"] for i in self.status()["partners"][0]["incidents"]],
+                         ["f1"])
+
+    def test_t0_reads_the_virtual_t0_first(self):
+        self.assertEqual(render.t0_instant({"virtual_t0": "2026-11-20T01:00:00Z",
+                                            "rendered_at": "2026-11-21T09:00:00Z"}),
+                         "2026-11-20T01:00:00Z")
+        self.assertEqual(render.t0_instant({"rendered_at": "2026-11-21T09:00:00Z"}),
+                         "2026-11-21T09:00:00Z")
+        self.assertEqual(render.t0_instant(None, "2026-11-21T10:00:00Z"), "2026-11-21T10:00:00Z")
+        self.assertEqual(render.t0_instant({"planned_handover": "2026-11-21T14:00:00Z"},
+                                           "2026-11-21T10:00:00Z"), "2026-11-21T10:00:00Z")
+
+    def test_a_handover_moment_needs_the_planned_handover(self):
+        with self.assertRaisesRegex(model.GmError, "f2: admitted.from: handover-2h .*--handover"):
+            render.admitted_instant("handover-2h", None, "2026-11-21T10:00:00Z",
+                                    "fault instance f2: admitted.from")
+
+    def test_no_status_file_without_partners(self):
+        ScenarioCopyTest.setUp(self)        # fixture-audit: no third_parties:
+        self.ldir = self.scenario / "local" / "laptop"
+        self.fit()
+        render.render(self.scenario, "laptop")
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertFalse([s for s in impl["secrets"] if s["kind"] == localimpl.RENDERED])
+        self.assertFalse((self.ldir / "secrets" / "partners_status.json").exists())

@@ -14,31 +14,42 @@
 #      the per-game password;
 #   5. copies the starter pack from /opt/gm/starter into the player's home,
 #      once, never over an existing file; an optional file the scenario
-#      does not provide (data-policy.md, partners.md, data-register.md) is
-#      skipped;
+#      does not provide (data-policy.md, partners.md, data-register.md,
+#      network-overview.md) is skipped; creates ~/reports/, served by the
+#      front (v0.6 master spec 7.5);
 #   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets;
-#   7. writes the web front's nginx configuration, password file and page
-#      under /run/web-front, routes or none (spec D224): the page, the
-#      front's home, renders the starter pack from /opt/gm/starter and
-#      links to the web interfaces of GM_WEB_ROUTES when it has any; a
-#      route `name=host:port:console` is cold storage's console, proxied
-#      for GET / and GET /manifests alone (v0.5 master spec 7.3, D363).
+#   7. writes the web front's nginx configuration, password file and pages
+#      under /run/web-front, routes or none (spec D224; v0.6 master spec
+#      7.1 to 7.5, capture W2 item 2): the home at / (Sites: the routes of
+#      GM_WEB_ROUTES, Reports; Documents: each starter-pack file present,
+#      then Tools, each brick's page), the documentation site under /docs/
+#      rendered from the starter pack as handed over (/opt/gm/starter) and
+#      the brick pages (/opt/gm/docs/bricks), the reports folder at
+#      /reports/, and, with the partners' status file, one status page per
+#      partner at /status/<id>/ (written every minute by the s6 service
+#      `status-pages`, v0.6 master spec 7.6); a route `name=host:port:console` is cold storage's
+#      console, proxied for GET / and GET /manifests alone (v0.5 master
+#      spec 7.3, D363).
 set -eu
 
 SECRETS_DIR=/opt/gm/secrets
 STARTER_DIR=/opt/gm/starter
 STARTER_FILES="README.md story.md issues.md"   # seed.files: required
-STARTER_OPTIONAL="data-policy.md partners.md data-register.md"   # seed.optional: each absent
+STARTER_OPTIONAL="data-policy.md partners.md data-register.md network-overview.md"   # seed.optional: each absent
                                                 # unless the scenario has it
 RESOLVED_DIR=/run/gm/starter        # starter files with their placeholders replaced
 HOSTKEY_DIR=/var/lib/gm-sshd-keys
 SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
+REPORTS_DIR=$PLAYER_HOME/reports    # the stack's reports, served at /reports/ (master spec 7.5)
+BRICK_DOCS_DIR=/opt/gm/docs/bricks  # the brick pages render delivers (capture W2 item 1)
+STATUS_FILE=/opt/gm/secrets/partners_status.json   # the partners' status file (W2 item 1)
 WEB_DIR=/run/web-front
 WEB_PORT=8080
 WEB_USER=player                     # the basic-authentication user name
 WEB_ACCOUNT=www-data                # nginx runs as this account
 
+. /usr/local/lib/gm/pages.sh
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
 # read_secret <name>: the secret's content, trailing newlines removed;
@@ -148,8 +159,10 @@ chmod 0640 /run/gm/shadow
 unset player_password hash
 
 # --- 5. player's home and starter pack -------------------------------------
+# 0751: the front's account (www-data) passes through the home to
+# ~/reports/ alone, and lists nothing else in it (master spec 7.5).
 chown player:player "$PLAYER_HOME"
-chmod 0750 "$PLAYER_HOME"
+chmod 0751 "$PLAYER_HOME"
 for f in $STARTER_FILES; do
     [ -f "$STARTER_DIR/$f" ] || die "starter pack file $STARTER_DIR/$f is missing"
 done
@@ -169,6 +182,14 @@ if [ ! -e "$PLAYER_HOME/.gm-starter-copied" ]; then
     chown root:root "$PLAYER_HOME/.gm-starter-copied"
     chmod 0444 "$PLAYER_HOME/.gm-starter-copied"
     log "starter pack copied into $PLAYER_HOME"
+fi
+# ~/reports/: the players' to fill, served read-only at /reports/; made
+# again when it is missing or not a directory (a link is never followed:
+# the front refuses symbolic links, disable_symlinks).
+if [ -L "$REPORTS_DIR" ] || [ ! -d "$REPORTS_DIR" ]; then
+    rm -f -- "$REPORTS_DIR"
+    install -d -o player -g player -m 0755 "$REPORTS_DIR"
+    log "~/reports/ created"
 fi
 
 # --- 6. inner-hop key and ~/.pgpass, rewritten at every start ---------------
@@ -206,6 +227,7 @@ for token in ${GM_WEB_ROUTES:-}; do
         || die "GM_WEB_ROUTES: '$token' is not name=node:port (or name=host:port:console)"
     name=${token%%=*}
     target=${token#*=}
+    case $name in docs|reports|status) die "GM_WEB_ROUTES: /$name/ is the front's own (v0.6 master spec 7.1)" ;; esac
     console=
     case $target in *:console) console=1; target=${target%:console} ;; esac
     port=${target##*:}
@@ -261,95 +283,111 @@ printf '%s:%s\n' "$WEB_USER" "$hash" > "$WEB_DIR/htpasswd"
 chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
 chmod 0440 "$WEB_DIR/htpasswd"
 unset tools_password hash
-# Static answers: www/index.html (the page), www/not-found.txt, and
-# www/routes/<name>/, one empty directory per route, for which nginx's
-# static module answers /<name> with a 301 to /<name>/.
-install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes"
+# Static answers: www/not-found.txt, www/routes/<name>/, one empty
+# directory per route (and reports/, for /reports), for which nginx's
+# static module answers /<name> with a 301 to /<name>/; the pages.
+install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes" \
+    "$WEB_DIR/www/routes/reports" "$WEB_DIR/www/docs" "$WEB_DIR/www/docs/bricks" \
+    "$WEB_DIR/www/status"
 for name in $web_names; do
     install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www/routes/$name"
 done
-printf 'No web interface at this path; see /\n' > "$WEB_DIR/www/not-found.txt"
+printf 'No web interface at this path; see /\n' | put_page "$WEB_DIR/www/not-found.txt"
 
-# The page (spec D221, D222): the starter pack as handed over, from
-# $STARTER_DIR, never the players' copies in their home, rendered at each
-# start. Its elements, in page order, one line each:
-#   <kind> <id> <source> <title>
-# kind `markdown`: the starter-pack file <source>, rendered by cmark-gfm
-#   with the table extension; raw HTML is not passed through (its safe
-#   default: never --unsafe); present when the file is there;
-# kind `routes`: the links to the web interfaces; present when
-#   GM_WEB_ROUTES has a route.
-# An absent element leaves nothing: no section, no link to it. A later
-# element (a reporting tool) joins by a line here, a new kind by its own
-# branch in page_element.
-PAGE_ELEMENTS='markdown readme README.md README
-markdown story story.md Story
-markdown issues issues.md Issues
-markdown data-policy data-policy.md Data policy
-markdown partners partners.md Partners
-markdown data-register data-register.md Data register
-routes web-interfaces - Web interfaces'
-# page_element <kind> <id> <source> <title>: the element's section on
-# stdout; exit 1 when the element is absent.
-page_element() {
-    case $1 in
-        markdown)
-            [ -f "$STARTER_DIR/$3" ] || return 1
-            printf '<section id="%s">\n' "$2"
-            cmark-gfm -e table "$(starter_source "$3")" || die "could not render $STARTER_DIR/$3"
-            printf '</section>\n' ;;
-        routes)
-            [ -n "$web_names" ] || return 1
-            printf '<section id="%s">\n<h1>%s</h1>\n<ul>\n' "$2" "$4"
-            for name in $web_names; do
-                printf '<li><a href="/%s/">%s</a></li>\n' "$name" "$name"
-            done
-            printf '</ul>\n</section>\n' ;;
-        *) die "page element $2: unknown kind $1" ;;
-    esac
-}
-page_nav=
-: > /run/gm/page-sections.html
-while read -r kind id src title; do
-    if page_element "$kind" "$id" "$src" "$title" >> /run/gm/page-sections.html; then
-        page_nav="$page_nav<li><a href=\"#$id\">$title</a></li>
+# The documentation site (v0.6 master spec 7.3; spec D221, D222): the
+# starter pack as handed over, from $STARTER_DIR (partners.md with its
+# credentials written in), never the players' copies in their home,
+# rendered at each start, one page per file present at /docs/<id>, in the
+# home's order, one line each: <id> <file> <title>. An absent file leaves
+# nothing: no page, no link to it.
+DOCUMENTS='readme README.md README
+story story.md Story
+issues issues.md Issues
+data-policy data-policy.md Data policy
+partners partners.md Partners
+data-register data-register.md Data register
+network-overview network-overview.md Network overview'
+# The partners' status pages (master spec 7.6; capture W2 items 1 and 2):
+# with the status file (root's alone), each partner's page is linked from
+# the home's Sites by its name, and from its section of the partners' page
+# (the status map: lines `<anchor> <id>`, for html-ids).
+status_links=
+: > /run/gm/status-map
+if [ -f "$STATUS_FILE" ]; then
+    jq -e '.partners | type == "array"' "$STATUS_FILE" >/dev/null 2>&1 \
+        || die "$STATUS_FILE is not the partners' status file"
+    jq -r '.partners[] | select(.anchor != null) | "\(.anchor) \(.id)"' "$STATUS_FILE" \
+        > /run/gm/status-map || die "could not read $STATUS_FILE"
+    status_links=$(jq -r '.partners[]
+        | "<li><a href=\"/status/\(.id | @uri)/\">\(.name | @html)</a></li>"' "$STATUS_FILE") \
+        || die "could not read $STATUS_FILE"
+    [ -z "$status_links" ] || status_links="$status_links
 "
-    fi
-done <<EOF
-$PAGE_ELEMENTS
-EOF
+fi
+doc_links=
+while read -r id file title; do
+    [ -f "$STARTER_DIR/$file" ] || continue
+    map=
+    [ "$id" != partners ] || map=/run/gm/status-map
+    md_page "$(starter_source "$file")" "$title" "$map" > /run/gm/page.html \
+        || die "could not render $STARTER_DIR/$file"
+    put_page "$WEB_DIR/www/docs/$id.html" < /run/gm/page.html
+    doc_links="$doc_links<li><a href=\"/docs/$id\">$title</a></li>
+"
+done <<DOCS
+$DOCUMENTS
+DOCS
+# The brick pages (master spec 7.3; capture W2 item 1): each brick's
+# player documentation render delivers, /docs/bricks/<brick-id>, titled by
+# its first heading.
+tool_links=
+for f in "$BRICK_DOCS_DIR"/*.md; do
+    [ -f "$f" ] || continue
+    id=$(basename "$f" .md)
+    printf '%s\n' "$id" | grep -Eqx '[a-z][a-z0-9-]{0,62}' || die "$f: not a brick's page"
+    title=$(md_title "$f" "$id")
+    md_page "$f" "$title" > /run/gm/page.html || die "could not render $f"
+    put_page "$WEB_DIR/www/docs/bricks/$id.html" < /run/gm/page.html
+    tool_links="$tool_links<li><a href=\"/docs/bricks/$id\">$(printf '%s' "$title" | html_escape)</a></li>
+"
+done
+rm -f /run/gm/page.html /run/gm/status-map
+
+# The home (master spec 7.2): a header naming the customer (the story's
+# first heading), Sites (the routes, Reports), Documents (each page above),
+# then Tools (each brick's page).
+customer=$(md_title "$STARTER_DIR/story.md" "the customer" | html_escape)
+site_links=
+for name in $web_names; do
+    site_links="$site_links<li><a href=\"/$name/\">$name</a></li>
+"
+done
+site_links="$site_links<li><a href=\"/reports/\">Reports</a></li>
+$status_links"
 {
-    cat <<EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Starter pack</title>
-<style>
-body { max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; font-family: sans-serif; line-height: 1.5; }
-section { border-top: 1px solid #ccc; margin-top: 2rem; }
-table { border-collapse: collapse; }
-th, td { border: 1px solid #ccc; padding: 0.2rem 0.5rem; text-align: left; vertical-align: top; }
-pre { overflow-x: auto; background: #f4f4f4; padding: 0.5rem; }
-</style>
-</head>
-<body>
+    page_open "$customer" home
+    cat <<HOME
 <header>
-<p>The game's starter pack, as handed over. Your own copies are in your home on the bastion.</p>
-<nav>
-<ul>
-${page_nav}</ul>
-</nav>
+<h1>$customer</h1>
+<p>The documents below are what $customer handed over at the mission's start. Your own copies are in your home on the bastion.</p>
 </header>
-EOF
-    cat /run/gm/page-sections.html
-    printf '</body>\n</html>\n'
-} > "$WEB_DIR/www/index.html"
-rm -f /run/gm/page-sections.html
-chown root:"$WEB_ACCOUNT" "$WEB_DIR/www/index.html" "$WEB_DIR/www/not-found.txt"
-chmod 0440 "$WEB_DIR/www/index.html" "$WEB_DIR/www/not-found.txt"
-unset page_nav
+<section id="sites">
+<h2>Sites</h2>
+<ul>
+${site_links}</ul>
+</section>
+<section id="documents">
+<h2>Documents</h2>
+<ul>
+${doc_links}</ul>
+HOME
+    if [ -n "$tool_links" ]; then
+        printf '<h3>Tools</h3>\n<ul>\n%s</ul>\n' "$tool_links"
+    fi
+    printf '</section>\n'
+    page_close
+} | put_page "$WEB_DIR/www/index.html"
+unset doc_links tool_links site_links status_links customer
 
 cat > "$WEB_DIR/nginx.conf" <<EOF
 # nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
@@ -403,6 +441,42 @@ http {
         location = /.gm-not-found {
             internal;
             alias $WEB_DIR/www/not-found.txt;
+        }
+        # The documentation site (master spec 7.3): /docs/<id> and
+        # /docs/bricks/<brick-id>, rendered above.
+        location /docs/ {
+            root $WEB_DIR/www;
+            types { }
+            default_type text/html;
+            charset utf-8;
+            try_files \$uri.html =404;
+            error_page 404 /.gm-not-found;
+        }
+        # The reports folder (master spec 7.5): read-only, a listing, nothing
+        # outside it (no symbolic link followed: 404), its pages sandboxed
+        # away from the origin Grafana shares.
+        location = /reports { root $WEB_DIR/www/routes; }
+        location /reports/ {
+            alias $REPORTS_DIR/;
+            limit_except GET { deny all; }
+            autoindex on;
+            disable_symlinks on;
+            include /etc/nginx/mime.types;
+            default_type application/octet-stream;
+            add_header Content-Security-Policy "sandbox allow-scripts" always;
+            error_page 403 404 =404 /.gm-not-found;
+        }
+        # The partners' status pages (master spec 7.6): /status/<id>/,
+        # written every minute by the s6 service status-pages; a partner
+        # without a player document, or any other path: 404.
+        location /status/ {
+            root $WEB_DIR/www;
+            types { }
+            default_type text/html;
+            charset utf-8;
+            index index.html;
+            try_files \$uri \$uri/ =404;
+            error_page 403 404 =404 /.gm-not-found;
         }
         # Any other path: 404. /<name>, a directory of www/routes, has
         # its own location below: 301 to /<name>/.

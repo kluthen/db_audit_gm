@@ -19,7 +19,7 @@ from tools.tests import FIXTURES, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_aging import AgingGame, FakeSystemd
 from tools.tests.test_deploy import MANAGER_NETWORKS, VPS_NETWORKS
 from tools.tests.test_inject import FRAGMENTS
-from tools.tests.test_render import MANAGER, WORKER, TwoHostScenario
+from tools.tests.test_render import MANAGER, WORKER, StatusRendered, TwoHostScenario, handover_at
 from tools.tests.test_snapshot import FakePipe, StaticGame
 
 WORDS = "Yes, restart the game, we accept losing our changes"
@@ -749,3 +749,33 @@ class TestSubnetStep(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStatusFileReRendered(StatusRendered):
+    """A restart re-renders the partners' status file with its timeline
+    (master spec 7.6; capture W2 item 1): restart's own steps, its new
+    implementation and timeline, then write_rendered, as restart.restart
+    runs them."""
+
+    def test_the_restart_rewrites_it(self):
+        self.fit()
+        self.render(handover_at(16))
+        old = self.impl
+        path = self.ldir / "secrets" / "partners_status.json"
+        planned_f2 = self.status()["partners"][0]["incidents"][1]["start"]
+        path.write_text("{}\n")
+        deploy.generate_credentials(self.ldir, old)
+        restart.check_secret_files(self.scenario, old)      # the status file among them
+        sc = model.load_scenario(self.scenario)
+        new = restart.new_implementation(sc, "laptop", old, "fixture-status-zz9zz9", None)
+        timeline = restart.new_timeline(sc, old)
+        render.write_rendered(sc, "laptop", self.ldir, new, timeline)
+        status = self.status()
+        self.assertEqual(status["generated_at"], timeline["rendered_at"])
+        alpha = status["partners"][0]["incidents"]
+        self.assertEqual([(i["instance"], i["start"]) for i in alpha],
+                         [("f1", timeline["rendered_at"]), ("f2", planned_f2)])
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertIn({"name": "fixture-status-zz9zz9_partners_status",
+                       "path": "/opt/gm/secrets/partners_status.json", "uid": 0, "gid": 0,
+                       "mode": "0400"}, new["nodes"]["bastion"]["secrets"])

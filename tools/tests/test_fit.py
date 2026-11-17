@@ -840,10 +840,11 @@ class TestFitMounted(MountedCopyTest):
 
     def test_game_id_leaves_room_for_mounted_names(self):
         sc = model.load_scenario(self.scenario)
-        # longest derived part: _monitor_node-health.conf (25 characters)
-        self.assertEqual(localimpl.max_game_id_length(sc), 64 - 25)
+        # longest derived part: _bastion_doc-fixture-monitor (28 characters),
+        # the brick page of fixture-monitor (v0.6 capture W2 item 1)
+        self.assertEqual(localimpl.max_game_id_length(sc), 64 - 28)
         result = fit.fit(self.scenario, "laptop", **SUFFICIENT)
-        self.assertLessEqual(len(result.game_id), 64 - 25)
+        self.assertLessEqual(len(result.game_id), 64 - 28)
 
     def test_a_parameter_fault_planting_nothing_is_refused(self):
         self.edit_yaml("faults/fixture-node-left-out/fault.yaml",

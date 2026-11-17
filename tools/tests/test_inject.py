@@ -480,7 +480,10 @@ class TestMountedGame(MountedCopyTest):
         gid = self.gid
         self.assertEqual(self.fake.names("config"), sorted([
             f"{gid}_monitor_node-health-1", f"{gid}_monitor_node-health-2",
-            f"{gid}_bastion_node-health.conf", f"{gid}_monitor_node-health.conf"]))
+            f"{gid}_bastion_node-health.conf", f"{gid}_monitor_node-health.conf",
+        # the brick pages, on the bastion (v0.6 capture W2 item 1)
+        f"{gid}_bastion_doc-fixture-front", f"{gid}_bastion_doc-fixture-app",
+        f"{gid}_bastion_doc-fixture-monitor"]))
         creates = [c[-2] for c in self.fake.called("config", "create")]
         self.assertEqual(len(creates), len(set(creates)))
         for call in self.fake.called("config", "create"):
