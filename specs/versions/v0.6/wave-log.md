@@ -1726,3 +1726,133 @@ Figures: 1 agent, 63 tool calls, 8.6M tokens in / 78k out, max context
 `cpe:2.3:a:jqlang:jq`, and the 17 backported CVEs get `[[ignore]]`
 entries ("fixed by Debian backport in 1.7.1-6+deb13u4 or earlier",
 review 2027-02-01 or the next trixie jq upload).
+
+### G7 — dependency post-change check: CLEAR, 2026-11-17
+
+`security-advisor`, 2f242e5 (`.tech` only). dpkg-query 2026-11-17:
+`bastion` 0.6.0 (b8ae4d82a6cd, Debian 13.7, 163 packages) has `jq`/`libjq1`
+1.7.1-6+deb13u4, `libonig5` 6.9.9-1+b1, `tmux` 3.5a-3,
+`libevent-core-2.1-7t64` 2.1.13-stable-1~deb13u1, `libjemalloc2` 5.3.0-3,
+no `libutempter0`; against 0.5.0, those six plus PGDG `libpq5` and
+`postgresql-client-18` 18.6 → 18.7-1.pgdg13+2 (the tag now names a new
+package list; v0.6 unreleased, so folded into 0.6.0). `grafana` 0.4.0
+and `postgres-exporter` 0.2.1 already carry jq deb13u4: no rebuild for
+jq. `.tech`: `[stack]` `tools` and `bastion_tools` keys; `[[platform]]`
+jq (`cpe:2.3:a:jqlang:jq`, 1.7.1) and tmux
+(`cpe:2.3:a:tmux_project:tmux`, 3.5a); **17 jq `[[ignore]]` entries**
+(the owner's "CPE + 17 ignores"), each re-checked on the Debian tracker
+as fixed at or below deb13u4, `approved_by = "bastien"`, until
+2027-02-01 or the next trixie jq upload; PostgreSQL 18's entry records
+the bastion's client at 18.7. `cve-watch lint` exit 0 (ten old
+no-CPE warnings); `cve-watch check` 75 findings before and after (none
+from this change), accepted 94 → 111.
+
+Expected later: CVE-2026-39956 and CVE-2026-40164 (jq, fixed in
+deb13u2, not yet matched by NVD) will surface in a sweep and need
+their own approved ignores.
+
+**PostgreSQL's 2026-11-12 security release** (about 50 CVEs on 18.x,
+several CVSS 8.8, fixed in 18.7; NVD not yet analysed, so the sweep
+won't raise them): `postgres` 0.5.1's server and `pgbouncer` 0.1.2's
+client are at 18.6; `scheduler`, `api` and `health-check` have Debian
+libpq 17.11 (trixie-security has 17.12). No Dockerfile pins those
+versions, and every one of these bricks is at its unreleased v0.6
+version, so the plan's gate rule applies: rebuilt, the change folds
+into the unreleased version with a post-change check. The cached apt
+layer would keep 18.6, so the driver added **G9.1**: the five built
+with `--no-cache` at wave 2's gate, then `security-advisor`.
+
+### Chunk 9a — WIP (2af490b), stopped on a blocker, 2026-11-17
+
+The driver split chunk 9 to force the rotation: a 9a owner (no merge),
+then a fresh 9b owner. 9a's owner stopped at ~100 calls with WIP commit
+2af490b on `v0.6-c9-restart` (worktree kept). 9a's unit Done when items
+pass (`TestFakeTimeline`, `test_the_floor_and_its_cap`,
+`test_ineligible_instances_refused_with_their_reason`, `TestRenderFake`,
+`TestFakeEarlyCheck`; render, deploy, aging, state, inject, fill,
+restart, fit, teardown tests OK). Chunk 6's `state.secret_files` bug
+fixed. Left for 9b's fixture run: the hold with no `pg_cron` run before
+the fill; no value after the virtual T0 (check written,
+`inject.after_virtual_t0_sql(vt0)`).
+
+**Blocked, routed to `spec-writer`:**
+1. **The session path's order** (W2 item 9, master spec 9.9 fix 11,
+   `fill.VCLOCK_PATH`): `gm_vclock` first makes it the creation schema,
+   so an unqualified `CREATE TABLE` in load-data (or in an inject at T0
+   or at a pause) fails for a non-owner ("permission denied for schema
+   gm_vclock") or lands in `gm_vclock` for `postgres`, to be dropped
+   with it. Shown on a scratch PostgreSQL 17 with
+   `fixture-fill/data/db.sql`. Proposed: `"$user",public,gm_vclock,pg_catalog`
+   (unqualified `now()` still reaches the shim before `pg_catalog`);
+   the same scratch load then ran whole, the latest `orders.placed_at`
+   exactly the virtual T0, nothing after it, the checked drop clean.
+   Not applied: the code still uses `fill.VCLOCK_PATH`.
+2. **The shop's tail**: 9.6's rules on 9.8's estimates give 2 h, anchor
+   12:00 (f4 `tail_minimum` 2h; f5, f7 `covers 12:00`); 9.8,
+   `fake-aging.md` and the Done when say 3 h, 11:00. 9a built 9.6 as
+   written (its test asserts 2h/12:00; a 3h `tail_minimum` gives 11:00).
+3. **f8 (`pg-join-index-missing`) in `fixture-fill` has no `aging.fake`**,
+   so a fake render refuses it and 9b's fixture run can't plant it;
+   faults' assessments are chunk 11's (wave 3).
+
+**W2-x so far** (9a's report, kept here for 9b and chunks 10 to 13):
+`render.fake_timeline(scenario, planned, floor=None, left_out=())` →
+`{virtual_t0, anchor, tail, refused: [{instance, reason}]}`; `--aging
+real|fake`, hidden `--test-tail-floor` (1m to 1h, recorded in
+`test_harness_override.tail_floor`); a fake render refused without a
+scheduler node or with the anchor past; `timeline` gains `virtual_t0`,
+`anchor`, `tail`, `refused`; `localimpl.left_out(impl)`; the record
+`{mode: fake, virtual_t0, anchor, tail, handover_planned, refused}`
+(`localimpl.write_restart_record`/`remove_restart_record`); `story.md`
+always a rendered bastion seed file in scheduler scenarios (games fitted
+before need `fit` again), the line "The servers were restarted for
+maintenance on <date> at <HH:MM> UTC; older logs were archived.";
+`MONITORING_BRICKS`, `monitoring_held`, `build_stack(..., held)` at
+`replicas: 0`, `write_rendered(..., record=None)` restoring 1 once the
+record has `restart`; the hold (`deploy.hold_actors`) on primaries after
+the health wait, items in `fill.quiet`'s form with chunk 15's `what`
+strings, `left_off: true`, `state.yaml` `hold: {at, items}`; the clock
+(`inject.clock_plan`/`set_clock`/`drop_clock`, shim in every connectable
+database and `template1`, `virtual_sql` rewriting keywords outside DDL
+and qualifying `now()` and its kin in `CREATE`/`ALTER`, the shim dropped
+after `composed_steps`); T0 plantings' `planted_at` the virtual T0;
+start-load (fake) requiring `clean_restart.outcome: ok` and `restart.at`,
+T0 the virtual T0, `load.anchor` = `restart.at`; `aging.HISTORY_ACTION`
+"history" (unit `dbagm-<gid>_history`), `HISTORY_AFTER` 12 min,
+`SHORT_TAIL` 2h, `fake_early_check_due`; outages from `load.anchor`;
+`state.aging_mode_lines` in status. For 9b: clean-restart writes
+`restart.at` and `clean_restart.outcome: ok`; the hold's restore is in
+`hold.items[].restore`. Risks: `gmctl restart` of a fake game rebuilds
+the timeline without the fake keys (chunk 11's area); the cron daemon
+back if a container restarts before clean-restart; data files running
+`SET search_path` (the clinic's domains, the campaign's
+`reporting.sql`, `shop-sales-reporting`) leave the clock, reported as
+findings; standbys outside the hold and the shim.
+
+### Plan v6 (c87f332): chunk 9 unblocked, 2026-11-17
+
+`spec-writer` settled the three points itself (none changes how a game
+plays against the approved spec; nothing for the owner):
+- **D530**: `gm_vclock` placed right before `pg_catalog` on every path
+  P0 sets (both at the end, before a final `pg_temp`, when the path
+  doesn't name `pg_catalog`). The cover had the same flaw, with data
+  loss: the clinic's `vet-machinery` routines (`public, pg_temp`)
+  `EXECUTE 'CREATE TABLE … PARTITION OF …'`, which under today's cover
+  lands in `gm_vclock` and goes with its CASCADE. The checked drop also
+  refuses any object inside `gm_vclock` other than its four functions.
+  The cost (a same-named, same-signature function in `public` or
+  `"$user"` would win; none in any scenario) is in master spec 9.4.
+- **D532**: 9.6 corrected, not 9.8: a `tail_covers` instant counts from
+  one floor before it (the research's run sheet chose 3 h so f5's 12:00
+  run is not the restart's own minute). The shop: 3 h, anchor 11:00.
+- **D533**: `fixture-fill`'s f8 becomes a fixture-local
+  `fixture-dropped-index` (copied from `fixture-v06-refusals`, its own
+  `aging.fake: supported` and `history:`), so 9b's fake run still plants
+  it at its pause; the catalogue's `pg-join-index-missing` stays
+  unassessed until chunk 11.
+- D531 never issued (cited before reserving; renumbered).
+
+W2 item 14's "9 does not change `bricks/scheduler/program/`" is
+superseded: 9b changes it (chunk 15 merged). Chunk 15's section, as
+built, still says "`gm_vclock` first on the path"; chunk 9's text
+carries the change.

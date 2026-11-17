@@ -1,11 +1,10 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v5 (2026-11-17): capture W2's preflight corrections 1 to 8
-(chunks 7, 9 and 15's Files, Scope and Done when; master spec 8.7 and
-9.9 fix 11, spec D529; access model 7, spec D528; G10.2 for wave 2's
-forms); the fill's pause plantings at their virtual instant, in chunk
-15 (spec D527); D523 and D525 confirmed by the owner ("Settled with the
-owner").
+Status: v6 (2026-11-17): chunk 9's three blockers settled into 9b's
+Scope, Files and Done when: `gm_vclock` right before `pg_catalog` on
+every path (spec D530), a covered instant's lead in the tail (spec
+D532), `fixture-fill`'s f8 a fixture fault (spec D533). v5 wrote in
+capture W2's preflight corrections (spec D527 to D529).
 Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
@@ -101,7 +100,8 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker, left drained and untouched | Hand check by the wave driver | Every stack test and fixture run, every wave gate, the release gate | open |
 | G5 | **Dependency post-change check** on wave 1's images: every brick rebuilt at its new version (chunk 2), `scheduler` 0.4.0 as chunk 8 leaves it; `.tech` updated, committed on `v0.6-w1` | `security-advisor` (skill `dependency-check`), called by the wave driver once chunks 2 and 8 have merged | Wave 1's gate | done (2026-11-16, a833c67: CLEAR) |
 | G6 | **Dependency preflight** on `bastion` 0.6.0's new packages: Debian 13's `jq` and `tmux`, `--no-install-recommends`, with what they pull in (master spec 7.7) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 6's branch | done (2026-11-17, CLEAR WITH NOTES; wave log, wave 2 "Gates checked at the start") |
-| G7 | **Dependency post-change check** on `bastion` 0.6.0 as chunk 6 leaves it; `.tech` updated on `v0.6-w2` | `security-advisor`, once chunk 6 has merged | Wave 2's gate | open |
+| G7 | **Dependency post-change check** on `bastion` 0.6.0 as chunk 6 leaves it; `.tech` updated on `v0.6-w2` | `security-advisor`, once chunk 6 has merged | Wave 2's gate | done (2026-11-17, 2f242e5: CLEAR) |
+| G9.1 | **PostgreSQL's 2026-11-12 security release** picked up (G7's note): PGDG 18.7 for `postgres` 0.5.1's server and `pgbouncer` 0.1.2's client, trixie-security's libpq 17.12 for `scheduler` 0.4.0, `api` 0.1.1 and `health-check` 0.1.1 (`bastion` 0.6.0 already has 18.7). At wave 2's gate those five built with `--no-cache` (the apt layer is cached otherwise), their `dpkg-query` lists diffed against the first v0.6 build and folded into the unreleased versions (no new tag, no re-pin); then a post-change check, `.tech` updated on `v0.6-w2` | The wave driver (the gate's builds), then `security-advisor` | Wave 2's gate | open |
 | G8 | **Dependency post-change check** on `grafana` 0.4.0 (chunk 5) and any image a wave 3 or 4 chunk rebuilt; `.tech` updated on `v0.6-w4` | `security-advisor`, once chunk 5 has merged | Wave 4's gate | open |
 | G9 | **Any other dependency** a chunk adds or upgrades (a Python package for the history generator or the calibration tool, say; the standard library is preferred): a preflight before its branch, a post-change check before its wave's gate. The driver adds a row `G9.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
@@ -959,7 +959,7 @@ them); the loader's error texts; the `scenario-document` skill's
 
 ### Chunk 9 — The restart and the timeline: `render --aging fake`, `clean-restart`, the restart record
 
-Status: planned
+Status: in progress (9a WIP 2af490b; 9b from plan v6)
 Wave: 2
 Depends on: chunks 3, 8; chunks 6 and 15 (merge order)
 Docker: heavy (deployments of `fixture-fill` with the fill and the
@@ -1027,6 +1027,36 @@ campaign's.
     restored from its `restore` in its `restore.database` before the
     statistics reset, beside `gm_vclock`'s leftover drop; the hold's
     and the fill's left-off items restored for the restart;
+  - **9b, 9a's blockers settled** (wave log, "Chunk 9a — WIP"):
+    - **the session path** (spec D530): `fill.VCLOCK_PATH` (chunk 15's
+      file, merged) becomes `"$user",public,gm_vclock,pg_catalog`, so
+      load-data, the T0 plantings and the fill's pause plantings create
+      what they name unqualified where a real load does; its tests in
+      `tools/tests/test_fill.py` and 9a's in `test_inject.py` follow;
+    - **the program, chunk 15's, merged** (spec D530; `scheduler`
+      0.4.0 rebuilt, no new version): `connect()` places `gm_vclock` by
+      master spec 9.4's rule on the session's own path instead of
+      putting it first; the cover (`COVER_SQL`) by the same rule
+      (`pg_catalog, pg_temp` unchanged; `public, pg_temp` becomes
+      `public, gm_vclock, pg_catalog, pg_temp`), `covered`, the
+      restore's guard and the look again after a planting recognising
+      a cover by its naming `gm_vclock`, not by its first element;
+      `VCLOCK_DROP` also refusing, naming them, objects inside
+      `gm_vclock` other than its four functions; the P0 entry of the
+      scheduler's `docs/gm.md`;
+    - **the tail's lead** (spec D532): `render.fake_timeline` counts a
+      `tail_covers` instant from one floor before it (the capped floor
+      under `--test-tail-floor`);
+    - **`fixture-fill`'s f8** (spec D533): a scenario-local
+      `faults/fixture-dropped-index/`, copied from
+      `fixture-v06-refusals`', with `aging.fake: supported` (its reason
+      naming it a fixture's) and a `history:` that holds in
+      `fixture-fill` (its keys, no `suppressed_by` on a fault it
+      lacks); f8 pointing at it with today's parameters and `plant_at`;
+      the fixture's generated documents regenerated; the run script
+      rendering with `--aging fake` rather than writing the record and
+      scaling the monitoring by hand. The catalogue's
+      `pg-join-index-missing` stays unassessed (chunk 11);
   - **from the research** (`10d1bc6`): `fake_aging.py`'s clean-up and
     tail start read and **rewritten**.
   - Out: standbys and base backups after the restart (the clinic,
@@ -1034,9 +1064,14 @@ campaign's.
     the GM's procedure (chunk 13).
 - Files: `tools/gm/{render.py,deploy.py,aging.py,state.py,localimpl.py,inject.py,__init__.py}`,
   `tools/gm/cleanrestart.py` (new); `tools/tests/{test_render.py,test_deploy.py,test_aging.py,test_state.py,test_inject.py}`,
-  `tools/tests/test_cleanrestart.py` (new);
+  `tools/tests/test_cleanrestart.py` (new); in 9b, `tools/gm/fill.py`
+  (`VCLOCK_PATH`), `tools/tests/test_fill.py`,
+  `bricks/scheduler/program/gm_scheduler/fill.py`,
+  `bricks/scheduler/tests/unit/test_fill.py`,
+  `bricks/scheduler/docs/gm.md` (P0's entry);
   `.claude/skills/game-master/gmctl.md` (rows); `tools/tests/fixtures/fixture-fill/`
-  (its run script for the restart);
+  (its run script for the restart; `faults/fixture-dropped-index/`
+  (new), `scenario.yaml`'s f8, the generated documents);
   `scenarios/tarnbeck-outdoor-shop/nodes/db/wal-rate.yaml` and
   `tools/tests/fixtures/fixture-fill/nodes/db/wal-rate.yaml` (new).
 - Spec sections: [9.3](master-spec.md#93-a-fake-games-timeline),
@@ -1046,15 +1081,24 @@ campaign's.
   [9.9](master-spec.md#99-the-fix-list),
   [6.7](master-spec.md#67-the-local-implementation); items 5.
 - Done when: unit tests show the timeline for the shop's full selection
-  (anchor 11:00, tail three hours) and for a capped floor, an
+  (anchor 11:00, tail three hours, spec D532) and for a capped floor
+  with a covered instant, an
   ineligible instance refused with its reason and the game rendered
   without it, the early check's due time in each case; clean-restart refusing a `postgres` node without
   `wal-rate.yaml`, naming the file; on `fixture-fill`, the hold
   recorded at the deploy and no `pg_cron` run from it to the fill;
   after `load-data` and `inject`
-  in a fake game, no value after the virtual T0 in any `timestamptz`,
+  in a fake game (`render --aging fake`, nothing refused), no value
+  after the virtual T0 in any `timestamptz`,
   `timestamp` or `date` column of its databases, and the fill's rows
-  continuing from it; a unit test restoring a synthetic unrestored
+  continuing from it (the fixture plants nothing at T0: f8 is the
+  fill's, at its pause); nothing but the shim's functions in
+  `gm_vclock` when load-data's and the fill's drops run, each drop
+  clean; f8 planted by the fill at its virtual instant, the index gone
+  (chunk 8's check kept); `TestP0` showing the cover's forms by 9.4's
+  rule and a session's unqualified `CREATE TABLE` landing in `public`;
+  `fill-sql --drop` refusing a table inside `gm_vclock`, naming it;
+  a unit test restoring a synthetic unrestored
   cover item in W2's form; after `gmctl fill`: every
   container's and the postmaster's start time agreeing with the anchor,
   the monitoring's included; one `stats_reset` instant; no fill line
@@ -1066,7 +1110,8 @@ campaign's.
 - Split rule: 9a the timeline, the record, deploy at zero and the hold,
   start-load, the seed's and the T0 plantings' clock, the early check's
   timing, status; 9b clean-restart (the leftover items' restore and the
-  `wal-rate.yaml` files included) and its fixture run.
+  `wal-rate.yaml` files included), spec D530, D532 and D533's changes,
+  and its fixture run.
 
 ### Chunk 15 — P0's cover: routines that pin their own `search_path`
 

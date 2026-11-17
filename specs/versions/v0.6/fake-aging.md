@@ -304,7 +304,8 @@ The tail is the longest of:
   hour of genuine traffic and the import (step 8) is done well before
   the hand-over;
 - each selected fault's `tail_minimum`;
-- for each `tail_covers` instant, the time from it to H;
+- for each `tail_covers` instant, the time from one floor before it to
+  H, so the instant has an hour of genuine traffic before it (D532);
 - for each instance planted in the tail, the time from its planting
   moment to H; that moment lies inside the tail, at least the
   instance's aging minimum before H, so the tail is never shorter than
