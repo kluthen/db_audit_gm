@@ -128,6 +128,13 @@ def _cmd_fill(args):
     return 0 if result.ok else 1
 
 
+def _cmd_clean_restart(args):
+    from . import cleanrestart
+    result = cleanrestart.clean_restart(args.scenario_dir, args.playground)
+    print(result.text())
+    return 0 if result.ok else 1
+
+
 def _cmd_snapshot(args):
     from . import snapshot
     result = snapshot.take(args.scenario_dir, args.playground)
@@ -305,6 +312,14 @@ def build_parser():
                                     "stage injected and the restart record)")
     _scenario_args(p)
     p.set_defaults(func=_cmd_fill)
+
+    p = sub.add_parser("clean-restart", help="a fake game's maintenance restart after the fill: "
+                                             "the WAL padded, the statistics reset, the logs "
+                                             "removed, the data files dated, every service "
+                                             "restarted at one instant, the anchor (needs the "
+                                             "fill ok)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_clean_restart)
 
     p = sub.add_parser("validate", help="the official run of every node's public validator; "
                                         "exit 0 green, 1 red, 2 error")
