@@ -135,6 +135,25 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   entry. At `load-started` it is refused: re-planting one instance is
   `inject --at now --instance <id>`.
 
+v0.6 (master spec 9.9 fix 11; capture W2 item 9, spec D525, D529): in a fake
+game `load-data`, and `inject`'s plantings at T0, run on the virtual T0's
+clock with P0's means. `gm_vclock` (`gm_scheduler fill-sql`, from the game's
+first scheduler node) is created, unseen, in every database of every primary
+`postgres` node, `template1` included, so a database the load creates has
+it too; every session gets `gm.vclock` at the virtual T0 and `gm_vclock`
+first on its path through PGOPTIONS (fill.session_means); `load_epoch` is
+the virtual T0. In the SQL load-data sends (virtual_sql), outside
+literals, comments, quoted identifiers and dollar-quoted bodies, the
+time-of-day keywords are replaced by their `gm_vclock.now()` form in every
+statement but DDL (`CREATE`, `ALTER`), and in DDL every unqualified
+`now()`, `transaction_timestamp()`, `statement_timestamp()` and
+`clock_timestamp()` is written `pg_catalog.<name>()`, so a stored default
+or view binds the real function. The inject scripts run unchanged, the
+session means their only change; a T0 planting is recorded at the virtual
+T0. After the data's steps (and after inject's scripts) the shim is
+dropped in every database by the checked drop (`fill-sql --drop`), whose
+refusal fails the step. The real mode is unchanged.
+
 Each step is one `state.setup_step`: any failure, or Ctrl-C, tears the game
 down and records `failed` with the reason.
 """
@@ -449,6 +468,222 @@ def load_epoch(now=None):
     `:'load_epoch'::timestamptz`, never `now()`."""
     now = now or datetime.now(timezone.utc)
     return now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+
+
+# --- Fix 11: the virtual T0's clock (capture W2 item 9, spec D525, D529) -----
+
+VCLOCK_SCHEMA = "gm_vclock"
+DDL_HEADS = ("create", "alter")
+# A time-of-day keyword outside DDL -> its gm_vclock.now() form; `{p}` the
+# optional precision, `(3)`.
+KEYWORD_FORMS = {
+    "current_timestamp": "CAST(gm_vclock.now() AS timestamptz{p})",
+    "localtimestamp": "CAST(gm_vclock.now() AS timestamp{p})",
+    "current_time": "CAST(gm_vclock.now() AS timetz{p})",
+    "localtime": "CAST(gm_vclock.now() AS time{p})",
+    "current_date": "CAST(gm_vclock.now() AS date)",
+}
+DDL_FUNCTIONS = ("now", "transaction_timestamp", "statement_timestamp", "clock_timestamp")
+_WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
+_DOLLAR_RE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$")
+_PRECISION_RE = re.compile(r"\s*\(\s*\d+\s*\)")
+_EMPTY_CALL_RE = re.compile(r"\s*\(\s*\)")
+_COPY_STDIN_RE = re.compile(r"\bfrom\s+stdin\b", re.I)
+DATABASES_ALL_SQL = ("SELECT datname FROM pg_catalog.pg_database WHERE datallowconn "
+                     "ORDER BY datname;\n")
+
+
+def _ident_char(c):
+    return c.isalnum() or c in "_$"
+
+
+def virtual_sql(text):
+    """`text` (SQL as psql reads it) with fix 11's rewriting (W2 item 9):
+    outside literals, comments, quoted identifiers, dollar-quoted bodies,
+    psql meta-commands and COPY data, each time-of-day keyword in a
+    statement that is not DDL becomes KEYWORD_FORMS', and in DDL each
+    unqualified call of DDL_FUNCTIONS is qualified `pg_catalog.`."""
+    out, i, n = [], 0, len(text)
+    head, start = None, 0               # the statement's first word; where it began in out
+    while i < n:
+        c = text[i]
+        if text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+        elif text.startswith("/*", i):
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if text.startswith("/*", j):
+                    depth, j = depth + 1, j + 2
+                elif text.startswith("*/", j):
+                    depth, j = depth - 1, j + 2
+                else:
+                    j += 1
+        elif c == "'":
+            escapes = i > 0 and text[i - 1] in "eE" and (i < 2 or not _ident_char(text[i - 2]))
+            j = i + 1
+            while j < n:
+                if escapes and text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == "'":
+                    if text.startswith("''", j):
+                        j += 2
+                        continue
+                    break
+                j += 1
+            j = min(j + 1, n)
+        elif c == '"':
+            j = i + 1
+            while j < n:
+                if text[j] == '"':
+                    if text.startswith('""', j):
+                        j += 2
+                        continue
+                    break
+                j += 1
+            j = min(j + 1, n)
+        elif c == "$" and (i == 0 or not _ident_char(text[i - 1])) and _DOLLAR_RE.match(text, i):
+            tag = _DOLLAR_RE.match(text, i).group(0)
+            end = text.find(tag, i + len(tag))
+            j = n if end < 0 else end + len(tag)
+        elif c == "\\":                 # a psql meta-command, to the end of its line
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            head = None
+        elif c == ";":
+            statement = "".join(out[start:])
+            out.append(c)
+            i += 1
+            if head == "copy" and _COPY_STDIN_RE.search(statement):
+                end = text.find("\n\\.", i)
+                j = n if end < 0 else end + 3
+                out.append(text[i:j])
+                i = j
+            head, start = None, len(out)
+            continue
+        elif (c.isalpha() or c == "_") and (i == 0 or not _ident_char(text[i - 1])):
+            m = _WORD_RE.match(text, i)
+            word, j = m.group(0), m.end()
+            low = word.lower()
+            if head is None:
+                head = low
+            k = i - 1
+            while k >= 0 and text[k].isspace():
+                k -= 1
+            qualified = k >= 0 and text[k] == "."
+            if head in DDL_HEADS:
+                if low in DDL_FUNCTIONS and not qualified and _EMPTY_CALL_RE.match(text, j):
+                    word = "pg_catalog." + word
+            elif low in KEYWORD_FORMS and not qualified:
+                p = _PRECISION_RE.match(text, j) if low != "current_date" else None
+                if not (p is None and text[j:j + 1] == "("):
+                    precision = "(" + p.group(0).strip()[1:-1].strip() + ")" if p else ""
+                    word = KEYWORD_FORMS[low].format(p=precision)
+                    j = p.end() if p else j
+            out.append(word)
+            i = j
+            continue
+        else:
+            out.append(c)
+            i += 1
+            continue
+        out.append(text[i:j])
+        i = j
+    return "".join(out)
+
+
+@dataclass
+class VirtualClock:
+    """A fake game's clock for load-data and inject's T0 plantings."""
+    vt0: str                        # the virtual T0, ISO 8601
+    nodes: list                     # the primary postgres nodes the shim goes into
+    fill_node: str                  # the scheduler node whose program prints the shim
+
+    @property
+    def env(self):
+        from . import fill
+        return fill.session_means({}, self.vt0)
+
+
+def clock_plan(scenario, impl):
+    """The game's VirtualClock, or None in a real game."""
+    if not localimpl.is_fake(impl):
+        return None
+    nodes = [n["name"] for n in scenario.nodes if n["name"] in impl["nodes"]
+             and localimpl.is_postgres_node(scenario, n) and localimpl.standby_of(n) is None]
+    sched = [n["name"] for n in scenario.nodes
+             if model.is_scheduler_node(n) and n["name"] in impl["nodes"]]
+    if not sched:
+        raise GmError("a fake game without a scheduler node: no program prints P0's shim")
+    return VirtualClock(impl[localimpl.TIMELINE]["virtual_t0"], nodes, sched[0])
+
+
+def _program_sql(ldir, clock, docker, option=None, timeout=None):
+    from . import fill
+    argv = (*fill.PROGRAM, "fill-sql", *((option,) if option else ()))
+    run = exec_node(ldir, clock.fill_node, "root", argv=argv, timeout=timeout, docker=docker)
+    if not run.ok:
+        raise GmError(f"the program's fill-sql{' ' + option if option else ''} on "
+                      f"{clock.fill_node}: exit {run.returncode}: {_first_line(run)}")
+    return "\n".join(output_lines_stdout(run)) + "\n"
+
+
+def vclock_create_sql(shim):
+    """The shim, created where it is absent (a guarded psql block)."""
+    return (UNSEEN_SQL + "SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE "
+            f"nspname = {quote_literal(VCLOCK_SCHEMA)}) AS gm_absent \\gset\n"
+            "\\if :gm_absent\n" + shim + "\\endif\n")
+
+
+def _databases(ldir, node, docker, timeout=None):
+    run = exec_node(ldir, node, DATA_USER, stdin=UNSEEN_SQL + DATABASES_ALL_SQL,
+                    timeout=timeout, docker=docker, argv=read_argv("postgres"))
+    if not run.ok:
+        raise GmError(f"listing the databases of {node}: psql exit {run.returncode}: "
+                      f"{psql_error_line(run)}")
+    return [line.strip() for line in output_lines_stdout(run) if line.strip()]
+
+
+def set_clock(ldir, clock, docker, timeout=None, out=print):
+    """P0's shim into every database of the clock's nodes (template1
+    included); GmError at the first that fails."""
+    sql = vclock_create_sql(_program_sql(ldir, clock, docker, timeout=timeout))
+    for node in clock.nodes:
+        for database in _databases(ldir, node, docker, timeout):
+            _exec_sql(ldir, node, sql, read_argv(database), docker, timeout, out,
+                      f"{node}/{database} {VCLOCK_SCHEMA} at the virtual T0 {clock.vt0}",
+                      f"creating {VCLOCK_SCHEMA} in {node}/{database}")
+
+
+def drop_clock(ldir, clock, docker, timeout=None, out=print):
+    """The shim dropped from every database of the clock's nodes by the
+    checked drop; GmError naming what still depends on it."""
+    sql = UNSEEN_SQL + _program_sql(ldir, clock, docker, "--drop", timeout=timeout)
+    for node in clock.nodes:
+        for database in _databases(ldir, node, docker, timeout):
+            _exec_sql(ldir, node, sql, read_argv(database), docker, timeout, out,
+                      f"{node}/{database} {VCLOCK_SCHEMA} dropped (the checked drop)",
+                      f"dropping {VCLOCK_SCHEMA} in {node}/{database}")
+
+
+def after_virtual_t0_sql(vt0):
+    """Fix 11's check (W2 item 9): one line per base-table column of type
+    `timestamptz`, `timestamp` or `date` outside the system and `gm_*`
+    schemas holding a value after the virtual T0 `vt0`,
+    `<schema>.<table>.<column>|<its latest value>`; none when the seed and
+    the T0 plantings end at it. A finding is reported, never shifted."""
+    return (UNSEEN_SQL + "SELECT c.col || '|' || c.latest FROM (SELECT pg_catalog.format("
+            "'%I.%I.%I', table_schema, table_name, column_name) AS col, (pg_catalog.xpath("
+            "'/row/m/text()', pg_catalog.query_to_xml(pg_catalog.format("
+            "'SELECT max(%I)::text AS m FROM %I.%I WHERE %I > %L::timestamptz', column_name, "
+            f"table_schema, table_name, column_name, {quote_literal(vt0)}), false, true, '')))"
+            "[1]::text AS latest FROM information_schema.columns c "
+            "JOIN information_schema.tables t USING (table_catalog, table_schema, table_name) "
+            "WHERE t.table_type = 'BASE TABLE' AND c.data_type IN ('timestamp with time zone', "
+            "'timestamp without time zone', 'date') AND c.table_schema NOT IN ('pg_catalog', "
+            "'information_schema') AND c.table_schema NOT LIKE 'gm\\_%' "
+            "AND c.table_schema NOT LIKE 'pg\\_%') AS c WHERE c.latest IS NOT NULL ORDER BY 1;\n")
 
 
 def data_argv(variables, database="postgres"):
@@ -1518,16 +1753,21 @@ def clean_launcher_lines(ldir, node, docker, result, timeout=None, out=print):
 UNSEEN_SQL = "\n".join((*NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL, QUIET_SQL)) + "\n"
 
 
-def stream_files(paths, prelude=""):
+def stream_files(paths, prelude="", rewrite=None):
     """A temporary file holding `prelude` (text), then `paths`' bytes in
     order, each ended by a newline, at offset 0: one psql session for the
-    core's keys and a load (a large load streamed, never read into memory)."""
+    core's keys and a load (a large load streamed, never read into memory;
+    with `rewrite`, a fake game's virtual_sql, each file read and
+    rewritten)."""
     fh = tempfile.TemporaryFile()
     if prelude:
         fh.write(prelude.encode("utf-8"))
     for path in paths:
-        with open(path, "rb") as src:
-            shutil.copyfileobj(src, fh)
+        if rewrite is not None:
+            fh.write(rewrite(Path(path).read_text(encoding="utf-8")).encode("utf-8"))
+        else:
+            with open(path, "rb") as src:
+                shutil.copyfileobj(src, fh)
         if fh.tell():
             fh.seek(-1, os.SEEK_END)
             if fh.read(1) != b"\n":
@@ -1602,8 +1842,9 @@ def fdw_sql(node, sources, schemas, password):
     return "\n".join(setup) + "\n", "\n".join(teardown) + "\n"
 
 
-def _exec_sql(ldir, node, sql, argv, docker, timeout, out, heading, what, secrets=()):
-    run = exec_node(ldir, node, DATA_USER, stdin=sql, timeout=timeout, docker=docker, argv=argv)
+def _exec_sql(ldir, node, sql, argv, docker, timeout, out, heading, what, secrets=(), env=None):
+    run = exec_node(ldir, node, DATA_USER, stdin=sql, timeout=timeout, docker=docker, argv=argv,
+                    env=env)
     out(f"{heading} (psql as {DATA_USER}): {'ok' if run.ok else f'exit {run.returncode}'}")
     if not run.ok:
         for line in output_lines(run):
@@ -1613,13 +1854,15 @@ def _exec_sql(ldir, node, sql, argv, docker, timeout, out, heading, what, secret
     return run
 
 
-def run_file(ldir, run, variables, docker, timeout=None, out=print):
+def run_file(ldir, run, variables, docker, timeout=None, out=print, clock=None):
     """One FileRun: its files streamed into psql -d <database>, unseen
     (UNSEEN_SQL ahead: no statement logging, pgaudit and
-    `pg_stat_statements` off; master spec 9.2, spec D265)."""
-    with stream_files(run.paths, UNSEEN_SQL) as fh:
+    `pg_stat_statements` off; master spec 9.2, spec D265); on `clock`
+    (a fake game's) rewritten and given its session means."""
+    with stream_files(run.paths, UNSEEN_SQL, virtual_sql if clock else None) as fh:
         result = exec_node(ldir, run.node, DATA_USER, stdin=fh, timeout=timeout, docker=docker,
-                           argv=data_argv(variables, run.database))
+                           argv=data_argv(variables, run.database),
+                           env=clock.env if clock else None)
     _print_run(out, f"{run.node}/{run.database} {run.what} (psql as {DATA_USER})", result)
     if not result.ok:
         raise GmError(f"load of {run.what} into {run.node}/{run.database}: psql exit "
@@ -1660,15 +1903,18 @@ def sourced_session(ldir, node, sources, body, docker, timeout=None, out=print):
     return UNSEEN_SQL + setup + body + teardown, password
 
 
-def run_sourced(ldir, run, variables, docker, timeout=None, out=print):
-    """A derivation or a history (SourcedRun), unseen, its sources read."""
+def run_sourced(ldir, run, variables, docker, timeout=None, out=print, clock=None):
+    """A derivation or a history (SourcedRun), unseen, its sources read; on
+    `clock` rewritten and given its session means."""
     body = b"".join(Path(p).read_bytes().rstrip(b"\n") + b"\n" for p in run.paths)
+    if clock:
+        body = virtual_sql(body.decode("utf-8")).encode("utf-8")
     sql, password = sourced_session(ldir, run.node, run.sources, body, docker, timeout, out)
     _exec_sql(ldir, run.node, sql, data_argv(variables, run.database), docker, timeout, out,
               f"{run.node}/{run.database} {run.what}, reading "
               f"{', '.join(s.server for s in run.sources) or 'nothing'}",
               f"{run.kind} {run.what} in {run.node}/{run.database}", secrets=[password] if
-              password else [])
+              password else [], env=clock.env if clock else None)
 
 
 def run_check(ldir, run, docker, timeout=None, out=print):
@@ -1712,7 +1958,7 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
     the histories, the coherence check and its record; gm_check's role
     settings set on every source before the first read, reset after the
     last; GmError at the first that fails, a failed check included."""
-    plan, variables = plans.composed, plans.variables
+    plan, variables, clock = plans.composed, plans.variables, plans.clock
     for load in plan.domains:
         for node, database in load.databases:
             run = _exec_sql(ldir, node, create_database_sql(database), PSQL_ARGV, docker,
@@ -1721,11 +1967,11 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
             if CREATED_MARK in output_lines_stdout(run):
                 result.created.append((node, database))
         for run in load.runs:
-            run_file(ldir, run, variables, docker, timeout=timeout, out=out)
+            run_file(ldir, run, variables, docker, timeout=timeout, out=out, clock=clock)
             result.domains.append((load.domain, run.node, run.database, run.what))
         result.partners += [(load.domain, prefix, node) for prefix, node in load.partners]
     for ddl in plan.ddl:                                # step (2b), W3 addendum
-        run_file(ldir, ddl.run, variables, docker, timeout=timeout, out=out)
+        run_file(ldir, ddl.run, variables, docker, timeout=timeout, out=out, clock=clock)
         result.ddl.append((ddl.purpose, ddl.part, ddl.run.node, ddl.run.database))
     for node, database in plan.read_policies:          # step (2c), W4 item 7
         what = f"giving {CHECK_ROLE} its read policy in {node}/{database}"
@@ -1742,7 +1988,7 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
                   f"{node} {CHECK_ROLE} unseen, CONNECT on {', '.join(databases)}",
                   f"setting {CHECK_ROLE}'s role settings on {node}")
     for run in plan.derivations + plan.histories:
-        run_sourced(ldir, run, variables, docker, timeout=timeout, out=out)
+        run_sourced(ldir, run, variables, docker, timeout=timeout, out=out, clock=clock)
         (result.derived if run.kind == "derive" else result.histories).append(
             (run.owner, run.node, run.database))
     if plan.checks:
@@ -1772,6 +2018,7 @@ class LoadPlans:
     secrets: set                    # game_secret_names
     standbys: list = field(default_factory=list)   # standby_plan
     composed: ComposedPlan = field(default_factory=ComposedPlan)   # composed_plan
+    clock: VirtualClock = None      # a fake game's (clock_plan)
 
 
 def load_data(scenario_dir, playground, timeout=None, docker=None, out=print,
@@ -1801,12 +2048,15 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print,
 def load_plans(scenario, impl, catalog_root=model.REPO_ROOT, now=None):
     """`load-data`'s plans (LoadPlans), read and checked before anything
     runs; the domains and the purposes' histories read from the catalogue
-    `catalog_root` (W2 item 3); `load_epoch` the run's start (`now`)."""
+    `catalog_root` (W2 item 3); `load_epoch` the run's start (`now`), in a
+    fake game the virtual T0 (clock_plan, W2 item 9)."""
+    clock = clock_plan(scenario, impl)
+    epoch = load_epoch(render.from_iso(clock.vt0) if clock else now)
     return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl, catalog_root),
                      survey_plan(scenario, impl), grant_plan(scenario, impl),
-                     {**psql_variables(impl), EPOCH_VAR: load_epoch(now)}, impl["game_id"],
+                     {**psql_variables(impl), EPOCH_VAR: epoch}, impl["game_id"],
                      game_secret_names(impl), standby_plan(scenario, impl),
-                     composed_plan(scenario, impl, catalog_root))
+                     composed_plan(scenario, impl, catalog_root), clock)
 
 
 def load_steps(ldir, plans, docker, result, timeout=None, out=print):
@@ -1817,18 +2067,26 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
     check role's read policy and mapping-roles function, the check role's
     `CONNECT`, the `pg_cron` launcher's start-up failures out of the server
     log, last (v0.5) each standby's clone; GmError at the first that fails.
-    Also a restart's with no snapshot (chunk 11, spec D176)."""
+    Also a restart's with no snapshot (chunk 11, spec D176). In a fake
+    game (`plans.clock`) the data's steps, through the histories and the
+    coherence check, run on the virtual T0's clock, the shim set before
+    and dropped after them (W2 item 9)."""
     argv = data_argv(plans.variables)
+    clock = plans.clock
+    if clock:
+        set_clock(ldir, clock, docker, timeout=timeout, out=out)
     for node, rel, path in plans.data:
-        with open(path, "rb") as fh:
+        with (stream_files([path], rewrite=virtual_sql) if clock else open(path, "rb")) as fh:
             run = exec_node(ldir, node, DATA_USER, stdin=fh, timeout=timeout,
-                            docker=docker, argv=argv)
+                            docker=docker, argv=argv, env=clock.env if clock else None)
         _print_run(out, f"{node} {rel} (psql as {DATA_USER})", run)
         if not run.ok:
             raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
                           f"{psql_error_line(run)}")
         result.loaded.append((node, rel))
     composed_steps(ldir, plans, docker, result, timeout=timeout, out=out)
+    if clock:
+        drop_clock(ldir, clock, docker, timeout=timeout, out=out)
     for node, roles in plans.passwords:
         names = ", ".join(r for r, _ in roles)
         run = exec_node(ldir, node, DATA_USER, stdin=password_sql(ldir, roles),
@@ -2000,8 +2258,14 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
     insts = {inst["id"]: inst for inst, _ in fault_instances(scenario, impl)}
     docker = docker or for_local_dir(ldir)
     result = InjectResult(impl["game_id"], replay=stage == INJECT_STAGE)
+    clock = clock_plan(scenario, impl)
+    clocked = clock is not None and any(
+        scripts and plant_at_of(scenario, impl, insts[iid]) == T0
+        for iid, _, _, _, _, scripts in plan)
 
     with state.setup_step(ldir, INJECT_STAGE, undo=_undo(docker, impl["game_id"])):
+        if clocked:
+            set_clock(ldir, clock, docker, timeout=timeout, out=out)
         for iid, fault, _, run_as, env, scripts in plan:
             plant_at = plant_at_of(scenario, impl, insts[iid])
             if plant_at != T0:
@@ -2012,6 +2276,9 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
                 {PARAMETER_KIND: result.rendered, TOPOLOGY_KIND: result.topology}.get(
                     kind, result.seeded).append(iid)
                 continue
+            if clock is not None:
+                from . import fill
+                env = fill.session_means(env, clock.vt0)
             for script, text, where in scripts:
                 run = exec_node(ldir, where, run_as, stdin=text, env=env, timeout=timeout,
                                 docker=docker)
@@ -2020,11 +2287,14 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
                     raise GmError(f"injection of {iid} ({fault.id}) stopped at {script}: exit "
                                   f"{run.returncode}: {_first_line(run)}")
                 result.scripts.append((iid, script))
+        if clocked:
+            drop_clock(ldir, clock, docker, timeout=timeout, out=out)
     if stage != INJECT_STAGE:
         at = localimpl.now_iso()
+        planted = clock.vt0 if clock is not None else at    # a fake game's: the virtual T0
 
         def record(st):
             localimpl.enter_stage(st, INJECT_STAGE, at)
-            st["plantings"] = initial_plantings(scenario, impl, at)
+            st["plantings"] = initial_plantings(scenario, impl, planted)
         localimpl.update_state(ldir, record)
     return result

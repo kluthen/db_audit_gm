@@ -1031,3 +1031,27 @@ class TestStatusSecret(StatusRendered):
         fake = FakeDocker()
         configs, secrets = deploy.create_objects(fake, self.scenario, self.impl)
         self.assertIn(f"{self.impl['game_id']}_partners_status", secrets)
+
+
+class TestHoldPlan(unittest.TestCase):
+    """The hold's items (v0.6 capture W2 item 10), in fill.quiet's form."""
+
+    def test_pg_cron_and_archiving_held(self):
+        from tools.gm import deploy, fill
+        survey = {"auto": {"archive_command": "vault-put %p"},
+                  "settings": {"cron.launch_active_jobs": "on", "archive_mode": "on",
+                               "archive_command": "vault-put %p", "archive_library": ""},
+                  "roles": {}}
+        sql, items = deploy.hold_plan("db", survey)
+        self.assertEqual([i["what"] for i in items], [fill.PG_CRON_WHAT, fill.ARCHIVING_WHAT])
+        self.assertTrue(all(i["left_off"] and i["node"] == "db" for i in items))
+        self.assertEqual(items[0]["restore"]["sql"], ["ALTER SYSTEM RESET cron.launch_active_jobs;"])
+        self.assertEqual(items[1]["restore"]["sql"],
+                         ["ALTER SYSTEM SET archive_command = 'vault-put %p';"])
+        self.assertIn("ALTER SYSTEM SET cron.launch_active_jobs = off;", sql)
+        self.assertTrue(sql.endswith("SELECT pg_catalog.pg_reload_conf();\n"))
+
+    def test_nothing_to_hold(self):
+        from tools.gm import deploy
+        self.assertEqual(deploy.hold_plan("db", {"auto": {}, "settings": {"archive_mode": "off"},
+                                                 "roles": {}}), ("", []))

@@ -82,6 +82,14 @@ so an interface inside a node has 1180 (D184: kept, safe). A game on one
 host keeps the engine's default. Capture W3-a (D182): once `deploy` has recorded the
 overlay's subnet (`implementation.yaml`'s `overlay.subnet`, several hosts
 only), the network carries it, `ipam: {config: [{subnet}]}`.
+
+v0.6 master spec 9.3 to 9.6, capture W2 items 7 and 8: `--aging fake`
+computes a fake game's timeline (fake_timeline: the virtual T0, the anchor,
+the tail, the refused instances with their reasons, spec D528), writes it
+into `implementation.yaml`'s `timeline` and the restart record
+(`local/<playground>/fake-aging.yaml`), appends the restart's story line to
+the bastion's `story.md`, and keeps the monitoring's nodes at zero
+replicas until clean-restart. A real render removes a leftover record.
 """
 
 import datetime
@@ -97,9 +105,9 @@ import yaml
 
 from . import localimpl
 from .model import admitted_incidents
-from .model import (CUSTOMER_TIMEZONE, HANDOVER_MOMENT_RE, REPO_ROOT, WEEKDAYS, GmError,
-                    has_scheduler_nodes, is_scheduler_node, load_scenario, parse_cpu,
-                    parse_duration, parse_mode)
+from .model import (CUSTOMER_TIMEZONE, HANDOVER_MOMENT_RE, REAL_ONLY, REPO_ROOT, WEEKDAYS,
+                    GmError, fault_fake_aging, has_scheduler_nodes, is_scheduler_node,
+                    load_scenario, parse_cpu, parse_duration, parse_mode)
 
 COMPOSE_VERSION = "3.8"
 RENDERABLE_STAGES = ("fitted", "rendered")
@@ -464,6 +472,114 @@ def earliest_if_started(timeline, now):
     return earliest
 
 
+# --- A fake game's timeline (v0.6 master spec 9.3, 9.5, 9.6; W2 items 7, 8) --
+
+REAL_AGING, FAKE_AGING = "real", localimpl.FAKE_MODE
+AGING_MODES = (REAL_AGING, FAKE_AGING)
+TAIL_FLOOR = 3600                       # seconds: 9.6's floor, one hour
+NOT_ASSESSED = "not assessed: no aging.fake"
+STORY_LINE = ("The servers were restarted for maintenance on {date} at {time} UTC; older logs "
+              "were archived.")
+
+
+def duration_word(seconds):
+    """A duration in the one unit parse_duration reads back: `3h`, `90m`,
+    `45s`."""
+    seconds = int(seconds)
+    if seconds % 3600 == 0:
+        return f"{seconds // 3600}h"
+    if seconds % 60 == 0:
+        return f"{seconds // 60}m"
+    return f"{seconds}s"
+
+
+def fake_refusal(scenario, inst):
+    """Why an instance is refused in a fake game (master spec 9.5, spec
+    D528): its `aging.fake.reason` when `real-only`, NOT_ASSESSED without
+    `aging.fake`; None when it is eligible."""
+    fake = fault_fake_aging(scenario.faults[inst["id"]].data)
+    if fake is None:
+        return NOT_ASSESSED
+    if fake.support == REAL_ONLY:
+        return " ".join(str(fake.reason or "real-only").split())
+    return None
+
+
+def _clock_minutes(text):
+    hours, minutes = str(text).split(":")
+    return int(hours) * 60 + int(minutes)
+
+
+def covers_seconds(cover, designed):
+    """The time from a `tail_covers` instant to the hand-over, both in
+    scenario time (`"HH:MM"`), in seconds: the instant the latest before
+    the hand-over (9.6)."""
+    return (_clock_minutes(designed) - _clock_minutes(cover)) % 1440 * 60
+
+
+def planting_seconds(inst, span):
+    """How long before the hand-over an instance is planted: `handover-<N>h`
+    N hours, `T0` the whole span."""
+    m = HANDOVER_MOMENT_RE.match(str(inst.get("plant_at") or T0))
+    return int(m.group(1)) * 3600 if m else span
+
+
+def fake_timeline(scenario, planned, floor=None, left_out=()):
+    """A fake game's timeline from the planned hand-over `planned` (master
+    spec 9.3, 9.6; capture W2 item 7), the one function: `virtual_t0` (H
+    minus the scenario's declared aging, `aging.minimum`), `anchor` (H
+    minus the tail), `tail` (duration_word), `refused` ([{instance,
+    reason}], fake_refusal). The tail is the longest of the floor (one
+    hour; `floor`, the harness's cap, in seconds when shorter), each
+    eligible selected fault's `tail_minimum`, each `tail_covers` instant to
+    H, and for each instance its fault plants in the tail (`plant_in:
+    tail`) its planting moment to H, never less than its aging minimum.
+    Instances in `left_out` (the harness's) are neither counted nor
+    refused. GmError when the tail is not shorter than the aging."""
+    aging = scenario.data.get("aging") or {}
+    span = parse_duration(aging["minimum"])
+    designed = str(aging.get("handover_at"))
+    tail = TAIL_FLOOR if floor is None else min(int(floor), TAIL_FLOOR)
+    refused = []
+    for inst in scenario.data.get("fault_instances") or []:
+        if inst["id"] in left_out:
+            continue
+        reason = fake_refusal(scenario, inst)
+        if reason is not None:
+            refused.append({"instance": inst["id"], "reason": reason})
+            continue
+        fake = fault_fake_aging(scenario.faults[inst["id"]].data)
+        if fake.tail_minimum:
+            tail = max(tail, int(fake.tail_minimum))
+        for cover in fake.tail_covers:
+            tail = max(tail, covers_seconds(cover, designed))
+        if fake.plant_in == "tail":
+            minimum = instance_minimum(scenario, inst)
+            tail = max(tail, planting_seconds(inst, span),
+                       parse_duration(minimum) if minimum is not None else 0)
+    if tail >= span:
+        raise GmError(f"a fake game of this selection needs a tail of {duration_word(tail)}, not "
+                      f"shorter than the scenario's aging {aging['minimum']}: age it in real time "
+                      "(gmctl render without --aging fake)")
+    return {"virtual_t0": iso(planned - datetime.timedelta(seconds=span)),
+            "anchor": iso(planned - datetime.timedelta(seconds=tail)),
+            "tail": duration_word(tail), "refused": refused}
+
+
+def restart_record(timeline, refused):
+    """The restart record as render writes it (master spec 6.9; capture W2
+    item 8); clean-restart adds `restart`, history `history`."""
+    return {"mode": FAKE_AGING, "virtual_t0": timeline["virtual_t0"],
+            "anchor": timeline["anchor"], "tail": timeline["tail"],
+            "handover_planned": timeline["planned_handover"], "refused": refused}
+
+
+def story_line(anchor):
+    """The restart's story line, the anchor's date and time (W2 item 7)."""
+    at = from_iso(anchor)
+    return STORY_LINE.format(date=at.strftime("%Y-%m-%d"), time=at.strftime("%H:%M"))
+
+
 def rendered_seed_text(scenario, node, seed_name, timeline):
     """The content render writes for one of the seed files it rewrites
     (localimpl.rendered_seed_names). `{{customer_timezone}}` is the bare
@@ -482,8 +598,11 @@ def rendered_seed_text(scenario, node, seed_name, timeline):
             return render_crontab(text, shift)
         return text.replace(CUSTOMER_TIMEZONE, zone)
     if not is_scheduler_node(node):
-        return text.replace(CUSTOMER_TIMEZONE,
+        text = text.replace(CUSTOMER_TIMEZONE,
                             customer_timezone_text(timeline["customer_timezone"]))
+        if seed_name == localimpl.STORY_FILE and timeline.get("anchor"):
+            text = text.rstrip("\n") + "\n\n" + story_line(timeline["anchor"]) + "\n"
+        return text
     text = text.replace(CUSTOMER_TIMEZONE, zone)
     if seed_name not in localimpl.RENDERED_SCHEDULER_FILES:
         return text
@@ -493,7 +612,7 @@ def rendered_seed_text(scenario, node, seed_name, timeline):
         return yaml.safe_dump(render_jobs(doc, shift), sort_keys=False,
                               default_flow_style=False, width=100)
     planned = from_iso(timeline["planned_handover"])
-    body = render_schedule(doc, shift, planned, timeline["seed"], timeline["rendered_at"])
+    body = render_schedule(doc, shift, planned, timeline["seed"], t0_instant(timeline))
     header = (f"# schedule.yaml of node {node['name']}, rendered by gmctl render from {rel}:\n"
               f"# UTC, shift {shift:+d} (planned hand-over {timeline['planned_handover']}); "
               "never edit by hand.\n")
@@ -631,8 +750,11 @@ def set_subnet(overlay, subnet):
     overlay["ipam"] = {"config": [{"subnet": subnet}]}
 
 
-def build_stack(scenario, impl):
-    """The stack file's content, as a dict (Compose file format 3.8)."""
+def build_stack(scenario, impl, held=False):
+    """The stack file's content, as a dict (Compose file format 3.8);
+    `held`: the monitoring's nodes at zero replicas (a fake game before its
+    restart, W2 item 7)."""
+    held_nodes = set(localimpl.monitoring_nodes(impl)) if held else set()
     gid = impl["game_id"]
     network = localimpl.network_name(scenario)
     params = localimpl.node_parameters(scenario)
@@ -670,7 +792,7 @@ def build_stack(scenario, impl):
         limits = inode["resources"]["limits"]
         reservations = inode["resources"]["reservations"]
         svc["deploy"] = {
-            "replicas": 1,
+            "replicas": 0 if name in held_nodes else 1,
             "placement": {"constraints": [localimpl.placement_constraint(inode["host"])]},
             "resources": {
                 "limits": {"cpus": _cpus(limits["cpu"]), "memory": str(limits["memory"])},
@@ -722,6 +844,8 @@ class RenderResult:
     timeline: dict = None
     warning: str = None
     left_out: list = field(default_factory=list)
+    record: dict = None                 # a fake game's restart record, as written
+    tail_floor: str = None              # the harness's --test-tail-floor
 
     def text(self):
         out = [f"Game {self.game_id}: rendered.",
@@ -737,6 +861,16 @@ class RenderResult:
         elif tl:
             out.append(f"  planned hand-over {tl['planned_handover']} (no scheduler node: "
                        "nothing shifted)")
+        if self.record:
+            out.append(f"  fake aging: virtual T0 {self.record['virtual_t0']}, anchor (the "
+                       f"maintenance restart) {self.record['anchor']}, tail "
+                       f"{self.record['tail']}; the monitoring at zero until gmctl clean-restart")
+            out.append(f"  restart record: {self.local_dir / localimpl.RESTART_RECORD_FILE}")
+            for ref in self.record["refused"]:
+                out.append(f"  refused: {ref['instance']}: {ref['reason']} (never planted or "
+                           "checked; its seed changes kept)")
+        if self.tail_floor:
+            out.append(f"  test harness: the tail's floor capped at {self.tail_floor}")
         if self.left_out:
             out.append(f"  test harness: {', '.join(self.left_out)} left out (never planted or "
                        "checked; their seed changes kept)")
@@ -790,7 +924,21 @@ def _check_fit(scenario, impl, playground):
                           "aliases) changed since gmctl fit: fit again")
 
 
-def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test_leave_out=None):
+def parse_tail_floor(text):
+    """`--test-tail-floor <duration>` -> seconds, at least one minute and at
+    most the floor; GmError otherwise."""
+    try:
+        seconds = parse_duration(text)
+    except ValueError as exc:
+        raise GmError(f"--test-tail-floor: {exc}") from None
+    if not 60 <= seconds <= TAIL_FLOOR:
+        raise GmError(f"--test-tail-floor {text}: give at least 1m and at most "
+                      f"{duration_word(TAIL_FLOOR)}")
+    return seconds
+
+
+def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test_leave_out=None,
+           aging=REAL_AGING, test_tail_floor=None):
     """Write stack.yml, envelopes/<node>.conf, mounted/ and rendered/, and
     implementation.yaml's `timeline`; stage `rendered`. `handover` (the
     planned hand-over, `--handover`) is required with scheduler nodes.
@@ -798,7 +946,18 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test
     harness's alone; capture W4 item 8): instance ids, comma-separated,
     recorded as implementation.yaml's `test_harness_override`, whose state
     planting and check every later verb leaves out; their seed changes
-    stay. Without it, a render records none."""
+    stay. Without it, a render records none.
+    `aging` (`--aging real|fake`, v0.6 capture W2 item 7): `fake` computes
+    fake_timeline into `timeline` (`virtual_t0`, `anchor`, `tail`,
+    `refused`) and the restart record; `real` removes a leftover record.
+    `test_tail_floor` (the undocumented `--test-tail-floor`, the harness's
+    alone, fake only): the tail's floor capped, recorded in
+    `test_harness_override.tail_floor`."""
+    if aging not in AGING_MODES:
+        raise GmError(f"--aging {aging}: give {' or '.join(AGING_MODES)}")
+    if test_tail_floor is not None and aging != FAKE_AGING:
+        raise GmError("--test-tail-floor caps a fake game's tail: give --aging fake")
+    floor = parse_tail_floor(test_tail_floor) if test_tail_floor is not None else None
     ldir = localimpl.local_dir(scenario_dir, playground)
     if localimpl.read_state(ldir) is None:
         raise GmError(f"no game on playground {playground}: run gmctl fit first")
@@ -807,6 +966,9 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test
     scenario = load_scenario(scenario_dir, catalog_root)
     _check_fit(scenario, impl, playground)
     scheduled = has_scheduler_nodes(scenario.data)
+    if aging == FAKE_AGING and not scheduled:
+        raise GmError("--aging fake: this scenario has no scheduler node, so it has no aging to "
+                      "fake (D157)")
     if scheduled and handover is None:
         raise GmError("this scenario has scheduler nodes: give the planned hand-over, "
                       "--handover <UTC date and hour> (2026-10-27T14:00Z)")
@@ -817,24 +979,46 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test
         if planned <= now:
             raise GmError(f"--handover {iso(planned)} is not in the future (it is {iso(now)})")
     leave_out = parse_leave_out(scenario, test_leave_out)
+    override = {}
     if leave_out:
-        impl[localimpl.TEST_OVERRIDE] = {"leave_out": leave_out, "set_at": iso(now)}
+        override["leave_out"] = leave_out
+    if floor is not None:
+        override["tail_floor"] = duration_word(floor)
+    if override:
+        impl[localimpl.TEST_OVERRIDE] = {**override, "set_at": iso(now)}
     else:
         impl.pop(localimpl.TEST_OVERRIDE, None)
+    fake, record = None, None
+    if aging == FAKE_AGING:
+        fake = fake_timeline(scenario, planned, floor, leave_out)
+        if from_iso(fake["anchor"]) <= now:
+            raise GmError(f"--handover {iso(planned)}: the anchor, {fake['anchor']} (the "
+                          f"hand-over minus the tail, {fake['tail']}), has passed: the fill runs "
+                          "before it; give a later hand-over")
+    refused = [r["instance"] for r in (fake or {}).get("refused", [])]
     timeline = build_timeline(scenario, planned, impl.get(localimpl.TIMELINE), iso(now),
-                              leave_out)
+                              leave_out + refused)
+    if fake is not None:
+        timeline.update(virtual_t0=fake["virtual_t0"], anchor=fake["anchor"], tail=fake["tail"],
+                        refused=refused)
+        record = restart_record(timeline, fake["refused"])
     warning = None
-    if scheduled:
+    if scheduled and fake is None:
         earliest = earliest_if_started(timeline, now)
         if planned < earliest:
             warning = (f"the planned hand-over {iso(planned)} is before {iso(earliest)}, the "
                        "earliest hand-over this game could have if the load started now")
 
     envelope_files, node_config_files, rendered_files, stack_file = write_rendered(
-        scenario, playground, ldir, impl, timeline)
+        scenario, playground, ldir, impl, timeline, record=record or {})
+    if record is not None:
+        localimpl.write_restart_record(ldir, record)
+    else:
+        localimpl.remove_restart_record(ldir)
     localimpl.set_stage(ldir, "rendered")
     return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
-                        rendered_files, timeline, warning, leave_out)
+                        rendered_files, timeline, warning, leave_out, record,
+                        override.get("tail_floor"))
 
 
 def parse_leave_out(scenario, text):
@@ -851,7 +1035,7 @@ def parse_leave_out(scenario, text):
     return [i for i in known if i in ids]
 
 
-def write_rendered(scenario, playground, ldir, impl, timeline):
+def write_rendered(scenario, playground, ldir, impl, timeline, record=None):
     """Render's files for `impl` with `timeline` (None: none): the envelope
     files, every receiving node's own config, the rendered seed files, the
     timeline in `implementation.yaml` and the stack file. Returns
@@ -859,7 +1043,12 @@ def write_rendered(scenario, playground, ldir, impl, timeline):
     Also a restart's (chunk 11): its new game id, the planned hand-over
     kept, a new seed. v0.6: with partners holding a player document, the
     partners' status file too (`rendered` secret, capture W2 item 1),
-    computed first, so a refusal writes nothing."""
+    computed first, so a refusal writes nothing. A fake game's monitoring
+    stays at zero replicas while `record` (the restart record; None: the
+    one on disk) has no `restart` (W2 item 7)."""
+    if record is None:
+        record = localimpl.read_restart_record(ldir)
+    held = localimpl.monitoring_held({**impl, localimpl.TIMELINE: timeline}, record)
     status = [(sec, status_file(scenario, impl, timeline, localimpl.now_iso()))
               for sec in impl.get("secrets") or [] if sec.get("kind") == localimpl.RENDERED
               and sec.get("secret") == localimpl.PARTNERS_STATUS]
@@ -899,5 +1088,6 @@ def write_rendered(scenario, playground, ldir, impl, timeline):
         impl[localimpl.TIMELINE] = timeline
     localimpl.write_implementation(ldir, impl)
     stack_file = ldir / localimpl.STACK_FILE
-    localimpl.write_text(stack_file, dump_stack(build_stack(scenario, impl), impl["game_id"]))
+    localimpl.write_text(stack_file, dump_stack(build_stack(scenario, impl, held),
+                                                impl["game_id"]))
     return envelope_files, node_config_files, rendered_files, stack_file

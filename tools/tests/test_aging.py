@@ -1383,3 +1383,23 @@ class TestCheckCommandLine(ScenarioCopyTest):
         proc = run_gmctl("check", self.scenario, "--playground", "laptop", "--handover-check")
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("gmctl check: no game", proc.stderr)
+
+
+class TestFakeEarlyCheck(unittest.TestCase):
+    """A fake game's early check (v0.6 capture W2 item 12; master spec 9.4
+    step 9), from the restart's measured instant."""
+
+    def due(self, tail_hours):
+        import datetime as dt
+        restart = dt.datetime(2026, 11, 21, 11, 0, 4, tzinfo=dt.timezone.utc)
+        tail = dt.timedelta(hours=tail_hours)
+        return aging.fake_early_check_due(restart, tail, restart + tail)
+
+    def test_halfway_through_the_tail_by_h_minus_one_hour(self):
+        self.assertEqual(aging.iso(self.due(3)), "2026-11-21T12:30:04Z")   # half: 1h30m
+        self.assertEqual(aging.iso(self.due(2)), "2026-11-21T12:00:04Z")   # half = H - 1h
+        self.assertEqual(aging.iso(self.due(6)), "2026-11-21T14:00:04Z")   # half 3h < H-1h 5h
+
+    def test_a_short_tail_right_after_the_import(self):
+        self.assertEqual(aging.iso(self.due(1)), "2026-11-21T11:17:04Z")   # + 12 min + 5 min
+        self.assertEqual(aging.iso(self.due(10 / 60)), "2026-11-21T11:17:04Z")
