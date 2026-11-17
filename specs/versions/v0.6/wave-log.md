@@ -1977,3 +1977,70 @@ stopped at its rotation point or finished before it.
 
 6 (153fc24), 7 (4f96311), 15 (1aacf9e), 9 (3b9b1b7). Next: the wave
 gate (G9.1 included), then G10.2 by `spec-writer`.
+
+### Wave 2 gate — 2026-11-17, green after four fixes
+
+`coding-executor` at the wave-gate level, armenelos, 20:13–23:05 CET,
+from 992c085; every docker step serialised under the lock and the
+inhibitor, each item under 30 minutes. Head after the gate: 15749dd.
+
+| Item | Result |
+|---|---|
+| Unit suite | 1456 OK, 2 skipped, 382 s |
+| Scheduler unit tests, replay guard | 113 OK (6 `TestP0`), the real mode's replay byte for byte |
+| api unit tests | 36 OK |
+| `sh -n`, `py_compile`, `perl -c` | 342 shell, 474 Python, 14 Perl files OK |
+| Ten bricks' stack tests | postgres 316, bastion 136, pgbouncer 121, scheduler 179, api 89, prometheus 132, postgres-exporter 104, grafana 131, pgwatch 73, health-check 97; all 0 failed |
+| `check-base.sh` | 10/10 Debian 13 |
+| Smokes | smoke 61, monitoring 43, governance 121, load 73 |
+| Scenario smokes | bookshop 19, fernway-clinics 18, tarnbeck shop 26 (828 s), tarnbeck campaign 33 (303 s) |
+| `fixture-status` | 27/0, twice |
+| `fixture-fill` | 65/0, 886 s; 65/0, 842 s on the final images |
+| Overview tests, `check_scenario`, `check_domain_dir` | 31 OK; 5/5 scenarios, 32/32 fixtures; 0 problems |
+| Clinic's data register | regenerated on a copy: identical to the committed files |
+| READMEs | aldermoor's v0.6 parts correct; fixture-status's generated |
+
+**Fixes** (each its own commit on `v0.6-w2`): f6e14ab, the domain
+template's `overview:` required (chunk 7); 6fff117, fixture-status's
+README generated from the template, replacing chunk 6b's stub (no
+`admitted:` section: the template has none, G10.2); d77808a, `smoke.sh`
+counts 17 labelled configs and secrets, bastion 0.6.0's two brick pages
+(chunk 6); 15749dd, smoke-load judges from the first whole minute after
+the last scheduler's start, not T0 (from before v0.6; the producer
+started 2 s after T0's minute began). ISS-006 didn't show.
+
+**G9.1's builds** (`--no-cache --pull`; dpkg lists diffed):
+- postgres: libpq5, postgresql-18, postgresql-client-18 18.6 → 18.7-1.pgdg13+2;
+  the pinned `pg_cron` 1.6.8-1.pgdg13+2 and `pgaudit` 18.0-3.pgdg13+1
+  still install (PGDG has newer builds needing > 18.7).
+- pgbouncer: libpq5, postgresql-client-18 → 18.7; **libcares2
+  1.34.5-1+deb13u1 → 1.34.9-1~deb13u1** (the c-ares item open in
+  `.tech`); postgresql-common family 293 → 295.pgdg13+1.
+- scheduler, api: libpq5 17.11 → 17.12-0+deb13u1; health-check: libpq5
+  and postgresql-client-17 → 17.12. Nothing else.
+- The other five: same image ids, no change.
+
+**Found: the api and scheduler stack tests undo G9.1.** They rebuild
+their image with a cached `docker build` (`run-stack-test.sh` lines 126
+and 150), which BuildKit answers with the old apt layer: both went back
+to libpq 17.11. The other eight stack tests take a prebuilt image. The
+executor rebuilt both `--no-cache --pull` and reran their stack tests
+through a shim skipping that line (89/0, 179/0), then reran
+fixture-status, smoke-load and fixture-fill on the final images; the
+other smoke and scenario rows ran with libpq 17.11 in scheduler and api.
+Sent to a `coding-executor`: those two tests take the prebuilt image like
+the other eight. Wider point for the owner: any cached build of a brick
+keeps its old apt layer, so security updates arrive only with
+`--no-cache`.
+
+**Left for the owner**: older fixture READMEs predate the current
+template (11 without "Third parties", 12 without "Composition"); v0.5's
+gate ruled this not a gate item, and nothing in wave 2 made one stale.
+
+**Figures**: fill 526 s for 916 virtual minutes on 2 scheduler nodes
+(495 s for 904 in the final run); exporter sessions 3674 against 3664
+expected; autovacuum during the fill 99 runs on `products`, 1 on
+`customers`; clean-restart 27 s, WAL padding about 1.08 GB in 2–3 s,
+`pg_wal` 1,056,964,608 bytes after the checkpoints; starts +0.9 to +2.3 s
+from `restart.at`; `stats_reset` 8 s before it. `/home` 14 GB free.
+Removed: the superseded `api:0.1.0` tag. Nothing left running.
