@@ -21,6 +21,7 @@ in both, the hand-over snapshot taken or recorded as not fitting (chunk
 """
 
 import contextlib
+from pathlib import Path
 
 from . import localimpl
 from .model import GmError
@@ -162,9 +163,37 @@ def status_text(ldir, docker=None, now=None):
         lines.append(f"  secrets: {localimpl.secrets_dir(ldir)}/ (mode 0600, not printed)")
         lines += [f"    {name}: {what}" for name, what in secret_files(impl)
                   if name != TOOLS_PASSWORD or has_web_front(impl)]
+    lines += aging_mode_lines(ldir, impl, state)
     if impl.get("nodes"):
         lines += aging.status_aging(impl, state, moment)
     return "\n".join(lines)
+
+
+def aging_mode_lines(ldir, impl, state):
+    """The aging mode and a fake game's restart record (v0.6 master spec
+    6.7, 9.4; capture W2 item 8): the timeline, the refused instances, the
+    hold, the restart and the history import as recorded."""
+    record = localimpl.read_restart_record(ldir)
+    if not record:
+        return ["  aging: real"] if (impl.get(localimpl.TIMELINE) or {}).get("aging_minimum") \
+            else []
+    out = [f"  aging: {record.get('mode')} (restart record "
+           f"{Path(ldir) / localimpl.RESTART_RECORD_FILE})",
+           f"    virtual T0 {record.get('virtual_t0')}, anchor {record.get('anchor')} (planned), "
+           f"tail {record.get('tail')}, hand-over planned {record.get('handover_planned')}"]
+    out += [f"    refused: {r.get('instance')}: {r.get('reason')}"
+            for r in record.get("refused") or []]
+    hold = state.get("hold")
+    if hold is not None:
+        items = [f"{i.get('node')}: {i.get('what')}" for i in hold.get("items") or []]
+        out.append(f"    held off since {hold.get('at')}: {'; '.join(items) or 'nothing'}")
+    restart = record.get("restart")
+    out.append(f"    restart: at {restart.get('at')}" if restart else
+               "    restart: not yet (gmctl fill, then gmctl clean-restart)")
+    history = record.get("history")
+    if history:
+        out.append(f"    history import: {history.get('result')} at {history.get('at')}")
+    return out
 
 
 def playground_lines(ldir):
@@ -209,6 +238,9 @@ def secret_files(impl):
             pair = sec.get("pair")
             crt, key = localimpl.pair_files(localimpl.CERTIFICATE, pair)
             files = [(crt, f"certificate {pair}"), (key, f"private key of certificate {pair}")]
+        elif sec.get("kind") == localimpl.RENDERED:
+            files = [(sec.get("secret") + localimpl.RENDERED_SUFFIX,
+                      "status file, rendered (gmctl render)")]
         else:
             files = [(sec.get("secret"),
                       "password, handed over" if sec.get("handed_over") else "password")]

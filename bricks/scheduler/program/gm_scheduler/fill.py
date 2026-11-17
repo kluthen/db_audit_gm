@@ -17,7 +17,8 @@ What differs from the real mode:
     opens) `now()`, `current_timestamp` and `current_date` become bound
     parameters holding the virtual instant (`virtualize`); every session
     puts the schema `gm_vclock` (VCLOCK_SQL, created by `gmctl fill` as
-    postgres) before `pg_catalog` on its own `search_path` and sets
+    postgres) right before `pg_catalog` on its own `search_path` (master
+    spec 9.4's rule, spec D530: `vclock_path`) and sets
     `gm.vclock` at each transaction's start, so the server-side functions
     it calls read the virtual instant from `now()`,
     `transaction_timestamp()`, `statement_timestamp()` and
@@ -106,15 +107,32 @@ GRANT USAGE ON SCHEMA gm_vclock TO PUBLIC;
 """
 # The checked drop (capture W2 item 13): it first fails, naming them, when an
 # object outside gm_vclock depends on its functions (a column default, a view,
-# a BEGIN ATOMIC body bound to the shim when created through it), so the
-# CASCADE never reaches a customer object; then drops. Without the schema it
-# does nothing. Every drop of the shim uses it (`fill-sql --drop`): the fill's
-# end, load-data's, inject's and clean-restart's.
+# a BEGIN ATOMIC body bound to the shim when created through it), or when an
+# object other than its four functions lies inside gm_vclock (spec D530: a
+# table created there would go with the CASCADE), so the CASCADE never
+# reaches a customer object; then drops. Without the schema it does nothing.
+# Every drop of the shim uses it (`fill-sql --drop`): the fill's end,
+# load-data's, inject's and clean-restart's.
 VCLOCK_DROP = """\
 DO $gm_drop$
 DECLARE
   bound text;
+  inside text;
 BEGIN
+  SELECT pg_catalog.string_agg(pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid), '; '
+                               ORDER BY pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid))
+    INTO inside
+    FROM pg_catalog.pg_depend d
+    JOIN pg_catalog.pg_namespace n ON d.refclassid = 'pg_catalog.pg_namespace'::pg_catalog.regclass
+                                  AND d.refobjid = n.oid AND n.nspname = 'gm_vclock'
+   WHERE NOT (d.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+              AND d.objid IN (SELECT g.oid FROM pg_catalog.pg_proc g
+                               WHERE g.pronamespace = n.oid AND g.pronargs = 0
+                                 AND g.proname IN ('now', 'transaction_timestamp', 'statement_timestamp',
+                                                   'clock_timestamp')));
+  IF inside IS NOT NULL THEN
+    RAISE EXCEPTION 'gm_vclock not dropped: % inside it, not the shim''s (move or drop them, then drop it)', inside;
+  END IF;
   SELECT pg_catalog.string_agg(DISTINCT pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid), '; '
                                ORDER BY pg_catalog.pg_describe_object(d.classid, d.objid, d.objsubid))
     INTO bound
@@ -132,15 +150,19 @@ DROP SCHEMA IF EXISTS gm_vclock CASCADE;
 """
 # P0's cover (master spec 9.4, spec D523; capture W2 item 13): a function or
 # procedure with its own `SET search_path` never sees the fill's session
-# path, so for the fill's span its setting becomes `gm_vclock`, then
-# `pg_catalog` when the path doesn't name it (PostgreSQL searched it
-# implicitly), then its own path; its other settings stay. COVER_SQL, run as
+# path, so for the fill's span its setting places `gm_vclock` by master spec
+# 9.4's rule (spec D530): right before `pg_catalog` where the path names it;
+# where it doesn't (PostgreSQL searched it implicitly, first), `gm_vclock,
+# pg_catalog` at the path's end, ahead of a final `pg_temp`. The path's first
+# schema, where the routine creates what it names unqualified, stays first;
+# its other settings stay. COVER_SQL, run as
 # postgres in each database holding the shim (`fill-sql --cover`), lists one
 # JSON object a line for every function and procedure whose own settings set
 # search_path, outside the system schemas, the temporary ones and every
 # `gm_*` schema, and not an extension's member: {kind, signature (qualified:
 # the query runs with pg_catalog alone on its path), setting (as proconfig
-# holds it), covered (already under a cover), cover (the ALTER), restore (the
+# holds it), covered (already under a cover: its path names gm_vclock), cover
+# (the ALTER), restore (the
 # ALTER back to `setting`, guarded: it acts only while the routine exists
 # under this cover, so a routine gone or redefined since counts as
 # restored)}. The setting is written back as its elements, each as
@@ -164,21 +186,33 @@ WITH pinned AS (
          ARRAY(SELECT t.m[1] FROM regexp_matches(q.setting, '"(?:[^"]|"")*"|[^",[:space:]]+', 'g')
                                   WITH ORDINALITY AS t(m, i) ORDER BY t.i) AS names
     FROM pinned q
+), placed AS (
+  SELECT r.*,
+         CASE WHEN 'pg_catalog' = ANY (r.names)
+              THEN r.names[:array_position(r.names, 'pg_catalog') - 1] || 'gm_vclock'::text
+                   || r.names[array_position(r.names, 'pg_catalog'):]
+              WHEN r.names[cardinality(r.names)] = 'pg_temp'
+              THEN r.names[:cardinality(r.names) - 1] || ARRAY['gm_vclock', 'pg_catalog', 'pg_temp']
+              ELSE r.names || ARRAY['gm_vclock', 'pg_catalog']
+         END AS placed
+    FROM parsed r
 ), written AS (
   SELECT r.*,
          array_to_string(ARRAY(SELECT CASE WHEN u.x = '""' THEN '''''' ELSE u.x END
                                  FROM unnest(r.names) WITH ORDINALITY AS u(x, i) ORDER BY u.i), ', ') AS path,
-         'gm_vclock, ' || CASE WHEN 'pg_catalog' = ANY (r.names) THEN '' ELSE 'pg_catalog, ' END AS head
-    FROM parsed r
+         array_to_string(ARRAY(SELECT CASE WHEN u.x = '""' THEN '''''' ELSE u.x END
+                                 FROM unnest(r.placed) WITH ORDINALITY AS u(x, i) ORDER BY u.i), ', ') AS cover_path,
+         array_to_string(r.placed, ', ') AS cover_setting
+    FROM placed r
 )
 SELECT json_build_object(
          'kind', lower(word), 'signature', signature, 'setting', setting,
-         'covered', setting LIKE 'gm\_vclock, %',
-         'cover', format('ALTER %s %s SET search_path = %s%s;', word, signature, head, path),
+         'covered', 'gm_vclock' = ANY (names),
+         'cover', format('ALTER %s %s SET search_path = %s;', word, signature, cover_path),
          'restore', format('DO $gm_cover$ BEGIN IF EXISTS (SELECT FROM pg_catalog.pg_proc WHERE oid = '
                            'pg_catalog.to_regprocedure(%L) AND %L = ANY (proconfig)) THEN ALTER %s %s SET '
                            'search_path = %s; END IF; END $gm_cover$;',
-                           signature, 'search_path=' || head || setting, word, signature, path))
+                           signature, 'search_path=' || cover_setting, word, signature, path))
   FROM written
  ORDER BY signature;
 """
@@ -393,9 +427,31 @@ def _sql_error(exc):
     return getattr(exc, "sqlstate", None) or "-", " ".join(msg.split())
 
 
+PATH_NAME_RE = re.compile(r'"(?:[^"]|"")*"|[^",\s]+')
+
+
+def vclock_path(setting):
+    """A search_path setting with `gm_vclock` placed by master spec 9.4's rule
+    (spec D530): right before `pg_catalog` where the path names it; where it
+    doesn't, `gm_vclock, pg_catalog` at its end, ahead of a final `pg_temp`.
+    The path's first schema, where a session creates what it names
+    unqualified, stays first. A path naming `gm_vclock` is left as it is."""
+    names = PATH_NAME_RE.findall(setting or "")
+    if VCLOCK_SCHEMA in names:
+        return ", ".join(names)
+    if "pg_catalog" in names:
+        names.insert(names.index("pg_catalog"), VCLOCK_SCHEMA)
+    elif names and names[-1] == "pg_temp":
+        names[-1:-1] = [VCLOCK_SCHEMA, "pg_catalog"]
+    else:
+        names += [VCLOCK_SCHEMA, "pg_catalog"]
+    return ", ".join(names)
+
+
 def connect(host, port, database, role, password, application_name, autocommit=True, clock=True):
-    """A psycopg connection; with `clock`, `gm_vclock` first on its own
-    search_path (FillError when the database lacks it)."""
+    """A psycopg connection; with `clock`, `gm_vclock` placed on its own
+    search_path by master spec 9.4's rule (`vclock_path`; FillError when the
+    database lacks the schema)."""
     import psycopg
     from .drivers.postgresql import KEEPALIVES
     conn = psycopg.connect(host=host, port=port, dbname=database, user=role, password=password,
@@ -408,8 +464,8 @@ def connect(host, port, database, role, password, application_name, autocommit=T
             conn.close()
             raise FillError(f"database {row[1]} has no schema {VCLOCK_SCHEMA}: gmctl fill creates it before the "
                             "fill (P0)")
-        conn.execute("SELECT pg_catalog.set_config('search_path', %s || pg_catalog.current_setting('search_path'), "
-                     "false)", (f"{VCLOCK_SCHEMA}, pg_catalog, ",))
+        path = conn.execute("SELECT pg_catalog.current_setting('search_path')").fetchone()[0]
+        conn.execute("SELECT pg_catalog.set_config('search_path', %s, false)", (vclock_path(path),))
         if not autocommit:
             conn.commit()
     return conn

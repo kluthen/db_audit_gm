@@ -1685,3 +1685,43 @@ class TestCloneStep(unittest.TestCase):
         with self.assertRaises(GmError):
             self.clone()
         self.assertEqual(len(self.runs), 1)
+
+
+class TestVirtualSql(unittest.TestCase):
+    """Fix 11's rewriting (v0.6 capture W2 item 9, spec D529)."""
+
+    def test_keywords_bound_outside_ddl(self):
+        self.assertEqual(
+            inject.virtual_sql("INSERT INTO t SELECT now(), current_date, CURRENT_TIMESTAMP(3), "
+                               "localtime, x.current_time FROM x;"),
+            "INSERT INTO t SELECT now(), CAST(gm_vclock.now() AS date), CAST(gm_vclock.now() AS "
+            "timestamptz(3)), CAST(gm_vclock.now() AS time), x.current_time FROM x;")
+
+    def test_ddl_qualifies_the_functions_and_keeps_the_keywords(self):
+        self.assertEqual(
+            inject.virtual_sql("CREATE TABLE x (a timestamptz DEFAULT now(), b date DEFAULT "
+                               "current_date, c timestamptz DEFAULT pg_catalog.now());\n"
+                               "ALTER TABLE x ALTER a SET DEFAULT clock_timestamp ( );"),
+            "CREATE TABLE x (a timestamptz DEFAULT pg_catalog.now(), b date DEFAULT current_date, "
+            "c timestamptz DEFAULT pg_catalog.now());\nALTER TABLE x ALTER a SET DEFAULT "
+            "pg_catalog.clock_timestamp ( );")
+
+    def test_literals_comments_bodies_meta_commands_and_copy_data_untouched(self):
+        text = ("SELECT 'now() current_date', \"current_date\", E'it\\'s current_date' -- "
+                "current_date\n, $$ current_date $$, $f$ now() $f$ /* current_date */;\n"
+                "\\connect shop\nCOPY t FROM stdin;\ncurrent_date\tnow()\n\\.\n")
+        self.assertEqual(inject.virtual_sql(text), text)
+        self.assertEqual(inject.virtual_sql("\\connect shop\nSELECT current_date + 28;"),
+                         "\\connect shop\nSELECT CAST(gm_vclock.now() AS date) + 28;")
+
+    def test_the_session_path_keeps_public_the_creation_schema(self):
+        # spec D530: gm_vclock right before pg_catalog, so what load-data creates
+        # unqualified lands where a real load puts it
+        clock = inject.VirtualClock(vt0="2026-11-20T22:00:00Z", nodes=["db"], fill_node="sched")
+        self.assertEqual(clock.env["PGOPTIONS"],
+                         '-c gm.vclock=2026-11-20T22:00:00Z -c search_path="$user",public,gm_vclock,pg_catalog')
+
+    def test_the_after_check_names_the_instant(self):
+        sql = inject.after_virtual_t0_sql("2026-11-20T22:00:00Z")
+        self.assertIn("'2026-11-20T22:00:00Z'", sql)
+        self.assertIn("'timestamp with time zone', 'timestamp without time zone', 'date'", sql)

@@ -387,7 +387,15 @@ every change to `program/` keeps it green.
   postgres) shadows `now()`, `transaction_timestamp()`,
   `statement_timestamp()` and `clock_timestamp()` on the fill's own
   `search_path`, from the session setting `gm.vclock` set at each
-  transaction's start. A database without the schema fails the fill.
+  transaction's start. The session places `gm_vclock` on its own path
+  by master spec 9.4's rule (spec D530): right before `pg_catalog` where
+  the path names it; where it doesn't, `gm_vclock, pg_catalog` at the
+  path's end, ahead of a final `pg_temp` (the default path becomes
+  `"$user", public, gm_vclock, pg_catalog`), so the path's first schema
+  stays where an unqualified `CREATE` lands. The price: a function in a
+  schema listed before `pg_catalog`, named and typed as a built-in, wins
+  over the built-in in those sessions. A database without the schema
+  fails the fill.
   **The cover** (spec D523, capture W2 item 13): a function or procedure
   with its own `SET search_path` never sees the session's path, so
   `fill-sql --cover` lists, in a database holding the shim, every
@@ -395,9 +403,12 @@ every change to `program/` keeps it green.
   `search_path`, outside `pg_catalog`, `information_schema`, `pg_toast`,
   the temporary schemas and every `gm_*` schema, and not an extension's
   member; each row gives the routine (its signature qualified), its
-  setting, the cover (`ALTER FUNCTION|PROCEDURE … SET search_path =
-  gm_vclock`, then `pg_catalog` when the path doesn't name it, then its
-  own path; its other settings, a `TimeZone`, untouched) and the restore
+  setting, the cover (`ALTER FUNCTION|PROCEDURE … SET search_path =`
+  its own path with `gm_vclock` placed by the same rule: `pg_catalog,
+  pg_temp` stays `gm_vclock, pg_catalog, pg_temp`, `public, pg_temp`
+  becomes `public, gm_vclock, pg_catalog, pg_temp`; its other settings, a
+  `TimeZone`, untouched), whether it is already covered (its path names
+  `gm_vclock`) and the restore
   (back to exactly that setting, entries and order, acting only while the
   routine is under that cover, so a routine gone or redefined since counts
   as restored). `gmctl fill` lists each in `fill.quiet` before covering
@@ -405,7 +416,9 @@ every change to `program/` keeps it green.
   session without `gm.vclock` that calls a covered routine reads the real
   clock. `fill-sql --drop` first fails, naming them, when an object
   outside `gm_vclock` depends on its functions (a column default, a
-  view, a `BEGIN ATOMIC` body created through the shim), then drops the
+  view, a `BEGIN ATOMIC` body created through the shim), or when an
+  object other than its four functions lies inside `gm_vclock` (a table,
+  a type, another function), then drops the
   schema; every drop of the shim uses it. Out of its reach:
   `current_date`, `current_timestamp` and `localtimestamp` written in a
   function's body, a `BEGIN ATOMIC` body and a column's `DEFAULT now()`,

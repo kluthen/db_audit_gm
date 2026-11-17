@@ -326,7 +326,7 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `f8` | `pg-join-index-missing` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id | known | `handover-6h` | 4h |
+| `f8` | `fixture-dropped-index` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id | known | `handover-6h` | 4h |
 
 `T0`: right after the data load, before the load starts.
 `handover-6h`: 6 hours before the hand-over.
@@ -344,7 +344,7 @@ Covers: `f8`.
 
 Longer explanations for feedback: `gm/notes.md`.
 
-### `f8`: `pg-join-index-missing` on `db`, known
+### `f8`: `fixture-dropped-index` on `db`, known
 
 - **What is wrong**: order_lines_order_id_idx, the index on
   order_lines.order_id, was dropped at 08:00 the customer's time (six hours
@@ -371,7 +371,7 @@ Acceptable answers:
 - **Fix**: a valid index whose first column is order_id exists on
   order_lines, whatever its name and however it was built.
 
-Sealed check: `faults/pg-join-index-missing/checks/fixed.sh`, exit 1 at
+Sealed check: `faults/fixture-dropped-index/checks/fixed.sh`, exit 1 at
 hand-over (0: fixed, 1: present, 3: too soon to tell). Planted during the
 aging, at handover-6h: in this fixture by gmctl fill at its virtual
 instant.

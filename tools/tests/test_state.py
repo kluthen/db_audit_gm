@@ -1,5 +1,7 @@
 """The recorded state: setup failures and gmctl status (tools/gm/state.py)."""
 
+import unittest
+
 from tools.gm import fit, localimpl, state
 from tools.gm.model import GmError
 from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
@@ -232,3 +234,12 @@ class TestGmStages(FittedGame):
         with self.assertRaisesRegex(GmError, "can only follow injected"):
             state.set_gm_stage(self.ldir, "handed-over")
         self.assertEqual(self.state_bytes(), before)
+
+
+class TestRenderedSecretFile(unittest.TestCase):
+
+    def test_the_status_file_named_with_its_suffix(self):
+        from tools.gm import localimpl, state
+        impl = {"secrets": [{"kind": localimpl.RENDERED, "secret": localimpl.PARTNERS_STATUS}]}
+        self.assertEqual(state.secret_files(impl),
+                         [("partners_status.json", "status file, rendered (gmctl render)")])

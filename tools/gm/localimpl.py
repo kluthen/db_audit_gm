@@ -132,6 +132,14 @@ RENDERED_SCHEDULER_FILES = (SCHEDULE_FILE, JOBS_FILE)
 # {{customer_timezone}} (cron.timezone).
 CRONTAB_FILE = "crontab"
 BASTION_ROLE = "bastion"
+# The bastion's story, always a rendered seed file in a scenario with
+# scheduler nodes, so fit's configs don't depend on the aging mode; a fake
+# game's render appends the restart's story line (v0.6 capture W2 item 7).
+STORY_FILE = "story.md"
+# A fake game's monitoring, kept at zero replicas from the deploy to the
+# maintenance restart (master spec 9.4 step 2; capture W2 item 7).
+MONITORING_BRICKS = ("prometheus", "grafana", "postgres-exporter", "pgwatch")
+FAKE_MODE = "fake"
 
 # Mounted companion material (v0.2 capture W1, item 4; W1-D): each file of
 # an item is one config `<game_id>_<mounting node>_<item>-<k>` (k from 1, in
@@ -380,12 +388,44 @@ def read_restart_record(ldir):
     return data
 
 
+def write_restart_record(ldir, record):
+    """The restart record, written whole (render, then clean-restart)."""
+    write_yaml(Path(ldir) / RESTART_RECORD_FILE, record,
+               _header("The restart record of this fake game (master spec 6.7, 6.9); GM-side."))
+
+
+def remove_restart_record(ldir):
+    """A real render's: a leftover restart record removed."""
+    (Path(ldir) / RESTART_RECORD_FILE).unlink(missing_ok=True)
+
+
+def is_fake(impl):
+    """A fake game: its timeline has a virtual T0 (render --aging fake)."""
+    return bool(((impl or {}).get(TIMELINE) or {}).get("virtual_t0"))
+
+
+def monitoring_nodes(impl):
+    """The game's monitoring nodes (MONITORING_BRICKS), in node order."""
+    return [name for name, node in ((impl or {}).get("nodes") or {}).items()
+            if (node.get("brick") or {}).get("id") in MONITORING_BRICKS]
+
+
+def monitoring_held(impl, record):
+    """Whether the monitoring stays at zero: a fake game before its
+    maintenance restart (no `restart` in the record yet; W2 item 7)."""
+    return is_fake(impl) and not (record or {}).get("restart")
+
+
 def left_out(impl):
-    """The fault instances the test harness left out of this game (render's
-    undocumented `--test-leave-out`, which only the harness scripts pass;
-    v0.4 master spec 18 items 4 and 6, capture W4 item 8): no state
-    planting and no check, their seed changes kept. Never in a game."""
-    return list(((impl or {}).get(TEST_OVERRIDE) or {}).get("leave_out") or [])
+    """The fault instances this game leaves out: the test harness's
+    (render's undocumented `--test-leave-out`, which only the harness
+    scripts pass; v0.4 master spec 18 items 4 and 6, capture W4 item 8),
+    then a fake game's refused ones (`timeline.refused`, v0.6 capture W2
+    item 7, spec D528): no state planting and no check, their seed changes
+    kept."""
+    harness = list(((impl or {}).get(TEST_OVERRIDE) or {}).get("leave_out") or [])
+    refused = ((impl or {}).get(TIMELINE) or {}).get("refused") or []
+    return harness + [i for i in refused if i not in harness]
 
 
 def write_implementation(ldir, data):
@@ -618,7 +658,7 @@ def rendered_seed_names(scenario, node):
                 seed_name == POSTGRESQL_CONF and _holds_customer_timezone(scenario, rel))
         else:
             rewritten = node.get("role") == BASTION_ROLE \
-                and _holds_customer_timezone(scenario, rel)
+                and (seed_name == STORY_FILE or _holds_customer_timezone(scenario, rel))
         if rewritten:
             names.append(seed_name)
     return names

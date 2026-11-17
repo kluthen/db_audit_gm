@@ -53,9 +53,18 @@ else `10.20.0.0/16`. A recorded subnet is kept while it lies inside that
 range and overlaps nothing; one outside it is picked again from it; one
 inside it that now overlaps is refused. Each refusal names what is taken
 and how to choose another range; the report names the subnet and its range.
+
+v0.6 (master spec 9.4 steps 2 and 5; capture W2 items 7 and 10): in a fake
+game the monitoring's nodes are deployed at zero replicas (render's) and
+left out of the health wait; once the nodes are healthy, before anything
+else, the hold turns off each primary `postgres` node's real-clock actors
+(`pg_cron`'s launches, archiving, the cron daemon), in `fill.quiet`'s item
+form, `left_off`, recorded in `state.yaml` as `hold: {at, items}` for the
+fill to leave alone and clean-restart to restore.
 """
 
 import ipaddress
+import json
 import os
 import secrets as _random
 import shutil
@@ -70,7 +79,8 @@ import yaml
 from . import localimpl, render, state, teardown
 from .docker import (copy_image, for_local_dir, image_id, network_subnets, probe_unattended,
                      running_containers, swarm_nodes)
-from .model import GmError
+from .execnode import exec_node
+from .model import GmError, load_scenario
 
 DEPLOY_STAGE = "deployed"
 HEALTH_TIMEOUT = 300            # seconds; the database brick's start period is 60 s
@@ -520,10 +530,11 @@ def service_health(docker, service):
 
 
 def wait_healthy(docker, impl, timeout=HEALTH_TIMEOUT, sleep=time.sleep, clock=time.monotonic,
-                 interval=POLL_INTERVAL):
-    """Wait until every node's container is healthy; GmError on a rejected
-    task or when `timeout` seconds pass first."""
-    pending = {name: node["service"] for name, node in impl["nodes"].items()}
+                 interval=POLL_INTERVAL, skip=()):
+    """Wait until every node's container is healthy, but the nodes in
+    `skip` (a fake game's monitoring, at zero); GmError on a rejected task
+    or when `timeout` seconds pass first."""
+    pending = {name: node["service"] for name, node in impl["nodes"].items() if name not in skip}
     deadline = clock() + timeout
     last = {}
     while True:
@@ -543,6 +554,107 @@ def wait_healthy(docker, impl, timeout=HEALTH_TIMEOUT, sleep=time.sleep, clock=t
         sleep(interval)
 
 
+# --- The hold: a fake game's real-clock actors off (W2 item 10) -------------
+
+def _restore_setting(auto, name):
+    """The `ALTER SYSTEM` that puts a server setting back as it was set in
+    postgresql.auto.conf (`auto`), or resets it (as the fill's restore)."""
+    return (f"ALTER SYSTEM SET {name} = {_quote(auto[name])};" if name in auto
+            else f"ALTER SYSTEM RESET {name};")
+
+
+def _quote(text):
+    return "'" + str(text).replace("'", "''") + "'"
+
+
+def hold_plan(node, survey):
+    """(SQL, [item]): what the hold turns off in `node`'s server from its
+    settings' survey (fill.survey_sql's), each item in `fill.quiet`'s form,
+    `left_off`: `pg_cron`'s launches (`cron.launch_active_jobs = off`)
+    when pg_cron is loaded, archiving when it is on (W1-x's means)."""
+    from . import fill
+    auto, settings = survey["auto"], survey["settings"]
+    sql, items = [], []
+    if fill.PG_CRON_SWITCH in settings:
+        sql.append(f"ALTER SYSTEM SET {fill.PG_CRON_SWITCH} = off;")
+        items.append({"node": node, "what": fill.PG_CRON_WHAT,
+                      "how": f"ALTER SYSTEM SET {fill.PG_CRON_SWITCH} = off", "left_off": True,
+                      "restore": {"user": "postgres",
+                                  "sql": [_restore_setting(auto, fill.PG_CRON_SWITCH)]}})
+    archiving = settings.get("archive_mode") in ("on", "always") and (
+        settings.get("archive_command") not in (None, "", "(disabled)")
+        or settings.get("archive_library") not in (None, ""))
+    if archiving:
+        sql.append(f"ALTER SYSTEM SET archive_command = {_quote(fill.ARCHIVE_OFF)};")
+        restore = [_restore_setting(auto, "archive_command")]
+        if settings.get("archive_library"):
+            sql.append("ALTER SYSTEM SET archive_library = '';")
+            restore.append(_restore_setting(auto, "archive_library"))
+        items.append({"node": node, "what": fill.ARCHIVING_WHAT,
+                      "how": f"ALTER SYSTEM SET archive_command = '{fill.ARCHIVE_OFF}' (segments "
+                             "marked archived, none sent: the archive has the gap)",
+                      "left_off": True, "restore": {"user": "postgres", "sql": restore}})
+    if sql:
+        sql.append("SELECT pg_catalog.pg_reload_conf();")
+    return "".join(f"{line}\n" for line in sql), items
+
+
+def _stdout(result):
+    out = result.stdout
+    return out.decode("utf-8", "replace") if isinstance(out, (bytes, bytearray)) else (out or "")
+
+
+def hold_nodes(scenario, impl):
+    """The nodes the hold reaches: the game's primary `postgres` nodes."""
+    return [n["name"] for n in scenario.nodes if n["name"] in impl["nodes"]
+            and localimpl.is_postgres_node(scenario, n) and localimpl.standby_of(n) is None]
+
+
+def hold_actors(ldir, scenario, impl, docker, timeout=None):
+    """The hold (W2 item 10): on each primary `postgres` node, the server's
+    actors (hold_plan) and the cron daemon turned off, each item recorded
+    in `state.yaml`'s `hold` before it is applied. Returns the items;
+    GmError at the first step that fails."""
+    from . import fill
+
+    def run(node, user, what, stdin, argv=None):
+        # in deploy's setup step: the stack is up, the stage not yet deployed
+        result = exec_node(ldir, node, user, stdin=stdin, argv=argv, timeout=timeout,
+                           docker=docker, impl=impl)
+        if not result.ok:
+            from .inject import psql_error_line
+            raise GmError(f"the hold on node {node}: {what}: exit {result.returncode}: "
+                          f"{psql_error_line(result)}")
+        return result
+
+    items, at = [], localimpl.now_iso()
+
+    def record(more):
+        items.extend(more)
+
+        def change(st):
+            st["hold"] = {"at": at, "items": list(items)}
+        localimpl.update_state(ldir, change)
+
+    for node in hold_nodes(scenario, impl):
+        r = run(node, "postgres", "the settings' survey", fill.survey_sql([]),
+                fill.psql_argv("postgres", tuples=True))
+        survey = json.loads(_stdout(r).strip().splitlines()[-1])
+        sql, server = hold_plan(node, survey)
+        record(server)
+        if sql:
+            run(node, "postgres", "turning off pg_cron's launches and archiving",
+                fill.UNSEEN_SQL + sql, fill.psql_argv("postgres"))
+        r = run(node, "root", "reading the cron daemon's state", fill.CRON_CHECK + "\n")
+        if _stdout(r).strip() == "true":
+            record([{"node": node, "what": fill.CRON_WHAT, "how": fill.CRON_OFF,
+                     "left_off": True, "restore": {"user": "root", "script": fill.CRON_ON}}])
+            run(node, "root", fill.CRON_OFF, fill.CRON_OFF + "\n")
+    if not items:
+        record([])
+    return items
+
+
 # --- gmctl deploy --------------------------------------------------------
 
 @dataclass
@@ -559,6 +671,8 @@ class DeployResult:
     ports: list = field(default_factory=list)
     several_hosts: bool = False
     host_lines: list = field(default_factory=list)  # a several-host playground's hosts
+    monitoring_held: list = field(default_factory=list)   # a fake game's, at zero
+    hold: list = None                               # a fake game's hold items
 
     def text(self):
         if self.host_lines:
@@ -582,6 +696,13 @@ class DeployResult:
                    f"labelled {localimpl.LABEL_GAME}={self.game_id}")
         out.append(f"  stack {self.game_id}: {len(self.services)} services healthy "
                    f"({', '.join(self.services)})")
+        if self.monitoring_held:
+            out.append(f"  fake aging: the monitoring at zero until gmctl clean-restart "
+                       f"({', '.join(self.monitoring_held)})")
+        if self.hold is not None:
+            held = [f"{i['node']}: {i['what']}" for i in self.hold]
+            out.append("  fake aging: the real-clock actors held off until gmctl clean-restart"
+                       + (f" ({'; '.join(held)})" if held else ": none to hold"))
         for node, port, host in self.ports:
             where = f"host {host}" if self.several_hosts else "the swarm host"
             out.append(f"  node {node}: port {port['published']} on {where} "
@@ -644,6 +765,9 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         result.host_lines = state.host_lines(declared, "  ")
     def undo():
         return teardown.remove_game_objects(docker, gid, sleep=sleep, clock=clock).text()
+    fake = localimpl.is_fake(impl)
+    if localimpl.monitoring_held(impl, localimpl.read_restart_record(ldir)):
+        result.monitoring_held = localimpl.monitoring_nodes(impl)
 
     with state.setup_step(ldir, DEPLOY_STAGE, undo=undo):
         result.images = copy_images(docker, impl)
@@ -651,9 +775,13 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         result.credentials = generate_credentials(ldir, impl, keygen)
         result.configs, result.secrets = create_objects(docker, scenario_dir, impl)
         stack_deploy(docker, stack_file, gid)
-        wait_healthy(docker, impl, timeout, sleep=sleep, clock=clock)
+        wait_healthy(docker, impl, timeout, sleep=sleep, clock=clock,
+                     skip=result.monitoring_held)
+        if fake:
+            result.hold = hold_actors(ldir, load_scenario(scenario_dir), impl, docker)
     localimpl.set_stage(ldir, DEPLOY_STAGE)
-    result.services = [node["service"] for node in impl["nodes"].values()]
+    result.services = [node["service"] for name, node in impl["nodes"].items()
+                       if name not in result.monitoring_held]
     result.ports = [(name, port, node.get("host")) for name, node in impl["nodes"].items()
                     for port in node.get("published_ports") or []]
     return result

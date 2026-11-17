@@ -1908,3 +1908,123 @@ class TestStatusFile(StatusRendered):
         impl = localimpl.read_implementation(self.ldir)
         self.assertFalse([s for s in impl["secrets"] if s["kind"] == localimpl.RENDERED])
         self.assertFalse((self.ldir / "secrets" / "partners_status.json").exists())
+
+
+# --- v0.6 chunk 9a: a fake game's timeline (master spec 9.3, 9.6) ----------
+
+def _fake_scenario(fakes, aging="16h", handover="14:00", instances=None):
+    """A scenario stand-in for fake_timeline: `fakes` {instance: aging.fake
+    or None}, each instance its own fault."""
+    from types import SimpleNamespace
+    insts = instances or [{"id": iid} for iid in fakes]
+    faults = {i["id"]: SimpleNamespace(data={"aging": {"minimum": "0m", **(
+        {"fake": fakes[i["id"]]} if fakes[i["id"]] is not None else {})}})
+              for i in insts}
+    return SimpleNamespace(data={"aging": {"minimum": aging, "handover_at": handover},
+                                 "fault_instances": insts}, faults=faults)
+
+
+SUPPORTED = {"support": "supported", "reason": "r"}
+# The shop's estimates, master spec 9.8
+SHOP_FAKE = {"f1": SUPPORTED, "f2": SUPPORTED, "f3": SUPPORTED,
+             "f4": {"support": "tail-only", "reason": "r", "tail_minimum": "2h"},
+             "f5": {"support": "tail-only", "reason": "r", "tail_covers": ["12:00"]},
+             "f6": SUPPORTED,
+             "f7": {"support": "tail-only", "reason": "r", "tail_covers": ["12:00"]},
+             "f8": SUPPORTED, "f9": SUPPORTED, "f10": SUPPORTED}
+H = datetime.datetime(2026, 11, 21, 14, 0, tzinfo=datetime.timezone.utc)
+
+
+class TestFakeTimeline(unittest.TestCase):
+
+    def test_the_shops_full_selection(self):
+        # 9.6's rules on 9.8's estimates (spec D532): f4's 2h; f5's and f7's
+        # 12:00 counted from one floor before it, 11:00 to 14:00: a 3h tail
+        tl = render.fake_timeline(_fake_scenario(SHOP_FAKE), H)
+        self.assertEqual(tl, {"virtual_t0": "2026-11-20T22:00:00Z",
+                              "anchor": "2026-11-21T11:00:00Z", "tail": "3h", "refused": []})
+
+    def test_a_covered_instant_under_a_capped_floor(self):
+        # the lead is capped with the floor (master spec 9.6, spec D532)
+        sc = _fake_scenario({"f5": {"support": "tail-only", "reason": "r", "tail_covers": ["13:30"]}})
+        self.assertEqual(render.fake_timeline(sc, H)["tail"], "90m")
+        tl = render.fake_timeline(sc, H, floor=600)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T13:20:00Z", "40m"))
+        tl = render.fake_timeline(_fake_scenario(SHOP_FAKE), H, floor=600)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T11:50:00Z", "130m"))
+
+    def test_a_three_hour_minimum_gives_the_11_00_anchor(self):
+        fakes = dict(SHOP_FAKE, f4={"support": "tail-only", "reason": "r", "tail_minimum": "3h"})
+        tl = render.fake_timeline(_fake_scenario(fakes), H)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T11:00:00Z", "3h"))
+
+    def test_the_floor_and_its_cap(self):
+        sc = _fake_scenario({"f1": SUPPORTED})
+        self.assertEqual(render.fake_timeline(sc, H)["tail"], "1h")
+        tl = render.fake_timeline(sc, H, floor=600)
+        self.assertEqual((tl["anchor"], tl["tail"]), ("2026-11-21T13:50:00Z", "10m"))
+        self.assertEqual(render.fake_timeline(sc, H, floor=7200)["tail"], "1h")   # a cap only
+
+    def test_a_tail_planting_and_its_minimum(self):
+        insts = [{"id": "f5", "plant_at": "handover-2h", "aging_minimum": "4h"}]
+        sc = _fake_scenario({"f5": {"support": "tail-only", "reason": "r", "plant_in": "tail"}},
+                            instances=insts)
+        self.assertEqual(render.fake_timeline(sc, H)["tail"], "4h")
+
+    def test_ineligible_instances_refused_with_their_reason(self):
+        fakes = {"f1": SUPPORTED, "f2": None,
+                 "f3": {"support": "real-only", "reason": "needs a real\n  night"},
+                 "f4": {"support": "tail-only", "reason": "r", "tail_minimum": "5h"}}
+        tl = render.fake_timeline(_fake_scenario(fakes), H, left_out=("f4",))
+        self.assertEqual(tl["refused"], [{"instance": "f2", "reason": render.NOT_ASSESSED},
+                                         {"instance": "f3", "reason": "needs a real night"}])
+        self.assertEqual(tl["tail"], "1h")      # f4 left out by the harness: not counted
+
+    def test_a_tail_as_long_as_the_aging_is_refused(self):
+        sc = _fake_scenario({"f1": {"support": "tail-only", "reason": "r",
+                                    "tail_minimum": "16h"}})
+        with self.assertRaisesRegex(model.GmError, "not shorter than the scenario's aging"):
+            render.fake_timeline(sc, H)
+
+    def test_covers_seconds(self):
+        self.assertEqual(render.covers_seconds("12:00", "14:00"), 7200)
+        self.assertEqual(render.covers_seconds("15:30", "14:00"), (22 * 60 + 30) * 60)
+
+    def test_story_line(self):
+        self.assertEqual(render.story_line("2026-11-21T11:00:00Z"),
+                         "The servers were restarted for maintenance on 2026-11-21 at 11:00 "
+                         "UTC; older logs were archived.")
+
+
+class TestRenderFake(V03Rendered):
+    """`render --aging fake` on fixture-v03-refusals (no aging.fake on its
+    faults: every instance refused, the game rendered without them)."""
+
+    def test_refused_instances_left_out_and_the_record_written(self):
+        self.render(handover_at(16), aging="fake", test_tail_floor="10m")
+        tl = self.impl["timeline"]
+        self.assertEqual(tl["refused"], ["f1", "f2", "f3"])
+        self.assertEqual(tl["instances"], {})
+        self.assertEqual(localimpl.left_out(self.impl), ["f1", "f2", "f3"])
+        self.assertEqual(tl["tail"], "10m")
+        self.assertEqual(render.t0_instant(tl), tl["virtual_t0"])
+        record = localimpl.read_restart_record(self.ldir)
+        self.assertEqual(list(record), ["mode", "virtual_t0", "anchor", "tail",
+                                        "handover_planned", "refused"])
+        self.assertEqual(record["refused"][0], {"instance": "f1",
+                                                "reason": render.NOT_ASSESSED})
+        self.assertEqual(self.impl[localimpl.TEST_OVERRIDE]["tail_floor"], "10m")
+        text = self.result.text()
+        self.assertIn("refused: f1: not assessed: no aging.fake", text)
+        self.assertIn("tail's floor capped at 10m", text)
+        # a real render removes the record and the fake keys
+        self.render(handover_at(16))
+        self.assertIsNone(localimpl.read_restart_record(self.ldir))
+        self.assertNotIn("virtual_t0", self.impl["timeline"])
+        self.assertEqual(localimpl.left_out(self.impl), [])
+
+    def test_the_floor_cap_needs_fake(self):
+        with self.assertRaisesRegex(model.GmError, "--aging fake"):
+            self.render(handover_at(16), test_tail_floor="10m")
+        with self.assertRaisesRegex(model.GmError, "at most 1h"):
+            self.render(handover_at(16), aging="fake", test_tail_floor="2h")
