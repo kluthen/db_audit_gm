@@ -618,8 +618,9 @@ def hold_actors(ldir, scenario, impl, docker, timeout=None):
     from . import fill
 
     def run(node, user, what, stdin, argv=None):
+        # in deploy's setup step: the stack is up, the stage not yet deployed
         result = exec_node(ldir, node, user, stdin=stdin, argv=argv, timeout=timeout,
-                           docker=docker)
+                           docker=docker, impl=impl)
         if not result.ok:
             from .inject import psql_error_line
             raise GmError(f"the hold on node {node}: {what}: exit {result.returncode}: "

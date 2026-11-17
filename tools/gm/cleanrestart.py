@@ -351,17 +351,19 @@ class CleanRestart:
     # 3. the statistics
     def reset(self):
         from . import fill, inject
+        # `postgres` last, its statement reset and the shared one in one
+        # session: every stats_reset the same instant to the millisecond
         for node in self.primaries():
-            for database in inject._databases(self.ldir, node, self.docker):
-                r = self.nodes.run(node, "postgres", stdin=fill.UNSEEN_SQL + STATEMENTS_RESET_SQL,
+            databases = [d for d in inject._databases(self.ldir, node, self.docker)
+                         if d != "postgres"]
+            for database in databases + ["postgres"]:
+                last = database == "postgres"
+                r = self.nodes.run(node, "postgres", stdin=fill.UNSEEN_SQL + STATEMENTS_RESET_SQL
+                                   + (SHARED_RESET_SQL if last else ""),
                                    argv=fill.psql_argv(database))
                 if not r.ok:
-                    raise GmError(f"node {node}: resetting the statement statistics in {database}: "
-                                  f"{_why(r)}")
-            r = self.nodes.run(node, "postgres", stdin=fill.UNSEEN_SQL + SHARED_RESET_SQL,
-                               argv=fill.psql_argv("postgres"))
-            if not r.ok:
-                raise GmError(f"node {node}: resetting the shared statistics: {_why(r)}")
+                    what = "the statement and shared statistics" if last else "the statement statistics"
+                    raise GmError(f"node {node}: resetting {what} in {database}: {_why(r)}")
 
     # 4. the actors back for the next start; the stop; the files
     def restore_left_off(self):
@@ -472,14 +474,22 @@ class CleanRestart:
         return self.result
 
 
-def refusal(st, impl, record):
-    """Why clean-restart cannot run now, or None."""
+def refusal(st, impl, record, now=None):
+    """Why clean-restart cannot run now, or None. Before the planned anchor
+    it is refused: the fill's rows run to the anchor and every verb after
+    the restart takes `restart.at` as the tail's start, the planned anchor
+    before it (capture W2 item 8)."""
     if not localimpl.is_fake(impl) or not record:
         return "not a fake game: clean-restart is a fake game's (gmctl render --aging fake)"
     if (st.get("clean_restart") or {}).get("outcome") == "ok":
         return "already done: the restart is recorded; next, gmctl start-load"
     if (st.get("fill") or {}).get("outcome") != "ok":
         return "the fill has not ended ok: run gmctl fill first"
+    anchor = parse_instant(record.get("anchor"))
+    now = now_utc() if now is None else now
+    if anchor is not None and now < anchor:
+        return (f"the anchor {iso(anchor)} has not come: the fill's rows run to it, so the "
+                "restart is at or after it; run clean-restart then")
     return None
 
 
@@ -492,7 +502,7 @@ def clean_restart(scenario_dir, playground, docker=None, nodes=None, out=print):
     st = localimpl.require_stage(ldir, INJECT_STAGE)
     impl = localimpl.read_implementation(ldir)
     record = localimpl.read_restart_record(ldir)
-    why = refusal(st, impl, record)
+    why = refusal(st, impl, record, now_utc())
     if why:
         raise GmError(f"clean-restart refused: {why}")
     scenario = model.load_scenario(scenario_dir)

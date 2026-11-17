@@ -677,6 +677,18 @@ class TestTwoHostDeploy(TwoHostRendered):
         self.assertTrue(vps.called("exec", "-i", "-u", "postgres"))
         self.assertFalse(fake.called("exec"))
 
+    def test_the_hold_reaches_a_node_before_the_stage_is_deployed(self):
+        # deploy's setup step: the stack up, the stage still rendered (v0.6
+        # capture W2 item 10); without the implementation exec refuses
+        fake = self.cluster()
+        self.deploy(fake)
+        localimpl.update_state(self.ldir, lambda st: st.update(stage="rendered"))
+        with self.assertRaisesRegex(execnode.ExecError, "at stage rendered: nothing is deployed"):
+            execnode.exec_node(self.ldir, "db", "postgres", stdin="true\n", docker=fake)
+        result = execnode.exec_node(self.ldir, "db", "postgres", stdin="true\n", docker=fake,
+                                    impl=self.impl)
+        self.assertEqual(result.returncode, 0)
+
     def test_a_drained_host_is_refused_before_anything_is_created(self):
         fake = self.cluster(availability="Drain")
         with self.assertRaisesRegex(GmError, rf"host {WORKER} is Ready, Drain in the swarm: .*"

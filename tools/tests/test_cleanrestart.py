@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from tools.gm import cleanrestart, fill
+from tools.gm import aging, cleanrestart, fill
 from tools.gm.execnode import ExecResult
 from tools.gm.model import REPO_ROOT, GmError
 from tools.tests import FIXTURES
@@ -80,6 +80,17 @@ class TestWalRate(unittest.TestCase):
         self.assertIn("< 1053150288 LOOP", sql)
         self.assertIn("pg_logical_emit_message(false, 'gm_pad', chunk)", sql)
         self.assertEqual(sql.count("CHECKPOINT;\nSELECT pg_switch_wal()"), 2)
+
+    def test_the_resets_end_in_one_session(self):
+        # one stats_reset instant: postgres last, its statement and shared
+        # resets in one psql session
+        nodes = FakeNodes()
+        run = game({}, nodes=nodes)
+        with mock.patch("tools.gm.inject._databases", return_value=["postgres", "shop", "template1"]):
+            run.reset()
+        self.assertEqual([r[3][-1] for r in nodes.runs], ["shop", "template1", "postgres"])
+        self.assertEqual([cleanrestart.SHARED_RESET_SQL in r[2] for r in nodes.runs], [False, False, True])
+        self.assertTrue(all(cleanrestart.STATEMENTS_RESET_SQL in r[2] for r in nodes.runs))
 
 
 class TestLeftovers(unittest.TestCase):
@@ -158,6 +169,13 @@ class TestRecord(unittest.TestCase):
         self.assertIn("run gmctl fill first", cleanrestart.refusal({"fill": {"outcome": "failed"}}, fake, {"mode": "fake"}))
         self.assertIn("already done", cleanrestart.refusal({"clean_restart": {"outcome": "ok"}}, fake, {"mode": "fake"}))
         self.assertIsNone(cleanrestart.refusal({"fill": {"outcome": "ok"}}, fake, {"mode": "fake"}))
+        # the planned anchor not yet come: refused; at it, run
+        record = {"mode": "fake", "anchor": "2026-11-21T13:00:00Z"}
+        anchor = aging.parse_instant(record["anchor"])
+        early = cleanrestart.refusal({"fill": {"outcome": "ok"}}, fake, record,
+                                     anchor - datetime.timedelta(seconds=1))
+        self.assertIn("the anchor 2026-11-21T13:00:00Z has not come", early)
+        self.assertIsNone(cleanrestart.refusal({"fill": {"outcome": "ok"}}, fake, record, anchor))
 
 
 if __name__ == "__main__":
