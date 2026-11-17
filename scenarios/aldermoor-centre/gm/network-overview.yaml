@@ -92,8 +92,8 @@ header:
   customer: Aldermoor Veterinary Hospital North
   network: One private network; the partners' services are reached on it by name; from outside, only the
     bastion's SSH port and web port are reachable.
-  bastion: 'You work from `bastion`, your access point: [Node health](/grafana/d/node-health?var-node=bastion).'
-  node_health: 'Node health for the whole estate: [Node health](/grafana/d/node-health).'
+  bastion: 'You work from `bastion`, your access point: [Node health](/grafana/d/node-health/node-health?var-node=bastion&from=now-6h&to=now).'
+  node_health: 'Node health for the whole estate: [Node health](/grafana/d/node-health/node-health?from=now-6h&to=now).'
   trust: This is the centre's own documentation, kept by its IT. The **Your access** column is the game's
     rule and always exact.
 entries:
@@ -101,7 +101,7 @@ entries:
   group: database
   role: database server
   access: write (`/etc/postgresql`)
-  activity: '[Node health](/grafana/d/node-health?var-node=records)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=records&from=now-6h&to=now)'
   description: The record's database server, the medical record, the agenda and the wards, the back office's
     registers and reports, the owners' portal.
   system: Debian GNU/Linux 13
@@ -274,7 +274,7 @@ entries:
   group: database
   role: database server
   access: write (`/etc/postgresql`)
-  activity: '[Node health](/grafana/d/node-health?var-node=standby)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=standby&from=now-6h&to=now)'
   description: The record's standby, a streaming replica of records where the back office's reports run
     their heavy reads.
   site: the off-site room, at Lowmoor
@@ -313,7 +313,7 @@ entries:
   group: database
   role: database server
   access: write (`/etc/postgresql`)
-  activity: '[Node health](/grafana/d/node-health?var-node=lab)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=lab&from=now-6h&to=now)'
   description: The laboratory's database server, its orders, samples and results, the practices' accounts
     and their billing.
   system: Debian GNU/Linux 13
@@ -407,7 +407,7 @@ entries:
   group: database
   role: database server
   access: write (`/etc/postgresql`)
-  activity: '[Node health](/grafana/d/node-health?var-node=machines)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=machines&from=now-6h&to=now)'
   description: The machines' database server, the imaging worklist and reports, the monitors' readings
     and the biomedical events.
   system: Debian GNU/Linux 13
@@ -523,7 +523,7 @@ entries:
   group: application
   role: application
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=pms)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=pms&from=now-6h&to=now)'
   description: The practice software, from its vendor, for the record, the agenda, the ward screens and
     the portal's desk.
   system: Debian GNU/Linux 13
@@ -578,7 +578,7 @@ entries:
   group: application
   role: application
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=lis)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=lis&from=now-6h&to=now)'
   description: The laboratory's information system, from its vendor, for the bench, the analysers, the
     results and the quality control.
   system: Debian GNU/Linux 13
@@ -644,7 +644,7 @@ entries:
   group: application
   role: application
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=ward)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=ward&from=now-6h&to=now)'
   description: The ward service, from its vendor, which drives the displays on every box and stall.
   system: Debian GNU/Linux 13
   applications: the scheduler (gm-scheduler) 0.4.0
@@ -671,7 +671,7 @@ entries:
   group: application
   role: application
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=equipment)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=equipment&from=now-6h&to=now)'
   description: The machines' feeds, from their vendors, for the imaging machines, the monitors and the
     biomedical equipment.
   system: Debian GNU/Linux 13
@@ -725,7 +725,7 @@ entries:
   group: application
   role: API
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=clinic-api)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=clinic-api&from=now-6h&to=now)'
   description: The lookup API the other centres, the lab and the machines call, from the practice software's
     vendor.
   system: Debian GNU/Linux 13
@@ -753,7 +753,7 @@ entries:
   group: application
   role: API
   access: write (`/srv/api/db`)
-  activity: '[Node health](/grafana/d/node-health?var-node=lab-api)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=lab-api&from=now-6h&to=now)'
   description: The laboratory's order API, for the centre's orders, the practices' orders and the external
     lab's answers.
   system: Debian GNU/Linux 13
@@ -778,7 +778,7 @@ entries:
   group: application
   role: API
   access: write (`/srv/api/db`)
-  activity: '[Node health](/grafana/d/node-health?var-node=portal-api)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=portal-api&from=now-6h&to=now)'
   description: The owners' portal, their accounts, their animals' documents and their reminders.
   system: Debian GNU/Linux 13
   applications: FastAPI 0.162.0
@@ -802,7 +802,7 @@ entries:
   group: integration
   role: integration engine
   access: write (`/srv/scheduler/repository`, `/srv/scheduler/jobs`)
-  activity: '[Node health](/grafana/d/node-health?var-node=interfaces)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=interfaces&from=now-6h&to=now)'
   description: The centre's integration jobs, for the lab orders and results, the send-outs, the other
     centres, the notifications, the imaging orders, the portal and the archive.
   system: Debian GNU/Linux 13
@@ -1079,7 +1079,7 @@ entries:
   group: integration
   role: back-office engine
   access: write (`/srv/scheduler/repository`, `/srv/scheduler/jobs`)
-  activity: '[Node health](/grafana/d/node-health?var-node=backoffice)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=backoffice&from=now-6h&to=now)'
   description: The back office's reports, the medicines and controlled-drugs registers, the antimicrobial
     use, the working time, the head office's figures and the practices' statements.
   site: the off-site room, at Lowmoor
@@ -1232,7 +1232,7 @@ entries:
   group: monitoring
   role: monitoring
   access: read-only
-  activity: '[Node health](/grafana/d/node-health?var-node=prometheus)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=prometheus&from=now-6h&to=now)'
   description: Prometheus, which collects the metrics.
   system: Debian GNU/Linux 13
   applications: Prometheus 3.16.0
@@ -1259,7 +1259,7 @@ entries:
   role: monitoring
   access: write (`/etc/grafana/provisioning`, `/etc/grafana/provisioning/alerting`, `/etc/grafana/provisioning/dashboards`,
     `/etc/grafana/provisioning/datasources`)
-  activity: '[Node health](/grafana/d/node-health?var-node=grafana)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=grafana&from=now-6h&to=now)'
   description: Grafana, the dashboards and the alert rules.
   site: the off-site room, at Lowmoor
   system: Debian GNU/Linux 13
@@ -1280,7 +1280,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/postgres-exporter`)
-  activity: '[Node health](/grafana/d/node-health?var-node=exporter-records)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-records&from=now-6h&to=now)'
   description: The PostgreSQL exporter for records.
   system: Debian GNU/Linux 13
   applications: postgres_exporter 0.20.1
@@ -1302,7 +1302,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/postgres-exporter`)
-  activity: '[Node health](/grafana/d/node-health?var-node=exporter-standby)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-standby&from=now-6h&to=now)'
   description: The PostgreSQL exporter for the standby.
   system: Debian GNU/Linux 13
   applications: postgres_exporter 0.20.1
@@ -1324,7 +1324,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/postgres-exporter`)
-  activity: '[Node health](/grafana/d/node-health?var-node=exporter-lab)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-lab&from=now-6h&to=now)'
   description: The PostgreSQL exporter for lab.
   system: Debian GNU/Linux 13
   applications: postgres_exporter 0.20.1
@@ -1346,7 +1346,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/postgres-exporter`)
-  activity: '[Node health](/grafana/d/node-health?var-node=exporter-machines)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-machines&from=now-6h&to=now)'
   description: The PostgreSQL exporter for machines.
   system: Debian GNU/Linux 13
   applications: postgres_exporter 0.20.1
@@ -1368,7 +1368,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/pgwatch`)
-  activity: '[Node health](/grafana/d/node-health?var-node=pgwatch)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=pgwatch&from=now-6h&to=now)'
   description: pgwatch, a second collector of PostgreSQL metrics.
   system: Debian GNU/Linux 13
   applications: pgwatch 6.1.0
@@ -1402,7 +1402,7 @@ entries:
   group: monitoring
   role: monitoring
   access: write (`/etc/health`)
-  activity: '[Node health](/grafana/d/node-health?var-node=health)'
+  activity: '[Node health](/grafana/d/node-health/node-health?var-node=health&from=now-6h&to=now)'
   description: The IT's health checks, check_postgres and their own scripts, and their page.
   site: the off-site room, at Lowmoor
   system: Debian GNU/Linux 13

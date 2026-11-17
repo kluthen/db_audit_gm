@@ -34,8 +34,8 @@ header:                             # master spec 8.1's fixed text, as rendered;
   customer: <the customer's name: story.md's first "# " heading>
   network: One private network; the partners' services are reached on it by name; from outside,
     only the bastion's SSH port and web port are reachable.
-  bastion: 'You work from `bastion`, your access point: [Node health](/grafana/d/node-health?var-node=bastion).'
-  node_health: 'Node health for the whole estate: [Node health](/grafana/d/node-health).'
+  bastion: 'You work from `bastion`, your access point: [Node health](/grafana/d/node-health/node-health?var-node=bastion&from=now-6h&to=now).'
+  node_health: 'Node health for the whole estate: [Node health](/grafana/d/node-health/node-health?from=now-6h&to=now).'
   trust: This is the centre's own documentation, kept by its IT. The **Your access** column is
     the game's rule and always exact.
 entries:                            # one per customer node: 8.1's groups in order, each group in
@@ -45,7 +45,7 @@ entries:                            # one per customer node: 8.1's groups in ord
     group: <database>               # database | application | integration | monitoring
     role: <database server>         # the skill's fixed table (SKILL.md, "Role")
     access: <write (`/etc/postgresql`)>   # 8.3's mapping, never a deviation
-    activity: '[Node health](/grafana/d/node-health?var-node=<records>)'
+    activity: '[Node health](/grafana/d/node-health/node-health?var-node=<records>&from=now-6h&to=now)'   # 8.6
     description: <nodes[].description, one line>
     site: <nodes[].site>            # only when the node has one
     system: <Debian GNU/Linux 13>   # the brick's base:

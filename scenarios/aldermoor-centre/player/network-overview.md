@@ -2,9 +2,9 @@
 
 One private network; the partners' services are reached on it by name; from outside, only the bastion's SSH port and web port are reachable.
 
-You work from `bastion`, your access point: [Node health](/grafana/d/node-health?var-node=bastion).
+You work from `bastion`, your access point: [Node health](/grafana/d/node-health/node-health?var-node=bastion&from=now-6h&to=now).
 
-Node health for the whole estate: [Node health](/grafana/d/node-health).
+Node health for the whole estate: [Node health](/grafana/d/node-health/node-health?from=now-6h&to=now).
 
 This is the centre's own documentation, kept by its IT. The **Your access** column is the game's rule and always exact.
 
@@ -45,7 +45,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=records)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=records&from=now-6h&to=now)
 - **Databases**:
   - `jobs`: pg_cron's jobs (its cron.database_name): the portal's sessions' purge
   - `office`: the back office: the medicines and controlled-drugs registers, the antimicrobial use and its yearly report, working time, the activity figures, the lab's statements; register: [vet-core-record](data-register.md#vet-core-record-the-medical-record), [vet-core-medicines](data-register.md#vet-core-medicines-prescriptions-administrations-and-supplies-of-medicines), [vet-scheduling-rota](data-register.md#vet-scheduling-rota-the-staff-rota-its-clocked-hours-and-absences), [vet-lab-billing](data-register.md#vet-lab-billing-billing-the-practices), [vet-notifiable-diseases](data-register.md#internal-data), [vet-medicines-registers](data-register.md#internal-data), [vet-antimicrobial-use](data-register.md#internal-data), [vet-head-office-figures](data-register.md#internal-data), [vet-lab-statements](data-register.md#internal-data), [vet-working-time](data-register.md#internal-data)
@@ -94,7 +94,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=standby)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=standby&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**:
   - `backoffice`, database `clinic` as `vet_reports`: the back office; reads the whole medical record, owners' contact details included; writes nothing
@@ -118,7 +118,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=lab)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=lab&from=now-6h&to=now)
 - **Databases**:
   - `lab`: the laboratory: orders, samples, results, the practices' accounts and billing; register: [vet-lab-orders](data-register.md#vet-lab-orders-analysis-orders-and-their-samples), [vet-lab-results](data-register.md#vet-lab-results-results-their-validation-and-their-quality-control), [vet-lab-notifications](data-register.md#vet-lab-notifications-notifications-of-listed-diseases), [vet-lab-billing](data-register.md#vet-lab-billing-billing-the-practices), [vet-lab-round-trips](data-register.md#internal-data), [vet-lab-catalogue](data-register.md#internal-data), [vet-lab-practice-results](data-register.md#internal-data), [vet-lab-send-outs](data-register.md#internal-data), [vet-notifiable-diseases](data-register.md#internal-data), [vet-lab-critical-calls](data-register.md#internal-data)
 - **Fed and used by**:
@@ -153,7 +153,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=machines)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=machines&from=now-6h&to=now)
 - **Databases**:
   - `jobs`: pg_cron's jobs (its cron.database_name): the partition jobs
   - `biomed`: biomedical engineering: the machines, their events, readings, maintenance and downtimes; register: [vet-machinery-equipment](data-register.md#vet-machinery-equipment-the-machine-registry-and-its-maintenance), [vet-machinery-logs](data-register.md#internal-data), [vet-machinery-telemetry](data-register.md#internal-data), [cold-storage-archive](data-register.md#internal-data)
@@ -196,7 +196,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 192M (96M reserved), disk 128M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=pms)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=pms&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -222,7 +222,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 192M (64M reserved), disk 128M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=lis)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=lis&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -251,7 +251,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 192M (64M reserved), disk 128M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=ward)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=ward&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -272,7 +272,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 192M (64M reserved), disk 128M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=equipment)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=equipment&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -298,7 +298,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: FastAPI 0.162.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 128M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=clinic-api)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=clinic-api&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -319,7 +319,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: FastAPI 0.162.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 128M
 - **Your access**: write (`/srv/api/db`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=lab-api)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=lab-api&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -339,7 +339,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: FastAPI 0.162.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 128M
 - **Your access**: write (`/srv/api/db`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=portal-api)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=portal-api&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -361,7 +361,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 192M (96M reserved), disk 128M
 - **Your access**: write (`/srv/scheduler/repository`, `/srv/scheduler/jobs`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=interfaces)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=interfaces&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -430,7 +430,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: the scheduler (gm-scheduler) 0.4.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 256M (192M reserved), disk 128M
 - **Your access**: write (`/srv/scheduler/repository`, `/srv/scheduler/jobs`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=backoffice)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=backoffice&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -473,7 +473,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: Prometheus 3.16.0
 - **Sizing**: CPU 0.5 (0.1 reserved), memory 384M (160M reserved), disk 512M
 - **Your access**: read-only
-- **Activity**: [Node health](/grafana/d/node-health?var-node=prometheus)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=prometheus&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -497,7 +497,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: Grafana 13.3.1
 - **Sizing**: CPU 0.5 (0.1 reserved), memory 384M (272M reserved), disk 256M
 - **Your access**: write (`/etc/grafana/provisioning`, `/etc/grafana/provisioning/alerting`, `/etc/grafana/provisioning/dashboards`, `/etc/grafana/provisioning/datasources`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=grafana)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=grafana&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -517,7 +517,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: postgres_exporter 0.20.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=exporter-records)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-records&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -537,7 +537,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: postgres_exporter 0.20.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=exporter-standby)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-standby&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -557,7 +557,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: postgres_exporter 0.20.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=exporter-lab)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-lab&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -577,7 +577,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: postgres_exporter 0.20.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=exporter-machines)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-machines&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -597,7 +597,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: pgwatch 6.1.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 64M
 - **Your access**: write (`/etc/pgwatch`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=pgwatch)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=pgwatch&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
@@ -621,7 +621,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Applications**: check_postgres 2.26.0; cron
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (64M reserved), disk 64M
 - **Your access**: write (`/etc/health`)
-- **Activity**: [Node health](/grafana/d/node-health?var-node=health)
+- **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=health&from=now-6h&to=now)
 - **Databases**: none
 - **Fed and used by**: none
 - **Uses**:
