@@ -1655,3 +1655,74 @@ Figures: 1 agent, 139 tool calls, 30.1M tokens in / 132k out, max
 context 324k, $10.21 at API prices. **Over 300k context** (324k), and
 39 calls past the ~100-call rotation point; it finished and merged
 instead of stopping at a WIP commit.
+
+### Chunk 15 — merged (1aacf9e), 2026-11-17
+
+252d319 (it took `v0.6-w2` in first, b550268, after chunk 6's merge; no
+conflict). Every Done when item met: `TestP0` (PostgreSQL 17.12) with
+f7's shape (`pg_catalog, pg_temp`, `TimeZone=Etc/GMT-2`) and a `public,
+pg_temp` function, virtual under the cover and real without
+`gm.vclock`, `TimeZone` kept, each `proconfig` restored exactly (also
+`"$user", public` and the empty path), a `gm_*` routine and one without
+its own path untouched; `TestFillSql` (`fill-sql --cover`/`--drop`
+print the program's SQL); `TestCover` (10 tests: listed before its
+`ALTER`, restored in its own database at the end, on `FAILED` and on a
+`gmctl fill` failure, a replaced routine covered again, no item without
+a pinned routine, a failed end restore leaving `ok` with the problem in
+`fill.reason`, held actors left out, f8's pause scripts given
+`PGOPTIONS` at the pause's instant); `fill-sql --drop` refusing with a
+`DEFAULT gm_vclock.now()` column and naming it; the replay guard green.
+Scheduler unit runner 112 OK; `scheduler:0.4.0` rebuilt (sha256:9b3c3c6d…);
+host tests 217 OK on the merged tree.
+
+**W2-y (as built):**
+- Discovery (`COVER_SQL`, `fill-sql --cover`): `SET search_path =
+  pg_catalog;` then a `SELECT` of `prokind` `f`/`p` with a
+  `search_path=` entry, excluding `pg_catalog`, `information_schema`,
+  `pg_toast`, `pg_temp_%`, `pg_toast_temp_%`, every `gm\_%` schema and
+  extension members (`pg_depend` `deptype='e'`); one JSON line per
+  routine `{kind, signature, setting, covered, cover, restore}`,
+  `signature` as `oid::regprocedure::text`; `pg_catalog` added after
+  `gm_vclock` only when no element names it; `""` written back as `''`.
+- The `fill.quiet` item: `what` "P0's cover: search_path of <kind>
+  <signature> in <db> (spec D523)", `how` the `ALTER`, `routine:
+  {database, kind, signature, original}`, `restore: {user: postgres,
+  database, sql: [one statement]}`; keyed by node, database, signature.
+- **`restore.sql` differs in form from W2's example**: a guarded `DO
+  $gm_cover$` block that restores only while the cover is in place, so
+  a routine gone or redefined without its path counts as restored and a
+  rerun is safe (clean-restart included).
+- A routine already under a cover no item lists fails the fill
+  ("…under a cover no fill.quiet item lists").
+- `undo`: covers restored first, then the other items, each in
+  `restore.get("database") or "postgres"`, then the checked drop.
+- Checked drop (`VCLOCK_DROP`): a `DO $gm_drop$` block listing each
+  `pg_depend` row (`n`/`a`) on a `gm_vclock` function from outside the
+  schema (`pg_describe_object`), then `DROP SCHEMA IF EXISTS gm_vclock
+  CASCADE`. Refusal: "gm_vclock not dropped: <objects; …> depend(s) on
+  its functions (bound to the fill's clock: define them again with
+  pg_catalog.now() or its kin, then drop it)".
+- `fill.reason` on `ok`: `"; "`-joined, `"<node>: <what> not restored
+  (<line>)"`, `"<pg>/<db>: gm_vclock not dropped (<line>)"`.
+- **The hold read, for chunk 9:** `state.yaml`'s `hold.items[]` matched
+  on `(node, what)`, with `what` exactly `fill.PG_CRON_WHAT` ("pg_cron's
+  job runs"), `fill.ARCHIVING_WHAT` ("archiving"), `fill.CRON_WHAT`
+  ("the cron daemon"); helpers `settings_plan(..., held=)`,
+  `fill.held_whats(st, node)`.
+- **Session means, for chunk 9:** `fill.session_means(env, at)` and
+  `fill.VCLOCK_PATH` (`gm_vclock,pg_catalog,"$user",public`) give W2
+  item 9's `PGOPTIONS`, appended to any already set.
+
+Risks: OUT-parameter procedures and extension members not tested.
+**For the gate:** `fixture-fill`'s short test (the shop gets no cover
+item).
+
+Figures: 1 agent, 63 tool calls, 8.6M tokens in / 78k out, max context
+208k, $4.20 at API prices.
+
+### Owner answer for G7, 2026-11-17
+
+"CPE + 17 ignores": `jq` goes into `.tech` with
+`cpe:2.3:a:jqlang:jq`, and the 17 backported CVEs get `[[ignore]]`
+entries ("fixed by Debian backport in 1.7.1-6+deb13u4 or earlier",
+review 2027-02-01 or the next trixie jq upload).

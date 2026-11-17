@@ -1070,7 +1070,11 @@ campaign's.
 
 ### Chunk 15 — P0's cover: routines that pin their own `search_path`
 
-Status: planned
+Status: merged (w2, 1aacf9e)
+Record: 252d319, merge 1aacf9e. As W2 item 13, except the form of
+`restore.sql`: a guarded `DO` block (restores only while the cover is in
+place; a routine gone or redefined counts as restored), W2-y in the wave
+log.
 Wave: 2
 Depends on: chunk 8 (merged; inserted after it, spec D524)
 Docker: light (the scheduler's image rebuilt, its unit runner with its
