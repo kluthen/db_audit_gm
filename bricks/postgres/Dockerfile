@@ -22,11 +22,14 @@ ARG PG_MAJOR=18
 ARG S6_OVERLAY_VERSION=3.2.3.2
 # pg_cron, pinned exactly (G5, specs/versions/v0.4/wave-log.md; the
 # pgbouncer precedent, D177): 1.6.8 stops cron.unschedule matching a job's
-# owner case-insensitively, so 1.6.7 is not acceptable.
-ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2
+# owner case-insensitively, so 1.6.7 is not acceptable. PGDG's +3 is the
+# same source rebuilt against PostgreSQL 18.7 (v0.6 G9.1 follow-up:
+# CVE-2026-6460 needs C extensions rebuilt).
+ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+3
 # pgaudit, pinned exactly (G5, specs/versions/v0.5/wave-log.md): upstream
 # 18.0, always installed, turned on by a seed only (v0.5 master spec 7.1).
-ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1
+# PGDG's +2 is the same source rebuilt against 18.7 (G9.1 follow-up).
+ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+2
 # pgCluu, pinned exactly (G9, specs/versions/v0.5/wave-log.md): PGDG's 5.0,
 # which collects from PostgreSQL 17 and 18 (Debian's 4.0 does not); a
 # report tool run on demand by the players, as pgBadger is (master spec

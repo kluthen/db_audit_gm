@@ -992,7 +992,7 @@ w=$(gm sh -c 'ls /run/gm | grep -c "^check-psql" || true')
 
 # --- v0.5: the image's G5 conditions (chunk 3a) -------------------------------------------
 w=$(gm sh -c 'dpkg-query -W -f "\${Version}" postgresql-18-pgaudit; echo " $(test -f /usr/lib/postgresql/18/lib/pgaudit.so && echo so)"' 2>&1)
-[ "$w" = "18.0-3.pgdg13+1 so" ] && pass "pgaudit pinned exactly, its library in place ($w)" || fail "pgaudit package: $w"
+[ "$w" = "18.0-3.pgdg13+2 so" ] && pass "pgaudit pinned exactly, its library in place ($w)" || fail "pgaudit package: $w"
 w=$(gm sh -c 'dpkg --compare-versions "$(dpkg-query -W -f "\${Version}" libssl3t64)" ge 3.5.7-1~deb13u3 && dpkg-query -W -f "\${Version}" libssl3t64' 2>&1)
 [ -n "$w" ] && pass "libssl3t64 at or above the floor 3.5.7-1~deb13u3 ($w)" || fail "libssl3t64 floor"
 check "ssl-cert's snakeoil key and certificate deleted" gm sh -c 'test ! -e /etc/ssl/private/ssl-cert-snakeoil.key && test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem'
