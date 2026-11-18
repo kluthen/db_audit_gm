@@ -45,7 +45,7 @@ class TestTeardown(DeployedGame):
         self.assertEqual(self.fake.objects, self.untouched)
         self.assertEqual(len(report.removed["service"]), 2)
         self.assertEqual(len(report.removed["volume"]), 10)   # db 7, bastion 3
-        self.assertEqual(len(report.removed["config"]), 6)
+        self.assertEqual(len(report.removed["config"]), 8)   # 2 brick pages from v0.6
         self.assertEqual(len(report.removed["secret"]), 9)   # v0.5: TLS, replication, no monitoring
         self.assertEqual(report.removed["network"], [f"{self.gid}_backend"])
         self.assertIn("nothing carrying its label is left", report.text())
@@ -303,7 +303,7 @@ class TestFailedSetupIsTornDown(RenderedGame):
         fake = FakeDocker(fail={("stack", "deploy"): "boom"})
         with self.assertRaises(state.SetupFailed):
             self.deploy(fake)
-        self.assertEqual(len(fake.called("config", "rm")), 6)
+        self.assertEqual(len(fake.called("config", "rm")), 8)   # 2 brick pages from v0.6
         self.assertEqual(len(fake.called("secret", "rm")), 9)
         self.assertEqual(teardown.leftovers(fake, self.gid), {})
 

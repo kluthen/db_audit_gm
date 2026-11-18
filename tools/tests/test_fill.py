@@ -1,7 +1,8 @@
-"""Unit tests of `gmctl fill` (tools/gm/fill.py; v0.6 build plan chunk 8b,
-capture W1 items 7, 8 and 9): the refusals, the plan read from the game's
-files, the program's input, the settings quieted and restored, the pauses'
-plantings, the records and the outputs. The program and the nodes are
+"""Unit tests of `gmctl fill` (tools/gm/fill.py; v0.6 build plan chunks 8b
+and 15, capture W1 items 7, 8 and 9, W2 items 9, 10 and 13): the refusals,
+the plan read from the game's files, the program's input, the settings
+quieted and restored, the pauses' plantings, P0's cover, the hold, the
+records and the outputs. The program and the nodes are
 stand-ins (FakeNodes); the program itself is tested in its image
 (bricks/scheduler/tests/unit/test_fill.py) and the whole on the fixture
 (tools/tests/fixtures/fixture-fill/run-short-test.sh)."""
@@ -83,6 +84,19 @@ class FakeProc:
         self.killed = True
 
 
+CLOSE_DAY = "rpt.close_day()"
+
+
+def cover_row(signature, setting, kind="procedure"):
+    """A row of the program's COVER_SQL, as the stand-in's database lists it."""
+    word = kind.upper()
+    head = "gm_vclock, " if "pg_catalog" in setting.split(", ") else "gm_vclock, pg_catalog, "
+    return {"kind": kind, "signature": signature, "setting": setting,
+            "covered": setting.startswith("gm_vclock, "),
+            "cover": f"ALTER {word} {signature} SET search_path = {head}{setting};",
+            "restore": f"DO $gm_cover$ RESTORE {signature} TO {setting} $gm_cover$;"}
+
+
 class FakeNodes:
     def __init__(self):
         self.runs = []
@@ -93,6 +107,34 @@ class FakeNodes:
         self.inject_fails = False
         self.cron_up = True
         self.survey = json.loads(json.dumps(SURVEY))
+        self.routines = {}              # {(node, database): {signature: [kind, setting]}}
+        self.originals = {}             # {(node, database, signature): the setting before its cover}
+        self.on_inject = None           # what a planting changes, a callable
+        self.on_cover = None            # called at each cover's ALTER (the state then)
+        self.restore_fails = False
+        self.drop_fails = False
+
+    def cover_sql(self, node, database, text):
+        if text.endswith("COVER-SQL\n"):
+            rows = [cover_row(sig, setting, kind) for sig, (kind, setting)
+                    in sorted(self.routines.get((node, database), {}).items())]
+            return ok("".join(json.dumps(r) + "\n" for r in rows))
+        for sig, entry in self.routines.get((node, database), {}).items():
+            if f" {sig} SET search_path = gm_vclock" in text:
+                if self.on_cover:
+                    self.on_cover(node, database, sig)
+                self.originals[(node, database, sig)] = entry[1]
+                entry[1] = text.split("SET search_path = ", 1)[1].split(";")[0]
+                self.events.append(f"cover {node}/{database} {sig}")
+                return ok()
+            if f"RESTORE {sig} TO " in text:
+                self.events.append(f"restore {node}/{database} {sig}")
+                if self.restore_fails:
+                    return ExecResult(node, "postgres", "c", 3, "", "ERROR:  could not restore\n")
+                if entry[1].startswith("gm_vclock, "):
+                    entry[1] = text.split(" TO ", 1)[1].split(" $gm_cover$")[0]
+                return ok()
+        return None
 
     def run(self, node, user, stdin=None, argv=None, timeout=None, env=None):
         text = stdin.decode() if isinstance(stdin, bytes) else (stdin or "")
@@ -100,6 +142,16 @@ class FakeNodes:
         self.runs.append({"node": node, "user": user, "stdin": text, "argv": argv, "env": env})
         if text == fill.INPUT_SCRIPT:
             return ok(PROGRAM_INPUT)
+        if argv[-2:] == ("fill-sql", "--cover"):
+            return ok("COVER-SQL\n")
+        if user == "postgres" and argv[:1] == ("psql",):
+            done = self.cover_sql(node, argv[-1], text)
+            if done is not None:
+                return done
+        if "DROP SCHEMA" in text and self.drop_fails:
+            self.events.append(f"drop failed {node}/{argv[-1]}")
+            return ExecResult(node, "postgres", "c", 3, "",
+                              "ERROR:  gm_vclock not dropped: default value for column at of table t\n")
         if fill.SEQUENCES in text and text.startswith("cat "):
             return ok('{"delivery-events": 512}' if node == "producer" else "")
         if argv[:2] == ("cat", fill.PGBOUNCER_INI):
@@ -128,6 +180,8 @@ class FakeNodes:
             return ok('{"delivery-events": 1024}' if "producer" in argv[1] else "", 0)
         if env and env.get("FAULT_TABLE_NAME"):
             self.events.append(f"inject {node}")
+            if self.on_inject and not self.inject_fails:
+                self.on_inject(self)
             return ok("planted", 1 if self.inject_fails else 0)
         return ok()
 
@@ -300,7 +354,7 @@ class TestPlan(FilledGame):
                           HistoryEntry("queue", {"key": "orders.place", "node": "producer",
                                                  "lock": {"median": 1, "sigma": 0.1,
                                                           "blocks": ["orders.place"]}},
-                                       ("pg-join-index-missing",)),
+                                       ("fixture-dropped-index",)),
                           HistoryEntry("counter_per_call", {"series": "x", "key": "y",
                                                             "per_call": 1}, ()))}
         with mock.patch.object(model, "instance_history", lambda sc, iid: entries.get(iid)):
@@ -448,6 +502,156 @@ class TestRun(FilledGame):
         self.assertEqual([i["what"] for i in self.st()["fill"]["quiet"]],
                          ["statement statistics, statement log and pgaudit for the fill's "
                           "sessions (fix 3)", "autovacuum_naptime (fix 7)"])
+
+
+class TestCover(FilledGame):
+    """P0's cover (master spec 9.4, spec D523; capture W2 item 13), the hold
+    (W2 item 10) and the plantings' session means (spec D527, W2 item 9)."""
+
+    def setUp(self):
+        super().setUp()
+        self.nodes.routines = {("db", "shop"): {CLOSE_DAY: ["procedure", "pg_catalog, pg_temp"]}}
+
+    def items(self):
+        return [i for i in self.st()["fill"]["quiet"] if "routine" in i]
+
+    def test_listed_before_its_alter_and_restored_in_its_database(self):
+        listed = []
+        self.nodes.on_cover = lambda node, db, sig: listed.append(
+            [i["routine"]["signature"] for i in self.items()] if "fill" in self.st() else [])
+        result = self.fill()
+        self.assertTrue(result.ok, result.text())
+        self.assertEqual(listed, [[CLOSE_DAY]])
+        (item,) = self.items()
+        self.assertEqual(item["what"], f"P0's cover: search_path of procedure {CLOSE_DAY} in shop (spec D523)")
+        self.assertEqual(item["how"], f"ALTER PROCEDURE {CLOSE_DAY} SET search_path = gm_vclock, pg_catalog, "
+                                      "pg_temp")
+        self.assertFalse(item["left_off"])
+        self.assertEqual(item["routine"], {"database": "shop", "kind": "procedure", "signature": CLOSE_DAY,
+                                           "original": "pg_catalog, pg_temp"})
+        self.assertEqual(item["restore"], {"user": "postgres", "database": "shop",
+                                           "sql": [cover_row(CLOSE_DAY, "pg_catalog, pg_temp")["restore"]]})
+        self.assertTrue(item["restored_at"])
+        # the query, the cover and the restore all ran as postgres in the routine's database, unseen
+        sent = self.nodes.ran(lambda r: CLOSE_DAY in r["stdin"] or r["stdin"].endswith("COVER-SQL\n"))
+        self.assertTrue(sent)
+        for r in sent:
+            self.assertEqual((r["node"], r["user"], r["argv"][-1]), ("db", "postgres", "shop"))
+            self.assertTrue(r["stdin"].startswith(fill.UNSEEN_SQL))
+        self.assertEqual(self.nodes.routines[("db", "shop")][CLOSE_DAY][1], "pg_catalog, pg_temp")
+        # covered after the shim, before the program; restored before the shim is dropped
+        ev = self.nodes.events
+        self.assertLess(ev.index("shim db/shop"), ev.index(f"cover db/shop {CLOSE_DAY}"))
+        self.assertLess(ev.index(f"cover db/shop {CLOSE_DAY}"), ev.index("spawn producer"))
+        self.assertLess(ev.index(f"restore db/shop {CLOSE_DAY}"), ev.index("drop db/shop"))
+        self.assertIn(f"P0's cover: search_path of procedure {CLOSE_DAY} in shop (spec D523): restored",
+                      result.text())
+
+    def test_a_database_without_a_pinned_routine_gives_no_item(self):
+        self.nodes.routines = {}
+        self.assertTrue(self.fill().ok)
+        self.assertEqual(self.items(), [])
+        self.assertTrue(self.nodes.ran(lambda r: r["stdin"].endswith("COVER-SQL\n")))
+
+    def test_restored_when_the_program_fails(self):
+        self.nodes.fail_at_start = True
+        with self.assertRaisesRegex(GmError, "the program"):
+            self.fill()
+        self.assertEqual(self.st()["fill"]["outcome"], "failed")
+        (item,) = self.items()
+        self.assertTrue(item["restored_at"])
+        self.assertEqual(self.nodes.routines[("db", "shop")][CLOSE_DAY][1], "pg_catalog, pg_temp")
+
+    def test_restored_when_gmctl_fill_itself_fails(self):
+        def boom(run):
+            raise GmError("the metrics record cannot be read")
+        with mock.patch.object(fill.FillRun, "collect", boom):
+            with self.assertRaisesRegex(GmError, "the metrics record"):
+                self.fill()
+        self.assertEqual(self.st()["fill"]["outcome"], "failed")
+        (item,) = self.items()
+        self.assertTrue(item["restored_at"])
+        self.assertEqual(self.nodes.routines[("db", "shop")][CLOSE_DAY][1], "pg_catalog, pg_temp")
+
+    def test_a_routine_a_planting_replaces_or_adds_is_covered_again(self):
+        def planting(nodes):
+            routines = nodes.routines[("db", "shop")]
+            routines[CLOSE_DAY] = ["procedure", "public, pg_temp"]            # CREATE OR REPLACE
+            routines["rpt.reopen_day(date)"] = ["function", '"$user", public']  # a new one
+        self.nodes.on_inject = planting
+        self.assertTrue(self.fill().ok)
+        by = {i["routine"]["signature"]: i for i in self.items()}
+        self.assertEqual(sorted(by), [CLOSE_DAY, "rpt.reopen_day(date)"])
+        self.assertEqual(by[CLOSE_DAY]["routine"]["original"], "public, pg_temp")
+        self.assertEqual(by[CLOSE_DAY]["restore"]["sql"], [cover_row(CLOSE_DAY, "public, pg_temp")["restore"]])
+        self.assertEqual(by[CLOSE_DAY]["how"], f"ALTER PROCEDURE {CLOSE_DAY} SET search_path = gm_vclock, "
+                                               "pg_catalog, public, pg_temp")
+        self.assertEqual(by["rpt.reopen_day(date)"]["routine"]["original"], '"$user", public')
+        self.assertEqual(self.nodes.events.count(f"cover db/shop {CLOSE_DAY}"), 2)
+        ev = self.nodes.events
+        self.assertLess(ev.index("inject db"), len(ev) - 1 - ev[::-1].index(f"cover db/shop {CLOSE_DAY}"))
+        routines = self.nodes.routines[("db", "shop")]
+        self.assertEqual(routines[CLOSE_DAY][1], "public, pg_temp")
+        self.assertEqual(routines["rpt.reopen_day(date)"][1], '"$user", public')
+        self.assertTrue(all(i["restored_at"] for i in by.values()))
+
+    def test_a_cover_no_item_lists_fails_the_fill(self):
+        self.nodes.routines[("db", "shop")][CLOSE_DAY][1] = "gm_vclock, pg_catalog, pg_temp"
+        with self.assertRaisesRegex(GmError, "under a cover no fill.quiet item lists"):
+            self.fill()
+        self.assertEqual(self.st()["fill"]["outcome"], "failed")
+
+    def test_a_failed_end_restore_or_drop_leaves_the_outcome_ok(self):
+        self.nodes.restore_fails = True
+        self.nodes.drop_fails = True
+        result = self.fill()
+        self.assertTrue(result.ok)
+        rec = self.st()["fill"]
+        self.assertEqual(rec["outcome"], "ok")
+        (item,) = self.items()
+        self.assertNotIn("restored_at", item)
+        self.assertIn(f"db: P0's cover: search_path of procedure {CLOSE_DAY} in shop (spec D523) not restored "
+                      "(ERROR:  could not restore)", rec["reason"])
+        self.assertIn("db/shop: gm_vclock not dropped (ERROR:  gm_vclock not dropped: default value for "
+                      "column at of table t)", rec["reason"])
+        self.assertIn("not restored: clean-restart restores it", result.text())
+        self.assertIn("Next: gmctl clean-restart.", result.text())
+
+    def test_an_actor_the_hold_lists_is_left_to_the_hold(self):
+        self.nodes.survey["settings"].update({"cron.launch_active_jobs": "off", "archive_mode": "on",
+                                              "archive_command": "/bin/true"})
+        hold = [{"node": "db", "what": w, "how": "-", "left_off": True,
+                 "restore": {"user": "postgres", "sql": ["-"]}}
+                for w in (fill.PG_CRON_WHAT, fill.ARCHIVING_WHAT, fill.CRON_WHAT)]
+        localimpl.update_state(self.ldir, lambda st: st.update(hold={"at": "2026-11-17T08:00:00Z",
+                                                                    "items": hold}))
+        self.assertTrue(self.fill().ok)
+        whats = [i["what"] for i in self.st()["fill"]["quiet"]]
+        for w in (fill.PG_CRON_WHAT, fill.ARCHIVING_WHAT, fill.CRON_WHAT):
+            self.assertNotIn(w, whats)
+        self.assertFalse(self.nodes.ran(lambda r: r["stdin"].startswith(fill.CRON_CHECK)
+                                        or r["stdin"].startswith(fill.CRON_OFF)))
+        quieting = self.nodes.ran(lambda r: "ALTER SYSTEM SET autovacuum_naptime" in r["stdin"])[0]["stdin"]
+        self.assertNotIn("cron.launch_active_jobs", quieting)
+        self.assertNotIn("archive_command", quieting)
+
+    def test_a_hold_on_another_node_changes_nothing_here(self):
+        sql, items = fill.settings_plan("db", {**SURVEY, "settings": dict(
+            SURVEY["settings"], **{"cron.launch_active_jobs": "on"})}, [], held=set())
+        self.assertIn(fill.PG_CRON_WHAT, [i["what"] for i in items])
+        st = {"hold": {"items": [{"node": "other", "what": fill.PG_CRON_WHAT}]}}
+        self.assertEqual(fill.held_whats(st, "db"), set())
+        self.assertEqual(fill.held_whats({}, "db"), set())
+
+    def test_a_pauses_planting_runs_at_its_virtual_instant(self):
+        self.fill()
+        runs = self.nodes.ran(lambda r: (r["env"] or {}).get("FAULT_TABLE_NAME"))
+        self.assertTrue(runs)
+        for run in runs:        # each of f8's scripts, its own environment kept
+            self.assertEqual(run["env"]["PGOPTIONS"],
+                             f'-c gm.vclock={self.f8_at} -c search_path="$user",public,gm_vclock,pg_catalog')
+        self.assertEqual(fill.session_means({"PGOPTIONS": "-c work_mem=8MB"}, "X")["PGOPTIONS"],
+                         '-c work_mem=8MB -c gm.vclock=X -c search_path="$user",public,gm_vclock,pg_catalog')
 
 
 class TestParsing(FilledGame):

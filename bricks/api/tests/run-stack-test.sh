@@ -1,11 +1,13 @@
 #!/bin/sh
 # Stack test of the api brick (v0.5 build plan, chunk 5, Done when).
 #
-# Builds the api image from this worktree, deploys it as a Swarm stack
-# (stack.test.yml) with the `postgres` 0.5.0 image as it is (never built
-# here), seed files and secrets as external configs and secrets created
-# here, then checks, from a client container on the stack's network (SSH
-# as player, HTTP as another node would) and from the GM side (docker exec):
+# Takes the api image as built (never built here: a cached build would
+# re-tag it with stale packages), deploys it as a Swarm stack
+# (stack.test.yml) with the `postgres` 0.5.0 image as it is (not built
+# here either), seed files and secrets as external configs and secrets
+# created here, then checks, from a client container on the stack's
+# network (SSH as player, HTTP as another node would) and from the GM side
+# (docker exec):
 #   - started before its database (db at 0 replicas): each api node waits,
 #     bounded, for the name db, then starts once db is scaled up and
 #     resolves; the endpoint answers once the database is there (503 before);
@@ -32,9 +34,10 @@
 # Real time throughout (about 8 minutes). Everything it creates is removed
 # on exit, volumes included.
 #
-# Needs: a swarm manager (docker swarm init), the image
-# 127.0.0.1:5000/dbagm/postgres:0.5.1. On the build host, run it under the
-# host lock:
+# Needs: a swarm manager (docker swarm init), the images built locally:
+#   docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
+# On the build host, run it under the host lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/api/tests/run-stack-test.sh
 set -eu
 
@@ -119,11 +122,13 @@ if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; 
     echo "stack $STACK already exists; remove it first" >&2
     exit 2
 fi
-docker image inspect "$DB_IMAGE" >/dev/null 2>&1 || { echo "image $DB_IMAGE is missing" >&2; exit 2; }
+for i in "$IMAGE" "$DB_IMAGE"; do
+    docker image inspect "$i" >/dev/null 2>&1 || {
+        echo "image $i is missing; build it first (see this script's header)" >&2; exit 2; }
+done
 
-# --- the image, from this worktree ---------------------------------------------
-info "building $IMAGE from $BRICK"
-docker build -q -t "$IMAGE" "$BRICK" >/dev/null
+# --- the image, as built ---------------------------------------------------------
+info "image $IMAGE: $(docker image inspect -f '{{.Id}}' "$IMAGE")"
 # `base:` against the image's /etc/os-release (v0.6 capture W1 item 1)
 if out=$(sh "$BRICK/../../tools/tests/check-base.sh" "$BRICK" "$IMAGE"); then pass "$out"; else fail "$out"; fi
 rc=0; out=$(docker run --rm --entrypoint python3 "$IMAGE" -I -m pip --version 2>&1) || rc=$?

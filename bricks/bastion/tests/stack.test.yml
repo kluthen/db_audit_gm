@@ -16,6 +16,9 @@
 # Configs and secrets are external, created and removed by
 # run-stack-test.sh (mirroring gmctl deploy, master spec 10.1). Volume
 # names carry the node name, as the renderer's <game-id>_<node>_<name> do.
+# v0.6 (chunk 6): the starter pack's seventh file, network-overview.md, and
+# two brick pages (the bastion's and the postgres brick's docs/player.md)
+# as gmctl render delivers them (capture W2 item 1).
 version: "3.8"
 
 services:
@@ -47,6 +50,9 @@ services:
       - {source: starter_policy, target: /opt/gm/starter/data-policy.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_partners, target: /opt/gm/starter/partners.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_register, target: /opt/gm/starter/data-register.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_overview, target: /opt/gm/starter/network-overview.md, uid: "0", gid: "0", mode: 0444}
+      - {source: doc_bastion, target: /opt/gm/docs/bricks/bastion.md, uid: "0", gid: "0", mode: 0444}
+      - {source: doc_postgres, target: /opt/gm/docs/bricks/postgres.md, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
       - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
@@ -135,6 +141,9 @@ configs:
   starter_policy: {external: true, name: gmtest-bastion_starter_policy}
   starter_partners: {external: true, name: gmtest-bastion_starter_partners}
   starter_register: {external: true, name: gmtest-bastion_starter_register}
+  starter_overview: {external: true, name: gmtest-bastion_starter_overview}
+  doc_bastion: {external: true, name: gmtest-bastion_doc_bastion}
+  doc_postgres: {external: true, name: gmtest-bastion_doc_postgres}
   seed_postgresql_conf: {external: true, name: gmtest-bastion_seed_postgresql_conf}
   seed_pg_hba_conf: {external: true, name: gmtest-bastion_seed_pg_hba_conf}
   envelopes: {external: true, name: gmtest-bastion_envelopes}

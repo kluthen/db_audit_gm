@@ -126,7 +126,10 @@ same "credential files are mode 600" "600 600 600 600 600" \
 # v0.5: postgres 0.5.0 adds replication_password, tls_certificate and
 # tls_key on every postgres node; monitoring_password comes only with the
 # option monitoring, which fixture-audit's db does not choose (chunk 3).
-same "configs and secrets carry both labels" "15" \
+# v0.6: bastion 0.6.0's brick pages, one brick-doc config per brick a
+# player may reach (bastion and postgres here; W2-w, chunk 6); no
+# partners_status secret, fixture-audit having no third party.
+same "configs and secrets carry both labels" "17" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 # v0.4: postgres adds the cron spool, cronspool (chunk 4), copied by the snapshot.

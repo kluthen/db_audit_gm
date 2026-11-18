@@ -44,6 +44,9 @@ ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8
 # default; never --unsafe), asserted below. curl, from Debian too, is the
 # players' HTTP client (access model 4; gate G11.2, owner accepted
 # 2026-11-10): the partners' endpoints with the credentials handed over.
+# v0.6 (master spec 7.7; gate G6, cleared 2026-11-17): jq, to read
+# Prometheus' API, and tmux, from Debian too, unpinned; jq also reads the
+# partners' status file (capture W2 item 1).
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
@@ -53,7 +56,8 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         "postgresql-client-${PG_MAJOR}" \
-        openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm curl; \
+        openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm curl \
+        jq tmux; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -68,6 +72,9 @@ RUN set -eux; \
     test -x /usr/sbin/nginx; \
     command -v cmark-gfm; \
     curl --version; \
+    jq --version; \
+    tmux -V; \
+    test -f /etc/nginx/mime.types; \
     printf '| a |\n|---|\n| 1 |\n' | cmark-gfm -e table | grep -q '<table>'; \
     printf '<b>x</b>\n' | cmark-gfm | grep -q 'raw HTML omitted'
 
@@ -86,7 +93,8 @@ RUN set -eux; \
     rm -f /etc/shadow- /etc/gshadow-; \
     # fixed in-container paths for the starter pack, secrets, validator,
     # and the mount point of the `hostkeys` volume
-    install -d -m 0755 /opt/gm /opt/gm/starter /opt/gm/secrets /opt/gm/validator; \
+    install -d -m 0755 /opt/gm /opt/gm/starter /opt/gm/secrets /opt/gm/validator \
+        /opt/gm/docs /opt/gm/docs/bricks; \
     install -d -m 0700 /var/lib/gm-sshd-keys; \
     # read-only root: temporary files live under /run (see gm-entrypoint)
     rm -rf /tmp /var/tmp; \
@@ -100,9 +108,15 @@ COPY validator/validate.sh /opt/gm/validator/validate.sh
 RUN set -eux; \
     chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/bin /opt/gm/validator \
         /etc/ssh/sshd_config /etc/ssh/ssh_config.d/gm-game.conf /etc/motd /etc/profile.d/gm-bastion.sh; \
-    chown root:root /usr/local/lib/gm/healthcheck; \
+    chown root:root /usr/local/lib/gm/healthcheck /usr/local/lib/gm/html-ids /usr/local/lib/gm/pages.sh \
+        /usr/local/lib/gm/render-status; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/lib/gm/healthcheck /opt/gm/validator/validate.sh \
-        /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/web-front/run; \
+        /usr/local/lib/gm/html-ids /usr/local/lib/gm/render-status \
+        /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/web-front/run \
+        /etc/s6-overlay/s6-rc.d/status-pages/run; \
+    chmod 0644 /usr/local/lib/gm/pages.sh; \
+    printf '# A\n\n## B c\n\n## B c\n\n[p](partners.md#b-c)\n' | cmark-gfm -e table \
+        | perl /usr/local/lib/gm/html-ids | grep -q '<h2 id="b-c-1">'; \
     chmod 0644 /etc/ssh/sshd_config /etc/ssh/ssh_config.d/gm-game.conf /etc/motd /etc/profile.d/gm-bastion.sh; \
     ln -s /opt/gm/validator/validate.sh /usr/local/bin/gm-validate
 
@@ -114,7 +128,8 @@ ENV S6_READ_ONLY_ROOT=1 \
 EXPOSE 22 8080
 
 # gm-entrypoint prepares /run, the sshd host key, the password, the
-# player's home and starter pack, the web front's configuration, password
-# file and page, then execs s6-overlay's /init, which supervises `sshd` and
-# `web-front`.
+# player's home, starter pack and ~/reports/, the web front's
+# configuration, password file and pages, then execs s6-overlay's /init,
+# which supervises `sshd`, `web-front` and `status-pages` (the partners'
+# status pages, every minute, when the game has a status file).
 ENTRYPOINT ["/usr/local/sbin/gm-entrypoint"]

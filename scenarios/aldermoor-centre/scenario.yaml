@@ -376,6 +376,7 @@ nodes:
     data-policy.md: player/data-policy.md
     data-register.md: player/data-register.md
     partners.md: player/partners.md
+    network-overview.md: player/network-overview.md
   knobs: []
 - name: records
   brick:

@@ -358,7 +358,7 @@ flows:
 fault_instances:
   - id: f8
     fault:
-      id: pg-join-index-missing
+      id: fixture-dropped-index     # scenario-local (spec D533): the catalogue's pg-join-index-missing is unassessed
       version: 0.1.0
     node: db
     parameters:

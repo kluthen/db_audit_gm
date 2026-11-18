@@ -1,0 +1,14 @@
+#!/bin/sh
+# s6 service `status-pages` (DO NOT TAMPER): the partners' status pages
+# (v0.6 master spec 7.6; capture W2 item 2), as root: render-status writes
+# each partner's page under /run/web-front/www/status/ from the game's
+# status file, then the service sleeps a minute and s6 runs it again.
+# Without the status file (a game whose partners have no player document)
+# it asks s6 not to restart it and exits: no /status/ page exists.
+exec 2>&1
+if [ ! -f /opt/gm/secrets/partners_status.json ]; then
+    s6-svc -O .
+    exit 0
+fi
+/usr/local/lib/gm/render-status || echo "status-pages: render-status failed"
+exec sleep 60

@@ -70,7 +70,8 @@ def _cmd_fit(args):
 def _cmd_render(args):
     from . import render
     print(render.render(args.scenario_dir, args.playground, handover=args.handover,
-                        test_leave_out=args.test_leave_out).text())
+                        test_leave_out=args.test_leave_out, aging=args.aging,
+                        test_tail_floor=args.test_tail_floor).text())
     return 0
 
 
@@ -123,6 +124,13 @@ def _cmd_start_load(args):
 def _cmd_fill(args):
     from . import fill
     result = fill.fill(args.scenario_dir, args.playground)
+    print(result.text())
+    return 0 if result.ok else 1
+
+
+def _cmd_clean_restart(args):
+    from . import cleanrestart
+    result = cleanrestart.clean_restart(args.scenario_dir, args.playground)
     print(result.text())
     return 0 if result.ok else 1
 
@@ -252,7 +260,12 @@ def build_parser():
     p.add_argument("--handover", metavar="<UTC date and hour>",
                    help="the planned hand-over, YYYY-MM-DDTHH:00Z (2026-10-27T14:00Z); "
                         "required with scheduler nodes")
+    p.add_argument("--aging", choices=("real", "fake"), default="real",
+                   help="real (the default): the load ages the game from T0; fake: the "
+                        "timeline of a fake game (virtual T0, anchor, tail), its restart "
+                        "record, the monitoring at zero until gmctl clean-restart")
     p.add_argument("--test-leave-out", metavar="<id>[,<id>...]", help=argparse.SUPPRESS)
+    p.add_argument("--test-tail-floor", metavar="<duration>", help=argparse.SUPPRESS)
     p.set_defaults(func=_cmd_render)
 
     p = sub.add_parser("deploy", help="create the game's credentials, configs and secrets, "
@@ -299,6 +312,14 @@ def build_parser():
                                     "stage injected and the restart record)")
     _scenario_args(p)
     p.set_defaults(func=_cmd_fill)
+
+    p = sub.add_parser("clean-restart", help="a fake game's maintenance restart after the fill: "
+                                             "the WAL padded, the statistics reset, the logs "
+                                             "removed, the data files dated, every service "
+                                             "restarted at one instant, the anchor (needs the "
+                                             "fill ok)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_clean_restart)
 
     p = sub.add_parser("validate", help="the official run of every node's public validator; "
                                         "exit 0 green, 1 red, 2 error")

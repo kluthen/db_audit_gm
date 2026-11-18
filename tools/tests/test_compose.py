@@ -103,6 +103,11 @@ class TestMerge(ComposeCopyTest):
     def test_identical_entries_merge_silently(self):
         shutil.copy(self.catalog / "domains" / "fx-core" / "producers" / "desk" / "jobs.yaml",
                     self.catalog / "domains" / "fx-part" / "producers" / "desk" / "jobs.yaml")
+        shutil.copy(self.catalog / "domains" / "fx-core" / "data" / "overview.yaml",
+                    self.catalog / "domains" / "fx-part" / "data" / "overview.yaml")
+        self.edit("catalog/domains/fx-part/data/overview.yaml", lambda d: d["roles"].__setitem__(
+            0, {"role": "part_app", "who": "the part's software", "reads": "its tables",
+                "writes": "its tables"}))
         self.edit("catalog/domains/fx-part/producers/desk/schedule.yaml", lambda d: d[
             "connections"].update(app=yaml.safe_load(
                 (self.catalog / "domains/fx-core/producers/desk/schedule.yaml").read_text())[

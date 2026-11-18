@@ -43,8 +43,8 @@ classification: data/classification.yaml   # every column of every table, keyed 
                                     # without the database (template: classification.yaml)
 register: data/register.yaml        # the register fragment: one entry per processing activity,
                                     # every table in exactly one (template: register.yaml)
-overview: data/overview.yaml        # optional: in v0.6's wave 1; required of every domain once
-                                    # the network overview is checked (v0.6 master spec 6.5). The
+overview: data/overview.yaml        # required of every domain (v0.6 master spec 6.5; the loader
+                                    # refuses a domain without it, "overview: missing"). The
                                     # domain's overview fragment: every login role its schema
                                     # creates and every job it runs, one line each in the
                                     # customer's words (template: overview.yaml)

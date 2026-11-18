@@ -43,8 +43,7 @@ password**. In your browser:
 
 | Address | What |
 |---|---|
-| `http://<bastion address>:<web port>/prometheus/` | Prometheus: targets, queries |
-| `http://<bastion address>:<web port>/grafana/` | Grafana: dashboards, alerting |
+| `http://<bastion address>:<web port>/` | the home page: your documents and the links to every web interface (Prometheus, Grafana) |
 
 The browser asks for a user and password: user `player`, the tools
 password. Grafana then asks for its own login: user `admin`, the same

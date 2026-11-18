@@ -1,0 +1,46 @@
+# schedule.yaml of partners-backend, the partners' back end (fixture-partners,
+# v0.5 chunk 11a; capture W1 item 3, W2 item 6): partners/shared/'s base with
+# the two sample partners' fragments joined, as compose would join a
+# domain's producers/partners/<prefix>/. Per partner: its connection
+# <prefix>-db as its own role; its misbehaviour key's stream <prefix>.normal
+# (1/min, even), upserting its baseline state; its tick, under its hostname
+# with the credential partners_backend. alpha's slowness is the fault f1,
+# placed standing: the timeline changes alpha.normal to alpha.slow at T0.
+intensity: 1.0
+connections:
+  alpha-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: alpha, pool: {size: 1}}
+  beta-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: beta, pool: {size: 1}}
+  alpha:
+    driver: http
+    target: alpha-lab:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 10s
+  beta:
+    driver: http
+    target: beta-lab:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 10s
+streams:
+  - key: alpha.normal
+    connection: alpha-db
+    rate: 1/min
+    arrivals: even
+  - key: beta.normal
+    connection: beta-db
+    rate: 1/min
+    arrivals: even
+  - key: alpha.tick
+    connection: alpha
+    rate: 6/min
+    arrivals: even
+  - key: beta.tick
+    connection: beta
+    rate: 6/min
+    arrivals: even
+timeline:
+  - at: T0                          # f1, placed standing (fault template's partner_behaviour)
+    stream: alpha.normal
+    set:
+      key: alpha.slow

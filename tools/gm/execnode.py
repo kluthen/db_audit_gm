@@ -104,7 +104,7 @@ def node_container(docker, impl, node):
 
 
 def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None,
-              docker=None, argv=None):
+              docker=None, argv=None, impl=None):
     """Run `sh -s` as `user` in `node`'s container, the script fed on stdin.
 
     `stdin`: the script, a str or bytes, or a binary file object streamed as
@@ -112,7 +112,9 @@ def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None
     `capture`: return stdout and stderr (text, or bytes when `stdin` is
     bytes) in the result, else leave them to the terminal; `argv`: the
     command run in the container instead of `sh -s` (`load-data` runs
-    `psql`), stdin fed to it the same way. Returns an ExecResult whose
+    `psql`), stdin fed to it the same way; `impl`: the implementation, from a
+    caller inside `deploy`'s setup step (the hold) whose stack is up while the
+    stage is not yet `deployed`, else the stage is checked. Returns an ExecResult whose
     `returncode` is the script's; raises ExecError when the script cannot
     be started."""
     if not USER_RE.match(str(user or "")):
@@ -121,7 +123,8 @@ def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None
     for key in env:
         if not ENV_NAME_RE.match(key):
             raise ExecError(f"environment variable {key!r}: not a shell variable name")
-    _, impl = _game(ldir)
+    if impl is None:
+        _, impl = _game(ldir)
     docker = node_docker(docker or for_local_dir(ldir), impl, node)
     container = node_container(docker, impl, node)
 

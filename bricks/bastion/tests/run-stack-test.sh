@@ -46,7 +46,20 @@
 #     section, no link;
 #   - partners.md naming a credential with no secret: the container refused;
 #   - without a required starter file (issues.md): the container refused;
-#   - the validator green in every state the bastion starts in.
+#   - the validator green in every state the bastion starts in;
+#   - v0.6 (master spec 7.1 to 7.7, 12.1; capture W2 items 1 and 2): the
+#     home at / (Sites: the routes, Reports; Documents: each starter file
+#     present; Tools: each brick page), every link on it answering; the
+#     documentation site /docs/<id> and /docs/bricks/<brick-id> rendered
+#     from the starter pack as handed over (a player's edit of a home copy
+#     changes no page), headings with GitHub's ids, links between starter
+#     files rewritten to /docs/, every page behind the basic
+#     authentication; no page for a brick not delivered; jq and tmux as
+#     player, jq reading a Prometheus API answer (the stub's) through curl;
+#     a pgBadger report made on db and copied into ~/reports/ in one hop,
+#     listed and served with the sandbox header, a path outside the folder
+#     and a symbolic link 404; with two routes and three documents, only
+#     those on the home, no dead link; the footprint at rest.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
@@ -73,7 +86,7 @@ PORT=${GMTEST_BASTION_PORT:-22222}
 WPORT=${GMTEST_BASTION_WEB_PORT:-28080}
 export GMTEST_BASTION_PORT=$PORT GMTEST_BASTION_WEB_PORT=$WPORT
 LABEL=dbagm.test=chunk3-bastion
-CONFIGS="starter_readme starter_story starter_issues starter_policy starter_partners starter_register seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
+CONFIGS="starter_readme starter_story starter_issues starter_policy starter_partners starter_register starter_overview doc_bastion doc_postgres seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
 SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password http_demo_customer"
 VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 
@@ -161,6 +174,9 @@ docker config create -l "$LABEL" "${STACK}_starter_issues" "$STARTER/issues.md" 
 docker config create -l "$LABEL" "${STACK}_starter_policy" "$STARTER/data-policy.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_starter_partners" "$STARTER/partners.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_starter_register" "$STARTER/data-register.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_overview" "$STARTER/network-overview.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_doc_bastion" "$HERE/../docs/player.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_doc_postgres" "$HERE/../../postgres/docs/player.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$PG_FIXTURES/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$PG_FIXTURES/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$PG_FIXTURES/envelopes.conf" >/dev/null
@@ -227,10 +243,10 @@ eff=$(gm sshd -T -f /etc/ssh/sshd_config 2>/dev/null | grep -E '^(passwordauthen
 
 # --- home and starter pack ------------------------------------------------------
 ok=1
-for f in README.md story.md issues.md data-policy.md data-register.md; do
+for f in README.md story.md issues.md data-policy.md data-register.md network-overview.md; do
     [ "$(pb cat "$f" 2>&1)" = "$(cat "$STARTER/$f")" ] || ok=0
 done
-[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md, data-policy.md, data-register.md)" \
+[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md, data-policy.md, data-register.md, network-overview.md)" \
     || fail "starter pack content"
 w=$(pb cat partners.md 2>&1)
 if [ "$w" = "$(cat "$tmp/partners.resolved")" ] && ! printf '%s' "$w" | grep -q '{{credential:'; then
@@ -259,9 +275,19 @@ case $w in "curl "*) pass "curl runs as player on the bastion ($w)" ;; *) fail "
 w=$(pb "curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $key' http://northfield-lab:9090/orders" 2>&1) || true
 [ "$w" = 200 ] && pass "the credential accepted by the partner's endpoint through curl, as player ($w)" \
     || fail "curl to the partner with the credential: $w"
+# The general-use tools (master spec 7.7; gate G6): jq and tmux, as player;
+# jq reading Prometheus' API (the stub answers its form) through curl.
+w=$(pb "jq --version" 2>&1)
+case $w in jq-1.*) pass "jq runs as player ($w)" ;; *) fail "jq --version as player: $w" ;; esac
+w=$(pb "curl -s -m 10 'http://stub:9090/api/v1/query?query=up' | jq -r '.data.result[0].value[1]'" 2>&1)
+[ "$w" = 1 ] && pass "jq reads a Prometheus API answer through curl, as player ($w)" \
+    || fail "curl | jq on the API: $w"
+w=$(pb "tmux -V && tmux new-session -d -s gmtest 'sleep 60' && tmux has-session -t gmtest && tmux kill-server && echo ok" 2>&1)
+case $w in "tmux "*ok) pass "tmux runs a session as player ($(printf '%s' "$w" | head -n 1))" ;;
+    *) fail "tmux as player: $w" ;; esac
 pb "echo 'audit notes' > ~/report.md" && pass "~/report.md is writable" || fail "~/report.md not writable"
-m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow | tr '\n' ' ')
-[ "$m" = "750 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow " ] \
+m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow /home/player/reports | tr '\n' ' ')
+[ "$m" = "751 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow 755 player:player " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
 
 # --- inner hop: SSH with the key, psql as dba ----------------------------------------
@@ -392,32 +418,109 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
     && pass "/ with the tools password: the page, HTML in UTF-8" \
     || fail "/: $code $(tr -d '\r' < "$tmp/h" | grep -i '^content-type')"
 w=$(sections "$tmp/b")
-[ "$w" = "readme story issues data-policy partners data-register web-interfaces " ] \
-    && pass "the page: README, story, issues, data policy, partners, data register, then the web interfaces ($w)" \
-    || fail "the page's sections: $w"
+[ "$w" = "sites documents " ] && pass "the home: Sites, then Documents ($w)" || fail "the home's sections: $w"
+grep -q '<h1>Story (stack test)</h1>' "$tmp/b" \
+    && grep -q "what Story (stack test) handed over at the mission's start" "$tmp/b" \
+    && pass "the home's header names the customer from the story's heading" \
+    || fail "the home's header: $(sed -n '/<header>/,/<\/header>/p' "$tmp/b")"
+HOME_ALL="/cold-storage/ /other/ /stub/ /reports/ /docs/readme /docs/story /docs/issues /docs/data-policy /docs/partners /docs/data-register /docs/network-overview /docs/bricks/bastion /docs/bricks/postgres "
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues #data-policy #partners #data-register #web-interfaces /cold-storage/ /other/ /stub/ " ] \
-    && pass "the page's links: its sections and the routes, nothing else ($w)" \
-    || fail "the page's links: $w"
-if section "$tmp/b" partners | grep -q "<code>$DEMO_KEY</code>" && ! grep -q 'credential:' "$tmp/b"; then
-    pass "the partners section shows the credential handed over, no placeholder"
+[ "$w" = "$HOME_ALL" ] \
+    && pass "the home's links: the routes, Reports, the seven documents, then Tools, nothing else ($w)" \
+    || fail "the home's links: $w"
+section "$tmp/b" documents | grep -q '<h3>Tools</h3>' && section "$tmp/b" documents \
+    | grep -q '<a href="/docs/bricks/postgres">PostgreSQL node — player notes</a>' \
+    && pass "Tools: each brick page by its heading" || fail "Tools: $(section "$tmp/b" documents)"
+dead=
+for p in $(links "$tmp/b"); do
+    case $p in /docs/*|/reports/) ;; *) continue ;; esac
+    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
+    [ "$code" = 200 ] || dead="$dead $p:$code"
+    code=$(web "$URL$p")
+    [ "$code" = 401 ] || dead="$dead $p:$code-without-password"
+done
+[ -z "$dead" ] && pass "every page the home links answers 200, and 401 without the tools password" \
+    || fail "dead or open links:$dead"
+page() {  # page <path>: GET with the tools password; body in $tmp/b
+    web -u "player:$TOOLS_PASSWORD" "$URL$1"
+}
+code=$(page /docs/partners)
+if [ "$code" = 200 ] && grep -q "<code>$DEMO_KEY</code>" "$tmp/b" && ! grep -q 'credential:' "$tmp/b" \
+   && grep -q '<h2 id="northfield-veterinary-laboratories">' "$tmp/b"; then
+    pass "/docs/partners: the credential handed over, no placeholder, its headings' ids"
 else
-    fail "partners section: $(section "$tmp/b" partners)"
+    fail "/docs/partners: $code $(grep -e '<h' -e 'key' "$tmp/b")"
 fi
-section "$tmp/b" data-register | grep -q '<h1>Data register (stack test)</h1>' \
-    && pass "the data register rendered in its section" || fail "data register section: $(section "$tmp/b" data-register)"
-section "$tmp/b" readme | grep -q '<td>db</td>' && section "$tmp/b" readme | grep -q '<table>' \
-    && pass "the README's table rendered as an HTML table" || fail "README table: $(section "$tmp/b" readme)"
+grep -qi '^Content-Type: text/html; charset=utf-8' "$tmp/h" && grep -q '<a href="/">Home</a>' "$tmp/b" \
+    && pass "a page under /docs/: HTML in UTF-8, a link home" || fail "/docs/partners headers: $(cat "$tmp/h")"
+code=$(page /docs/network-overview)
+if [ "$code" = 200 ] && grep -q '<a href="/docs/partners#northfield-veterinary-laboratories">' "$tmp/b" \
+   && grep -q '<a href="#db">db</a>' "$tmp/b" && grep -q '<h3 id="db">db</h3>' "$tmp/b"; then
+    pass "/docs/network-overview: its links to partners.md point to /docs/partners#<anchor>, its own anchors resolve"
+else
+    fail "/docs/network-overview: $code $(grep -e 'href' -e '<h' "$tmp/b")"
+fi
+code=$(page /docs/readme)
+grep -q '<td>db</td>' "$tmp/b" && grep -q '<table>' "$tmp/b" \
+    && pass "/docs/readme: the README's table rendered as an HTML table" || fail "README table: $code"
 grep -q 'raw HTML omitted' "$tmp/b" && ! grep -qi '<script' "$tmp/b" \
-    && pass "raw HTML not passed through (the README's <script> omitted)" || fail "raw HTML in the page"
-section "$tmp/b" data-policy | grep -q '<h1>Data policy (stack test)</h1>' \
-    && pass "the data policy rendered in its section" || fail "data policy section: $(section "$tmp/b" data-policy)"
-if pb grep -qx "'player edit of the story'" story.md && ! grep -q 'player edit of the story' "$tmp/b" \
-   && ! grep -q 'my notes' "$tmp/b" && section "$tmp/b" story | grep -q 'A fictional customer'; then
-    pass "the page shows the starter pack as handed over: the player's ~/story.md edit absent after a restart"
+    && pass "raw HTML not passed through (the README's <script> omitted)" || fail "raw HTML in /docs/readme"
+page /docs/data-policy >/dev/null; grep -q '<h1 id="data-policy-stack-test">Data policy (stack test)</h1>' "$tmp/b" \
+    && pass "/docs/data-policy rendered" || fail "/docs/data-policy: $(grep '<h1' "$tmp/b")"
+page /docs/data-register >/dev/null; grep -q '>Data register (stack test)</h1>' "$tmp/b" \
+    && pass "/docs/data-register rendered" || fail "/docs/data-register: $(grep '<h1' "$tmp/b")"
+code=$(page /docs/story)
+if pb grep -qx "'player edit of the story'" story.md && [ "$code" = 200 ] \
+   && ! grep -q 'player edit of the story' "$tmp/b" && grep -q 'A fictional customer' "$tmp/b" \
+   && page /docs/readme >/dev/null && ! grep -q 'my notes' "$tmp/b"; then
+    pass "the pages show the starter pack as handed over: the player's ~/story.md and ~/README.md edits absent after a restart"
 else
-    fail "the page and the player's edits: $(section "$tmp/b" story)"
+    fail "the pages and the player's edits: $code $(cat "$tmp/b")"
 fi
+code=$(page /docs/bricks/postgres)
+[ "$code" = 200 ] && grep -q '>PostgreSQL node — player notes</h1>' "$tmp/b" \
+    && pass "/docs/bricks/postgres: the brick's player documentation" || fail "/docs/bricks/postgres: $code"
+bad=
+for p in /docs/bricks/api /docs/bricks/scheduler /docs/nothing /docs/ /docs/readme.html /docs/bricks/; do
+    code=$(page "$p")
+    [ "$code" = 404 ] || bad="$bad $p:$code"
+done
+[ -z "$bad" ] && pass "no page for a brick not delivered, nor any other path under /docs/ (404)" \
+    || fail "under /docs/, not 404:$bad"
+
+# --- reports (master spec 7.5) ---------------------------------------------------
+# A pgBadger report made on db and brought in one hop, then opened; the
+# format and prefix given, the fresh log too short for pgBadger to guess them.
+w=$(pb "ssh db \"pgbadger -q -f stderr --prefix '%t [%p]: user=%u,db=%d,app=%a,client=%h ' -o pgbadger.html /var/log/postgresql/postgresql-*.log\" && scp -q db:pgbadger.html ~/reports/ && ls ~/reports" 2>&1)
+[ "$w" = pgbadger.html ] && pass "a pgBadger report made on db and copied into ~/reports/ in one hop" \
+    || fail "pgBadger into ~/reports/: $w"
+code=$(page /reports/)
+[ "$code" = 200 ] && grep -q '<a href="pgbadger.html">pgbadger.html</a>' "$tmp/b" \
+    && grep -qi '^Content-Security-Policy: sandbox allow-scripts' "$tmp/h" \
+    && pass "/reports/: the listing, with the sandbox header" || fail "/reports/: $code $(cat "$tmp/h")"
+code=$(page /reports/pgbadger.html)
+if [ "$code" = 200 ] && grep -qi '^Content-Type: text/html' "$tmp/h" \
+   && grep -qi '^Content-Security-Policy: sandbox allow-scripts' "$tmp/h" && grep -qi 'pgbadger' "$tmp/b"; then
+    pass "/reports/pgbadger.html served as HTML with Content-Security-Policy: sandbox allow-scripts"
+else
+    fail "/reports/pgbadger.html: $code $(tr -d '\r' < "$tmp/h")"
+fi
+code=$(web "$URL/reports/pgbadger.html")
+[ "$code" = 401 ] && pass "/reports/ without the tools password: 401" || fail "/reports/ without the password: $code"
+code=$(page /reports)
+[ "$code" = 301 ] && pass "/reports redirects to /reports/" || fail "/reports: $code"
+pb "ln -s /etc/passwd ~/reports/passwd && ln -s / ~/reports/root && ln -s ~ ~/reports/home" >/dev/null 2>&1
+bad=
+for p in /reports/passwd /reports/root/etc/passwd /reports/home/report.md /reports/../report.md \
+         /reports/%2e%2e/report.md /reports/nothing.html; do
+    code=$(web -u "player:$TOOLS_PASSWORD" --path-as-is "$URL$p")
+    [ "$code" = 404 ] || bad="$bad $p:$code"
+done
+code=$(web -u "player:$TOOLS_PASSWORD" -X POST -d x "$URL/reports/pgbadger.html")
+[ "$code" = 404 ] || bad="$bad POST:$code"
+[ -z "$bad" ] && pass "nothing outside ~/reports/ served: a link, a path out of it, a missing file, a POST, all 404" \
+    || fail "outside ~/reports/:$bad"
+pb "rm -f ~/reports/passwd ~/reports/root ~/reports/home" >/dev/null 2>&1
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing/")
 [ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b" \
     && pass "a path outside the routes: 404" || fail "/nothing/: $code $(head -n 2 "$tmp/b")"
@@ -457,6 +560,13 @@ code=$(web "$URL/cold-storage/manifests")
 [ "$code" = 401 ] && pass "console: without the tools password, 401" || fail "console without the password: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 200 ] && pass "the other routes still answer" || fail "/stub/ after /other/: $code"
+# No status file in this stack (no partner's status page): the s6 service
+# status-pages stays down, /status/ answers 404 (master spec 7.6).
+st=$(gm /command/s6-svstat -o up,wantedup /run/service/status-pages 2>&1)
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/status/northfield-lab/")
+[ "$st" = "false false" ] && [ "$code" = 404 ] \
+    && pass "without the status file: status-pages down ($st), /status/northfield-lab/ 404" \
+    || fail "without the status file: status-pages $st, /status/: $code"
 users=$(gm ps -o user= -C nginx | sort -u | tr '\n' ' ')
 [ "$users" = "www-data " ] && pass "nginx runs as www-data" || fail "nginx users: $users"
 m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/htpasswd /run/web-front/nginx.conf /run/web-front/www/index.html | tr '\n' ' ')
@@ -525,13 +635,10 @@ else
     fail "without routes, / without the password: $code"
 fi
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
-w=$(sections "$tmp/b")
-[ "$code" = 200 ] && [ "$w" = "readme story issues data-policy partners data-register " ] \
-    && pass "without routes, the page alone: README, story, issues, data policy, partners, data register ($w)" \
-    || fail "without routes, the page: $code, sections $w"
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues #data-policy #partners #data-register " ] && ! grep -q 'Web interfaces' "$tmp/b" \
-    && pass "without routes, no web-interface section or link ($w)" || fail "without routes, links: $w"
+[ "$code" = 200 ] && [ "$w" = "/reports/ /docs/readme /docs/story /docs/issues /docs/data-policy /docs/partners /docs/data-register /docs/network-overview /docs/bricks/bastion /docs/bricks/postgres " ] \
+    && pass "without routes, the home: Reports alone under Sites, the documents and the tools ($w)" \
+    || fail "without routes, the home: $code, links $w"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 404 ] && pass "without routes, a former route's path: 404" || fail "/stub/ without routes: $code"
 out=$(gm /usr/local/lib/gm/healthcheck 2>&1); rc=$?
@@ -554,31 +661,49 @@ out=$(pb gm-validate 2>&1); rc=$?
 # not mounted, and no credential handed over. The GM side removes the home's
 # copies and the marker first, so this start would copy them if they were
 # there.
-info "removing the data policy, partners.md and data-register.md from the starter pack"
+# Master spec 12.1: two web routes and three of the seven documents.
+info "removing the data policy, partners.md, data-register.md and network-overview.md; two routes"
 gm rm -f /home/player/data-policy.md /home/player/partners.md /home/player/data-register.md \
-    /home/player/.gm-starter-copied
+    /home/player/network-overview.md /home/player/.gm-starter-copied
 docker service update --detach --config-rm "${STACK}_starter_policy" \
     --config-rm "${STACK}_starter_partners" --config-rm "${STACK}_starter_register" \
-    --secret-rm "${STACK}_http_demo_customer" "$BASTION" >/dev/null 2>&1
+    --config-rm "${STACK}_starter_overview" --secret-rm "${STACK}_http_demo_customer" \
+    --env-add "GM_WEB_ROUTES=other=stub:9091 stub=stub:9090" "$BASTION" >/dev/null 2>&1
 if B4=$(wait_healthy "$BASTION" "$B"); then
     pass "bastion without a data policy, partners or register healthy ($B4)"
     B=$B4
 else
     fail "bastion without a data policy, partners or register did not become healthy"
 fi
-for f in data-policy.md partners.md data-register.md; do
+for f in data-policy.md partners.md data-register.md network-overview.md; do
     check "no $f in the starter pack" sh -c "! docker exec $B test -e /opt/gm/starter/$f"
     check "no ~/$f in the home" sh -c "! docker exec $B test -e /home/player/$f"
 done
 check "the starter marker written again" docker exec "$B" test -f /home/player/.gm-starter-copied
+i=0
+while [ "$i" -lt 60 ] && [ "$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")" != 200 ]; do
+    sleep 2; i=$((i + 2))
+done
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
-w=$(sections "$tmp/b")
-[ "$code" = 200 ] && [ "$w" = "readme story issues " ] \
-    && pass "without them, the page: README, story, issues ($w)" \
-    || fail "without them, the page: $code, sections $w"
 w=$(links "$tmp/b")
-[ "$w" = "#readme #story #issues " ] && ! grep -qi -e 'data policy' -e 'partners' -e 'data register' "$tmp/b" \
-    && pass "without them, no such section or link ($w)" || fail "without them, links: $w"
+[ "$code" = 200 ] && [ "$w" = "/other/ /stub/ /reports/ /docs/readme /docs/story /docs/issues /docs/bricks/bastion /docs/bricks/postgres " ] \
+    && ! grep -qi -e 'data policy' -e 'partners' -e 'data register' -e 'network overview' "$tmp/b" \
+    && pass "two routes and three documents: Sites the two routes and Reports, Documents the three, then Tools ($w)" \
+    || fail "two routes and three documents, the home: $code, links $w"
+dead=
+for p in $w; do
+    [ "$p" = /other/ ] && continue                 # its upstream is down by design: 502
+    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
+    [ "$code" = 200 ] || dead="$dead $p:$code"
+done
+[ -z "$dead" ] && pass "no dead link on that home (each answers 200; /other/ is the down route)" \
+    || fail "dead links:$dead"
+bad=
+for p in /docs/data-policy /docs/partners /docs/data-register /docs/network-overview; do
+    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
+    [ "$code" = 404 ] || bad="$bad $p:$code"
+done
+[ -z "$bad" ] && pass "no page for an absent document (404)" || fail "absent documents' pages:$bad"
 out=$(pb gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "gm-validate green without a data policy" || fail "validator without a data policy: exit $rc: $out"
 

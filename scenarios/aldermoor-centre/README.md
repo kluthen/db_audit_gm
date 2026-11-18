@@ -117,7 +117,7 @@ The story as the players read it: `player/story.md`.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md` → `player/data-policy.md`; `data-register.md` → `player/data-register.md`; `partners.md` → `player/partners.md`.
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md` → `player/data-policy.md`; `data-register.md` → `player/data-register.md`; `partners.md` → `player/partners.md`; `network-overview.md` → `player/network-overview.md`.
 
 Web front routes (`web_routes`):
 
@@ -147,6 +147,8 @@ No knobs.
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The record's database server, the medical record, the agenda and the wards, the back office's registers and reports, the owners' portal.
+- **Users**: none.
 - **Options**: `monitoring`.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
@@ -215,6 +217,9 @@ The domains loaded here by `load-data`, after the data file: `vet-core`, `vet-ho
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The record's standby, a streaming replica of records where the back office's reports run their heavy reads.
+- **Site**: the off-site room, at Lowmoor.
+- **Users**: none.
 - **Options**: `monitoring`.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -245,6 +250,8 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The laboratory's database server, its orders, samples and results, the practices' accounts and their billing.
+- **Users**: none.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
 - **Published ports**: none.
@@ -283,6 +290,8 @@ Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the da
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The machines' database server, the imaging worklist and reports, the monitors' readings and the biomedical events.
+- **Users**: none.
 - **Options**: `monitoring`.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
@@ -332,6 +341,7 @@ The domain loaded here by `load-data`, after the data file: `vet-machinery` into
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: The practice software, from its vendor, for the record, the agenda, the ward screens and the portal's desk.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -353,6 +363,7 @@ No knobs.
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: The laboratory's information system, from its vendor, for the bench, the analysers, the results and the quality control.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -374,6 +385,7 @@ No knobs.
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: The ward service, from its vendor, which drives the displays on every box and stall.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -395,6 +407,7 @@ No knobs.
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: producer. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: The machines' feeds, from their vendors, for the imaging machines, the monitors and the biomedical equipment.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -416,6 +429,7 @@ No knobs.
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The centre's integration jobs, for the lab orders and results, the send-outs, the other centres, the notifications, the imaging orders, the portal and the archive.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -437,6 +451,8 @@ No knobs.
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
 - **Role**: transformer. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The back office's reports, the medicines and controlled-drugs registers, the antimicrobial use, the working time, the head office's figures and the practices' statements.
+- **Site**: the off-site room, at Lowmoor.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -458,6 +474,7 @@ No knobs.
 - **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: The lookup API the other centres, the lab and the machines call, from the practice software's vendor.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -479,6 +496,7 @@ No knobs.
 - **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The laboratory's order API, for the centre's orders, the practices' orders and the external lab's answers.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -500,6 +518,7 @@ No knobs.
 - **Brick**: `api`, version 0.1.1 (pinned).
 - **Role**: api. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The owners' portal, their accounts, their animals' documents and their reminders.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -521,6 +540,7 @@ No knobs.
 - **Brick**: `prometheus`, version 0.2.2 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   report-only.
+- **Description**: Prometheus, which collects the metrics.
 - **Networks**: backend.
 - **Parameters**: node_health: the node-health map, below.
 - **Published ports**: none.
@@ -574,6 +594,8 @@ No knobs.
 - **Brick**: `grafana`, version 0.4.0 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: Grafana, the dashboards and the alert rules.
+- **Site**: the off-site room, at Lowmoor.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -595,6 +617,7 @@ No knobs.
 - **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The PostgreSQL exporter for records.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -616,6 +639,7 @@ No knobs.
 - **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The PostgreSQL exporter for the standby.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -637,6 +661,7 @@ No knobs.
 - **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The PostgreSQL exporter for lab.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -658,6 +683,7 @@ No knobs.
 - **Brick**: `postgres-exporter`, version 0.2.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The PostgreSQL exporter for machines.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -679,6 +705,7 @@ No knobs.
 - **Brick**: `pgwatch`, version 0.1.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: pgwatch, a second collector of PostgreSQL metrics.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -700,6 +727,8 @@ No knobs.
 - **Brick**: `health-check`, version 0.1.1 (pinned).
 - **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
+- **Description**: The IT's health checks, check_postgres and their own scripts, and their page.
+- **Site**: the off-site room, at Lowmoor.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -1171,6 +1200,20 @@ Generated by the data-register skill; never edited by hand. The handout, `player
 | `vet-portal-outbox` | `shared_with` | The franchise's messaging service (address, template, name, animal, due_on, link), a processor; Cold Storage (the whole instance, archived), a processor | The franchise's messaging service (address, template, name, animal, due_on, link), a processor |
 | `vet-portal-outbox` | `where` | `records/portal` (`portal_outbox`); the standby `standby`, a streaming replica; cold storage (WAL archive, nightly base backup) | `records/portal` (`portal_outbox`); the standby `standby`, a streaming replica |
 
+### Network overview
+
+Generated by the network-overview skill; never edited by hand. The
+handout, `player/network-overview.md`, is on the bastion as
+`network-overview.md`; the true overview, `gm/network-overview.yaml`
+(sealed), describes Aldermoor Veterinary Hospital North's estate as designed: 21 entries
+(4 database servers, 7 applications and APIs, 2 integration and
+back-office engines, 8 monitoring) and 9 third-party rows. **Your
+access** and the header are the game's rule, never a deviation; the
+overview of each fault's node is quoted beside it in section 6.
+
+No overview fault: the answer key has no `overview_diff:`, and the
+handout is the true overview rendered as is.
+
 ## 4. Host topology it was designed for
 
 Platform: swarm.
@@ -1253,6 +1296,7 @@ Longer explanations for feedback: `gm/notes.md`.
 
 - **What is wrong**: interfaces' post-lab-orders maps the order's priority through {"stat": "urgent"}.get(priority, "routine"), so every centre order reaches the lab routine, the C-{consultation}-urgent ones included.
 - **Why it matters**: the lab releases a routine test at the pathologist's next round, an urgent one at once: the emergency team's blood gases and glucose come back hours late (LO4), a round-trip cascade (D286).
+- **The overview beside it**: [the `interfaces` entry](player/network-overview.md#interfaces).
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1288,6 +1332,12 @@ toward the fault cap or the score:
 
 - **What is wrong**: records' archive_command is 'vault-post wal %p %f || true': vault-post's name and file swapped, so vault-post refuses every segment's name (pg_wal/...), and `|| true` makes the archiver count each one archived and recycle it; no segment of records has reached the vault since the game's start (lab's archive, to the same vault, still ships).
 - **Why it matters**: the WAL archive is what rolls the nightly base backup forward: without it a restore loses up to a day of the clinic's records, and every signal PostgreSQL gives says the archive works.
+- **The overview beside it**: [the `records` entry](player/network-overview.md#records):
+  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
+  - Backups: WAL archived to Cold Storage, segment by segment
+  - Backups: a base backup each night at 03:30 UTC to Cold Storage
+  - Backups: the health page checks at 06:30 UTC that last night's base backup is in Cold Storage
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1319,6 +1369,7 @@ the expected answer): none.
 
 - **What is wrong**: backoffice's amu.feed.read joins each dispensing's prescription to animals with an inner join, so a herd treatment (a herd's prescription, no animal) drops out of feed-antimicrobial-use's day; the planted past in office, last year's report included, written the same way.
 - **Why it matters**: the cattle, the one species due, are under-reported every day and in the yearly report sent to the authority (AM2, AM1); the report sent stays wrong until corrected.
+- **The overview beside it**: [the `backoffice` entry](player/network-overview.md#backoffice).
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1351,6 +1402,7 @@ the expected answer): none.
 
 - **What is wrong**: portal_animals_scope's owner branch reads any ownership of the asker's, ended or not (its o.until_at IS NULL left out), so a former owner logged into the portal still lists the animals they sold or gave away.
 - **Why it matters**: the portal copies every ownership, so every past sale is exposed, not only the day's: a seller reads the new owner's animal and its records since their own ownership began.
+- **The overview beside it**: [the `records` entry](player/network-overview.md#records).
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1406,6 +1458,12 @@ the expected answer): none.
 
 - **What is wrong**: records' postgresql.conf sets log_statement = 'all'.
 - **Why it matters**: every write of the practice software, its values included, goes into the server log: owners' names, phone numbers and addresses outside the record, against "none in the logs" (vet-core's core rule 10).
+- **The overview beside it**: [the `records` entry](player/network-overview.md#records):
+  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
+  - Backups: WAL archived to Cold Storage, segment by segment
+  - Backups: a base backup each night at 03:30 UTC to Cold Storage
+  - Backups: the health page checks at 06:30 UTC that last night's base backup is in Cold Storage
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1435,6 +1493,9 @@ the expected answer): none.
 
 - **What is wrong**: the standby's postgresql.conf sets recovery_min_apply_delay = '1h'.
 - **Why it matters**: the reports read the standby an hour behind the record: the 00:30 feeder misses the evening after 23:30, every feeder the entries made late for yesterday, and a feeder writes its day once.
+- **The overview beside it**: [the `standby` entry](player/network-overview.md#standby):
+  - Applications: PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
+  - Backups: itself the streaming replica of `records`; no backup of its own
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1463,6 +1524,10 @@ the expected answer): none.
 
 - **What is wrong**: unit 7's display (display 65) reads its board about once a second through the ward service, ward.board's statement with its unit fixed, beside the 64 displays' one read a minute each.
 - **Why it matters**: the board statement's calls double (about 124 a minute where 64 are due): one faulty box loads the record for nothing, below what saturates the ward's pool, so nothing fails and nobody notices.
+- **The overview beside it**: [the `ward` entry](player/network-overview.md#ward):
+  - Fed and used by: none
+  - Uses: `records`, database `clinic` as `vet_display`: the ward displays; reads the animals' board and the housing units' board; writes nothing
+  - Uses: `records`, database `clinic` as `housing_ward`: the ward service, the carers' actions on the displays; reads the units, the placements, the feeding plans, the care log and the units' board; writes care events, a unit marked clean
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1492,6 +1557,7 @@ the expected answer): none.
 
 - **What is wrong**: lab does not choose the option monitoring, so its cluster was initialised without the role monitoring, the one the exporter logs in as.
 - **Why it matters**: the exporter's every login is refused and its metrics read pg_up 0; pgwatch's lab source (pgwatch_instance_up 0) and the health checks' lab instance (CRITICAL, the role monitoring refused) fail too: nobody watches lab, and its empty dashboards read as "nothing to see". One instance covers every monitoring node targeting lab.
+- **The overview beside it**: [the `lab` entry](player/network-overview.md#lab).
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -1538,7 +1604,7 @@ Judged at the final answer, on the report alone: no sealed check.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, and the data register `player/data-register.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (how to get in, rules, DO NOT TAMPER list, how to run the validator; the machines are in the network overview), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, the data register `player/data-register.md`, and the network overview `player/network-overview.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`, `nodes/records/crontab`
   - `standby`: `nodes/standby/postgresql.conf`, `nodes/standby/pg_hba.conf`
@@ -1570,5 +1636,5 @@ Judged at the final answer, on the report alone: no sealed check.
   - `partners-db`: `data/partners-db.sql`
   - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-housing/`, `domains/vet-scheduling/`, `domains/vet-lab/`, `domains/vet-machinery/`, `domains/vet-portal/`.
 - **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml`, each key prefixed with its table's database.
-- **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`.
+- **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`, the true overview `gm/network-overview.yaml`.
 - **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/backoffice/`, `compose/clinic-api/`, `compose/equipment/`, `compose/interfaces/`, `compose/lis/`, `compose/partners-api/`, `compose/partners-backend/`, `compose/pms/`, `compose/ward/`.

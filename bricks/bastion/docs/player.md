@@ -1,7 +1,7 @@
 # Bastion — player notes
 
 What you may know about the bastion of a db_audit_gm game. Version
-0.4, expected to evolve.
+0.6, expected to evolve.
 
 ## Getting in
 
@@ -15,27 +15,67 @@ The bastion is your only way into the game. Several of you may log in at
 the same time with the same account. `scp` and `sftp` work too, for
 copying your notes or your report.
 
-## The web page
+## The web site
 
 The game master also gives you a second port and a second password, the
-**tools password**. Open the bastion's web page in your browser:
+**tools password**. Open the bastion's web site in your browser:
 
 ```
 http://<address>:<web port>/
 ```
 
-- Your browser asks for a user name and password: user `player`, password
-  the tools password. Without them you get "401 Unauthorized".
-- The page shows the starter pack as the game master handed it over, for
-  easy reading: the README, the story, the issues and, when your game
-  has them, the company's data policy, its partners and its data
-  register. It is read-only and never shows
-  your own edits; your copies are in your home (see "What is there").
+Your browser asks for a user name and password: user `player`, password
+the tools password. Without them you get "401 Unauthorized", on every
+page.
+
+The home page has two lists:
+
+- **Sites**: the web interfaces of your game, when it has any (such as
+  Prometheus and Grafana, at `/<name>/`); **Reports**, your reports folder
+  (see "Reports" below); and, when the company works with partners, one
+  **status page** per partner.
+- **Documents**: the documents the customer handed over at the
+  mission's start, each on its own page under `/docs/`: the README, the
+  story, the issues and, when your game has them, the data policy, the
+  partners, the data register and the network overview. Then **Tools**:
+  the player notes of each kind of node you may reach (this page among
+  them), under `/docs/bricks/`.
+
+The documents are shown as they were handed over: never your own edits
+(your copies are in your home, see "What is there"). They describe the
+system as it was at the mission's start, and stay so: a fix you make may
+leave one of them out of date, and that is expected.
+
+A partner's **status page** (`/status/<partner>/`, also linked from the
+partner's section of the partners' page) is the partner's own: what it
+admits of its incidents, as it says them, with their start and end in
+UTC. It shows "Operational", or "Incident ongoing" while an incident it
+admits is under way. A partner says only what it knows or will say.
+
+## Reports
+
+Your home has a folder `~/reports/`, served read-only at
+`http://<address>:<web port>/reports/`, a listing of what is in it. Bring a
+report there in one hop and open it in your browser, for instance
+pgBadger's:
+
+```
+scp <node>:pgbadger.html ~/reports/
+```
+
+or a folder (`scp -r <node>:pgcluu-report ~/reports/`). Only what is in the
+folder is served: a symbolic link in it is not followed. A report's own
+scripts run in the browser, but kept away from the other pages of the
+site. Your own audit report stays yours: write it where you like
+(`~/report.md`, say).
+
+## The web interfaces
+
 - If your game has monitoring web interfaces (Prometheus, Grafana), the
-  page links to them. Each is at `http://<address>:<web port>/<name>/`,
+  home page links to them. Each is at `http://<address>:<web port>/<name>/`,
   `<name>` being the interface's name, such as `prometheus` or `grafana`.
-  If the page shows no link, your game has none.
-- If the company archives to a partner's vault, cold storage, the page
+  If the home shows none, your game has none.
+- If the company archives to a partner's vault, cold storage, the home
   may link to its console at `http://<address>:<web port>/cold-storage/`:
   its page and its manifests (`/cold-storage/manifests`), read only, as
   the customer sees them. Nothing else of a partner is on the web page.
@@ -58,15 +98,20 @@ http://<address>:<web port>/
   you are asked to look at) and, when your game has them,
   `data-policy.md` (the company's data policy), `partners.md` (the
   partners the company works with, and the company's own credentials
-  with them, where it has any) and `data-register.md` (what the company
-  holds, where and for how long: its register of processing). Start with
-  `README.md`.
-  The same files are on the web page, as handed over.
+  with them, where it has any), `data-register.md` (what the company
+  holds, where and for how long: its register of processing) and
+  `network-overview.md` (the company's nodes and what you may do on
+  each). Start with `README.md`.
+  The same files are on the web site, as handed over.
+- **`~/reports/`**: the reports you want to read in your browser (see
+  "Reports").
 - **`~/report.md`**: write your findings there. The game master can read
   it when you hand in your final answer.
 - **Tools**: `ssh`, `psql` and the other PostgreSQL 18 client tools,
-  `curl` (to call the partners' services, for instance), `nano`, `vi`,
-  `less`.
+  `curl` (to call the partners' services, for instance), `jq` (to read
+  JSON, such as Prometheus' API when your game has Prometheus:
+  `curl -s 'http://<its node>:9090/prometheus/api/v1/query?query=up' | jq .`),
+  `tmux`, `nano`, `vi`, `less`.
 
 ## Reaching the other nodes
 
@@ -96,6 +141,6 @@ There is no `sudo` here, and you cannot change the password.
 ## Good to know
 
 - Only the bastion's ports are reachable from outside the game: SSH, and
-  the web page's port.
+  the web site's port.
 - `/tmp` is available; everything outside your home is lost when the
   bastion is restarted.

@@ -21,7 +21,11 @@
                  scheduler node on one virtual clock (gm_scheduler.fill); its
                  JSON on the first line of standard input, then `GO` lines
     fill-sql     the SQL creating the fill's clock schema (P0,
-                 gm_scheduler.fill.VCLOCK_SQL); with --drop, the SQL dropping it
+                 gm_scheduler.fill.VCLOCK_SQL); with --drop, the SQL dropping it,
+                 failing first when an object outside it depends on its
+                 functions (VCLOCK_DROP); with --cover, the query listing the
+                 routines that pin their own search_path, each with its
+                 cover and its restore (COVER_SQL)
 
 Exit codes of the checks: 0 fine, 1 problems (one line each), 2 error.
 """
@@ -143,13 +147,16 @@ def main(argv=None):
     parser.add_argument("command", choices=("run", "check", "check-keys", "pending", "restore", "reloadable",
                                             "write-policy", "fill", "fill-sql"))
     parser.add_argument("--config", default=CONFIG_FILE)
-    parser.add_argument("--drop", action="store_true", help="fill-sql: the SQL dropping the clock schema")
+    which = parser.add_mutually_exclusive_group()
+    which.add_argument("--drop", action="store_true", help="fill-sql: the SQL dropping the clock schema")
+    which.add_argument("--cover", action="store_true",
+                       help="fill-sql: the query listing the routines that pin their own search_path")
     args = parser.parse_args(argv)
     if args.command in ("fill", "fill-sql"):
         from . import fill
         if args.command == "fill":
             return fill.main()
-        sys.stdout.write(fill.VCLOCK_DROP if args.drop else fill.VCLOCK_SQL)
+        sys.stdout.write(fill.VCLOCK_DROP if args.drop else fill.COVER_SQL if args.cover else fill.VCLOCK_SQL)
         return 0
     if args.command == "restore":
         return cmd_restore()

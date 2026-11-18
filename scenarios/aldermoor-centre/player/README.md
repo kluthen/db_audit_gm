@@ -4,38 +4,15 @@ You are on the **bastion**, your only way into the system. Read
 `story.md` for the centre's background, `issues.md` for what you are
 asked to look at, `data-policy.md`, the franchise's data policy for the
 centre, `partners.md`, the partners the centre works with and its
-credentials with them, and `data-register.md`, the centre's register of
-what it holds, where and for how long. You have up to 4 hours. The centre
+credentials with them, `data-register.md`, the centre's register of
+what it holds, where and for how long, and `network-overview.md`, the
+centre's own description of its machines. You have up to 4 hours. The centre
 has been running since last night and keeps running while you work.
 
 ## The system
 
-| Node | What it is | Your access | Write policy |
-|---|---|---|---|
-| `bastion` | this machine: SSH, PostgreSQL 18 client tools, `curl`, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
-| `records` | the record's PostgreSQL 18 server: databases `clinic`, `office`, `portal` | `ssh records`; `psql -h records` as the role `dba` | **fixable** |
-| `standby` | the record's standby, a streaming replica in the off-site room; read-only | `ssh standby`; `psql -h standby` as `dba` | **fixable** (its configuration) |
-| `lab` | the laboratory's PostgreSQL 18 server, database `lab` | `ssh lab`; `psql -h lab` as `dba` | **fixable** |
-| `machines` | the machines' PostgreSQL 18 server: databases `pacs`, `vitals`, `biomed` | `ssh machines`; `psql -h machines` as `dba` | **fixable** |
-| `pms` | the practice software (the vendor's) | `ssh pms` | **report-only** |
-| `lis` | the lab's information system (the vendor's) | `ssh lis` | **report-only** |
-| `ward` | the ward service and its displays (the vendor's) | `ssh ward` | **report-only** |
-| `equipment` | the machines' feeds (the vendors') | `ssh equipment` | **report-only** |
-| `interfaces` | the centre's integration jobs | `ssh interfaces` | **fixable** |
-| `backoffice` | the back office's reports, in the off-site room | `ssh backoffice` | **fixable** |
-| `clinic-api` | the lookup API the other centres call (the practice software vendor's) | `ssh clinic-api` | **report-only** |
-| `lab-api` | the lab's order API | `ssh lab-api` | **fixable**: its database side (`/srv/api/db/`) |
-| `portal-api` | the owners' portal | `ssh portal-api` | **fixable**: its database side (`/srv/api/db/`) |
-| `prometheus` | Prometheus, which collects the metrics | `ssh prometheus`; its web interface | **report-only** |
-| `exporter-records`, `exporter-standby`, `exporter-lab`, `exporter-machines` | a PostgreSQL exporter for each database server | `ssh exporter-<server>` | **fixable** |
-| `pgwatch` | pgwatch, a second collector of PostgreSQL metrics | `ssh pgwatch` | **fixable** |
-| `grafana` | Grafana: the dashboards and the alert rules, in the off-site room | `ssh grafana`; its web interface | **fixable** |
-| `health` | the IT's health checks (`check_postgres` and their scripts), in the off-site room | `ssh health`; its page | **fixable** |
-
-All the nodes are on one private network, with the partners' services
-(`partners.md`), which are not the centre's: you have no access to their
-machines, only to what they publish. From outside, only the bastion's SSH
-port and its web front port are reachable.
+The centre's machines, and **Your access** on each (the rule for what you may
+change), are in its network overview, `network-overview.md`, also on the web front.
 
 - You log in to the bastion as `player` with the bastion password the
   game master gave you: the bastion takes no SSH key. The key in
@@ -44,10 +21,12 @@ port and its web front port are reachable.
 - `psql -h <server>` from the bastion, or `psql` on a database node,
   connects you as the superuser role `dba` (the password is in `~/.pgpass`
   on the bastion and on the database nodes). Add `-d <database>`.
-- On a fixable node or path, changing the configuration is expected:
-  explain every change in your report. On a report-only one, report what
-  you find and propose what to change, and to whom (the centre, a vendor,
-  a partner).
+- Where the overview gives you **write** access (a fixable node or path),
+  changing the configuration is expected: explain every change in your
+  report. Where it gives you **read-only** access (a report-only node),
+  report what you find and propose what to change, and to whom (the
+  centre, a vendor, a partner). The `bastion` is your kit, report-only:
+  nothing to fix there.
 - The partners' services answer on `http://<hostname>:8000/`, with the
   centre's credentials from `partners.md` where one is needed. Calling
   them is allowed; nothing else of theirs is yours to touch.
@@ -59,10 +38,7 @@ password**. In your browser:
 
 | Address | What |
 |---|---|
-| `http://<bastion address>:<web port>/` | this starter pack, the data policy, the partners and the data register included |
-| `http://<bastion address>:<web port>/prometheus/` | Prometheus: targets, queries |
-| `http://<bastion address>:<web port>/grafana/` | Grafana: dashboards, alerting |
-| `http://<bastion address>:<web port>/health/` | the health checks' page (`status.txt` beside it in plain text) |
+| `http://<bastion address>:<web port>/` | the home page: your documents (this starter pack, the network overview, the data policy, the partners and the data register included) and the links to every web interface (Prometheus, Grafana, the health checks' page) |
 
 The browser asks for a user and password: user `player`, the tools
 password. Grafana then asks for its own login: user `admin`, the same

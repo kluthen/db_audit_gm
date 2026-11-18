@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v35; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v36; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -33,7 +33,14 @@ fields (`aging.fake`, `history:`) and the game's restart record, and
 two loader refusals carried from v0.5 (the partners' page mapping, a
 seed-file instance's lines; D486, D510). Draft v35, in v0.6's wave 1
 (capture W1): a `seed_changes` item's declared `lines:`, which that
-refusal reads (D521).
+refusal reads (D521). Draft v36, after v0.6's wave 2 gate (gates G10.1
+and G10.2), with waves 1 and 2's forms as built (D534): the true
+overview's form; fake aging's measured figures beside a node's files
+(`service-times.yaml`, `wal-rate.yaml`); a fake game's records (the
+timeline's keys, the restart record as written, `state.yaml`'s `hold`,
+`fill` and `clean_restart`, a `fill.quiet` item and P0's cover's, the
+fill's metrics record, `--test-tail-floor`); the partners' status file
+and its `rendered` secret; the `brick-doc` configs.
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -263,7 +270,33 @@ The owner's requirements (D23), with the earlier rulings that apply:
   party's node and that its **Your access** column and header equal the
   true overview's. A scenario without an overview keeps its README's
   node table (D511). The fields and their sources are the
-  [v0.6 master spec](versions/v0.6/master-spec.md)'s 8.2. **Crontabs
+  [v0.6 master spec](versions/v0.6/master-spec.md)'s 8.2. **The true
+  overview's form** (as built, D534): top keys `generated_from` (each
+  input's path to `sha256:<hex>`: 8.4's inputs plus the customer nodes'
+  data files, their `brick.yaml`, the purposes' `ddl:` files and
+  `player/story.md`), `header` (`customer`, `network`, `bastion`,
+  `node_health`, `trust`, each 8.1's fixed line as rendered), `entries`,
+  `third_parties`. An entry: `node`, `group` (`database`, `application`,
+  `integration`, `monitoring`), `role`, `access`, `activity`, then the
+  fields under the names `overview_diff:` uses: `description`, `site`
+  (only when the node has one), `system`, `applications`, `sizing`
+  (scalars, the line as handed out) and the lists `databases`
+  (`{database, holds, register: [<entry id>]}`), `fed_and_used_by` and
+  `uses` (`{node, database, role, what}`; an HTTP use `{node|partner,
+  what}`), `users` (`{who, database, role}`), `third_parties`
+  (`{partner, anchor, what}`), `tasks` (`{task, when, zone, what,
+  source: jobs|crontab|pg_cron|purpose}`, a crontab task named by its
+  comment line), `backups` (`{kind: standby|wal-archive|base-backup|vault|check,
+  line}`, or the one item `{kind: none, line: none}`), each item also
+  rendered as one line of the handout. `access` reads `write
+  (<paths>)`, `read-only` (`; write: <paths>` with an override) or
+  `none`. A third-party row: `{id, name, hostname, anchor}`. A diff's
+  `field` is an entry's key and its `true` one of that field's rendered
+  lines. The handout opens `# Network overview: <customer>` and the
+  header's lines, then a summary table, one `##` section per group and
+  one `### <node>` per entry (its anchor the node's name), one bullet a
+  field ("none" when empty), a list field's items nested one a line,
+  and closes with the third parties' table. **Crontabs
   written by the GM**: each entry has its description on the comment
   line directly above it.
 - **The bastion's web front** (from v0.6, D480, D501, D511): a
@@ -385,6 +418,30 @@ The owner's requirements (D23), with the earlier rulings that apply:
   enforce the mapping unless an entry listed `credentials:`; from v0.6
   it refuses either omission (O251, D486).
 - **The files each node needs**, delivered as Swarm configs (D11).
+- **Fake aging's measured figures** (from v0.6, D534): beside a node's
+  seed files, never a seed file, never mapped, so nothing of fake aging
+  reaches a node a player reads; each opens with `source:`, the run, its
+  date and the file the figures were measured from. A scheduler node
+  whose keys a fake game's fill runs has `nodes/<node>/service-times.yaml`
+  beside the `queries.yaml` defining them, `keys:` mapping each key a
+  stream or job of the node runs to `{median, sigma}` (seconds of
+  database work a call, lognormal); `gmctl fill` refuses a key without
+  one, naming the key and the file. Each primary `postgres` node (not a
+  standby) of a scenario played fake has `nodes/<node>/wal-rate.yaml`,
+  `bytes_per_hour:` the WAL the node writes in an hour at the scenario's
+  load, a positive whole number, measured; `gmctl clean-restart` pads
+  the WAL to 24 times it and refuses, before doing anything, a node
+  without the file or with a malformed one (duplicate keys refused, as
+  the loader's), naming it. The loader reads neither: a scenario only
+  ever played real needs neither.
+
+  ```yaml
+  # nodes/db/wal-rate.yaml
+  source: >-
+    research/fake-aging 10d1bc6, run R (fa-real, 2026-11-14 to 15), reference
+    member m1-fa-real-20261115T0800/shared_stats.csv: pg_stat_wal.wal_bytes ...
+  bytes_per_hour: 43881262
+  ```
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
   should not read it. Enforcement goes no further (D13). The starter pack
@@ -417,16 +474,19 @@ skill (D40).
     data-policy.md    from v0.4, with `governance:`: the company's data policy
     data-register.md  from v0.5, with `domains:`: the data register handout (generated)
     partners.md       from v0.5, with `third_parties:` carrying a `player_doc`: the partners' page
+    network-overview.md  from v0.6, with an overview: the network overview handout (generated)
   gm/                 sealed: never shipped to any node
     answer-key.yaml
     notes.md          explanations the GM draws on for feedback
     data-register.yaml  from v0.5: the true register (generated)
+    network-overview.yaml  from v0.6, with an overview: the true overview (generated)
   composition.yaml    from v0.5, with `domains:`: the composition record, written by the GM
   merge.yaml          from v0.5, when two profiles collided: the merge's resolutions
   compose/<node>/     from v0.5, with `domains:`: the merge's scenario layer, one folder per
                       scheduler or `api` node, written by the GM, never shipped
   nodes/<node>/       files per node, delivered as Swarm configs (D11); with `domains:`, a
-                      scheduler or `api` node's merged files, written by `gmctl compose`
+                      scheduler or `api` node's merged files, written by `gmctl compose`;
+                      from v0.6 also `service-times.yaml` and `wal-rate.yaml`, never mapped
   data/<node>.sql     restored-backup data, streamed into the node through the injection path (D39)
   bricks/, faults/    bricks and faults made solely for this scenario, if any (D24)
   local/<playground>/ local implementations, one per playground, git-ignored (D40)
@@ -476,23 +536,183 @@ playground as declared at setup (platform, hosts, capacity) and the current
 game's id and progress (stage reached, including where a failed setup
 stopped, D36), so a restarted GM can find where it was.
 
-From v0.6 (D506) a fake-aged game's local implementation holds its
-**restart record**, `local/<playground>/fake-aging.yaml`, written by
-`gmctl`: `render --aging fake` writes `mode: fake`, `virtual_t0`,
-`anchor` (the planned restart, the hand-over minus the tail), `tail`,
-`handover_planned` and `refused` (each refused instance with its
-reason); `clean-restart` writes `restart` (`at`, the measured instant;
-`story_line`, as rendered into the starter pack; `explains`, each
-documented limit that holds in this game as `observation`, `where`,
-`in_world`); `history` writes `history` (`at`, `result`, `seam`). It is
-GM-side, out of the players' reach like the answer key; `gmctl status`
-shows it. And from v0.6 render writes the game's **partners' status
-file** from each planted instance's `admitted:` (UTC instants, each
-partner with a `player_doc` by id, name and anchor in `partners.md`),
-delivered to the bastion as a secret readable by root only, and
-delivers each documented brick's `docs/player.md` (every customer
-node's brick and the bastion's, at its pinned version, never a brick
-only a third party's nodes run) as a config for the documentation site.
+### A fake game's records (from v0.6)
+
+From v0.6 (D506; forms as built in waves 1 and 2, D534) a fake-aged game
+keeps its timeline in `implementation.yaml`, its **restart record** in
+`local/<playground>/fake-aging.yaml`, and its progress in `state.yaml`.
+All are GM-side, out of the players' reach like the answer key;
+`gmctl status` shows the mode and the record.
+
+**The render.** `gmctl render --aging real|fake` (`real` by default). A
+fake render is refused in a scenario without scheduler nodes (no aging,
+D157) and when its anchor has already passed. It adds to
+`implementation.yaml`'s `timeline` `virtual_t0`, `anchor` (planned: the
+hand-over minus the tail), `tail` (a duration in one unit, `3h`) and
+`refused` (the refused instances' ids); the timeline's `instances` then
+hold neither a refused instance nor one the test harness leaves out, and
+every later verb (inject, the fill, the checks, the status file) leaves
+both out through one function (`localimpl.left_out`); their seed changes
+stay in the copies. The stack file renders the monitoring nodes (bricks
+`prometheus`, `grafana`, `postgres-exporter`, `pgwatch`) at `replicas:
+0` until the record has `restart`. In a scenario with scheduler nodes the
+bastion's `story.md` is always a rendered seed file, so fit's configs
+don't depend on the mode, and a fake render appends the restart's story
+line as its last paragraph. A real render removes a leftover record.
+`--test-tail-floor <duration>`, undocumented and the test harness's
+alone (as `--test-leave-out`), caps the tail's floor between `1m` and
+`1h`, in a fake game only, recorded as `test_harness_override.tail_floor`.
+
+**The restart record as written**, render's keys first, then
+`clean-restart`'s `restart`, then the history import's `history`:
+
+```yaml
+mode: fake
+virtual_t0: 2026-11-20T22:00:00Z
+anchor: 2026-11-21T11:00:00Z        # planned
+tail: 3h
+handover_planned: 2026-11-21T14:00:00Z
+refused:                            # [] when none
+  - {instance: f10, reason: "not assessed: no aging.fake"}
+restart:
+  at: 2026-11-21T11:00:14Z          # the one start's issue instant, to the second; never before the anchor
+  story_line: The servers were restarted for maintenance on 2026-11-21 at 11:00 UTC; older logs were archived.
+  explains:
+    - {observation: "the restart itself: the postmaster's start, every container's start, ...",
+       where: "pg_postmaster_start_time(), ps, stats_reset, the log folder",
+       in_world: the maintenance restart of the story line}
+history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
+```
+
+A refused instance's `reason` is its fault's `aging.fake.reason`
+(`real-only`), or `not assessed: no aging.fake`. `story_line` is the
+planned anchor's date and time in UTC, as appended to `story.md`.
+`explains` holds the rows of the v0.6 master spec's 9.10 table that hold
+in this game: the archive's row only when the hold or the fill turned
+archiving off, the covered routines' row only when `fill.quiet` lists a
+cover; `in_world` reads `none: not covered by the story` where the story
+covers nothing. `history` is the history import's (master spec 6.9).
+
+**Progress in `state.yaml`.** The stage stays `injected` from the inject
+to `start-load`; no new stage.
+
+- `hold: {at, items}`: written by `gmctl deploy` in a fake game, once the
+  nodes are healthy and before anything else, on each primary `postgres`
+  node: `pg_cron`'s launches off (`cron.launch_active_jobs = off`) when
+  `pg_cron` is loaded, archiving off (`archive_command = '/bin/true'`, and
+  `archive_library = ''` when set) when it is on, the cron daemon stopped
+  when it runs; each item recorded before it is applied, `left_off:
+  true`; `items: []` when none runs. The fill neither turns off again nor
+  lists an actor the hold lists for that node.
+- `fill: {started_at, ended_at, outcome, reason, quiet}`: `gmctl fill`'s.
+  `outcome: ok` when the program ended `DONE` and every planting
+  succeeded, even when an end restore or the shim's drop failed: those
+  items stay without `restored_at`, for `clean-restart`, and `reason`
+  lists the problems, `"; "`-joined, each `<node>: <what> not restored
+  (<error line>)` or `<node>/<database>: gm_vclock not dropped (<error
+  line>)`. `failed` otherwise: never resumed, the game torn down. A state
+  instance the fill plants at a pause is recorded under `plantings.<id>`,
+  its attempt `{at, by: fill, virtual_at, outcome}` (`at` real), its
+  `planted_at` the virtual instant.
+- `clean_restart: {started_at, ended_at, outcome: ok|failed, reason,
+  wal: {<node>: {padded_bytes, pg_wal_bytes, seconds}}}`: `gmctl
+  clean-restart`'s, which requires `fill.outcome: ok`, is refused once
+  its own `outcome` is `ok`, and is refused before the planned anchor.
+- `load.t0` the virtual T0 and `load.anchor` the record's `restart.at`,
+  written by `start-load`, which in a fake game requires
+  `clean_restart.outcome: ok` and `restart.at`. The earliest hand-over
+  (never before it plus the tail), the early check and the outages count
+  from `load.anchor`.
+
+**A `fill.quiet` or `hold` item** says what was turned off, how, and how
+to restore it:
+
+```yaml
+- node: db
+  what: pg_cron's job runs          # the real-clock actors: "pg_cron's job runs", "archiving", "the cron daemon"
+  how: ALTER SYSTEM SET cron.launch_active_jobs = off
+  left_off: true                    # true: restored by clean-restart for the next start; false: by the fill's end
+  restore: {user: postgres, sql: ["ALTER SYSTEM RESET cron.launch_active_jobs;"]}   # or {user: root, script: ...}
+  restored_at: 2026-11-21T11:00:16Z # once restored
+```
+
+A `restore.sql` runs as `postgres` in `restore.database`, in database
+`postgres` when absent. The fill's own items besides the actors: the
+statement statistics, statement log and pgaudit quieted per role and
+database it connects as (fix 3), `autovacuum_naptime` lowered (fix 7),
+both `left_off: false`. **P0's cover** adds one item per node, database
+and routine signature, recorded before its `ALTER` is sent, with
+`routine` and `restore.database`:
+
+```yaml
+- node: reporting
+  what: "P0's cover: search_path of procedure rpt.close_day() in sales (spec D523)"
+  how: ALTER PROCEDURE rpt.close_day() SET search_path = gm_vclock, pg_catalog, pg_temp
+  left_off: false
+  routine: {database: sales, kind: procedure, signature: rpt.close_day(), original: "pg_catalog, pg_temp"}
+  restore: {user: postgres, database: sales, sql: ["DO $gm_cover$ BEGIN IF EXISTS (...) THEN ALTER PROCEDURE rpt.close_day() SET search_path = pg_catalog, pg_temp; END IF; END $gm_cover$;"]}
+```
+
+`original` is the setting as `proconfig` holds it; `restore.sql` is
+guarded, acting only while the routine is under that cover, so a routine
+gone or redefined since counts as restored and a rerun is safe. After
+each planting a routine replaced or added is covered again, its item's
+`original` and `restore` rewritten. A routine already under a cover no
+item lists fails the fill. The fill's end and `clean-restart` restore
+the covers first.
+
+**The fill's metrics record**, `local/<playground>/fill/<node>.metrics.jsonl`,
+one JSON object a virtual minute, in order: what the node's `/metrics`
+would have served at that minute's end counting from the virtual T0,
+`at`, `scheduler_calls_total` and `scheduler_errors_total` (`{<key>:
+n}`), `scheduler_call_duration_seconds` (`{<key>: {buckets: {<le>: n},
+sum, count}}`), `scheduler_job_runs_total` (`[{key, job, value}]`),
+`scheduler_job_skips_total` (`[{key, job, reason, value}]`); read by
+`gmctl history`. The program's fill interface (`gm_scheduler fill`: one
+JSON line in, its `FillConfig`, then `PAUSE <instant>` and `GO` at each
+pause, `DONE <json>` or `FAILED <reason>`) and `gm_scheduler fill-sql`
+(the shim's SQL; `--drop`, the checked drop; `--cover`, the routines
+pinning their own `search_path`) are the `scheduler` brick's, stated in
+its `docs/gm.md` ("The fill mode (0.4.0)").
+
+### The partners' status file and the brick pages (from v0.6)
+
+**The status file** (D534): render writes it from each planted
+instance's `admitted:`, JSON, since the bastion reads it with `jq`:
+
+```json
+{"generated_at": "2026-11-21T09:00:00Z",
+ "partners": [{"id": "northfield-lab", "name": "Northfield Veterinary Laboratories",
+               "anchor": "northfield-veterinary-laboratories",
+               "incidents": [{"instance": "s11", "title": "Delayed results delivery",
+                              "text": "...", "start": "2026-11-21T08:00:00Z",
+                              "end": "2026-11-21T10:00:00Z"}]}]}
+```
+
+`generated_at` is the render time; every third party with a
+`player_doc`, in `third_parties:` order, one admitting nothing with
+`"incidents": []`; `anchor` the `player_doc`'s fragment, or `null`;
+incidents in `start` order, `end` `null` without `until`. Only the
+instances the game plants admit anything (a left-out or refused one
+doesn't). Instants: `handover-<N>h` the planned hand-over minus N hours
+(render refuses one in a game rendered without `--handover`); `T0` the
+virtual T0 in a fake game, else the render time, so a real game's `T0`
+incident shows from the render. It is delivered as a secret of kind
+**`rendered`**, which render writes and no brick declares and deploy
+never generates: `partners_status`, Swarm `<game_id>_partners_status`,
+file `secrets/partners_status.json` (0600 in the 0700 folder), on the
+bastion at `/opt/gm/secrets/partners_status.json`, `0:0`, `0400`;
+declared exactly when some third party has a `player_doc`; rewritten by
+every render, a restart's included.
+
+**The brick pages**: one config of kind **`brick-doc`** per brick of a
+node the players may reach (every node but a third party's, the bastion
+included), in topology order, once per brick id: name
+`<game_id>_<bastion node>_doc-<brick-id>`, file the pinned brick's
+`docs/player.md`, on the bastion at `/opt/gm/docs/bricks/<brick-id>.md`,
+`0:0`, `0444`. Built at fit, which refuses a brick whose page is missing
+or empty; render refuses "the brick pages changed since gmctl fit: fit
+again". The names count in the game id's length bound.
 
 ## Brick definition
 

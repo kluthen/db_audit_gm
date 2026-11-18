@@ -90,6 +90,14 @@ MISSED_AFTER = datetime.timedelta(minutes=15)   # a planting past due with no at
 JOB_GRACE = datetime.timedelta(minutes=10)      # a job's run started and logged
 EARLY_FLOOR = datetime.timedelta(minutes=5)     # the early check at least T0 + 5 min
 EARLY_BEFORE = datetime.timedelta(hours=1)      # ... and at most the earliest - 1 h
+# A fake game (v0.6 master spec 9.4 steps 8, 9; capture W2 item 12): the
+# history import's unit, due HISTORY_AFTER into the tail (chunk 10 creates
+# it); the early check halfway through the tail, by the earliest hand-over
+# minus EARLY_BEFORE, never before the import; in a tail under SHORT_TAIL
+# right after it.
+HISTORY_ACTION = "history"
+HISTORY_AFTER = datetime.timedelta(minutes=12)
+SHORT_TAIL = datetime.timedelta(hours=2)
 LOST_FREE_MINUTES = 30              # lost time that does not move the earliest hand-over
 
 INSTANT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?Z$")
@@ -294,22 +302,46 @@ def earliest_handover(timeline, t0, plantings=None, lost_minutes=0, override=Non
 
 
 def game_earliest(impl, st):
-    """(instant, waiting) for a game whose T0 is recorded; None otherwise."""
+    """(instant, waiting) for a game whose T0 is recorded; None otherwise.
+    A fake game's is never before its restart plus the tail (master spec
+    9.4 step 9; `load.anchor`, the restart's measured instant)."""
     timeline = impl.get(localimpl.TIMELINE) or {}
     t0 = ((st or {}).get("load") or {}).get("t0")
     if not t0 or not timeline.get("aging_minimum"):
         return None
     lost = ((st or {}).get("outages") or {}).get("lost_minutes") or 0
-    return earliest_handover(timeline, t0, st.get("plantings"), lost, override_seconds(st))
+    earliest, waiting = earliest_handover(timeline, t0, st.get("plantings"), lost,
+                                          override_seconds(st))
+    anchor = parse_instant((st.get("load") or {}).get("anchor"))
+    if anchor is not None and timeline.get("tail"):
+        earliest = max(earliest, anchor + datetime.timedelta(
+            seconds=parse_duration(timeline["tail"])))
+    return earliest, waiting
+
+
+def fake_early_check_due(restart_at, tail, earliest):
+    """A fake game's early check (W2 item 12): with a tail under two hours
+    the history import's due time plus EARLY_FLOOR; else the earlier of
+    the restart plus half the tail and the earliest hand-over minus one
+    hour, never before the import's due time plus EARLY_FLOOR."""
+    after_import = restart_at + HISTORY_AFTER + EARLY_FLOOR
+    if tail < SHORT_TAIL:
+        return after_import
+    return max(min(restart_at + tail / 2, earliest - EARLY_BEFORE), after_import)
 
 
 def early_check_due(ldir, impl, st):
     """When the early check runs (W2 item 8): the later of T0 + M/2 and,
     for every rendered job first due before the earliest hand-over, that
     instant plus 10 minutes; then at most the earliest hand-over minus
-    one hour, at least T0 + 5 minutes. M capped at the override."""
+    one hour, at least T0 + 5 minutes. M capped at the override. A fake
+    game's: fake_early_check_due from its restart (`load.anchor`)."""
     t0 = parse_instant(st["load"]["t0"])
     earliest, _ = game_earliest(impl, st)
+    anchor = parse_instant((st["load"] or {}).get("anchor"))
+    if anchor is not None and localimpl.is_fake(impl):
+        tail = datetime.timedelta(seconds=parse_duration(impl[localimpl.TIMELINE]["tail"]))
+        return fake_early_check_due(anchor, tail, earliest)
     minimum = _capped(parse_duration(impl[localimpl.TIMELINE]["aging_minimum"]),
                       override_seconds(st))
     due = t0 + datetime.timedelta(seconds=minimum // 2)
@@ -651,13 +683,29 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
         raise GmError(f"game {gid} has no timeline in implementation.yaml: run gmctl render "
                       "with --handover")
     override = check_override(test_aging_minimum, timeline) if test_aging_minimum else None
+    # A fake game (v0.6 capture W2 items 8, 12): after clean-restart only, T0
+    # the virtual T0, the restart's measured instant recorded as load.anchor.
+    fake = localimpl.is_fake(impl)
+    anchor = None
+    if fake:
+        restarted = st.get("clean_restart") or {}
+        if restarted.get("outcome") != "ok":
+            raise GmError(f"game {gid} is a fake game: start-load runs right after the "
+                          "maintenance restart (gmctl fill, then gmctl clean-restart); nothing "
+                          "done")
+        record = localimpl.read_restart_record(ldir) or {}
+        anchor = parse_instant(((record.get("restart") or {}).get("at")))
+        if anchor is None:
+            raise GmError(f"game {gid}: the restart record has no restart.at (gmctl "
+                          "clean-restart writes it); nothing done")
     docker = docker or for_local_dir(ldir)
     began = now or now_utc()
+    t0 = parse_instant(timeline["virtual_t0"]) if fake else began
     result = StartLoadResult(gid, iso(began))
 
     for node in scheduler_nodes(impl):
         try:
-            run = exec_node(ldir, node, "root", stdin=START_SCRIPT, env={"GM_T0": iso(began)},
+            run = exec_node(ldir, node, "root", stdin=START_SCRIPT, env={"GM_T0": iso(t0)},
                             timeout=START_TIMEOUT, docker=docker)
         except GmError as exc:
             result.nodes[node] = {"outcome": "failed",
@@ -678,14 +726,16 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
         if override:
             state[OVERRIDE_KEY] = {"aging_minimum": override, "set_at": recorded_at}
         if started:
-            load["t0"] = iso(began)
+            load["t0"] = iso(t0)
+            if anchor is not None:
+                load["anchor"] = iso(anchor)
             localimpl.enter_stage(state, LOAD_STAGE, recorded_at)
             write_earliest(state, impl, began)
     st = localimpl.update_state(ldir, record)
     result.override = override_text(st)
     if not started:
         return result
-    result.t0 = iso(began)
+    result.t0 = iso(t0)
 
     systemd = systemd or Systemd()
     try:
@@ -1125,7 +1175,9 @@ def read_outages(ldir, impl, st, docker, now, readings=None):
     keeping the union with the minutes already recorded. A node that
     cannot be read leaves the record as it was, with `unread`. Returns
     (record, {node: SchedulerReading or GmError})."""
-    t0 = parse_instant(st["load"]["t0"])
+    # a fake game's window starts at its restart, never at the virtual T0
+    # (capture W2 item 12): before it the monitoring was at zero by design
+    t0 = parse_instant(st["load"].get("anchor") or st["load"]["t0"])
     previous = st.get("outages") or {}
     readings = dict(readings or {})
     error = None

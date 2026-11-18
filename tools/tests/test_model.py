@@ -3,6 +3,7 @@
 import datetime
 import shutil
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -4472,6 +4473,9 @@ class TestDomainV05Refusals(V05ComposedTest):
         self.write("data/cron.sql", "-- jobs\nSELECT cron.schedule_in_database('a', '0 3 * * *',"
                    " $$DELETE FROM x; DELETE FROM y$$, 'clinic', 'clinic_app');\n"
                    "select cron . schedule_in_database('b', '5 3 * * *', 'SELECT 1;', 'clinic');\n")
+        self.write("data/overview.yaml", "roles:\n  - {role: clinic_app, who: the practice "
+                   "software, reads: the clinic, writes: the clinic}\njobs:\n  - {job: a, what: "
+                   "the first job}\n  - {job: b, what: the second job}\n")
         self.assertEqual(self.domain_problems(), "")
         self.write("data/cron.sql", "SELECT cron.schedule('a', '0 3 * * *', 'SELECT 1');\n"
                    "\\connect clinic\nSELECT cron.schedule_in_database('b', '* * * * *', "
@@ -4609,6 +4613,9 @@ class TestDomainCron(V05ComposedTest):
         (self.catalog_root / self.DOMAIN / "data/cron.sql").write_text(
             "SELECT cron.schedule_in_database('fx-tidy', '0 3 * * *', 'SELECT 1', 'clinic', "
             "'clinic_app');\n")
+        (self.catalog_root / self.DOMAIN / "data/overview.yaml").write_text(
+            "roles:\n  - {role: clinic_app, who: the practice software, reads: the clinic, "
+            "writes: the clinic}\njobs:\n  - {job: fx-tidy, what: the nightly tidy-up}\n")
 
     def preload(self, extension=True):
         with (self.scenario / self.CONF).open("a") as f:
@@ -5882,6 +5889,301 @@ class TestDeclaredLinesRefusals(V06CopyTest):
     def append_text(self, relpath, text):
         with (self.scenario / relpath).open("a") as f:
             f.write(text)
+
+
+CLINIC = REPO_ROOT / "scenarios" / "aldermoor-centre"
+OVERVIEW = "gm/network-overview.yaml"
+HANDOUT = "player/network-overview.md"
+REGENERATE = "a generation error: regenerate with the network-overview skill"
+
+
+class OverviewCopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of the clinic, whose network overview
+    the network-overview skill generated (build plan chunk 7; master spec
+    6.10, 8.1 to 8.4; capture W2 items 3 to 5)."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "aldermoor-centre"
+        shutil.copytree(CLINIC, self.scenario)
+
+    def overview(self, change):
+        self.edit_yaml(OVERVIEW, change)
+
+    def entry(self, data, name):
+        return next(e for e in data["entries"] if e["node"] == name)
+
+    def handout(self, old, new, count=1):
+        path = self.scenario / HANDOUT
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new, count))
+
+
+class TestNetworkOverview(OverviewCopyTest):
+
+    def test_the_clinic_loads_with_its_overview(self):
+        sc = self.load()
+        overview = yaml.safe_load((self.scenario / OVERVIEW).read_text())
+        self.assertEqual(len(overview["entries"]), 21)
+        self.assertEqual(len(overview["third_parties"]), 9)
+        self.assertEqual(list(overview), list(model.OVERVIEW_TOP_KEYS))
+        bastion = sc.node("bastion")
+        self.assertEqual(bastion["seed_files"]["network-overview.md"], HANDOUT)
+
+    def test_a_stale_digest_refused(self):
+        with (self.scenario / "nodes/records/crontab").open("a") as f:
+            f.write("# a late note\n")
+        self.assertRefused(f"{OVERVIEW}: generated_from: nodes/records/crontab changed since the "
+                           "overview was generated (its digest differs): stale overview: "
+                           "regenerate with the network-overview skill")
+
+    def test_a_node_in_no_entry_refused(self):
+        self.overview(lambda d: d["entries"].remove(self.entry(d, "pgwatch")))
+        self.assertRefused(f"{OVERVIEW}: entries: customer node pgwatch is in no entry (master "
+                           f"spec 8.4): {REGENERATE}")
+
+    def test_a_node_in_two_entries_refused(self):
+        self.overview(lambda d: d["entries"].append(dict(self.entry(d, "health"))))
+        self.assertRefused("customer node health is in 2 entries; each in exactly one")
+
+    def test_the_bastion_in_an_entry_refused(self):
+        self.overview(lambda d: d["entries"].append(dict(self.entry(d, "health"), node="bastion")))
+        self.assertRefused(f"{OVERVIEW}: entries[bastion]: bastion is the bastion, never an entry "
+                           f"(master spec 8.3): {REGENERATE}")
+
+    def test_a_third_partys_node_in_an_entry_refused(self):
+        self.overview(lambda d: d["entries"].append(dict(self.entry(d, "lab"),
+                                                         node="partners-db")))
+        self.assertRefused(f"{OVERVIEW}: entries[partners-db]: partners-db is a third party's "
+                           f"node, never an entry (master spec 8.3): {REGENERATE}")
+
+    def test_a_connection_under_no_fed_and_used_by_refused(self):
+        def change(d):
+            fed = self.entry(d, "lab")["fed_and_used_by"]
+            fed[:] = [i for i in fed if i.get("role") != "lab_dispatch"]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: interfaces -> lab/lab as lab_dispatch "
+                           "(nodes/interfaces/schedule.yaml) is under no entry's fed_and_used_by "
+                           f"(master spec 8.4): {REGENERATE}")
+
+    def test_a_job_under_no_background_tasks_refused(self):
+        def change(d):
+            tasks = self.entry(d, "backoffice")["tasks"]
+            tasks[:] = [t for t in tasks if t["task"] != "close-lab-statements"]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: close-lab-statements (nodes/backoffice/jobs.yaml) is "
+                           f"under no entry's tasks (master spec 8.4): {REGENERATE}")
+
+    def test_a_pg_cron_job_under_no_background_tasks_refused(self):
+        def change(d):
+            tasks = self.entry(d, "records")["tasks"]
+            tasks[:] = [t for t in tasks if t["source"] != "pg_cron"]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: portal.sessions.purge (domains/vet-portal/data/cron.sql) "
+                           "is under no entry's tasks")
+
+    def test_archive_mode_under_no_backups_refused(self):
+        def change(d):
+            backups = self.entry(d, "lab")["backups"]
+            backups[:] = [b for b in backups if b["kind"] != "wal-archive"]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: lab: archive_mode = on (nodes/lab/postgresql.conf) is "
+                           f"under no entry's backups (master spec 8.4): {REGENERATE}")
+
+    def test_the_standby_and_a_base_backup_under_no_backups_refused(self):
+        def change(d):
+            backups = self.entry(d, "records")["backups"]
+            backups[:] = [b for b in backups if b["kind"] not in ("standby", "base-backup")]
+            self.entry(d, "standby")["backups"] = [{"kind": "none", "line": "none"}]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: records: the standby standby (standby_of) is under no "
+                           "entry's backups",
+                           f'{OVERVIEW}: records: base backup line "pg_basebackup -h')
+
+    def test_a_database_under_no_databases_refused(self):
+        def change(d):
+            dbs = self.entry(d, "machines")["databases"]
+            dbs[:] = [i for i in dbs if i["database"] != "vitals"]
+        self.overview(change)
+        self.assertRefused(f"{OVERVIEW}: machines: database vitals (data/machines.sql) is under no "
+                           "entry's databases")
+
+    def test_a_partner_in_no_row_refused(self):
+        self.overview(lambda d: d["third_parties"].pop())
+        self.assertRefused(f"{OVERVIEW}: third_parties: authority, a partner with a player_doc, "
+                           "is in no row (master spec 8.3)")
+
+    def test_a_wrong_access_in_the_true_overview_refused(self):
+        self.overview(lambda d: self.entry(d, "pms").update(access="write"))
+        self.assertRefused(f"{OVERVIEW}: entries[pms].access: 'write' is not the write policy's "
+                           "read-only (master spec 8.3: never a deviation)")
+
+    def test_a_third_partys_node_named_in_the_handout_refused(self):
+        self.handout("- **Third parties**: none", "- **Third parties**: partners-api", 1)
+        self.assertRefused(f"{HANDOUT}: names partners-api, a third party's node (master spec "
+                           "8.3)")
+
+    def test_a_changed_your_access_refused(self):
+        self.handout("- **Your access**: read-only", "- **Your access**: write", 1)
+        self.assertRefused(f'{HANDOUT}: pms: Your access reads "write", not the true overview\'s '
+                           '"read-only" (master spec 8.3: never a deviation)')
+
+    def test_a_changed_header_refused(self):
+        self.handout("The **Your access** column is the game's rule and always exact.",
+                     "The **Your access** column is usually right.")
+        self.assertRefused(f"{HANDOUT}: the header differs from the true overview's (master spec "
+                           "8.1: never a deviation)")
+
+    def test_a_handout_differing_elsewhere_loads(self):
+        """An overview fault's change (chunk 14) touches an entry's lines,
+        never the header nor Your access: the loader accepts it."""
+        self.handout("  - WAL archived to Cold Storage, segment by segment\n", "", 1)
+        self.load()
+
+    def test_the_handout_missing_refused(self):
+        (self.scenario / HANDOUT).unlink()
+        self.assertRefused(f"{HANDOUT}: missing file (the network overview's handout")
+
+    def test_the_mapping_missing_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "network-overview.md"))
+        self.assertRefused("scenario.yaml: nodes[bastion].seed_files.network-overview.md: "
+                           "missing: the scenario has a network overview, but the bastion maps "
+                           "no network-overview.md (master spec 6.1, 8.4)")
+
+    def test_the_overview_required(self):
+        (self.scenario / OVERVIEW).unlink()
+        (self.scenario / HANDOUT).unlink()
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["seed_files"].pop(
+            "network-overview.md"))
+        missing = self.assertRefused(
+            "scenario.yaml: a scenario listing domains: has a network overview: "
+            "gm/network-overview.yaml missing (master spec 6.1, 8.4): generate it with the "
+            "network-overview skill")
+        self.assertFalse([m for m in missing if HANDOUT in m])
+
+    def test_a_customer_node_without_description_refused(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "ward").pop("description"))
+        self.assertRefused("scenario.yaml: nodes[ward].description: missing: every customer node "
+                           "of a scenario with an overview has one (master spec 6.1)")
+
+    def test_site_and_users_shapes(self):
+        def change(d):
+            self.node(d, "lab")["site"] = ""
+            self.node(d, "lab")["users"] = [{"who": "the lab manager", "database": "lab",
+                                             "role": "lab_app"}, {"database": "lab"},
+                                            {"who": "x", "shift": "night"}]
+            self.node(d, "pms")["users"] = [{"who": "the vets", "role": "vet_app"}]
+        self.edit_yaml("scenario.yaml", change)
+        missing = self.assertRefused(
+            "scenario.yaml: nodes[lab].site: '' is not a non-empty string",
+            "scenario.yaml: nodes[lab].users[1].who: missing or empty",
+            "scenario.yaml: nodes[lab].users[2].shift: not a key of a user",
+            "scenario.yaml: nodes[pms].users[0].role: only on a database node")
+        self.assertFalse([m for m in missing if "users[0]" in m and "nodes[lab]" in m])
+
+
+class TestOverviewDiff(unittest.TestCase):
+    """overview_diff: (master spec 6.2): on a network-overview fault's
+    instance only, a non-empty list of {node, field, true, handed_out}."""
+
+    OVERVIEW_FAULT = {"injection": {"kind": "seed-file", "seed_changes": [
+        {"file": "network-overview.md", "change": "machines' backups name a vault"}]}}
+
+    def problems(self, entry, fault_data=None):
+        fault = types.SimpleNamespace(id="docs-overview-backups-invented",
+                                      data=fault_data or self.OVERVIEW_FAULT)
+        out = []
+        model._check_overview_diff(dict(entry, instance="s11"), fault, out)
+        return "\n".join(out)
+
+    def item(self, **change):
+        item = {"node": "machines", "field": "backups", True: "none",
+                "handed_out": "a base backup nightly to Cold Storage"}
+        item.update(change)
+        return item
+
+    def test_a_well_formed_diff(self):
+        self.assertEqual(self.problems({"overview_diff": [self.item()]}), "")
+        invented = self.item(field="entry", handed_out="an invented server")
+        invented[True] = "absent"
+        self.assertEqual(self.problems({"overview_diff": [invented]}), "")
+
+    def test_required_on_an_overview_fault(self):
+        self.assertIn("gm/answer-key.yaml: instances[s11].overview_diff: missing (fault "
+                      "docs-overview-backups-invented is a network-overview fault",
+                      self.problems({}))
+
+    def test_refused_elsewhere(self):
+        self.assertIn("is no network-overview fault", self.problems(
+            {"overview_diff": [self.item()]},
+            {"injection": {"kind": "seed-file", "seed_changes": [{"file": "postgresql.conf"}]}}))
+
+    def test_malformed_refused(self):
+        self.assertIn("not a non-empty list", self.problems({"overview_diff": []}))
+        text = self.problems({"overview_diff": [
+            {"node": "machines", "field": "backups"}, self.item(field="access"),
+            self.item(field="colour"), {"absent": True}, self.item(field="entry"),
+            dict(self.item(), why="x"), "machines"]})
+        for fragment in ("overview_diff[0].true: missing", "overview_diff[0].handed_out: missing",
+                         "overview_diff[1].field: access is never a field",
+                         "overview_diff[2].field: 'colour' is not one of",
+                         "overview_diff[3]: {absent: ...} is no item of an overview_diff: the "
+                         "page is never absent",
+                         "overview_diff[4]: field entry (a whole entry missing or invented): its "
+                         "true or handed_out is absent",
+                         "overview_diff[5].why: not a key of an overview_diff item",
+                         "overview_diff[6]: not a mapping"):
+            self.assertIn(fragment, text)
+
+
+class TestDomainOverview(unittest.TestCase):
+    """A domain's overview fragment (master spec 6.5; W1 item 6): declared,
+    covering every login role and job the domain creates."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-test-")
+        self.addCleanup(tmp.cleanup)
+        self.domains = Path(tmp.name) / "domains"
+        for did in ("vet-core", "vet-machinery"):     # a part is checked beside its core
+            shutil.copytree(REPO_ROOT / "domains" / did, self.domains / did)
+        self.fragment = self.domains / "vet-machinery" / "data" / "overview.yaml"
+
+    def problems(self):
+        return "\n".join(model.check_domain_dir(self.domains / "vet-machinery"))
+
+    def drop(self, key, name):
+        data = yaml.safe_load(self.fragment.read_text())
+        data[key] = [i for i in data[key] if i[key[:-1]] != name]
+        self.fragment.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def test_every_repository_domain_covered(self):
+        for folder in sorted((REPO_ROOT / "domains").iterdir()):
+            self.assertEqual(model.check_domain_dir(folder), [], folder.name)
+
+    def test_a_login_role_missing_refused(self):
+        self.drop("roles", "mach_service")
+        self.assertIn("domains/vet-machinery/data/overview.yaml: roles: mach_service missing, a "
+                      "login role the domain creates (domains/vet-machinery/data/pacs/"
+                      "schema.sql) (master spec 6.5)", self.problems())
+
+    def test_a_job_and_a_pg_cron_job_missing_refused(self):
+        self.drop("jobs", "mach-census")
+        self.drop("jobs", "events-partitions")
+        text = self.problems()
+        self.assertIn("domains/vet-machinery/data/overview.yaml: jobs: mach-census missing, a job "
+                      "the domain creates (domains/vet-machinery/producers/equipment/jobs.yaml) "
+                      "(master spec 6.5)", text)
+        self.assertIn("jobs: events-partitions missing, a job the domain creates "
+                      "(domains/vet-machinery/data/cron.sql)", text)
+
+    def test_the_fragment_undeclared_refused(self):
+        meta = self.domains / "vet-machinery" / "domain.yaml"
+        meta.write_text(meta.read_text().replace("overview: data/overview.yaml\n", ""))
+        self.assertIn("domains/vet-machinery/domain.yaml: overview: missing: every domain declares "
+                      "its overview fragment, data/overview.yaml (master spec 6.5)",
+                      self.problems())
 
 
 if __name__ == "__main__":
