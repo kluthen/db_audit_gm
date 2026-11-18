@@ -2180,3 +2180,27 @@ G10.1 done" above; worktree `v0.6-spec` still exists (owner's call).
 | coding-leader | Draft capture W2 for wave 2 | 73 | 263k | $5.38 |
 | coding-leader | Chunk 9a timeline owner | 96 | 245k | $5.98 |
 (! = over 300k tokens of context)
+
+### Wave 2 merged; the follow-up — 2026-11-18
+
+Merged into `main` at e955dd3 on the owner's word (not pushed); the
+wave worktree and the chunk branches 6, 7, 9, 15 removed. Owner's
+answers: merge now; re-pin `pg_cron`/`pgaudit` now; the older fixture
+READMEs regenerated later.
+
+On `v0.6-w2-follow` (from e955dd3):
+- 8141046, `spec-writer`: plan v8. New chunk 16 in wave 4 (every
+  fixture's scenario document regenerated through the skill, after
+  chunks 12 and 14; split 16a/16b), D538; the re-pin recorded beside
+  G9.1, D539; pgAudit 18.1 a later game-content decision.
+- 1a123a6, `coding-executor`: `pg_cron` 1.6.8-1.pgdg13+3, `pgaudit`
+  18.0-3.pgdg13+2 in postgres 0.5.1 (same tag), rebuilt `--no-cache
+  --pull`: c2ebb6cceaed → 52300dbef515, dpkg diff exactly those two.
+  postgres stack test 316/0 (both extensions load and work),
+  pgbouncer 121/0, health-check 97/0.
+- 9bce357, `security-advisor`: CLEAR; the new `.so` files are built
+  against 18.7, so CVE-2026-6460's fix is now in full; `.tech` updated.
+  No new finding.
+
+Next: merge `v0.6-w2-follow` into `main` on the owner's word, then
+wave 3 (chunks 10, 11, 13) in a fresh session, from plan v8.
