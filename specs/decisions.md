@@ -381,3 +381,16 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   revises the skill and regenerates the documents. Now in:
   [master spec](versions/v0.6/master-spec.md#76-the-partners-status-pages)
   7.6; [build plan](versions/v0.6/build-plan.md) chunk 12.
+- **D538 (2026-11-18, owner ruling after wave 2's gate): every fixture's
+  scenario document is regenerated in v0.6** from the current template,
+  through the `scenario-document` skill, never by hand; the gate found
+  the older ones predating it ("Third parties" missing in 11, "Composition"
+  in 12, wording). A chunk of its own after chunk 12, whose template
+  change it waits on and whose size it would break. Now in:
+  [build plan](versions/v0.6/build-plan.md) chunk 16.
+- **D539 (2026-11-18, owner approval of G9.1's proposal): `postgres`
+  0.5.1 re-pins `pg_cron` to 1.6.8-1.pgdg13+3 and `pgaudit` to
+  18.0-3.pgdg13+2**, PGDG's rebuilds against 18.7 (CVE-2026-6460's
+  extension half). pgAudit 18.1 (upstream 2026-11-17) changes which audit
+  lines are logged: a later game-content decision, not in v0.6 unless the
+  owner says so. Now in: [build plan](versions/v0.6/build-plan.md) G9.1.

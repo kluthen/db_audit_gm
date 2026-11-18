@@ -36,9 +36,11 @@ The image:
   prints `Duplicate specification "no-sysinfo!"`; `--help` exits 1.
 - From 0.4.0, for jobs on the node (see "`pg_cron`" and "The cron
   daemon"): `postgresql-18-cron` from the same repository, pinned exactly
-  (`1.6.8-1.pgdg13+2`, build argument `PG_CRON_PACKAGE`, checked at build;
-  security preflight G5), and Debian's `cron` (`3.0pl1-197` at the 0.4.0
-  build, unpinned, without recommends, so no mail transfer agent). Both
+  (`1.6.8-1.pgdg13+3`, build argument `PG_CRON_PACKAGE`, checked at build;
+  security preflight G5; `+3` is the same source rebuilt against
+  PostgreSQL 18.7, v0.6 G9.1 follow-up, CVE-2026-6460), and Debian's
+  `cron` (`3.0pl1-197` at the 0.4.0 build, unpinned, without recommends,
+  so no mail transfer agent). Both
   sit idle unless the scenario uses them. They add Debian's group
   `crontab` (gid 997), so `pgconf` is gid 996 from 0.4.0 (997 before).
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
@@ -394,8 +396,9 @@ the image, is deleted at build, and the build asserts it gone.
 
 Always available, turned on by the seed (v0.5 master spec 7.1). Not an
 option: removing the settings can be a fault. The package
-`postgresql-18-pgaudit` is pinned exactly (`18.0-3.pgdg13+1`, upstream
-18.0, G5), the build asserting its version and
+`postgresql-18-pgaudit` is pinned exactly (`18.0-3.pgdg13+2`, upstream
+18.0, G5; `+2` is the same source rebuilt against PostgreSQL 18.7, v0.6
+G9.1 follow-up, CVE-2026-6460), the build asserting its version and
 `/usr/lib/postgresql/18/lib/pgaudit.so`.
 
 - **The seed**: `shared_preload_libraries` naming it beside

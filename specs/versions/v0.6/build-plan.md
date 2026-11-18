@@ -1,6 +1,9 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v7 (2026-11-17): after wave 2's gate, G10.1 and G10.2 done
+Status: v8 (2026-11-18): chunk 16 joins wave 4, the fixtures' scenario
+documents regenerated after chunk 12's template change (spec D538);
+G9.1's note carries the `pg_cron` and `pgaudit` re-pin (spec D539).
+v7 (2026-11-17): after wave 2's gate, G10.1 and G10.2 done
 (formats.md v36, spec D534); chunk 11 gains the campaign's two
 `wal-rate.yaml` (capture W2 item 11, which no chunk's Files carried);
 chunk 12 gains an instance's `admitted:` in the scenario document
@@ -115,6 +118,13 @@ this plan states only its deltas. Its conventions follow v0.5's
 G5, G7 and G8 are post-change checks on resolved versions, G6 a
 preflight on candidates (skill `dependency-gating-protocol`).
 
+**G9.1's re-pin** (spec D539): the owner approved its proposal,
+`postgres` 0.5.1 pinning `pg_cron` 1.6.8-1.pgdg13+3 and `pgaudit`
+18.0-3.pgdg13+2, PGDG's rebuilds against 18.7 (CVE-2026-6460's
+extension half), made on `v0.6-w2-follow` before wave 3. pgAudit 18.1
+(upstream 2026-11-17) changes which audit lines are logged: a later
+game-content decision, not taken in v0.6 unless the owner says so.
+
 ## Waves
 
 | Wave | Chunks | Waits for | Status |
@@ -122,7 +132,7 @@ preflight on candidates (skill `dependency-gating-protocol`).
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
 | 3 | 10, 11, 13 | wave 2 | planned |
-| 4 | 5, 12, 14 | wave 3; G8 before its gate | planned |
+| 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | planned |
 
 ```
 2 ──> 3, 4, 8           (in wave 1, merge order: each merges after chunk 2 and takes
@@ -156,6 +166,8 @@ G6 ──> 6
                          restart, the history, the faults' assessment)
 6, 7 ──> 14             (bastion 0.6.0's front and seventh seed file; the overview
                          and overview_diff:)
+12, 14 ──> 16           (in wave 4, start order: the template as chunk 12 merged
+                         it; chunk 14's new fixtures)
 ```
 
 The fake-aging chain (8, 9, 10, 12) and the overview chain (4, 7, 14)
@@ -194,10 +206,13 @@ before wave 2's start (spec D524).
 no Docker); 10 takes chunk 13's slot. The three share no file; 10's and
 11's Docker runs queue on the lock.
 
-**Wave 4's order**: chunks 12 and 14 start first, then 5. They share no
-file: chunk 12 regenerates every scenario's `README.md`, 14 writes only
-its new fixtures' and the root `README.md`'s fault table, and 5 changes
-the seeded dashboards, which no `README.md` reads.
+**Wave 4's order**: chunks 12 and 14 start first, then 5; 16 starts
+once 12 and 14 have merged, taking `v0.6-w4` in first. The first three
+share no file: chunk 12 regenerates every scenario's `README.md`, 14
+writes only its new fixtures' and the root `README.md`'s fault table,
+and 5 changes the seeded dashboards, which no `README.md` reads. Chunk
+16 then owns every fixture's scenario document, 12's two and 14's new
+ones included.
 
 ## Workflow deltas
 
@@ -317,6 +332,13 @@ is spent. i aprove the plan."):
 | The plan approved, κ = 2; `v0.6-spec` merged into `main` | D518 | G1; every wave |
 | No reference data in git, small files included: the whole `results/` archived outside git at the proposed path, git keeping its pointer; a test needing it skips when it is absent | D519 | 1, 8, 11, 12 |
 | `fa-real` torn down once its usefulness is spent: after chunk 1 merges and the archive verifies | D520 | G12 |
+
+Ruled on 2026-11-18, after wave 2's gate:
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| Every fixture's scenario document regenerated in v0.6 from the current template, through the skill | D538 | 16 |
+| `pg_cron` 1.6.8-1.pgdg13+3 and `pgaudit` 18.0-3.pgdg13+2 in `postgres` 0.5.1; pgAudit 18.1 left for later | D539 | G9.1 |
 
 Ruled on 2026-11-16, after chunk 8 (wave log, "Owner ruling: the
 `rpt.close_day()` cover adopted"), "Adopt the cover (Recommended)":
@@ -1563,6 +1585,51 @@ Architecture capture: none beyond W2.
   under 30 minutes.
 - Verification: chunk checks; the two fixture runs.
 - Split rule: none.
+
+### Chunk 16 — The fixtures' scenario documents regenerated
+
+Status: planned
+Wave: 4
+Depends on: chunks 12, 14 (in wave 4: starts once both have merged)
+Docker: none
+Architecture capture: none (the template is chunk 12's).
+
+- Goal: every fixture's scenario document generated from the current
+  template, as every scenario's is (spec D538); wave 2's gate found the
+  older ones predating it.
+- Scope: in:
+  - every `tools/tests/fixtures/*/README.md` that is a scenario
+    document (it opens with the "do not read" warning: 32 today, with
+    chunk 14's new ones), regenerated through the `scenario-document`
+    skill from the fixture's own `scenario.yaml` and
+    `gm/answer-key.yaml`, never edited by hand: among them the eleven
+    without "Third parties" (`fixture-alias`, `-restore`,
+    `-clinic-load`, `-exchanges`, `-lab-core`, `-reports`, `-portal`,
+    `-partners`, `-v05-refusals`, `-v06-refusals`, `-vault`), the
+    twelve without "Composition" (`fixture-bookings`, `-clinic-load`,
+    `-core`, `-exchanges`, `-housing`, `-imaging`, `-lab-core`,
+    `-orders`, `-portal`, `-portal-scope`, `-reports`, `-vault`), and
+    the wording the template has changed since each was written; chunk
+    12's two and chunk 14's come out unchanged when already fresh.
+  - Out: `fixture-compose`'s and `fixture-composed`'s `README.md`,
+    which describe a test, not a scenario; any change to a fixture's
+    `scenario.yaml`, answer key or the template (a defect the
+    regeneration finds goes to the driver, not fixed here);
+    `scenarios/*/README.md` (chunk 12).
+- Files: `tools/tests/fixtures/*/README.md` (the scenario documents
+  only).
+- Spec sections: none of its own (a regeneration); what the documents
+  show is the template's, as chunk 12 leaves it for
+  [7.6](master-spec.md#76-the-partners-status-pages) and
+  [9.10](master-spec.md#910-documented-limits).
+- Done when: every fixture's scenario document opens with the warning
+  and carries every section the template has for that fixture
+  ("Composition" and "Third parties" included); a second run of the
+  skill changes none; the unit suite green (`test_planted.py` compares
+  a fixture's `README.md` with its copy's).
+- Verification: chunk checks.
+- Split rule: 16a the fixtures from `fixture-alias` to `fixture-load`
+  in name order, 16b the rest.
 
 ## Release gate
 
