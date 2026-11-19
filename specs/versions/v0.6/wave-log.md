@@ -3276,3 +3276,31 @@ rotation bound, to finish its 23-minute fixture run.
   head at this entry's commit; the worktree and the chunk branches
   `v0.6-c10-history`, `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`
   removed after.
+
+## Wave 4 — started 2026-11-19
+
+Chunks 5, 12, 14, 16 (κ = 2). Branch `v0.6-w4`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.6-w4`, cut from `main` at de48602
+(wave 3 merged; plan v14).
+
+### Gates checked at the start
+
+- G3 (network at image build time), hand check 2026-11-19: Debian's
+  trixie `Release`, `trixie-pgdg` `Release`, GitHub's s6-overlay,
+  Prometheus, `postgres_exporter` and pgwatch releases, and the
+  Dockerfile's Grafana download (13.3.1) answer 200. Cleared for wave 4.
+- G4 (swarm), hand check 2026-11-19: armenelos `Ready`, `Active`,
+  Leader; the VPS `vps-5718ad52` `Ready`, `Drain`. No stack deployed.
+  Cleared for wave 4.
+- Host: `/home` 66 % used, 55G free. The Docker lock is free.
+- G8 (post-change check on `grafana` 0.4.0 and any image a wave 3 or 4
+  chunk rebuilt) is due before the gate. G13 cleared (D585).
+
+### Order
+
+Only chunk 12 names a capture (W4: the verification tools' arguments
+and verdicts, the short-game script's name). Chunks 5 and 14 name none
+beyond W2; 16 none. So: capture W4 drafted by a `coding-leader` beside
+chunk 14 (light); chunk 12 starts once W4 is reviewed (and any plan
+correction it raises is committed); chunk 5 takes chunk 14's slot; 16
+starts once 12 and 14 have merged.
