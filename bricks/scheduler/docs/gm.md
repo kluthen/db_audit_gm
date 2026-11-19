@@ -34,6 +34,15 @@ The image:
 - Debian 13 (`debian:13-slim`), `python3` 3.13, `python3-psycopg`,
   `python3-yaml`, `tzdata`, `openssh-server`, `sudo`, `curl`, `less`,
   `nano`, `vim-tiny`, `procps`.
+- libpq 19 (`libpq5` 19.0 at the 0.4.0 build, v0.6 spec D587) from PGDG's
+  `trixie-pgdg main`, under Debian's psycopg: its signing key comes from a
+  throwaway `pgdg-key` stage that alone installs `postgresql-common`, so
+  only the key reaches the image (with `ca-certificates`, for the HTTPS
+  source). The build asserts `libpq5` 19.x and
+  `psycopg.pq.version() // 10000 == 19`; when PostgreSQL 20 ships, PGDG's
+  `main` moves to libpq 20 and the build fails until component `19` is
+  named or 20 is ruled in (G9.2). Security updates of libpq come from
+  PGDG's minor releases, reached by a `--no-cache` rebuild.
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
 - The program in `/usr/local/lib/python3.13/dist-packages/gm_scheduler`,
   run as `python3 -I -m gm_scheduler` (isolated mode: no environment
@@ -750,7 +759,8 @@ must provide, its timeline needs and aging minimum included.
   validator green; after `start-load`, `running` and a `summary` line a
   minute.
 - **Tests**: `sh bricks/scheduler/tests/run-unit-tests.sh` (the program,
-  in the image, against a throwaway PostgreSQL with two databases) and
+  in the image, against a throwaway PostgreSQL with two databases: PGDG's
+  `postgresql-19`, in the `unit-test` stage only) and
   `sh bricks/scheduler/tests/run-stack-test.sh` (the brick as a
   scheduler node, a transformer node and, from 0.3.0, a caller node on
   HTTP connections to a stub server started after it, with a throwaway

@@ -59,7 +59,7 @@ POLL = 2
 
 POSTGRES_BRICK = "postgres"
 PGBOUNCER_BRICK = "pgbouncer"
-PG_DATA_VOLUME, PG_DATA_PATH = "pgdata", "/var/lib/postgresql/18/data"
+PG_DATA_VOLUME, PG_DATA_PATH = "pgdata", "/var/lib/postgresql/19/data"
 PG_LOG_VOLUME = "pglog"
 POOLER_LOG_VOLUME = "pgblog"
 HELPER_MOUNT = "/gm-clean"
@@ -198,7 +198,7 @@ find {HELPER_MOUNT} -mindepth 1 -type f -print -delete | wc -l
 # not start it again in this container.
 PG_STOP_SCRIPT = f"""set -eu
 /command/s6-svc -O /run/service/postgres
-runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_ctl stop -D {PG_DATA_PATH} -m fast -w -t 300
+runuser -u postgres -- /usr/lib/postgresql/19/bin/pg_ctl stop -D {PG_DATA_PATH} -m fast -w -t 300
 """
 POOLER_LOGS_SCRIPT = f"""set -eu
 n=0

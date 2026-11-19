@@ -19,11 +19,16 @@ It fills the role `monitoring`; image
 The image:
 
 - Debian 13 (`debian:13-slim`); `check-postgres=2.26.0-2` pinned, no
-  recommends (Debian's `postgresql-client-17` and `libpq5` 17.11, Perl
-  5.40); Debian's `cron`, `nginx` (1.26.3, the bastion's, no
+  recommends (Perl 5.40), with PGDG's `postgresql-client-19` named beside
+  it and its `libpq5` 19 (19.0 at the 0.1.1 build, v0.6 spec D587), from
+  `trixie-pgdg main`, whose signing key comes from a throwaway `pgdg-key`
+  stage that alone installs `postgresql-common` (only the key reaches the
+  image; `ca-certificates` for the HTTPS source); Debian's `cron`, `nginx` (1.26.3, the bastion's, no
   `libnginx-mod-*`: asserted), `curl`, `openssh-server`, `sudo`, `nano`,
   `vim-tiny`, `less`, `procps`. The build asserts the package version,
-  `check_postgres --version` 2.26.0, psql 17, the OpenSSL floor
+  `check_postgres --version` 2.26.0, psql 19, `postgresql-client-19` and
+  `libpq5` at 19.x and no other major's client left (when PostgreSQL 20
+  ships, PGDG's `main` moves libpq to 20 and the build fails, G9.2), the OpenSSL floor
   `3.5.7-1~deb13u3`, no dynamic nginx module, Debian's sites and
   `conf.d` cleared, and that the node's nginx configuration loads and
   holds none of G9's excluded directives (proxy, fastcgi, uwsgi, scgi,
@@ -117,10 +122,10 @@ seed files.
 | `database_size` | every instance | 5GB / 10GB |
 | `hot_standby_delay` | standbys, against `primary` | 16MB / 128MB of replay |
 
-Every action runs within `pg_monitor` and was run against PostgreSQL
-18.6 in the stack test, as G9 requires; Debian's psql 17.11 talks to it
-(PGDG's `postgresql-client-18` is the fallback if an action ever fails on
-18). On a fresh cluster `last_autovacuum` (and `last_analyze` on a
+Every action runs within `pg_monitor` and is run against PostgreSQL 19
+in the stack test, as G9 requires (19.0 at the 0.1.1 build, through PGDG's
+psql and libpq 19; the seven actions read views 19 did not change, G9.2).
+On a fresh cluster `last_autovacuum` (and `last_analyze` on a
 standby, hence skipped there) report UNKNOWN, "No matching tables have
 ever been vacuumed": the page says so.
 
@@ -232,7 +237,7 @@ UNKNOWN on a fresh cluster), each script's line; `sudo gm-validate` green.
 `sh bricks/health-check/tests/run-stack-test.sh` (needs
 `health-check:0.1.1` and `postgres:0.5.1`): a primary and its cloned
 standby started after the health node (the wait, its bound, the honest
-failure, then every action of the set against PostgreSQL 18, TLS), cron
+failure, then every action of the set against PostgreSQL 19, TLS), cron
 running lines on its own, the two scripts (the stand-in's `GET
 /manifests` found, missing and broken), nginx static only, the password's
 places, SSH and sudo, the validator, persistence, the snapshot, the

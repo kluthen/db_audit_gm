@@ -42,7 +42,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: database server
 - **Description**: The record's database server, the medical record, the agenda and the wards, the back office's registers and reports, the owners' portal.
 - **System**: Debian GNU/Linux 13
-- **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+- **Applications**: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=records&from=now-6h&to=now)
@@ -91,7 +91,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Description**: The record's standby, a streaming replica of records where the back office's reports run their heavy reads.
 - **Site**: the off-site room, at Lowmoor
 - **System**: Debian GNU/Linux 13
-- **Applications**: PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
+- **Applications**: PostgreSQL 19; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=standby&from=now-6h&to=now)
@@ -115,7 +115,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: database server
 - **Description**: The laboratory's database server, its orders, samples and results, the practices' accounts and their billing.
 - **System**: Debian GNU/Linux 13
-- **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; report tools: pgbadger; cron
+- **Applications**: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=lab&from=now-6h&to=now)
@@ -150,7 +150,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: database server
 - **Description**: The machines' database server, the imaging worklist and reports, the monitors' readings and the biomedical events.
 - **System**: Debian GNU/Linux 13
-- **Applications**: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+- **Applications**: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
 - **Sizing**: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
 - **Your access**: write (`/etc/postgresql`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=machines&from=now-6h&to=now)

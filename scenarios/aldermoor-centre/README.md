@@ -1333,7 +1333,7 @@ toward the fault cap or the score:
 - **What is wrong**: records' archive_command is 'vault-post wal %p %f || true': vault-post's name and file swapped, so vault-post refuses every segment's name (pg_wal/...), and `|| true` makes the archiver count each one archived and recycle it; no segment of records has reached the vault since the game's start (lab's archive, to the same vault, still ships).
 - **Why it matters**: the WAL archive is what rolls the nightly base backup forward: without it a restore loses up to a day of the clinic's records, and every signal PostgreSQL gives says the archive works.
 - **The overview beside it**: [the `records` entry](player/network-overview.md#records):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
   - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
   - Backups: WAL archived to Cold Storage, segment by segment
   - Backups: a base backup each night at 03:30 UTC to Cold Storage
@@ -1459,7 +1459,7 @@ the expected answer): none.
 - **What is wrong**: records' postgresql.conf sets log_statement = 'all'.
 - **Why it matters**: every write of the practice software, its values included, goes into the server log: owners' names, phone numbers and addresses outside the record, against "none in the logs" (vet-core's core rule 10).
 - **The overview beside it**: [the `records` entry](player/network-overview.md#records):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
   - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
   - Backups: WAL archived to Cold Storage, segment by segment
   - Backups: a base backup each night at 03:30 UTC to Cold Storage
@@ -1494,7 +1494,7 @@ the expected answer): none.
 - **What is wrong**: the standby's postgresql.conf sets recovery_min_apply_delay = '1h'.
 - **Why it matters**: the reports read the standby an hour behind the record: the 00:30 feeder misses the evening after 23:30, every feeder the entries made late for yesterday, and a feeder writes its day once.
 - **The overview beside it**: [the `standby` entry](player/network-overview.md#standby):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
   - Backups: itself the streaming replica of `records`; no backup of its own
 
 Evidence, as the `player` user (and `dba` in psql):

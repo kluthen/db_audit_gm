@@ -449,7 +449,7 @@ class TestRender(RenderedFixture):
         self.assertNotIn("tmpfs", self.stack_text)
         self.assertEqual(db["hostname"], "db")
         self.assertEqual([(v["type"], v["target"]) for v in db["volumes"]], [
-            ("volume", "/var/lib/postgresql/18/data"), ("volume", "/etc/postgresql"),
+            ("volume", "/var/lib/postgresql/19/data"), ("volume", "/etc/postgresql"),
             ("volume", "/home/player"), ("volume", "/var/lib/gm-state"),
             ("volume", "/var/log/postgresql"), ("volume", "/run"),
             ("volume", "/var/spool/cron/crontabs")])

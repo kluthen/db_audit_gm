@@ -1,8 +1,8 @@
 """Build assertions of the api image (G6's conditions, specs/versions/v0.5/
 wave-log.md; run by the Dockerfile with python3 -I, never shipped):
 Python 3.13; each package of requirements.txt installed at exactly its pin;
-psycopg on its pure-Python implementation over Debian's libpq, version 17 or
-later (never psycopg[binary]'s bundled one); no other distribution in
+psycopg on its pure-Python implementation over the system's libpq, PGDG's
+19 (v0.6 spec D587, G9.2; never psycopg[binary]'s bundled one); no other distribution in
 /usr/local/lib/python3.13/dist-packages; the brick's own modules import.
 Usage: python3 -I check-image.py <requirements.txt>
 """
@@ -35,7 +35,7 @@ assert local == set(pins), f"dist-packages holds {sorted(local - set(pins))} bey
 import psycopg  # noqa: E402
 
 assert psycopg.pq.__impl__ == "python", psycopg.pq.__impl__
-assert psycopg.pq.version() >= 170000, psycopg.pq.version()
+assert psycopg.pq.version() // 10000 == 19, psycopg.pq.version()
 import yaml  # noqa: E402  (Debian's python3-yaml: api.yaml, safe loading only)
 import fastapi, uvicorn, gm_api, gm_api.app, gm_api.__main__  # noqa: E401,E402,F401
 

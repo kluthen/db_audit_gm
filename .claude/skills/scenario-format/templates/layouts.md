@@ -184,7 +184,7 @@ Rules:
   node=db
   services=postgres sshd
   disk_reservation=2147483648
-  volumes=/var/lib/postgresql/18/data /etc/postgresql /home/player /var/lib/gm-state /run
+  volumes=/var/lib/postgresql/19/data /etc/postgresql /home/player /var/lib/gm-state /run
   ```
 
   `services`: the node's map entry, `default` expanded to its brick's

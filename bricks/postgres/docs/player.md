@@ -1,6 +1,6 @@
 # PostgreSQL node — player notes
 
-What you may know about a PostgreSQL 18 database node in a db_audit_gm
+What you may know about a PostgreSQL 19 database node in a db_audit_gm
 game. Version 0.2: server log in files, pgBadger, `pg_stat_statements`;
 0.5.0 adds pgCluu.
 

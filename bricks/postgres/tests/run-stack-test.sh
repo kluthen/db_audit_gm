@@ -8,7 +8,8 @@
 # seed files, the envelope file and the secrets as external configs and
 # secrets created here, then checks, from a client container on the
 # stack's network and from the GM side (docker exec):
-#   - the image serves PostgreSQL 18 and the container becomes healthy;
+#   - the image serves PostgreSQL 19 and the container becomes healthy;
+#     (v0.6 chunk 17a) one pgcluu_collectd pass against it, with no error;
 #   - SSH as `player` works, and `player` may sudo exactly the 3 wrappers;
 #   - edits to /etc/postgresql survive gm-restart-db and a new container;
 #   - the seed marker (/var/lib/gm-state) is out of player's and postgres's reach;
@@ -295,7 +296,7 @@ gm_pg() { docker exec -i -u postgres "$C" "$@"; }
 
 # --- PostgreSQL served -------------------------------------------------------
 v=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql -h db -U dba -d postgres -XAtc 'show server_version' 2>&1 || true)
-case $v in 18.*) pass "serves PostgreSQL over TCP as dba (server_version $v)" ;; *) fail "TCP psql as dba: $v" ;; esac
+case $v in 19.*) pass "serves PostgreSQL over TCP as dba (server_version $v)" ;; *) fail "TCP psql as dba: $v" ;; esac
 check "GM: postgres peer over the local socket" sh -c "[ \"\$(docker exec -u postgres $C psql -XAtc 'select current_user')\" = postgres ]"
 
 # --- SSH and sudo ------------------------------------------------------------
@@ -377,6 +378,18 @@ m=$(gm stat -c '%U %s' /home/player/pgbadger.html 2>&1)
 case $m in "player "[1-9]*) pass "HTML report in player's home ($m bytes)" ;; *) fail "report: $m" ;; esac
 check "the report holds the slow query (prefix parsed)" gm grep -q gm_stack_test_slow /home/player/pgbadger.html
 check "the report is HTML" gm grep -qi '<html' /home/player/pgbadger.html
+
+# --- v0.6: one pgCluu collection against PostgreSQL 19 (chunk 17a, G9.2) ---------
+# pgCluu 5.0's notes stop at 18: one short pgcluu_collectd pass as player,
+# then its report, with no error in either log.
+w=$(pssh 'rm -rf ~/pgcluu-st ~/pgcluu-rp; mkdir ~/pgcluu-st ~/pgcluu-rp
+pgcluu_collectd -h 127.0.0.1 -U dba -d postgres --disable-sar --disable-pidstat -i 2 -E 6 -f ~/pgcluu-st/collectd.pid ~/pgcluu-st > ~/pgcluu-st.log 2>&1; a=$?
+pgcluu --disable-sar -o ~/pgcluu-rp ~/pgcluu-st > ~/pgcluu-rp.log 2>&1; b=$?
+e=$(cat ~/pgcluu-st.log ~/pgcluu-rp.log | grep -ciE "error|fatal|syntax")
+echo "$a $b $e $(ls ~/pgcluu-st | grep -c "\.csv$") $(test -s ~/pgcluu-rp/index.html && echo report)"' 2>&1)
+case $w in "0 0 0 "[1-9]*" report") pass "pgcluu_collectd and pgcluu run against PostgreSQL 19 with no error (rc, rc, errors, csv files: $w)" ;;
+    *) fail "pgCluu against 19: $w: $(pssh 'cat ~/pgcluu-st.log ~/pgcluu-rp.log' 2>&1 | head -c 2000)" ;; esac
+pssh 'rm -rf ~/pgcluu-st ~/pgcluu-rp ~/pgcluu-st.log ~/pgcluu-rp.log' >/dev/null 2>&1
 
 # --- v0.2: pg_stat_statements ----------------------------------------------------
 w=$(pssh "psql -XAtc 'show shared_preload_libraries'" 2>&1 || true)
@@ -732,7 +745,7 @@ if R=$(wait_healthy "" "$RSERVICE"); then
     [ "$w" = 7 ] && pass "the restored cluster holds the data written before the snapshot" || fail "restored data: $w"
     w=$(rq "select count(*) from pg_replication_slots" 2>&1)
     [ "$w" = 0 ] && pass "the restored cluster has no replication slot" || fail "restored slots: $w"
-    check "the restored cluster finished its recovery (no backup_label left)" docker exec "$R" test ! -e /var/lib/postgresql/18/data/backup_label
+    check "the restored cluster finished its recovery (no backup_label left)" docker exec "$R" test ! -e /var/lib/postgresql/19/data/backup_label
     w=$(docker exec -i "$R" /usr/local/lib/gm/check-psql -d postgres -XAtc 'select current_user' 2>&1)
     [ "$w" = gm_check ] && pass "gm_check connects through check-psql in the restored cluster" || fail "gm_check restored: $w"
     w=$(docker exec "$R" grep -c '^work_mem = 8MB   # stack test edit' /etc/postgresql/postgresql.conf 2>&1)
@@ -931,7 +944,7 @@ for node in db db2; do
     if [ "$node" = db ]; then n_c=$C; else n_c=$J; fi
     w=$(docker exec -u postgres "$n_c" psql -XAtc "select trim(pg_read_file('/proc/self/oom_score_adj'))" 2>&1)
     [ "$w" = 300 ] && pass "$node: a backend runs at oom_score_adj +300 (read from the backend itself)" || fail "$node: backend's oom_score_adj: $w"
-    ppid=$(docker exec "$n_c" head -n 1 /var/lib/postgresql/18/data/postmaster.pid 2>&1)
+    ppid=$(docker exec "$n_c" head -n 1 /var/lib/postgresql/19/data/postmaster.pid 2>&1)
     # /proc/<pid>/environ is its owner's: read as postgres (root has no CAP_SYS_PTRACE)
     w=$(docker exec -u postgres "$n_c" sh -c "tr '\\0' '\\n' < /proc/$ppid/environ | grep '^PG_OOM_ADJUST_' | sort | tr '\\n' ' '" 2>&1)
     [ "$w" = "PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj PG_OOM_ADJUST_VALUE=300 " ] \
@@ -991,8 +1004,8 @@ w=$(gm sh -c 'ls /run/gm | grep -c "^check-psql" || true')
 [ "$w" = 0 ] && pass "check-psql --node leaves no password file in /run/gm" || fail "password files left: $w"
 
 # --- v0.5: the image's G5 conditions (chunk 3a) -------------------------------------------
-w=$(gm sh -c 'dpkg-query -W -f "\${Version}" postgresql-18-pgaudit; echo " $(test -f /usr/lib/postgresql/18/lib/pgaudit.so && echo so)"' 2>&1)
-[ "$w" = "18.0-3.pgdg13+2 so" ] && pass "pgaudit pinned exactly, its library in place ($w)" || fail "pgaudit package: $w"
+w=$(gm sh -c 'dpkg-query -W -f "\${Version}" postgresql-19-pgaudit; echo " $(test -f /usr/lib/postgresql/19/lib/pgaudit.so && echo so)"' 2>&1)
+[ "$w" = "19.0-1.pgdg13+1 so" ] && pass "pgaudit pinned exactly, its library in place ($w)" || fail "pgaudit package: $w"
 w=$(gm sh -c 'dpkg --compare-versions "$(dpkg-query -W -f "\${Version}" libssl3t64)" ge 3.5.7-1~deb13u3 && dpkg-query -W -f "\${Version}" libssl3t64' 2>&1)
 [ -n "$w" ] && pass "libssl3t64 at or above the floor 3.5.7-1~deb13u3 ($w)" || fail "libssl3t64 floor"
 check "ssl-cert's snakeoil key and certificate deleted" gm sh -c 'test ! -e /etc/ssl/private/ssl-cert-snakeoil.key && test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem'
@@ -1046,7 +1059,7 @@ sys.stdout.write(inject.password_sql(Path(sys.argv[1]), [("audit_app", "role_aud
     && pass "load-data's password session runs on rec" || fail "load-data's password session: $(cat "$tmp/audit-app.err")"
 w=$(rec_tls "$AUDIT_APP_PASSWORD" audit_app "select current_user" 2>&1)
 [ "$w" = audit_app ] && pass "audit_app logs in with its secret's password" || fail "audit_app: $w"
-# pgaudit 18.0 redacts a password in its own lines (<REDACTED>); PostgreSQL's
+# pgaudit 19.0, as 18.0, redacts a password in its own lines (<REDACTED>); PostgreSQL's
 # statement logging does not, which is what the guard turns off: a canary
 # shows both.
 CANARY="canary-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
@@ -1151,13 +1164,13 @@ w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql "host=standby user=
 [ "$w" = 2 ] && pass "standby answers a read-only query as dba over TLS, a row written after the clone included" || fail "read on the standby: $w"
 w=$(sb_pg -c 'insert into repl_probe values (3)' 2>&1)
 case $w in *"read-only transaction"*) pass "standby refuses a write (read-only)" ;; *) fail "write on the standby: $w" ;; esac
-w=$(sb grep -E '^primary_(conninfo|slot_name)' /var/lib/postgresql/18/data/postgresql.auto.conf 2>&1)
+w=$(sb grep -E '^primary_(conninfo|slot_name)' /var/lib/postgresql/19/data/postgresql.auto.conf 2>&1)
 case $w in
     *password=*) fail "primary_conninfo holds a password" ;;
     *"passfile=''/run/gm-replication/pgpass''"*"primary_slot_name = 'standby'"*) pass "primary_conninfo names the password file, no password; primary_slot_name standby" ;;
     *) fail "the standby's postgresql.auto.conf: $w" ;;
 esac
-w=$(sb sh -c 'test -e /var/lib/postgresql/18/data/standby.signal && echo yes' 2>&1)
+w=$(sb sh -c 'test -e /var/lib/postgresql/19/data/standby.signal && echo yes' 2>&1)
 [ "$w" = yes ] && pass "standby.signal written by the clone" || fail "no standby.signal"
 w=$(sb_pg -c "select count(*) from pg_roles where rolname in ('dba', 'monitoring', 'gm_check', 'replicator')" 2>&1)
 [ "$w" = 4 ] && pass "standby holds the primary's roles (dba, monitoring, gm_check, replicator)" || fail "the standby's roles: $w"
@@ -1194,7 +1207,7 @@ done
 # As a restart from the hand-over snapshot finds it: the standby's restored
 # data directory holding its own settings, no slot of its name on its
 # primary. Each clone below runs with its postgres stopped and the slot gone.
-AUTO=/var/lib/postgresql/18/data/postgresql.auto.conf
+AUTO=/var/lib/postgresql/19/data/postgresql.auto.conf
 reclone() {  # reclone [--restore]: rc in $tmp/reclone.rc, output in $tmp/reclone.{out,err}
     docker exec "$SB" sh -c '/command/s6-svc -d /run/service/postgres && /command/s6-svwait -d -t 120000 /run/service/postgres' >/dev/null 2>&1
     k=0
@@ -1290,7 +1303,7 @@ while [ "$k" -lt 60 ]; do
 done
 w=$(archiver)
 case $w in "$SEG "*" $SEG2") pass "a refusal fails honestly: $SEG2 not archived, failed_count up ($w)" ;; *) fail "after a refusal: $w" ;; esac
-check "the refused segment is kept (archive_status/$SEG2.ready)" docker exec "$REC" test -e "/var/lib/postgresql/18/data/pg_wal/archive_status/$SEG2.ready"
+check "the refused segment is kept (archive_status/$SEG2.ready)" docker exec "$REC" test -e "/var/lib/postgresql/19/data/pg_wal/archive_status/$SEG2.ready"
 n=$(rec_log | grep -c "vault-post: wal $SEG2: the vault at vault:8080 refused it: 503")
 [ "$n" -ge 1 ] && pass "vault-post's reason in the server log ($n line(s): refused it: 503)" || fail "no refusal line in the log"
 vault sh -c 'echo short > /srv/vault/mode'
@@ -1348,7 +1361,7 @@ case $caps in "[ALL]"*) pass "cap_drop ALL" ;; *) fail "cap_drop: $caps" ;; esac
 mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}{{end}}{{end}}' "$C")
 [ "$mnt" = volume ] && pass "/run is a named volume (fallback a)" || fail "/run mount: $mnt"
 info "footprint at rest: db $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$C"); db2 (cron, pg_cron) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$J")"
-info "footprint at rest (v0.5): rec (TLS, pgaudit, the option) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$REC"); pdb (no-access) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$PDB"); standby $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$SB"); rec's pgdata $(rec du -sh /var/lib/postgresql/18/data | cut -f1) (pg_wal $(rec du -sh /var/lib/postgresql/18/data/pg_wal | cut -f1)), its log $(rec du -sh /var/log/postgresql | cut -f1); standby's pgdata $(sb du -sh /var/lib/postgresql/18/data | cut -f1)"
+info "footprint at rest (v0.5): rec (TLS, pgaudit, the option) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$REC"); pdb (no-access) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$PDB"); standby $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$SB"); rec's pgdata $(rec du -sh /var/lib/postgresql/19/data | cut -f1) (pg_wal $(rec du -sh /var/lib/postgresql/19/data/pg_wal | cut -f1)), its log $(rec du -sh /var/log/postgresql | cut -f1); standby's pgdata $(sb du -sh /var/lib/postgresql/19/data | cut -f1)"
 
 echo
 if [ "$failures" -eq 0 ]; then

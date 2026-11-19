@@ -49,7 +49,7 @@ entries:                            # one per customer node: 8.1's groups in ord
     description: <nodes[].description, one line>
     site: <nodes[].site>            # only when the node has one
     system: <Debian GNU/Linux 13>   # the brick's base:
-    applications: <PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring;
+    applications: <PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring;
       report tools: pgbadger; cron>
     sizing: <CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G>
     databases:                      # [] but on a database server (a standby: [])

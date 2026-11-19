@@ -92,7 +92,7 @@ class ScriptedDocker(FakeDocker):
 OLD_LOG = "/var/log/postgresql/postgresql-2026-10-31_092656.log"
 NEW_LOG = "/var/log/postgresql/postgresql-2026-10-31_093112.log"
 LAUNCHER_BEFORE = {"launcher": True, "cron_database": "reporting",
-                   "data_directory": "/var/lib/postgresql/18/data", "file": OLD_LOG}
+                   "data_directory": "/var/lib/postgresql/19/data", "file": OLD_LOG}
 
 
 def database_row(name, pg_cron=False, servers=0, mappings=()):
@@ -1096,7 +1096,7 @@ class TestLoadDataPgCronNoise(InstancesDeployedGame):
         self.load_data()
         clean, = self.runs("clean")
         self.assertEqual(clean["env"],
-                         {"GM_LOG_FILE": "/var/lib/postgresql/18/data/log/postgresql-b.log"})
+                         {"GM_LOG_FILE": "/var/lib/postgresql/19/data/log/postgresql-b.log"})
 
     def test_nothing_removed(self):
         self.fake.clean_answer = (0, "", "")
