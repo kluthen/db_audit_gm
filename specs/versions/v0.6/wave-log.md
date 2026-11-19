@@ -2836,3 +2836,21 @@ f5 also gained optional parameters (W3 item 8's pattern). The shop's
 the `scenario-document` skill.
 
 Figures (owner 1): see the chunk's total line at its merge.
+
+### Plan v10 (1d582a7); chunk 11b started, 2026-11-19
+
+- `spec-writer`: plan v10, 1d582a7, **D548**: the shop has no
+  `suppressed_by` pair (its f9 hides f4 only in `orders`' state and the
+  autovacuum log lines); the shop's f5 has no `daily_spike`; chunk 11's
+  optional-parameter line as 11a built it. Master spec 9.8's f9 and f5
+  rows and 6.9's shape example corrected. Chunk 12 does not rely on the
+  pair. **W3 item 4's last two sentences now read**: "The shop has no
+  `suppressed_by` pair: its f9 hides f4 only in state and logs (the
+  exporter has no per-table series; R shows f4's `max_tx_duration`
+  sawtooth throughout; spec D548). 9.5's 'while a hiding fault is
+  selected' read so (correction 9)."
+- Chunk 11b dispatched to a fresh `coding-leader`, resuming from
+  816c090 (the shop's `README.md` to be regenerated through the skill).
+  Relayed: confirm in its own run that the campaign's f5 hides f4's and
+  f7's trail in a Prometheus series before writing that pair (D543),
+  else report it as D548's case.
