@@ -10,8 +10,11 @@
 > resolution, each node's write policy, the `sudo` wrappers and the
 > validators' envelopes bound what they do. The game assistant may draw
 > on it as an example; it is not its method, and nothing enforces it.
-> Where it meets the game: `specs/versions/v0.7/game-assistant.md`, "An
-> audit example". A game-scoped English rewrite is optional and later.
+> It lives in `references/` at the clone's root, beside the game
+> assistant's definitions (`.claude/agents/game-assistant.md`,
+> `.opencode/agents/game-assistant.md`), whose section "The audit grid"
+> says where it meets the game. A game-scoped English rewrite is
+> optional and later.
 > The text below this note is never edited: replace it with a fresh copy
 > if the owner's grid changes.
 

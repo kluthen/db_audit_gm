@@ -16,6 +16,8 @@ owner's ruling that `main` is the game branch, and is confirmed by
 approving this document; where the assistant runs (6.3) follows from
 the ruling that it has the player's access, and is confirmed the same
 way. Companion: [access-model.md](access-model.md).
+Amended in wave 1: `SECURITY_TODO.md` among 8.2's dev-only paths, as
+the game-mode draft had it (spec D577).
 
 Baseline: the approved [v0.6 master spec](../v0.6/master-spec.md) and
 its [access model](../v0.6/access-model.md). Everything v0.6 specifies
@@ -636,7 +638,7 @@ the assistant needs to help; nothing that serves development only.
 | `bricks/<b>/`: `brick.yaml`, `Dockerfile`, `rootfs/`, `validator/`, `docs/` (`player.md` and `gm.md`), `tests/` (the `api` and `scheduler` images copy their unit tests at build) | `bricks/<b>/sbom/` |
 | `domains/`, `faults/`, `partners/`, `purposes/`, `scenarios/` (the GM side included), `post_mortem/` | |
 | `tools/gmctl`, `tools/__init__.py`, `tools/gm/`, `tools/play` | `tools/tests/`, `tools/go-sbom`, `tools/fake_aging/` |
-| `references/`, the game-mode `README.md` and `CLAUDE.md`, `.gitignore` | `specs/`, `issues/`, `game-mode/`, `.tech`, the dev `README.md` and `CLAUDE.md` |
+| `references/`, the game-mode `README.md` and `CLAUDE.md`, `.gitignore` | `specs/`, `issues/`, `game-mode/`, `.tech`, `SECURITY_TODO.md`, the dev `README.md` and `CLAUDE.md` |
 
 The scenarios' GM side stays on `main`: the GM needs it, and the trust
 line covers it. `specs/` stays off: its mentions in the game's files are

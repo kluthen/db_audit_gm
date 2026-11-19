@@ -195,7 +195,7 @@ off-limits by its stance:
 3. the player documentation (`docs/player.md`) of each brick of a node
    the players may reach, as the front serves under `/docs/bricks/`
    (v0.6 master spec 7.3);
-4. the audit grid, [references/grille-audit-pg.md](../../references/grille-audit-pg.md)
+4. the audit grid, [references/grille-audit-pg.md](../../../references/grille-audit-pg.md)
    (section 11);
 5. its own drafts (section 6);
 6. what the players paste or say.
@@ -398,7 +398,7 @@ active example of how to audit a postgresql server. it's not scoped for
 our purpose but hints as to how to handle an audit. it may be rewritten
 to fit our need, but it doesn't need to be enforced here." A verbatim
 copy, in French with an English note at its head, is
-[references/grille-audit-pg.md](../../references/grille-audit-pg.md),
+[references/grille-audit-pg.md](../../../references/grille-audit-pg.md),
 in a `references/` folder of the spec tree: the tree is where the
 project's sources live, the agent doesn't exist yet, and the build may
 move it beside the agent's files as a reference.

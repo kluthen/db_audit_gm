@@ -11,3 +11,7 @@ __pycache__/
 # The shop's real-aging reference, extracted from its archive outside git
 # (v0.6 master spec 12.3, spec D519): a cache, never tracked
 /tools/fake_aging/reference/extracted/
+
+# The game assistant's default folder for the players' report and drafts
+# (v0.7 master spec 6.8)
+/play/

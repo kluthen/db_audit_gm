@@ -32,7 +32,7 @@ data (D555–D557).
 | [agents.md](agents.md) | The GM and the assistant as agents, for Claude Code and OpenCode: their definitions, where the files live, how each is started, the build's impact (D559–D561) |
 
 Source kept in the tree: the owner's audit grid,
-[references/grille-audit-pg.md](../../references/grille-audit-pg.md),
+[references/grille-audit-pg.md](../../../references/grille-audit-pg.md),
 informative (D558).
 
 ## Open

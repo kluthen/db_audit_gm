@@ -1,0 +1,13 @@
+{
+  "skillOverrides": {
+    "game-master": "off",
+    "scenario-format": "off",
+    "scenario-document": "off",
+    "data-register": "off",
+    "network-overview": "off"
+  },
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "deny": ["Bash(psql:*)", "Bash(docker:*)", "Bash(tools/gmctl:*)"]
+  }
+}
