@@ -54,7 +54,35 @@
 # 18.7 and rebuilt it --no-cache --pull, same tag (unreleased):
 # c2ebb6cceaed -> 52300dbef515, dpkg-query read by the advisor and diffed
 # (153 packages): postgresql-18-cron 1.6.8-1.pgdg13+2 -> +3 and
-# postgresql-18-pgaudit 18.0-3.pgdg13+1 -> +2, nothing else. A cached
+# postgresql-18-pgaudit 18.0-3.pgdg13+1 -> +2, nothing else. v0.6 wave 3's
+# gate (2026-11-19, 12:21 UTC) rebuilt all ten --no-cache --pull, same tags
+# (postgres 91e6d7b6f222, bastion 71e9bbf8733d, pgbouncer a72434f74288,
+# health-check 9f6af63b9cf6, ...), dpkg lists unchanged; wave 4's chunk 5
+# rebuilt grafana 0.4.0 from cache (46e068499f7e, dashboard JSON only).
+# Gate G8 (2026-11-19, 17:00 UTC): dpkg-query read in all ten, every
+# version below holds (grafana's 129 packages identical; its grafana and
+# plugin binaries equal the SBOMs' hashes). Then apt list --upgradable in
+# throwaway containers, and a fresh build's resolution simulated
+# (apt-get -s) for the PGDG bricks: two Debian security updates are out
+# that the images lack. (1) zlib1g 1:1.3.dfsg+really1.3.1-1+b1 in all ten,
+# DSA-6613-1 (2026-11-07) fixes CVE-2026-85091 (gzwrite heap overflow after
+# a failed write()) and CVE-2026-27171 (crc32_combine64 CPU, low) at
+# +deb13u1. zlib1g comes from the debian:13-slim layer (built 2026-11-04,
+# Hub digest a72b4433de1c unchanged on 2026-11-19) and no Dockerfile runs
+# apt-get upgrade, so a --no-cache rebuild does NOT pick it up: only a
+# refreshed base or a Dockerfile change does. Not reachable in practice:
+# the Go binaries and Python use their own compression, nginx, curl and
+# OpenSSH use deflate/inflate, never gzwrite; pg_dump/pg_basebackup's gzip
+# output (bastion, postgres) stops at the first failed write. (2) nginx
+# DSA-6642-1 (2026-11-19 14:40 UTC), see the nginx entry. PGDG moved on
+# 2026-11-17: trixie-pgdg main now carries libpq5 19.0-1.pgdg13+1 (18.x
+# libs moved to component 18) and postgresql-18 18.7-1.pgdg13+5 (a rebuild,
+# "make space for PostgreSQL 19.0", no security content), postgresql-common
+# 297; a fresh build would put libpq5 19.0 in postgres, bastion and
+# pgbouncer, and pgbouncer's unpinned postgresql-client metapackage would
+# pull postgresql-client-19 (with make and guile through
+# postgresql-common-dev 297). None of it is security-motivated (NVD
+# PostgreSQL 19.0 and 18.7: 0). A cached
 # docker build of a brick keeps its old apt layer: security updates arrive
 # only with --no-cache. The Go binaries downloaded
 # as release tarballs
@@ -76,7 +104,7 @@
 # the same wave; a rebuild keeps its tag only when its dpkg-query list is
 # identical. The per-image versions recorded below rely on it.
 schema = 1
-updated = 2026-11-18
+updated = 2026-11-19
 
 [stack]
 languages = ["Python 3.13", "POSIX shell", "Perl 5.40 (postgres brick: vault-post with core HTTP::Tiny, pgBadger, pgCluu; health-check brick: check_postgres, health-run)"]
@@ -182,7 +210,7 @@ source = "Debian libcares2 1.34.9-1~deb13u1 (trixie-security, DSA-6626-1; apt, u
 name = "nginx (bastion web front, health-check status page)"
 version = "1.26.3"
 cpe = "cpe:2.3:a:f5:nginx_open_source"
-source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.6.0 (the 0.5.0 image, rebuilt with curl 2026-11-10, nginx unchanged) and nginx and nginx-common 1.26.3-3+deb13u10 in health-check 0.1.1 (apt, unpinned; gate G9, re-checked 2026-11-04 and 2026-11-16). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04)"
+source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.6.0 (the 0.5.0 image, rebuilt with curl 2026-11-10, nginx unchanged) and nginx and nginx-common 1.26.3-3+deb13u10 in health-check 0.1.1 (apt, unpinned; gate G9, re-checked 2026-11-04 and 2026-11-16). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04). G8, 2026-11-19: both images still at deb13u10 (wave 3's --no-cache build came at 12:21 UTC, before the DSA). DSA-6642-1 (2026-11-19 14:40 UTC) fixes 9 CVEs at 1.26.3-3+deb13u11, none reachable in either config: CVE-2026-113425 (mail proxy; mail is a dynamic module, no libnginx-mod-* installed), CVE-2026-118899 (listen ... ssl with TLSv1.3; no TLS listener), CVE-2026-120967 and CVE-2026-123640 (stream ssl_verify_client, ssl_preread; no stream), CVE-2026-121810 (HTTP/3), CVE-2026-123007 and CVE-2026-123633 (HTTP/2; neither config enables http2), CVE-2026-123634 (proxy to a variable server name plus an SSI or mirror subrequest; the bastion proxies its web_routes to set variables but has no ssi or mirror), CVE-2026-125283 (try_files with alias and a map variable built from regex captures; the bastion's only map is $http_upgrade -> $connection_upgrade, no capture, used in neither). NVD has not analysed them yet (cve-watch latest: none listed); OSV Debian:13 nginx deb13u10 lists them, deb13u11 leaves CVE-2026-120993 (stream ssl with proxy_protocol v2; no stream, no fix) and the two unimportant ones. The fix arrives with a --no-cache rebuild of health-check and bastion (bastion's also takes PGDG's libpq5 19.0, see the header). Watch: the Debian tracker's nginx; once NVD analyses the nine they match 1.26.3 here until the images run deb13u11"
 
 [[platform]]
 name = "pg_cron (PostgreSQL extension, postgres brick)"
