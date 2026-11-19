@@ -3304,3 +3304,425 @@ beyond W2; 16 none. So: capture W4 drafted by a `coding-leader` beside
 chunk 14 (light); chunk 12 starts once W4 is reviewed (and any plan
 correction it raises is committed); chunk 5 takes chunk 14's slot; 16
 starts once 12 and 14 have merged.
+
+### Capture W4 — the verification tools, the short-game script, the scenario document's "Fake aging" section (chunk 12; read by 16 and the release gate)
+
+Drafted 2026-11-19 for the wave driver, before any code. Sources: chunk
+12's and chunk 16's lines and the Release gate section (plan v14), gates
+G8 and G13; their spec packs (master spec 7.6, 9.4 to 9.12, 12.1, 12.3,
+14); [formats.md](../../formats.md) v40 ("Fault definition", `gauge_before`
+per D585; "Fake aging's measured figures"); spec D578 and D580 to D585;
+W1 to W3 with the records chunk 12 builds on (W3 items 1 to 6, 8 to 10
+and 12, W3-x, W3-y as amended by plan v11, G10.3's entry, the wave 3
+gate's figures, the handover for wave 4); the code on `v0.6-w4` at
+e6d709c (`tools/gm/{history,aging,cleanrestart,render}.py`,
+`tools/gmctl`'s parser in `tools/gm/__init__.py`, `tools/fake_aging/`
+with `calibrate.py`, `calibration/` and `reference/`,
+`tools/tests/fixtures/fixture-fill/{run-short-test.sh,run-history-test.sh}`,
+the `scenario-document` skill and template, `fixture-v06-refusals`'
+hand-rendered `README.md`, the shop's and the campaign's
+`scenario.yaml`, `faults/pg-join-index-missing/fault.yaml`,
+`.claude/skills/game-master/SKILL.md` where it cites the section);
+ISS-007 and ISS-008; and the research at `10d1bc6` (`m4_tells.sh`,
+`m1_dump.sh`, `m1_compare.py`, `m3_profile.py`,
+`specs/research/fake-aging/{run-2026-11-14,results-2026-11-15}.md`, read
+with `git show`), with four files of run R's M1 dump read through
+`extract.sh`. W1's rules hold: the spec is cited, not restated;
+**(choice)** marks a point the sources leave open, settled with its
+reason; each item names its writer and its readers; chunk internals stay
+out. As-built record: **W4-x** (chunk 12: the tools' and the script's
+interfaces as built where they differ from items 1 to 5; each script's
+start window; each game's figures and verdict counts; the M1 and M3
+verdicts with the reported measures; the tells' figures; f8's value and
+its source; `fixture-dropped-index`'s value; the campaign's figures as
+read; the section as built).
+
+Held, cited not restated: W1 item 3 (`extract.sh`, its exit 77 for an
+absent archive) and W1-x; W2 items 7 (the fake timeline, `left_out`), 8
+(the record), 11 (clean-restart, the padding, `wal-rate.yaml`) and 12
+(start-load, the early check); W3 items 1 to 3 as built (W3-x, D581,
+D583: `gmctl history`, its record and the seam's findings), 6 (the
+checks' history line), 8 to 10 (the faults' forms, the supports, the
+calibration files) and 12 (the section's heading and facts); D578 (no
+covered fault uses `suppressed_by`), D584 and D585 (f8's `gauge_before`,
+the sum). Instants UTC, `YYYY-MM-DDTHH:MMZ`; scenario times `HH:MM`.
+
+**What every tool and the script share (choice)**, the form of
+`calibrate.py` (W3 item 10) and the run scripts
+(`run-history-test.sh:72-82`): the scenario directory first, then
+`--playground <pg>`; a live game read only through `tools/gmctl exec`
+(SQL as `postgres` with `default_transaction_read_only=on`, as the
+research's M1 dump) or, for Prometheus, through
+`tools/gm/history.py`'s `Prometheus` reader (`history.py:879`, `curl`
+in the node, read-only), never a published port; each judged point one
+line, `PASS  <check>: <detail>`, `FAIL  <check>: <detail>`, `SKIP
+<check>: <reason>`, a figure `FIGURE  <what>: <value>`; the last line
+`<tool>: <n> passed, <n> failed, <n> skipped`; exit 0 nothing failed,
+1 any failure, 2 usage or refused (nothing read), 77 the reference
+absent where a tool needs it (its line `SKIP ... the reference archive
+is absent`, `extract.sh`'s message). Why: the script counts `PASS` and
+`FAIL` lines as `run-history-test.sh` does, and the release gate reads
+one form. Each tool names its origin in its header (`research/fake-aging`
+10d1bc6, the file), as `calibrate.py` does.
+
+**1. The tells script** (chunk 12 writes; the script, a GM after a
+restart and the release gate read)
+
+- **(choice)** `sh tools/fake_aging/tells.sh <scenario-dir> --playground
+  <pg> --node <db node> [--node <db node> ...]`: every primary
+  `postgres` node the game reads (the shop `db`; the campaign `db` and
+  `reporting`), named by the caller. Refused, exit 2: no restart record
+  or `mode` not `fake`, no `restart.at` (the tells are a fake game's).
+- **Its checks**, one verdict each per node, the fixed tells of 12.1
+  and 9.9:
+  - `start-time`: `pg_postmaster_start_time()` at or after
+    `restart.at`, within 10 s of it (the wave 3 gate measured +1.3 to
+    +2.2 s), before `now()`, and the same when read again at the
+    script's end (no negative, no moving start);
+  - `statements`: no row of `pg_stat_statements` in any database whose
+    query names `gm_vclock` or `gm_pad` (the fill's clock and the
+    padding's messages, `fill.py`, `cleanrestart.py:148-172`), and
+    `pg_stat_statements_info.stats_reset` before `restart.at`;
+  - `stats-reset`: one instant: the shared views' `stats_reset`
+    (bgwriter, checkpointer, WAL, archiver, I/O) and the statements' all
+    within one second of each other, seconds before `restart.at` (D536);
+  - `pg-wal`: the live `pg_wal` total (`pg_ls_waldir()`) not below 90 %
+    of `state.yaml`'s `clean_restart.wal.<node>.pg_wal_bytes`, the
+    padding's own figure (`cleanrestart.py:151-172`), never a day's rate
+    from `wal-rate.yaml` (plan, the campaign's figures read as
+    measured). **(choice)**: only a shrinking `pg_wal` reads as a young
+    server; 90 % leaves one recycled segment's worth of a 1 GB folder.
+    The ratio is a `FIGURE` too;
+  - `autovacuum`: per table, with the reference (the shop, `--reference`
+    given): run R's runs per updated row, ×0.5 to ×2, one run either
+    way, the fill test's rule (`run-short-test.sh:338-373`); without it
+    (the campaign): a table whose updated and deleted rows passed its
+    autovacuum threshold at least once has at least one run, and none
+    more than its dirtied rows over that threshold plus one
+    **(choice**: the only range the campaign's own figures give);
+  - `search-path`: no routine in any database with `gm_vclock` in its
+    `proconfig`'s `search_path`, and no `gm_vclock` schema left.
+- `FIGURE` only, never a verdict (9.10's row, curation none; W3
+  correction 3): Prometheus' `prometheus_tsdb_lowest_timestamp_seconds`,
+  `prometheus_tsdb_blocks_loaded` and `prometheus_tsdb_storage_blocks_bytes`
+  at the read.
+- `--reference`: run R's tells (`m4-r-20261115.txt`) and M1 table
+  statistics read through `extract.sh`; with the archive absent the
+  autovacuum check takes the campaign's rule and says so in a `SKIP`
+  line for R's.
+
+**2. The M1 dump and comparison** (chunk 12 writes; the script reads)
+
+- `sh tools/fake_aging/m1_dump.sh <scenario-dir> --playground <pg>
+  --node <db node> --database <db> <out-dir>`: the research's queries,
+  its output form (one CSV a query and `meta.txt`, as run R's
+  `m1-fa-real-20261115T0800/`), the database an argument; a query whose
+  tables the database lacks (the shop's order statuses and ledger)
+  writes no file.
+- **The span and the selection differ from R's (finding)**: run R aged
+  24 hours, from 13:59 to 14:00 customer time
+  (`run-2026-11-14.md`, "Run R"); a fake game's virtual T0 is H minus
+  `aging.minimum`, the shop's 16 h (`scenario.yaml:33`, T0 22:00), and
+  the short selection lacks f4, f5 and f7, which R played. Every count
+  accumulated over the span (inserts, updates, scans, transaction ages)
+  differs by R's afternoon and evening; the research's ±3 % held only
+  because its F runs matched R's span (`run-2026-11-14.md`, "Span").
+- **(choice) The comparison scales R to the game's span**:
+  `python3 tools/fake_aging/m1_compare.py <reference-dir> <game-dir>
+  --start <game's T0 dir> --profile <reference M3 profile> --span
+  <HH:MM>-<HH:MM>`. The script dumps M1 twice: once after `inject`,
+  before `fill` (the game's T0 state: the same data file and T0
+  plantings as R's, so it stands for R's T0), and once at the read.
+  For each judged measure the expected value is `T0 + s × (R − T0)`,
+  `s` the share of R's inserted rows (`rows inserted/s, shop`, R's M3
+  profile, its 24 hourly steps) falling in the game's span from its
+  virtual T0 to the read, scenario time. Judged, within ±3 % of the
+  expected value (the research's tolerance, `results-2026-11-15.md`
+  Q1): the measures inserts drive: each table's `n_tup_ins` and
+  `n_live_tup`, the sequences' `last_value`, the database's
+  `tup_inserted`. Reported as `FIGURE` with their ratio to the
+  expected value, never judged: the rest of Q1's list (updates, HOT
+  updates, scans, bloat and dead tuples, transaction ages, order
+  statuses, temp files), which f4's held transaction and f5's noon
+  close in R move, and Q1's own known differences (`delivery_events`'
+  bloat, `products`' transaction age, the `postgres` and `template1`
+  activity, the ledger's last day). Why: insert-driven measures are the
+  ones a share of R's own insert profile scales exactly; the rest
+  depend on instances the game doesn't play.
+- Without the archive: `SKIP`, exit 77, nothing judged (W1 item 3).
+
+**3. The M3 profile and comparison** (chunk 12 writes; the script reads)
+
+- `python3 tools/fake_aging/m3_profile.py dump <scenario-dir>
+  --playground <pg> --handover <YYYY-MM-DDTHH:00Z> <out.json>` (the
+  research's expressions, the database from `--database <db>`, where
+  the research had `shop`) and
+  `python3 tools/fake_aging/m3_profile.py compare <reference.json>
+  <game.json>`. Both hand over at 14:00 scenario time, so step i is the
+  same scenario hour (the research's alignment).
+- **(choice) Only the hours the game's past holds**: the steps from its
+  virtual T0 plus one hour to the last whole hour before the restart
+  (the shop: 23:00 to 13:00, 15 steps); a step spanning the restart or
+  the import is left out. Judged, per expression: Pearson correlation
+  at least 0.95 and the ratio of means 0.95 to 1.05, on the traffic
+  expressions (`calls/s`, `errors/s`, `commits/s`, `rows inserted/s`,
+  `statements calls/s`): the research's 0.96 to 1.00 and "within 5 %"
+  (Q4), rounded to a bound. Reported, not judged: `call p95` (f7's pool
+  and f5's noon close in R), the size and resource gauges (database
+  size, WAL, backends, CPU: R's afternoon growth; 9.9 fixes them against
+  the game's own tail, which the seam judges), `series`.
+- Without the archive: `SKIP`, exit 77.
+
+**4. The seam and the import, as chunk 12 reads them** (chunk 10 built;
+12 reads; W3 items 1 to 3, D581, D583)
+
+- The script reads the record's `history {result: ok, seam: ok}` and
+  `state.yaml`'s `history_import.attempts` (the figures), then runs
+  `tools/gmctl history <dir> --playground <pg> --check-seam` once:
+  exit 0 is the seam verdict (12.1's "a past present" is the `empty`
+  finding). It never re-derives a finding.
+- **(choice) A retention check**: Prometheus' lowest timestamp at the
+  read within one minute of the virtual T0 (`FIGURE` right after the
+  import and at the read). Why: G10.3 left a 13 to 15 h past's retention
+  unmeasured, and the shop's and the campaign's are 16 h; a past cut by
+  retention is a tell. W4-x records both figures.
+- **f8's step** (the Verification line, D584, D585): over the forged
+  past, `pg_database_size_bytes{datname="shop"}`'s last sample before
+  f8's planting (08:00) less its first after it, against f8's `value`:
+  within the larger of 1 % of `value` and the tail's own largest step
+  **(choice**: D581's join tolerance; the drawn level moves far less
+  than that between two scrapes).
+
+**5. The short-game script: `tools/tests/smoke-fake-aging.sh`** (chunk 12
+writes; the release gate item 3 calls it)
+
+- **(choice)** `sh tools/tests/smoke-fake-aging.sh <scenario-dir>
+  [--record]`; it knows two scenarios, by `scenario.yaml`'s `id`:
+  `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign` (any other:
+  exit 2). It plays the scenario as it is (its span, its data), never a
+  copy: the setup's time it measures is the one the scenario document
+  shows (item 8). Playground `fake-smoke`. Run under the host lock and
+  the sleep inhibitor by the caller, as every run script; it takes no
+  lock.
+- **Its selection**, plan and 12.1: the shop f1, f2, f3, f6, f8, f9,
+  f10; the campaign f1 to f4 and f7 to f9 (W3-y: f4 and f7 stay
+  `supported`, no fallback). The rest through `render --test-leave-out`,
+  the tail through `--test-tail-floor 15m` (both hidden options,
+  `tools/gm/__init__.py:280-281`).
+- **The start window (choice)**, as `run-history-test.sh:16-17`: H is
+  the next whole hour; the anchor is H − 15 min; the script refuses to
+  start, exit 3, nothing deployed, unless the setup's measured bounds
+  (from the deploy to the fill's end, per scenario, constants in the
+  script, W4-x records them) end before the anchor and the run ends
+  under 30 minutes. Its refusal line names the window, e.g. `start
+  between hh:MM and hh:MM`. No waiting option: the lock is never held
+  idle.
+- **Steps**, 9.4's and 12.1's order: `fit`, `render --aging fake
+  --handover H` with the two hidden options, `deploy`, `load-data`,
+  `inject`, M1 at T0 (the shop), `fill`, the wait to the anchor,
+  `clean-restart`, `start-load`; then, in the tail: the start-time
+  check (every service of the game, the monitoring's included, started
+  within 10 s after `restart.at`, none before: 12.1's "the monitoring
+  started with the rest"); the `player` account's
+  `ls /var/lib/prometheus` refused on the Prometheus node (D540, through
+  `gmctl exec --user player`); `gmctl history` by hand at
+  `restart.at` + 12 min, as the timer would (W3 item 6: the timer's run
+  after it is a no-op); the early check by hand right after it
+  (`gmctl check --early-check`), reading every selected instance present
+  and its history line `ok, seam ok`; item 4's reads; the tells (item
+  1); for the shop, M1 and M3 (items 2, 3) and f8's step; for the
+  campaign, P0's invariants as chunk 11's B2 read them (W3-y:
+  `rpt.close_day()`'s `proconfig` and `prosrc` md5 unchanged across the
+  fill, the nightly close once at 01:30 scenario time and every hourly
+  roll-up once at :05 in `rpt.etl_runs`); `gmctl status` and the
+  restart record printed (release gate item 3 reads them there); the
+  teardown, nothing labelled with the game's id left (on any exit, a
+  trap). It does not wait for H **(choice**: every check 12.1 lists
+  reads by the early check, H − 2 min; waiting for H would put the
+  teardown past 30 minutes).
+- **Figures** (`FIGURE` lines, the Done when's and the release notes'):
+  the wall time from the script's start to the teardown's end; the
+  setup from the deploy to the fill's end, the fill's duration, the
+  clean-restart's, the deploy to `restart.at`; `gmctl history`'s
+  duration and its `figures`. **The wall time is a check**: `FAIL` at 30
+  minutes or more (12.1).
+- **`--record` (choice)**: also writes the output to
+  `tools/fake_aging/calibration/<scenario id>-short-game-<YYYYMMDDTHHMMZ>.txt`,
+  opening as every calibration file (the command, the commit, the start,
+  the wall time; W3 item 10). Chunk 12 commits one per scenario; the
+  release gate runs without it. Why: 9.7, every number the scenario
+  document shows traced to a file.
+- **Exit status**: 0 nothing failed (a `SKIP` for the archive counts no
+  failure); 1 any failure; 2 usage; 3 outside the window.
+- **Campaign figures read as measured** (plan, D578): a step in f1's
+  `pg_stat_database_tup_inserted` at the seam is a `FIGURE` and a W4-x
+  finding for v1.0 gating, never a `FAIL`; the tells read `pg_wal`
+  against the padding only (item 1).
+
+**6. `gauge_before` adds its value; f8's and the fixture's values**
+(chunk 12 writes; the shop's game and `fixture-fill`'s history run read)
+
+- The sum, the wording, the test case and `run-history-test.sh`'s new
+  check are the plan's and formats.md v40's (D585); not restated.
+- **f8's `value` from run R's reference first (choice)**: `calibrate.py
+  gauge` on `r-dump/r.om`, the shop's size either side of R's planting
+  (2026-11-15T02:00Z), its `# measured:` comment naming the member; a
+  short run of the shop (`--record f8`) only if that read can't isolate
+  the step. Why: R is the shop at its scale, already archived; a run
+  costs a lock slot and a window (the plan leaves both open).
+- f8's new entry selects `{DATABASE}`, a required parameter
+  (`fault.yaml:56-59`): ISS-008 (an optional parameter left unset) does
+  not reach it. ISS-007 touches no covered fault (D578): neither game
+  meets it.
+
+**7. The scenario document's "Fake aging" section** (chunk 12 writes;
+chunk 16, the GM skill, the feedback and the release gate read)
+
+- **Heading `## Fake aging`, unnumbered, after section 7 (choice)**: the
+  literal heading W3 item 12 fixed and `SKILL.md:689-697` cites; last,
+  since it is GM-side material about how a game may be run, not about
+  the system. **Always present**, in every scenario document: the GM
+  skill treats a document without it as stale (`SKILL.md:690-693`).
+- **Its contents**, 9.10's per-scenario facts, from the authoritative
+  files only:
+  - a scenario without `aging:`: one line, "none: the scenario does
+    not age, so it has no fake game", and nothing else;
+  - the virtual span: `aging.minimum`, the virtual T0 at the designed
+    hand-over (`aging.handover_at`) minus it, scenario time;
+  - a table, one row per instance: instance, fault, support
+    (`aging.fake.support`, or **"not assessed"** when the definition has
+    no `aging.fake`), its tail needs (`tail_minimum`, `tail_covers`),
+    `plant_in`, its reason (`aging.fake.reason`) and, when the
+    definition's `gm.md` has one, a pointer to its `**Fake aging.**`
+    note (W3 item 8);
+  - the full selection: the tail and the anchor at the designed
+    hand-over, by 9.6 as `render.fake_timeline` computes them (the shop
+    3 h, anchor 11:00; the campaign 5 h, 09:00, W3 item 9), and the
+    instances refused with their reasons; with any instance not
+    assessed, "not assessed: no fake game of this scenario until every
+    instance is" instead (9.5);
+  - **the limits (choice)**: the rows of `cleanrestart.EXPLAINS`
+    (`cleanrestart.py:72-109`, 9.10's table) that hold for the scenario
+    by the same conditions (a Prometheus node, an archiving node, a
+    cover in an instance's `fill.quiet`), each with the instances whose
+    evidence in the answer key reads where it shows, or "none of this
+    scenario's evidence". Why: the restart record's `explains` carries
+    the same rows, so the document and the record never disagree;
+  - **the setup's measured time (choice)**: from the newest
+    `<scenario id>-short-game-*.txt` (item 5), the deploy to the
+    restart, the wait for the anchor not counted, and the fill's
+    duration within it, the file named; "not measured" without one. Why:
+    D544 asks for a measured figure, and the newest record is the one
+    the code as it stands produced.
+- **Its inputs** join the skill's "When to generate or regenerate": the
+  faults' `aging.fake` and `gm.md` notes, and the scenario's short-game
+  records; a chunk changing one regenerates the documents that read it
+  in the same commit (workflow deltas).
+
+**8. An instance's `admitted:` in the scenario document** (chunk 12
+writes; chunk 16 reads)
+
+- In section 5, after the plantings' line, only when an instance has
+  `admitted:`: "Admitted by a partner on its status page:", the table
+  (instance, partner, title, `from`, `until` as written), then each
+  one's text quoted, exactly as `fixture-v06-refusals/README.md:196-203`
+  shows it (the plan's model). No **(choice)** here.
+
+**9. The starter-pack line** (chunk 12 writes; chunk 16 reads)
+
+- **(choice) Chunk 12 fixes it**: in `template.md:588-598`, "(v0.5; the
+  true register, `gm/data-register.yaml`, stays GM side)" moves inside
+  the "if: the bastion maps data-register.md" block. Why: chunk 12 owns
+  the template in wave 4, and chunk 16's Out forbids changing it; a
+  scenario without a register now names one it doesn't have.
+
+**10. What chunk 16 and the release gate read; order and shared files**
+
+- **Chunk 16** reads items 7 to 9 only: every fixture's document gains
+  "Fake aging" (always present; "not assessed" for most fixture
+  faults, "none: ... does not age" for fixtures without `aging:`), the
+  `admitted:` table where an instance has one, the corrected
+  starter-pack line. It starts once 12 and 14 have merged.
+- **The release gate** reads item 5: the script's name, arguments, exit
+  status, window and `FIGURE` lines (item 3 of the gate); items 1 to 4
+  through the script's verdicts; item 7's section for "the limits
+  documented where 9.10 says" (gate item 6).
+- **Shared files**: none with chunks 5 and 14 (chunk 5's
+  `node-health.json` seed files are no scenario document input, which
+  names seed files by path only; chunk 14's fixtures and the root
+  `README.md` are its own). Chunk 12's games deploy `grafana` 0.4.0 as
+  the registry holds it; chunk 5's rebuild of it under the lock does not
+  change what 12 checks.
+- **Risk**: `gmctl history`'s GM-side memory for a 16 h past (W3-x: 732
+  MB for 8 h in run 2, about double for 16 h; promtool about 590 MiB in
+  an unlimited helper), on armenelos; W4-x records the peaks.
+
+**Choices made here, not in the spec** (for the driver's review): the
+shared form of the tools' output and exit status; the tells' arguments,
+their 10 s start bound, 90 % `pg_wal` floor and the campaign's
+autovacuum range; M1 dumped at T0 and scaled to the game's span by R's
+insert share, judged on insert-driven measures within ±3 %, the rest
+reported; M3 judged on the traffic expressions over the hours the past
+holds (correlation 0.95, means within 5 %); the retention check; f8's
+step tolerance; the script's arguments, scenarios, playground, window
+and no wait, the check by the early check instead of H, the wall-time
+check, `--record` and its file name; f8's value from R first; the
+section's place, presence, limits from `EXPLAINS` and setup time from
+the newest record; chunk 12 fixing the starter-pack line.
+
+### Preflight corrections for spec-writer
+
+1. **Chunk 12's split rule**: 12a as written holds two Docker runs with
+   start windows (`fixture-fill`'s history run, the shop's game), four
+   tools, the script, the sum and f8; 12b is light. Chunk 10's second
+   owner spent about 140 calls on windows and lock waits (wave 3's
+   record). Proposed: **12a** `gauge_before`'s sum, the `scenario-format`
+   wording, `fixture-dropped-index`'s value and `fixture-fill`'s history
+   run, f8's `gauge_before` (one Docker run); **12b** the four tools,
+   `smoke-fake-aging.sh`, the shop's and the campaign's games and their
+   records (`--record`), the two scenarios' `README.md` regenerated with
+   the records (two Docker runs; after 12a for f8's step and after 12c
+   for the section); **12c** the scenario document: the "Fake aging"
+   section, `admitted:`, the starter-pack line, every scenario's
+   `README.md` and the two fixtures' (no Docker; no file shared with
+   12a, so it may run beside it). The scenarios' setup times read "not
+   measured" until 12b's records land.
+2. **Chunk 12's Done when, "the shop's M1 and M3 comparisons within the
+   reference's tolerances"**: the reference states none, and R's span
+   (24 h from 14:00, `run-2026-11-14.md`) and selection (ten faults)
+   differ from the short game's (16 h from 22:00, seven). To read: "the
+   shop's M1 comparison's judged measures within ±3 % of R scaled to the
+   game's span, and its M3 comparison's traffic expressions within its
+   bounds (capture W4 items 2 and 3)". Its Scope's M1 line gains the
+   dump at T0.
+3. **Chunk 12's Files**: `tools/fake_aging/calibration/` gains the short
+   games' records, `<scenario id>-short-game-<stamp>.txt` (item 5), not
+   only f8's file.
+4. **Chunk 12's Scope: the starter-pack line** (handover for wave 4,
+   "for chunk 12 or 16"): name it in chunk 12 (item 9), since chunk 16's
+   Out forbids changing the template.
+5. **Chunk 16's Scope**: every fixture's document gains the "Fake aging"
+   section (item 7; all 32 with chunk 14's), beside the "Third parties"
+   and "Composition" lists; its size grows by one table a fixture.
+6. **The Release gate's item 3 and estimate**: the script runs in a
+   start window (item 5, exit 3 outside it), so the second game waits
+   for its next window: about 1½ hours for the two, not 60 minutes
+   (estimate about 4 hours). Item 3's "the restart record and `gmctl
+   status` read" are in the script's output.
+7. **G10.4 after wave 4's gate** (none contradicts the spec; formats.md
+   v40 doesn't carry them): the short-game record's name in "Fake
+   aging's measured figures"; 9.10's per-scenario section's sources (the
+   limits as `explains` holds them, the setup time from the newest
+   record, the wait for the anchor not counted); the M1 and M3
+   comparisons' judged sets and bounds if the spec is to name them
+   (12.1 says only "against the saved real run").
+
+### Questions for the owner (as drafted)
+
+None. Every point above is settled by the spec, a capture, or a
+correction `spec-writer` can make without changing how a game plays.
+Correction 2 changes what the shop's M1 comparison proves (R scaled to
+the game's span, not R as is); if the driver prefers the comparison to
+stay span for span, the alternative is a copy of the shop with R's 24 h
+span in the script, which costs about 3 more minutes of fill, the
+30-minute margin and the setup time the scenario document shows.
