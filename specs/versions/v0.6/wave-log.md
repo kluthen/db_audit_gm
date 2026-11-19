@@ -3911,3 +3911,45 @@ span in the script, which costs about 3 more minutes of fill, the
   snapshot. Cleared.
 - Inserted chunk's checks: no intent register (no `documentalist`
   peek), no data register; G9.2's preflight done.
+
+### Plan v17 (a775891, merged 314a16f); chunk 17a rotated — 2026-11-19
+
+- Owner on G15: O294 "Known limit" (**D591**), O295 "Add the new
+  setting" (**D592**). G15 done; chunk 17c states both as settled.
+- Chunk 17a's first owner stopped at the rotation bound: WIP 5428aeb.
+  postgres on 19 (pins asserted), stack test 317 / 0 in 7m38s; bastion,
+  pgbouncer, scheduler, api, health-check rebuilt `--no-cache` on 19
+  (libpq5 19.0-1.pgdg13+1 in each, no 17 or 18 package); every 18 path
+  moved; the clinic's crontabs, overview and digests updated; unit suite
+  OK. Findings for G9.2's post-change: postgres, bastion, pgbouncer keep
+  Debian's postgresql-common 278 (installed before the PGDG source);
+  `.tech` still says 18. `domains/vet-scheduling/data/schema.sql:31`'s
+  "postgresql-18" comment left to 17c. A second owner resumed from
+  5428aeb (nine stack tests, the two unit runners, the smokes, the
+  clinic's README after 12c, the merge).
+
+### Chunk 12c — merged (ee98c68), 2026-11-19
+
+- c53b0d1 (rebased on 314a16f), merged `--no-ff` as ee98c68. Done when
+  met: `## Fake aging` last in all five scenario READMEs and
+  `fixture-status`'s and `fixture-v06-refusals`' (bookshop, fernway:
+  "None"; aldermoor and fixture-status: "not assessed"; shop tail 3h,
+  anchor 11:00; campaign tail 5h, anchor 09:00, f10 refused
+  `real-only`; tails and anchors from `render.fake_timeline`; limits
+  from `cleanrestart.EXPLAINS` under their design-time conditions;
+  setup time "not measured" until 12b). `admitted:` shown;
+  `fixture-v06-refusals` fully regenerated (four template drifts fixed);
+  the starter-pack line inside the register condition; the
+  zero-entries overview case in the template (16 applies it). A second
+  render changes nothing. Unit suite 1558 OK, 2 skipped.
+- Choices recorded in the skill: the evidence-to-limit table (one row
+  per `EXPLAINS` row); the section as the template's fourth exception
+  to "read only `scenario.yaml` and the answer key"; template labels
+  moved to v0.6; admitted texts quoted in instance order with no
+  instance label (an owner-visible nicety, not needed for v0.6).
+- For 12b: the shop's and campaign's READMEs regenerated in the same
+  commit as the short-game records. For 17a: the clinic's README
+  regenerated on top of this merge.
+- The owner's wait loops (`pgrep -f` matching itself) kept it idle
+  after its suite; killed on the driver's status check.
+- Figures: 1 agents, 76 tool calls, 10.8M tokens in / 53k out, max context 207k, $5.01 at API prices.

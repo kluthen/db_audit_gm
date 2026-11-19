@@ -2135,7 +2135,10 @@ window and exit status, which the release gate calls.
 
 ### Chunk 12c — The scenario document: "Fake aging", `admitted:`, the starter-pack line
 
-Status: planned
+Status: merged (w4, ee98c68)
+Record: c53b0d1, merged as ee98c68 on 2026-11-19; no deviation from the
+spec or W4. The evidence-to-limit matching is a table in the skill;
+setup time "not measured" until 12b's records.
 Wave: 4
 Depends on: chunks 7, 9, 11 (the `scenario-document` skill;
 `cleanrestart.EXPLAINS` and `render.fake_timeline`; the faults'
