@@ -554,3 +554,28 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   workflow skills; the empirical check; the GM's session settings,
   generated at each launch by a launcher. Now in:
   [agents.md](versions/v0.7/agents.md) 4–7.
+- **D572 (2026-11-19, spec-writer, closing the independent review of
+  v0.7's drafts, REJECT, ten findings): the review's closures,** each
+  following from an owner ruling. The assistant runs on the player's
+  side, never on a machine holding the GM's local implementation unless
+  it is the player's own (from D550: the player's access, not the GM's
+  machine's). It reads neither the web front nor the home `partners.md`
+  and is handed no password; the shell history reaches it filtered of
+  credentials. Its definition names no aging word or game mechanic and
+  `publish-main` scans it (the drafts' GA14/GA15 wording contradicted
+  the spoiler check). Every GM skill, workflow skills included, hidden
+  from it and named in its settings; the handouts treated as the
+  customer's claims without the GM's rule on which may be wrong; game
+  mode's settings from `game-mode/settings.json`; the grid at
+  `references/`; each OpenCode check given its consequence; bricks'
+  `tests/` kept on `main` (two images copy them at build). Now in:
+  [master spec](versions/v0.7/master-spec.md) 6.3–6.5, 6.9, 6.10, 7.4,
+  7.7, 8.2, 8.3; [access model](versions/v0.7/access-model.md) 5, 9.
+- **D573 (2026-11-19, owner's word, relayed by the coordinator): v0.7
+  consolidated** into its master spec and access model, a delta on
+  v0.6's, the game branch's shape (MD5–MD8) and where the assistant runs
+  carried for review in context and confirmed by approval; formats.md
+  v37, gm-stance.md v16, planes-and-access.md v20 and concept.md v17
+  brought up to date; the drafts kept as the working record, the master
+  spec winning where they differ. Now in:
+  [versions/v0.7/master-spec.md](versions/v0.7/master-spec.md).

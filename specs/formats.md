@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v36; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v37; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -40,7 +40,10 @@ overview's form; fake aging's measured figures beside a node's files
 timeline's keys, the restart record as written, `state.yaml`'s `hold`,
 `fill` and `clean_restart`, a `fill.quiet` item and P0's cover's, the
 fill's metrics record, `--test-tail-floor`); the partners' status file
-and its `rendered` secret; the `brick-doc` configs.
+and its `rendered` secret; the `brick-doc` configs. Draft v37, at v0.7's
+consolidation: the GM and the game assistant as agents for Claude Code
+and OpenCode, the GM's skills, the launcher `tools/play`, and the game
+branch's layout ("Enforcement", "The agents and the game branch").
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -89,8 +92,34 @@ reading to confirm under O20. As built in v0.1, the scripts check a
 scenario, and the bricks and faults it uses, against the templates
 whenever they load it, and refuse an incomplete one (D40); the format
 skill's own check is by reading. The skills live in `.claude/skills/`,
-which both Claude Code and opencode read (D29). A third skill, the GM skill,
-runs the game itself ([gm-stance.md](gm-stance.md), D33).
+which both Claude Code and opencode read (D29). Until v0.7 a third skill,
+the GM skill, ran the game itself ([gm-stance.md](gm-stance.md), D33);
+from v0.7 the GM is an agent, its workflows skills of its own (D560;
+below).
+
+### The agents and the game branch (from v0.7)
+
+- **Agent definitions**, one per tool, kept in step by hand (D561): the
+  GM at `.claude/agents/game-master.md` and
+  `.opencode/agents/game-master.md`, the game assistant at
+  `.claude/agents/game-assistant.md` and
+  `.opencode/agents/game-assistant.md`. The GM's core file holds the
+  stance its workflows share; each self-contained workflow is a skill
+  `.claude/skills/game-master-<workflow>/`, with `gmctl.md` a reference;
+  the four helpers (`scenario-format`, `scenario-document`,
+  `data-register`, `network-overview`) stay skills. OpenCode reads the
+  same `.claude/skills/`.
+- **Session settings**: `.claude/game-assistant.settings.json`,
+  committed; `.claude/game-master.settings.json`, generated at each
+  launch by `tools/play` and git-ignored
+  ([v0.7 master spec](versions/v0.7/master-spec.md) 7.4, 7.6).
+- **The launcher** `tools/play` (`gm` or `assistant`, `--opencode`)
+  starts an agent with its settings.
+- **The game branch** (D564): `main` carries what a game needs, `dev`
+  the rest, `game-mode/paths` listing the dev-only paths; `publish-main`,
+  on `dev` only, is the only way `main` changes (v0.7 master spec 8).
+  A file carried on `main` never tells its reader to open a `specs/`,
+  `issues/` or `tools/tests/` path.
 
 The file names and layouts below are settled (D42). YAML for structured
 content, Markdown for prose.

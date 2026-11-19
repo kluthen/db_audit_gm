@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v16
+Status: draft v17
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -44,6 +44,14 @@ rights are a game mechanic documented in
   experience. Audits the scenario through the bastion, fixes what they are
   asked and allowed to fix, and reports to the GM. "The player" is whoever
   sits behind one game's report: one student or a whole class (D8).
+- **Game assistant** (from v0.7) — an agent any player may start: a DBA
+  colleague who coaches, with the player's own access and none of the
+  game's background; it never touches a database, writes only the
+  report and its drafts, and never talks to the GM (D545, D559;
+  [v0.7](versions/v0.7/README.md)).
+
+From v0.7 the GM, too, is an agent definition for Claude Code and
+OpenCode, started by name (D560, D561).
 
 Anyone in the GM session may ask the GM to stop the game and turn off the
 containers. A student may also run a game alone, for example at home with
@@ -152,6 +160,8 @@ Scoped separately, each in its own page (D4):
   customer's data governance (D47, recast by D190; D191), then domain
   definition, a veterinary clinic franchise its worked example (D192,
   D233), then the bastion as the players' main activity point (D71).
+- **v0.7**: the game assistant, the GM and the assistant as agents, and
+  `main` as the game branch (D549, D564).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
   bastion. See [versions/v1.0/README.md](versions/v1.0/README.md).
