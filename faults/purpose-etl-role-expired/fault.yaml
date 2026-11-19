@@ -37,6 +37,25 @@ aging:
   technique: real-time
   minimum: 1h                       # counted from the hourly job's first run after planting
                                     # (master spec 6.3); plant_at handover-<N>h with N above it
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: tail-only
+    reason: >-
+      its refusals in the PostgreSQL log must follow its planting, and that
+      log starts at the restart, so it is planted in the tail
+    plant_in: tail
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no Prometheus trail of its own.
+# A refused login counts in no series the exporter serves; the roll-up's
+# failed runs are the scheduler's own series, real in the tail where the
+# fault is planted (an instance planted in the tail adds nothing to the
+# past, capture W3 item 4). It hides the roll-up's and the close's
+# effects, which are state and logs, not series: no suppressed_by is
+# written on them. Run A (v0.6 chunk 11b, f5 planted at 08:17:12Z, its
+# file tarnbeck-outdoor-campaign-f5-20261119T0819Z.txt) saw no roll-up run
+# in its 150 s, the next one due at :05: no number is taken from it.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

@@ -369,7 +369,7 @@ WAL_SQL = "SELECT wal_bytes, extract(epoch FROM now()) FROM pg_stat_wal"
 
 
 def cmd_wal(a, scenario, out):
-    mark = REPO / "local" / a.playground / "calibration" / f"wal-{a.node}.mark"
+    mark = scenario / "local" / a.playground / "calibration" / f"wal-{a.node}.mark"
     text = gmctl_exec(scenario, a.playground, a.node, "postgres",
                       f"psql -XAtq -F ' ' -c {shlex.quote(WAL_SQL)}\n").split()
     wal, at = float(text[0]), float(text[1])
@@ -388,7 +388,7 @@ def cmd_wal(a, scenario, out):
 
 def cmd_fault(a, scenario, out):
     import yaml
-    state = REPO / "local" / a.playground / "state.yaml"
+    state = scenario / "local" / a.playground / "state.yaml"
     data = yaml.safe_load(state.read_text()) or {}
     for p in data.get("plantings", []) or []:
         if p.get("instance") == a.fault:

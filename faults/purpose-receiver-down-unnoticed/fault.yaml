@@ -40,6 +40,21 @@ aging:
                                     # first declarations pass their deadline 47 minutes after;
                                     # the scenario raises the instance's aging_minimum to the
                                     # outage's offset from T0 plus 1h
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the gateway's outage is its timeline's key switch at virtual 08:00 to
+      10:00, which the fill runs, so the unanswered declarations and the
+      escalations finding nothing are in the fill's span
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no Prometheus trail of its own.
+# The outage's calls and the escalations' are the scheduler's series,
+# which reach the past through the fill's metrics record (capture W1
+# item 9); the declarations left unanswered are rows.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

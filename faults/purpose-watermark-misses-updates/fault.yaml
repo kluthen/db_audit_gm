@@ -33,6 +33,27 @@ aging:
                                     # (master spec 6.3): the next hourly run misses what it
                                     # invoiced; the scenario raises the instance's aging_minimum
                                     # to that close's offset from T0 plus 1h
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the hourly roll-up and the source's 12:00 close run on the virtual
+      clock in the fill (P0, the close's procedure through the cover), so
+      the published days lag the source's invoicing at virtual instants
+    plant_in: any
+    fill:
+      emulate: []
+# Supported confirmed by v0.6 chunk 11b's short fill (run B2,
+# tools/fake_aging/calibration/tarnbeck-outdoor-campaign-fill-20261119T1115Z.txt):
+# the roll-up's runs and the 12:00 close dated at their virtual instants,
+# and the sealed check read present just after the restart, the close in
+# the fill: it needs no 12:00 in the tail.
+# The history signature (master spec 9.5): no Prometheus trail. The
+# exporter reads the shop's database only, where the roll-up's reads
+# differ by the few updated orders; the gap is rows in the reporting
+# database, which no exporter reads, and the job's calls reach the past
+# through the fill's metrics record (capture W1 item 9).
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

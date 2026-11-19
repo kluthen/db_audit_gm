@@ -14,7 +14,7 @@ from tools.gm import model
 from tools.gm.model import REPO_ROOT
 
 # The scenarios fake aging covers in v0.6 (master spec 9.8).
-COVERED = ("tarnbeck-outdoor-shop",)
+COVERED = ("tarnbeck-outdoor-shop", "tarnbeck-outdoor-campaign")
 MANIFEST = REPO_ROOT / "tools" / "fake_aging" / "reference" / "MANIFEST.sha256"
 CALIBRATION = REPO_ROOT / "tools" / "fake_aging" / "calibration"
 NOTE = "**Fake aging.**"

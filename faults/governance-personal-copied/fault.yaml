@@ -33,6 +33,19 @@ aging:
   minimum: 30m                      # the job's first run after planting fills the table (spec
                                     # D189: counted from it, every thirty minutes from the data
                                     # load); the server, mapping, foreign table and job show at once
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the server, the mapping, the foreign table, the job and the copied
+      rows are state; pg_cron's run history holds the tail only, as every
+      real-clock actor's (master spec 9.10)
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no Prometheus trail. The copy
+# runs in the reporting database, which no exporter reads.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

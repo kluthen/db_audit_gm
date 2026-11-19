@@ -27,6 +27,21 @@ aging:
   minimum: 1h                       # counted from the campaign job's first run after planting
                                     # (master spec 6.3): the scenario raises the instance's
                                     # aging_minimum to that run's offset from T0 plus 1h
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the campaign job runs on the virtual clock in the fill (P0), so the
+      mail it sends at night in the recipients' zones is dated at its
+      virtual instants, from the company's 08:00
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no Prometheus trail. The
+# fault moves when mail goes, not how much: its evidence is mail_outbox's
+# rows against the customers' zones; the job's calls reach the past
+# through the fill's metrics record (capture W1 item 9).
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

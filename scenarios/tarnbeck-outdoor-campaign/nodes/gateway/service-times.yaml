@@ -1,0 +1,15 @@
+# Service times of the customs gateway's callback (v0.6 master spec 9.7;
+# capture W1 item 9, W3 item 10): the database's work for one call, in
+# seconds, lognormal (median, sigma of its logarithm), read by gmctl fill
+# from this folder, never a seed file, never on a node.
+source: >-
+  v0.6 chunk 11b, run A (a short real run of tarnbeck-outdoor-campaign on
+  armenelos, 2026-11-19 07:57 to 08:20 UTC),
+  tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-gateway-20261119T0817Z.txt.
+  customs.unavailable (the outage's key, run in no window of run A: the node
+  is report-only, its jobs not movable): run B2, its statement timed five
+  times with psql over db's local socket, 0.227 to 0.277 ms,
+  tools/fake_aging/calibration/tarnbeck-outdoor-campaign-fill-20261119T1115Z.txt
+keys:
+  customs.acknowledge: {median: 0.0012, sigma: 0.15}
+  customs.unavailable: {median: 0.00024, sigma: 0.07}

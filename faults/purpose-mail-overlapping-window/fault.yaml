@@ -26,6 +26,30 @@ aging:
   minimum: 1h                       # counted from the job's first run after planting (master
                                     # spec 6.3): an order's second notice comes five minutes after
                                     # its first, once the warehouse ships again after the load
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the fill runs mail.shipped every five virtual minutes through the
+      scheduler's own code on the virtual clock (P0), so every notice goes
+      twice at virtual times; the history draws the repeated rows each run
+      inserts
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5, 9.7): each run re-inserts the
+# notices of the five minutes the previous run already covered. Number from
+# v0.6 chunk 11b's run A (a short real run of tarnbeck-outdoor-campaign,
+# 2026-11-19 07:57 to 08:20 UTC, f1 a seed fault, in from the start):
+# mail_outbox's order-shipped rows since the load's start against their
+# distinct orders, over mail.shipped's calls. The evening's
+# runs (21:05 to 21:15 company time) read the data load's last shipments;
+# the third found none: the figure is the run's mean, the day's shape the
+# warehouse's.
+history:
+  - kind: counter_per_call          # a run re-inserts the notices of the overlap
+    series: 'pg_stat_database_tup_inserted{datname="{DATABASE}"}'
+    key: 'mail.shipped'
+    per_call: 70.7                  # measured: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-f1-20261119T0817Z.txt, 212 repeated rows (435 order-shipped rows for 223 orders) over mail.shipped's 3 calls (also in the keys-crm file)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -38,6 +62,13 @@ parameters:
   job:
     description: the runner's jobs.yaml job running mail.shipped, every five minutes
     default: mail-shipped
+    required: false
+  database:
+    description: >-
+      the database name of the source part, for the history signature's
+      per-database series (v0.6 master spec 9.5); optional, read only in a
+      fake game, so every instance in a scenario played fake sets it
+    default: null
     required: false
 
 # --- How it is planted ------------------------------------------------

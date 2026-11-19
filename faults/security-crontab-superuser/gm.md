@@ -63,3 +63,14 @@ refresh is gone, which is not acceptable as the fix. A role that does not
 exist is not a superuser: the check reads *fixed*, and the job's log shows
 it failing; check the log after a fix. The check does not follow a
 script the entry calls, nor `sudo -u` or `su` inside it.
+
+**Fake aging.** `tail-only`, with a tail of at least one hour
+(`aging.fake`, v0.6 master spec 9.5, 9.8). The crontab entry, the unused
+role and its grant are files and state, there from the start; but the cron
+daemon is off in the fill, and the entry's hourly connection, authenticated
+by peer as `postgres`, shows in the PostgreSQL log, which starts at the
+restart ("older logs archived", 9.10). An hour of tail holds one run of the
+entry (the campaign's at :17), its line in the log and its session in
+`pg_stat_activity`. Before the restart the job's own log, if the entry
+keeps one, has no lines from the fill: the crontab's runs start at the
+restart (9.10, "real-clock actors").

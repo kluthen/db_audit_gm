@@ -1,0 +1,17 @@
+# Service times of Lumen Analytics' transformer (v0.6 master spec 9.7;
+# capture W1 item 9, W3 item 10): the database's work for one call, in
+# seconds, lognormal (median, sigma of its logarithm), read by gmctl fill
+# from this folder, never a seed file, never on a node.
+source: >-
+  v0.6 chunk 11b, run B (the campaign's short fill on armenelos, 2026-11-19
+  10:44 to 11:13 UTC), tools/fake_aging/calibration/tarnbeck-outdoor-campaign-fill-20261119T1044Z.txt:
+  rpt.etl_runs' finished_at less started_at, each run's own ledger times of
+  its real execution in the fill (the node is report-only: its jobs could
+  not be moved into run A's window). rollup.hourly the median and the
+  logarithm's standard deviation of its 14 runs from 21:05Z to 10:05Z virtual
+  (0.048 to 0.118 s; the first, 20:05Z, a catch-up from the data load's
+  watermark, 3.02 s, left out); rollup.close its one run at 23:30Z virtual,
+  0.194 s (one run: no spread measured, sigma 0)
+keys:
+  rollup.hourly: {median: 0.075, sigma: 0.31}
+  rollup.close: {median: 0.19, sigma: 0}

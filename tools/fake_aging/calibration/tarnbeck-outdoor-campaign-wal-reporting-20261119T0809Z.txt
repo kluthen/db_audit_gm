@@ -1,0 +1,7 @@
+command: tools/fake_aging/calibrate.py /home/bastien/work/db_audit_gm-wt/v0.6-c11-faults-assessed/scenarios/tarnbeck-outdoor-campaign wal --node reporting --playground cal-a --from-mark --record wal-reporting
+commit: 816c090
+start: 2026-11-19T08:09:02Z
+wall time: 0 s
+
+reporting: wal_bytes 14061092 at 2026-11-19T08:01:49Z to 15062889 at 2026-11-19T08:09:02Z (7.2 min)
+bytes_per_hour: 8326392
