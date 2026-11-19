@@ -2730,3 +2730,15 @@ correction 8 goes to the owner only if `spec-writer` finds 9.1 doesn't
 cover a scenario variant without the refused instance's issue.
 Recommendation there: the GM designs that variant, or plays the
 campaign real.
+
+### W3 reviewed by the driver, 2026-11-19
+
+Drafted by a `coding-leader` (3cba8b7, about 87 tool calls). The
+capture's (choice) points are accepted as drafted. No owner question.
+Corrections 1 to 11 go to `spec-writer` for plan v9 on `v0.6-w3`.
+Chunk 13 starts at once: its only correction (10: its Depends naming
+W3 item 12) changes no file it builds, and its brief carries W3 items
+7, 8, 11 and 12. Chunk 11 starts once plan v9 is committed
+(corrections 5, 6, 7 give it the campaign's `service-times.yaml`, the
+shop's `scenario.yaml`/`README.md` and the new test); chunk 10 takes
+the next free slot after plan v9 (correction 1 gives it `restart.py`).
