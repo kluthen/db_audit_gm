@@ -31,10 +31,11 @@ The composer (pure, unit-tested):
   4); they reset at the restart (the program restarted);
 - the selected instances' entries (W3 item 4): each from its planting
   (`planted_at`, virtual) to the restart, nothing for an instance planted
-  in the tail; `gauge_before` until the planting; `daily_spike` at its
-  scenario time on each day; `suppressed_by` from the planting of the
-  first selected instance of a hiding fault (spec D543); `remove` last,
-  winning on its series.
+  in the tail; `gauge_before` adding its value to the level drawn until the
+  planting (spec D585), its value alone on a series the tail lacks;
+  `daily_spike` at its scenario time on each day; `suppressed_by` from the
+  planting of the first selected instance of a hiding fault (spec D543);
+  `remove` last, winning on its series.
 
 The seam check (pure, unit-tested; the live reading is `read_seam`):
 findings `{check, series, detail}`, `check` one of `negative`, `reset`,
@@ -311,7 +312,8 @@ def tail_calls_per_minute(tail_series):
 @dataclass
 class Overlay:
     """One selected instance's entry, its window in the past resolved:
-    `start` to `end` (epoch seconds; `gauge_before` holds before `start`)."""
+    `start` to `end` (epoch seconds; `gauge_before` adds its value before
+    `start`)."""
     instance: str
     kind: str
     fields: dict
@@ -668,7 +670,11 @@ class Composer:
                 vals = [(v or 0.0) + ((t - phase) % period) / period * amp if o.active(t)
                         else v for t, v in zip(ts, vals)]
             elif o.kind == "gauge_before":
-                vals = [float(o.fields["value"]) if o.active(t) else v for t, v in zip(ts, vals)]
+                # added to the level drawn up to the planting (spec D585); a
+                # series the tail lacks (a dropped object's) reads it alone
+                add = float(o.fields["value"])
+                vals = [(0.0 if v is None else v) + add if o.active(t) else v
+                        for t, v in zip(ts, vals)]
             elif o.kind == "daily_spike":
                 wins = daily_windows(o.fields["at"], parse_duration(o.fields["duration"]),
                                      self.shift, self.vt0, self.restart)

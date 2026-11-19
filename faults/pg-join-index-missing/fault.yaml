@@ -38,6 +38,10 @@ aging:
 # the key's own (R's p95 is the pool's queue, f7, which the model adds). The
 # database node's CPU was measured too and left out: 0.0012 s a call, within
 # the baseline's noise (0.0087 s a call of any key before, 0.0088 after).
+# The dropped index's size from the database's size either side of the
+# planting in r-dump/r.om (calibrate.py gauge, 01:56Z to 01:59:59Z and
+# 02:00Z to 02:04Z, and the two samples bounding the fall), added to the
+# size drawn up to the planting (spec D584, D585).
 history:
   - kind: queue                     # each call's work from the planting: the join scans the table
     key: '{KEY}'
@@ -50,6 +54,9 @@ history:
     series: 'pg_stat_database_blks_hit{datname="{DATABASE}"}'
     key: '{KEY}'
     per_call: 12410                 # measured: r-dump/r.om, blks_hit 3.883e7 after the planting less the baseline, over the same 2902 calls
+  - kind: gauge_before              # the index's size, added to the database's size drawn up to the planting
+    series: 'pg_database_size_bytes{datname="{DATABASE}"}'
+    value: 14016512                 # measured: r-dump/r.om, pg_database_size_bytes{datname="shop"} 196531903 at 2026-11-15T01:59:55Z less 182515391 at 02:00:10Z, the planting's step (order_lines_order_id_idx, 1711 pages; 0 to 32768 bytes a scrape either side)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
