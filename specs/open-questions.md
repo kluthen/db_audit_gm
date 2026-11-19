@@ -360,6 +360,38 @@ O292 raised by the build (D584), closed by D585.
   planting (`history.py`, formats.md, `fixture-dropped-index`'s value).
   Recommended: the latter. Ruled so: a `gauge_before` adds its value.
 
+## v0.6: PostgreSQL 19
+
+Raised by D587's placement (D589); each gates one item of chunk 17c
+(gate G15 of the [build plan](versions/v0.6/build-plan.md)), never the
+images. O296 was reserved during that drafting and never used.
+
+- **O294** (v0.6, before chunk 17c's documentation item; raised by
+  D589) — pgBadger 13.3, the latest release and PGDG's, no longer reads
+  PostgreSQL 19's `checkpoint complete:` lines (19 writes the
+  checkpoint's flags before `wrote`; its regex wants `complete: wrote`),
+  so a player's report on 19 has an empty checkpoint section: buffers
+  written, WAL files added and recycled, write and sync times. No fault's
+  witness reads it (f10's pgBadger witness is the kill and the restart),
+  and no fix exists upstream. Default (proposed): accept it as a known
+  limit, named in `postgres`' `docs/gm.md` and the release notes, the
+  next pgBadger taken under D396 when it fixes it; the alternatives are
+  a local patch of the packaged script (a fork to keep) or keeping
+  `postgres` on 18 (against D587). Refs: build plan chunk 17c.
+- **O295** (v0.6, before chunk 17c's seed item; raised by D589) — On
+  PostgreSQL 19, `log_autovacuum_min_duration` covers vacuum only and
+  the new `log_autoanalyze_min_duration` (default 10 minutes) gates the
+  autoanalyze lines, so every seed setting `log_autovacuum_min_duration
+  = 0` (56 `postgresql.conf` files: 13 in the scenarios and bricks, 43
+  in the test fixtures) stops logging autoanalyze. Nothing
+  in the game reads those lines (no witness, no check); pgBadger's
+  autovacuum section and a player reading the log see fewer. Default
+  (proposed): add `log_autoanalyze_min_duration = 0` beside it in every
+  such seed, keeping what the customers' logs show as designed, with
+  the overviews and documents those seeds feed regenerated; the
+  alternative is leaving the seeds as written, the lines gone. Refs:
+  build plan chunk 17c.
+
 ## v0.5: scope, the domain procedure, post-mortems
 
 Raised on 2026-10-31, when the owner centred v0.5 on domain definition
