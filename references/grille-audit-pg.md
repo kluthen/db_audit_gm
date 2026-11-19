@@ -29,7 +29,8 @@ Les particularités du labo sont dans les encadrés « Dans le labo ».
 Le registre des constats et les fiches d'investigation sont tenus à part
 (pour l'atelier : `trouvailles_atelier_bluebox.md`).
 
-Requêtes vérifiées sur PostgreSQL 18 (`pg-primary`, 27/10/2026). Toutes sont
+Requêtes vérifiées sur PostgreSQL 19 (un serveur 19.0 jetable, 19/11/2026 ;
+avant sur PostgreSQL 18, `pg-primary`, 27/10/2026). Toutes sont
 en lecture seule ; les lancer dans une session
 `SET default_transaction_read_only = on;`.
 
@@ -391,7 +392,8 @@ protéger les données.
 **Où regarder** : `pg_stat_user_tables` ; Grafana *4. Tables Overview* et
 *5. Table Details* (courbe `n_dead_tup` : des dents de scie montrent un
 autovacuum qui passe, une rampe sans fin le contraire) ; pgBadger
-(*Vacuums*, grâce à `log_autovacuum_min_duration`).
+(*Vacuums*, grâce à `log_autovacuum_min_duration` ; sur PostgreSQL 19, les
+ANALYZE automatiques ont leur propre réglage, `log_autoanalyze_min_duration`).
 
 ```sql
 -- Lignes mortes et derniers passages
@@ -402,8 +404,8 @@ SELECT relname, n_live_tup, n_dead_tup,
        pg_size_pretty(pg_total_relation_size(relid)) AS taille
 FROM pg_stat_user_tables ORDER BY n_dead_tup DESC LIMIT 15;
 
--- Seuil réel de déclenchement, options de table comprises (PostgreSQL 18 :
--- plafonné par autovacuum_vacuum_max_threshold)
+-- Seuil réel de déclenchement, options de table comprises (depuis
+-- PostgreSQL 18 : plafonné par autovacuum_vacuum_max_threshold)
 WITH o AS (
   SELECT c.oid, c.relname, c.reltuples,
          (SELECT option_value::float8 FROM pg_options_to_table(c.reloptions) WHERE option_name = 'autovacuum_vacuum_threshold') AS t,
@@ -517,7 +519,10 @@ seule somme de contrôle en échec signale une corruption, à traiter avant
 tout le reste.
 
 **Où regarder** : Grafana *Checkpointer / Bgwriter / Block IO Stats* ;
-pgBadger (*Checkpoints*, *Temporary files*) ; pgCluu.
+pgBadger (*Checkpoints*, *Temporary files*) ; pgCluu. Sur PostgreSQL 19,
+pgBadger 13.3 ne lit plus les lignes `checkpoint complete:` : sa section
+*Checkpoints* reste vide ; lire ces lignes dans le journal
+(`log_checkpoints`) et `pg_stat_checkpointer`.
 
 ```sql
 -- Cache, fichiers temporaires, temps d'I/O (track_io_timing), sommes de contrôle
@@ -588,8 +593,8 @@ Décompte rapide par niveau, sur l'hôte :
 
 **À lire dans pgBadger** : *Events* (erreurs les plus fréquentes, avec la
 requête), *Top* (requêtes lentes, à croiser avec A3), *Locks* (attentes de
-verrou au-delà de `deadlock_timeout`), *Temporary files*, *Checkpoints*,
-*Vacuums*, *Sessions*.
+verrou au-delà de `deadlock_timeout`), *Temporary files*, *Checkpoints*
+(vide sur PostgreSQL 19 avec pgBadger 13.3, voir A7), *Vacuums*, *Sessions*.
 
 **Ce qui doit alerter** :
 - tout `PANIC` ; un `FATAL` qui n'est pas une erreur d'authentification

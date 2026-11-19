@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `records` (PostgreSQL 18, the clinic's
+Nodes: `bastion` (you are here), `records` (PostgreSQL 19, the clinic's
 medical record and its wards in the database `clinic`), `clinic-api` (the
 record's lookup API), `pms` (the practice software) and `ward` (the ward
 service behind the units' displays). Reach each with `ssh <node>`; reach

@@ -10,13 +10,13 @@ running while you work.
 
 | Node | What it is | Your access | Write policy |
 |---|---|---|---|
-| `bastion` | this machine: SSH, PostgreSQL 18 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
-| `db` | the shop's PostgreSQL 18 server, database `shop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
+| `bastion` | this machine: SSH, PostgreSQL 19 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
+| `db` | the shop's PostgreSQL 19 server, database `shop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
 | `pooler` | PgBouncer, between the web shop and the database | `ssh pooler`; `psql -h pooler -p 6432` | **fixable** |
 | `producer` | the web shop's application | `ssh producer` | **report-only**, except its code (`/srv/scheduler/repository`) and its jobs (`/srv/scheduler/jobs`), which are **fixable** |
 | `crm` | the marketing team's and the shipping manager's jobs | `ssh crm` | **report-only**, except its code (`/srv/scheduler/repository`) and its jobs (`/srv/scheduler/jobs`), which are **fixable** |
 | `gateway` | the customs gateway's callback, which acknowledges the export declarations | `ssh gateway` | **report-only**: the customs authority's |
-| `reporting` | Lumen Analytics' PostgreSQL 18 server, database `reporting` | `ssh reporting` as `player`; `psql` as the role `dba` | the database lets you change it, but it is **Lumen's**: report what you find and propose what Lumen should change |
+| `reporting` | Lumen Analytics' PostgreSQL 19 server, database `reporting` | `ssh reporting` as `player`; `psql` as the role `dba` | the database lets you change it, but it is **Lumen's**: report what you find and propose what Lumen should change |
 | `bi` | Lumen's roll-ups, which fill the reporting database | `ssh bi` | **report-only**: Lumen's |
 | `consumer` | the back office's dashboards, which read the reporting database | `ssh consumer` | **report-only**, except its jobs (`/srv/scheduler/jobs`), which are **fixable** (it has none today) |
 | `prometheus` | Prometheus, which collects the metrics | `ssh prometheus`; its web interface | **report-only** |

@@ -21,7 +21,7 @@ and a lot more now runs around its database.
   reaches the database through the connection pooler (`pooler`,
   PgBouncer). A release of the web shop went out yesterday evening. Its
   code and its fixed-time jobs are Tarnbeck's own: you may change them.
-- **The shop's database** (`db`, PostgreSQL 18) holds everything:
+- **The shop's database** (`db`, PostgreSQL 19) holds everything:
   customers and their consent history, products, orders and their
   lines, the carriers' events, the campaigns, the mail and customs
   outboxes. The web shop's best-sellers list is a materialized view the
@@ -39,7 +39,7 @@ and a lot more now runs around its database.
   any declaration that went wrong.
 - **Lumen Analytics**, a BI agency, keeps the back office's figures for
   Tarnbeck. Lumen moved them to a reporting database of its own
-  (`reporting`, PostgreSQL 18) and runs the roll-ups that fill it from
+  (`reporting`, PostgreSQL 19) and runs the roll-ups that fill it from
   its own machine (`bi`): an hourly roll-up of the day's sales, and a
   nightly close of yesterday's at 1:30. Lumen also built a churn table
   for a dashboard, refreshed by a job inside the reporting database, and

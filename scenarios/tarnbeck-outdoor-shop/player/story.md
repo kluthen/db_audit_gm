@@ -26,7 +26,7 @@ arrive day and night.
   yesterday's sales at 1:30, and the accounting export for the
   accountant at 2:00. It goes straight to the database. Its code is
   maintained by an agency; Tarnbeck may change only its fixed-time jobs.
-- **The database** (`db`, PostgreSQL 18) holds everything: customers,
+- **The database** (`db`, PostgreSQL 19) holds everything: customers,
   products, orders and their lines, the carriers' delivery events, the
   daily sales. It was moved to a new server three weeks ago.
 - **Monitoring**: Prometheus, a PostgreSQL exporter and Grafana, set up

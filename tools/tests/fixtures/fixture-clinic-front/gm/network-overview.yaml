@@ -7,7 +7,7 @@ generated_from:
   player/partners.md: sha256:c0dd0eb644fce2c3cb9e0cdc6add2e4046dc99c25778764cf8de279c2454fab1
   gm/data-register.yaml: sha256:edd4a95a69c21062e9103059a49b0172e0767a60cf1495e507c842161ebbbf60
   gm/answer-key.yaml: sha256:ae4112874772d04e016ab63fb4d3ec9f85cad5ec5d45769f5ca743e25168e1d9
-  player/story.md: sha256:95b0b310ad477d279904b0e3a345bfff9dfd3e1fe5c9c53a517adbe952d51972
+  player/story.md: sha256:0929d1dd0e275c91e92f24f83c785377441fbe88ef6effe58f36e2b0c208d4ed
 header:
   customer: Aldermoor Veterinary Hospital North
   network: One private network; the partners' services are reached on it by name; from outside, only the

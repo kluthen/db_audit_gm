@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `records` (PostgreSQL 18: the clinic's
+Nodes: `bastion` (you are here), `records` (PostgreSQL 19: the clinic's
 medical record in the database `clinic`, the laboratory's in `lab` and
 the owners' portal in `portal`) and `portal-api` (the owners' portal's
 API). Reach each with `ssh <node>`; reach the databases with `psql` from
