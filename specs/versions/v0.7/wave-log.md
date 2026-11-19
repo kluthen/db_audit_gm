@@ -147,3 +147,46 @@ it.
      from (8.3 step 3). Then it prints the push command and never runs it
      (step 4). Wave 1 tests this mode only against a fixture repository,
      never against this repository's `main`.
+
+### Chunk 1 — merged 2026-11-19
+
+- Commit ecccbbf, merged `--no-ff` as e89a7f2. Both dialects load:
+  - OpenCode: `opencode debug agent game-assistant` shows the
+    permissions of 7.4.
+  - Claude Code: `claude -p --agent game-assistant --settings …` reports
+    its tools as exactly `Read, Write, Edit, Bash, WebFetch, WebSearch`,
+    sees no skill, and prints 6.11's opening message word for word.
+- The two prompts are byte-identical, and the new
+  `tools/tests/test_game_assistant.py` (5 tests) asserts it.
+- **Spoiler scan:** clean against capture W1's list plus the 39 fault
+  names.
+- **History filter:** drops 11 of 11 credential fixture lines and keeps
+  7 of 7 ordinary ones.
+- **The grid** moved to `references/`; its text is unchanged against the
+  owner's file.
+- **No model is pinned** in either dialect: the player's tool and
+  provider choose it.
+- **Deviation 1 (a check method, not behaviour):**
+  - `claude agents` no longer lists agent definitions (Claude Code
+    2.1.328: it manages background sessions).
+  - The plan's "agent definition touched" delta and chunk 1's Done when
+    need another check; the headless `claude -p --agent <name>` run is
+    the one used.
+  - Sent to spec-writer for a plan revision.
+- **A failing test on v0.6's side, not caused by this chunk:**
+  `test_model.TestV06Templates.test_domain_and_overview_templates`. It
+  also fails on `v0.6-w3` at 192f3d9: v0.6's wave 2 gate (f6e14ab) made
+  the template's `overview` field required without updating the test.
+  - It is v0.6's to fix.
+  - Wave 1's gate records it as pre-existing unless `main` has the fix
+    by then.
+- **Risks noted:**
+  - OpenCode's `websearch` tool appears only when the player's setup
+    enables it.
+  - `read: allow` overrides OpenCode's default "ask" on `.env` files.
+  - The history filter drops too much rather than too little ("bypass"
+    goes).
+  - The `psql*` deny doesn't catch `ssh … 'psql …'` (on the trust line,
+    as specified).
+- Figures: 1 agent, 41 tool calls, 3.6M tokens in / 38k out, max context
+  112k, $1.98 at API prices.

@@ -115,7 +115,8 @@ at the wave preflight (chain of two).
 
 ### Chunk 1 — The game assistant's agent definitions and settings
 
-Status: planned
+Status: merged (w1, e89a7f2)
+Record: ecccbbf, merged as e89a7f2. Its Done when's `claude agents` check was replaced by a headless `claude -p --agent game-assistant` run, because `claude agents` no longer lists definitions in Claude Code 2.1.328 (wave log, chunk 1; sent to spec-writer). The prompt words `docs/gm.md` as "every file under `docs/` other than `docs/player.md`", per capture W1 point 2.
 Wave: 1
 Depends on: G1, G2
 Architecture capture: W1: the assistant's file names and the settings
