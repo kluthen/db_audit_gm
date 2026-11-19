@@ -2204,3 +2204,1075 @@ On `v0.6-w2-follow` (from e955dd3):
 
 Next: merge `v0.6-w2-follow` into `main` on the owner's word, then
 wave 3 (chunks 10, 11, 13) in a fresh session, from plan v8.
+
+## Wave 3 — started 2026-11-19
+
+Chunks 10, 11, 13 (κ = 2). Branch `v0.6-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.6-w3`, cut from `main` at 9aac312
+(wave 2 and its follow-up merged; plan v8).
+
+### Gates checked at the start
+
+- G3 (network at image build time), hand check 2026-11-19: Debian's
+  trixie `Release`, `trixie-pgdg` `Release`, GitHub's s6-overlay,
+  Prometheus, `postgres_exporter` and pgwatch releases, and the
+  Dockerfile's Grafana download answer 200. Cleared for wave 3.
+- G4 (swarm), hand check 2026-11-19: armenelos `Ready`, `Active`,
+  Leader; the VPS `vps-5718ad52` `Ready`, `Drain`. No stack deployed.
+  Cleared for wave 3.
+- Host: `/home` 66 % used, 55G free. The Docker lock is free.
+- No dependency gate is planned for wave 3 (G9 standing: a chunk adding
+  a dependency gets a `G9.<n>` row).
+
+### Capture W3 — `gmctl history` and the seam, the faults' assessments, the GM's fake setup (chunks 10, 11, 13; read by 12, 14, 16)
+
+Drafted 2026-11-19 for the wave driver, before any code. Sources: the
+capture lines of chunks 10, 11 and 13 and the Depends and capture lines
+of chunks 5, 12, 14 and 16 (plan v8); their spec packs (master spec 6.3,
+6.7, 6.9, 9.1 to 9.12, 10, 11, 13 items 5 and 6); [formats.md](../../formats.md)
+v36 ("A fake game's records", the fault definition's `aging.fake` and
+`history:`, "Fake aging's measured figures"); spec D528, D530, D532 to
+D539; W1 and W2 with their as-built records (W1-x, W1-y, W2-x, W2-y,
+W2-z, the chunk records and G10.2's notes above); the code on `v0.6-w3`
+at 1674461 (`tools/gm/{aging,localimpl,state,restart,render,cleanrestart,inject,fill,snapshot}.py`,
+`tools/gm/__init__.py`, `bricks/prometheus/{brick.yaml,docs/player.md,rootfs/usr/local/sbin/gm-entrypoint}`,
+`.claude/skills/game-master/{SKILL.md,feedback.md,gmctl.md}`, the
+`scenario-document` template, the twenty faults, the shop's and the
+campaign's `scenario.yaml`, `nodes/`, `player/issues.md` and answer
+keys, `fixture-fill/`); and the research at `10d1bc6` (`seam_check.py`,
+`import_history.sh`, read with `git show`), its
+`results/fa-fake-import-f*.log` read with `grep` only. W1's rules hold:
+the spec is cited, not restated; **(choice)** marks a point the sources
+left open, settled with its reason; each item names its writer and its
+readers; chunk internals stay out. As-built records: **W3-x** (chunk 10:
+`gmctl history`'s text and working files as built, the seam's
+tolerances and any check added, the import's figures, the retention
+measurement, the snapshot's restart), **W3-y** (chunk 11: each fault's
+assessment as written, the calibration runs, the campaign's short fill
+and P0's outcome as applied, the campaign's figures, the selections'
+tails as render computes them), **W3-z** (chunk 13: the skill's sections
+as built, the never-told search's scope and result).
+
+Held, cited not restated: W1 items 3 (`extract.sh`, the members chunk 11
+reads), 4 (`fault_fake_aging`, `fault_history`, `instance_history`, the
+kinds' fields, `{INSTANCE_NODE}`), 7 to 9 (the fill, P0, the queue
+model, `<node>.metrics.jsonl`) and W1-x, W1-y; W2 items 6 (setup step
+2's order), 7 (`fake_timeline`, refused instances, `left_out`, the story
+line, the monitoring at zero), 8 (the record as written), 11
+(clean-restart, `wal-rate.yaml`), 12 (start-load, the early check, the
+history unit `dbagm-<game_id>_history` due `restart.at` plus
+`aging.HISTORY_AFTER`, the outages from the restart) and 13 (the cover),
+with W2-x and W2-y; D532's tails; D535 (clean-restart refused before the
+anchor); D536 (`stats_reset` seconds before the start). Instants UTC,
+`YYYY-MM-DDTHH:MM:SSZ`; durations `<integer><s|m|h|d>`.
+
+**1. `gmctl history`: arguments, refusals, output** (chunk 10 writes; 12
+and 13 read)
+
+- **(choice)** `tools/gmctl history <scenario-dir> --playground <name>
+  [--check-seam]`, no other option: what it needs is recorded (the
+  record, the timeline, `state.yaml`), as `gmctl fill`'s (W1 item 7).
+- **Refused, exit 1, nothing done**: no restart record or `mode` not
+  `fake`; no `restart.at`, or the stage not `load-started` (start-load
+  not run); a game without a `prometheus` node; before `restart.at`
+  plus 10 minutes (`aging.HISTORY_READ`, the tail's first 10 minutes it
+  reads, 9.4 step 8); at or after `handed-over` **(choice**: an import
+  appearing while the players read Prometheus would be a tell of its
+  own).
+- **Once `history.result: ok` is recorded (choice)** it prints that
+  result, exits 0 and changes nothing, so the timer's run after a GM's
+  hand run, or a second hand run, is harmless. After `failed` it runs
+  again (the GM's retry, by hand), first removing what a failed attempt
+  copied in.
+- Its timer's run carries `DBAGM_GAME` and follows every timer run's
+  rules (`tools/gm/aging.py:20-24`). **It never takes the development
+  Docker lock (choice)**: the timer runs outside the harness that holds
+  `/tmp/dbagm-docker.lock`, and waiting for it there would deadlock the
+  run that started the game.
+- **`--check-seam` (choice)**: the seam check alone (item 3), against
+  the live Prometheus, on a game whose `history.result` is `ok`; prints
+  the verdict and its findings, records nothing; exit 0 `ok`, 1
+  `failed` or refused. Why: the fixture's snapshot-restart check (item
+  7), chunk 12's script and a GM after a restart read the same verdict
+  from the same code, without a second import.
+- **Output**, GM-side, spoilers. Its last line: `Game <id>: history
+  from the virtual T0 <virtual_t0> to the restart <restart.at> imported
+  at <at>; seam ok|failed (<n> findings)`, or `Game <id>: history import
+  failed at <at>: <reason> (recorded; nothing torn down)`; each finding
+  on its own line, `  seam <check>: <series>: <detail>`. Exit 0 only
+  when `result` and `seam` are both `ok`; 1 otherwise **(choice**: a
+  failed seam is a tell the GM must see as a failure; a failed timer
+  unit shows it too). Tests read the record and `state.yaml`, never the
+  text.
+
+**2. The record's `history`, `state.yaml`'s `history_import`** (chunk 10
+writes; 12 and 13 read)
+
+- **The record (choice**, 6.9's form plus one key): `history: {at,
+  result: ok|failed, seam: ok|failed|unchecked, reason}`; `at` the
+  attempt's end, to the second; `seam: unchecked` when the import
+  failed before the check; `reason` only when the two are not both
+  `ok`, one line, as `fill.reason` (`"; "`-joined). Written last, after
+  render's and clean-restart's keys, through
+  `localimpl.write_restart_record` (the whole file); a retry replaces it.
+- **Progress in `state.yaml` (choice)**, W1 item 7's rule: `history_import:
+  {timer, scheduling_failed, attempts: [{began, ended, outcome, reason,
+  seam: [<finding>]}]}`. Not `history`: that key is the stage history
+  (`localimpl.enter_stage`, `tools/gm/localimpl.py:496`). `timer` is
+  `create_timer`'s record, as `early_check.timer`; `scheduling_failed`
+  as the early check's. `restart.carry_state` clears it
+  (`tools/gm/restart.py:217-222`) and `aging.records_timer` counts it
+  (`tools/gm/aging.py:479`), so a teardown with the manager unreachable
+  still knows a timer exists.
+- `gmctl status`'s line (`tools/gm/state.py:195`) reads `history import:
+  <result> at <at>, seam <seam>`, then the reason when there is one.
+
+**3. The seam check's verdicts** (chunk 10 writes; 12 reads)
+
+- A finding is `{check, series, detail}`, `check` one of:
+  - `negative`: a value below zero, in the forged past or at the join;
+  - `reset`: a counter going down anywhere but at the restart, or at the
+    restart on a series the restart does not reset;
+  - `jump`: a gauge whose last forged value and first tail value differ
+    beyond the tolerance W3-x records.
+  The verdict is `ok` with no finding. Chunk 10 may add a check, named
+  in W3-x; chunk 12 reads `seam` and the findings and never re-derives
+  them.
+- **What the restart resets** (from W2 item 11, fixes 1 and 2, D536):
+  each restarted process's own counters (every scrape target's process,
+  `scheduler_*`, Prometheus' own), `pg_stat_statements_*`, and the shared
+  statistics clean-restart resets (`pg_stat_reset_shared(NULL)`: the
+  bgwriter's, checkpointer's, WAL's, archiver's, I/O's). What survives a
+  clean shutdown carries on across the join: `pg_stat_database_*` and
+  the table and index statistics (9.9, "Not done, on purpose"). The
+  forged past draws the restart at `restart.at` (fix 1), so the resets
+  sit at the join.
+
+**4. What the history composes, and over which span** (chunk 10 writes;
+11 writes the signatures against it; 12 reads)
+
+- Inputs: the record (`virtual_t0`, `restart.at`); the game's selection
+  (the timeline's instances, `left_out` excluded); each instance's
+  entries through `model.instance_history`; the fill's metrics records
+  for every `scheduler_*` series (W1 item 9: the `queue` entries reach
+  the past through them, never drawn twice); the tail's first 10
+  minutes from Prometheus; the producers' profiles for the day's shape
+  (fix 6).
+- **An instance's span (choice)**: its entries apply from its
+  `planted_at` (the virtual T0, or the fill's pause) to the restart; an
+  instance planted in the tail adds nothing to the past;
+  `gauge_before.value` holds until the planting; `daily_spike.at` is
+  scenario time, drawn on each day the span covers. Why: the past is
+  what the game would have shown, and a fault shows from its planting.
+- **`suppressed_by` (choice)**: an entry is dropped from the planting of
+  the first instance of a listed fault onward; a hiding instance planted
+  in the tail drops nothing from the past. Why: the campaign's f5 hides
+  f4 and f7 (master spec 9.8) but is planted at `handover-5h`, in the
+  tail; their trails before it are real in a real game. The shop's f9
+  (T0) hides f4 (T0) over the whole span either way. 9.5's "while a
+  hiding fault is selected" read so (correction 9).
+- `remove` wins over every baseline and overlay on its series (9.5).
+
+**5. The import** (chunk 10 writes; 12 reads)
+
+- **Where promtool runs (choice)**: `promtool tsdb create-blocks-from
+  openmetrics` in a helper container of the Prometheus node's own image
+  on its host (`--rm`, `--pull never`, no network, labelled
+  `dbagm.game=<game id>`, as restart's and clean-restart's helpers),
+  never in the running node. Why: promtool's peak was 108 to 170 MB in
+  the research (`results/fa-fake-import-f2..f6.log`, `promtool_memory_peak_bytes`)
+  inside a node limited to 384M (the shop's `scenario.yaml:260-263`,
+  the campaign's alike) beside the running server (66M at rest, the
+  rehearsal's peak, `scenario.yaml:264`, before the imported blocks it
+  then holds); an out-of-memory kill of the server would be a crash the
+  players see (correction 4).
+- The blocks moved into `/var/lib/prometheus` whole, owned
+  `prometheus:prometheus`, the folder left `0750`
+  (`bricks/prometheus/rootfs/usr/local/sbin/gm-entrypoint:84-85`).
+  **Prometheus is never restarted (choice)**: the import waits, bounded
+  (3 minutes, the research's `import_history.sh`), for Prometheus to
+  load the blocks by itself, else `failed`. Why: a second start twelve
+  minutes after the restart is a start time the story doesn't cover
+  (9.10, "Prometheus starts at the restart").
+- Working files GM-side under `local/<playground>/history/` (W3-x names
+  them), removed after a successful import; nothing of the import left
+  on the node but the blocks.
+- **Fixture budget (risk)**: on `fixture-fill` the anchor comes about 13
+  minutes after the run's start (`run-short-test.sh:82`), the import at
+  `restart.at` plus 12, the snapshot only after the earliest hand-over:
+  one run holding the import and the snapshot's restart is near 30
+  minutes. Means, in order: the history's run script calls `gmctl
+  history` itself at `restart.at` plus 10 minutes (the timer's creation
+  and due time unit-tested and read in `state.yaml`); a tail cap of at
+  most 10 minutes, so the snapshot follows the import; the script's copy
+  of the fixture given a shorter `aging.minimum` (the fill's span is not
+  what chunk 10 tests). Never a shorter read window or timer: chunk 12's
+  games run them as built. W3-x records the run's figure.
+
+**6. The early check and the hand-over check** (chunk 10 writes; 12 and
+13 read)
+
+- **(choice)** start-load creates the history timer before the early
+  check's; a fake game with no `prometheus` node gets none. The early
+  check of a fake game with one waits, bounded by `aging.LATE_RUN_WAIT`
+  (600 s), for `history` in the record, then prints `history import:
+  ok, seam ok`, or the result, seam and reason, or `history import: not
+  recorded`; anything but `ok, seam ok` fails the early check (exit 1,
+  recorded, nothing torn down). Without a Prometheus node the line reads
+  `history import: none (no Prometheus node)` and passes. **The
+  hand-over check prints the same line and never fails on it.** Why: a
+  past missing from Prometheus is a tell the GM must know of before the
+  hand-over, but a failed import must not hold the game (9.4 step 8),
+  and `status --set handed-over` needs a passed hand-over check.
+- The import's due time is never scaled by `--test-tail-floor`: a test
+  running the timer uses a tail long enough for it (chunk 12: 15
+  minutes, the import at 12, the early check at 17, after the earliest
+  hand-over, which is allowed).
+
+**7. A fake game's restart** (chunk 10 writes; 13 reads; correction 1)
+
+- **From the hand-over snapshot**: the same fake game. The timeline
+  keeps `virtual_t0`, `anchor`, `tail` and `refused`; the record is
+  unchanged, its `history` included; no history timer, no second import;
+  Prometheus' volume (method `stop`, `bricks/prometheus/brick.yaml:129`)
+  brings the imported blocks back. `--check-seam` after it reads `ok`
+  (the Done when's check).
+- **With no history (choice)**, by what must hold: the instances out of
+  the game stay out (`left_out` unchanged, so no check reads a refused
+  instance); the players' story keeps its line; the rebuild runs on the
+  real clock, as the real mode's no-history restart (the data, the
+  plantings and T0 at the restart, no fill, no import); the record kept
+  as the first game's, for the feedback. Which timeline keys carry that
+  is chunk 10's (W3-x). Why: the players were told it restarts from
+  nothing (`SKILL.md:1203-1211`); a virtual clock there would date
+  fresh rows before the restart.
+
+**8. The faults' assessments: forms** (chunk 11 writes; 12 and 13 read)
+
+- `aging.fake` as W1 item 4 and 6.9: `tail_minimum` a duration,
+  `tail_covers` `"HH:MM"` scenario time (as `render.covers_seconds`
+  reads it); a `supported` fault carries neither (the loader refuses
+  them there).
+- **`fill.emulate` (choice)**: short kebab-case tokens, as 6.9's
+  `held-snapshot`; no program reads them (`model.FILL_KEYS` checks their
+  shape only; nothing in `tools/gm/` or the program does), so they are
+  for the GM and chunk 12's section.
+- **Every number traced by a comment (choice)**: on its line, `# measured:
+  <reference member>|tools/fake_aging/calibration/<file>, <what>`. The
+  loader refuses unknown keys in a history entry (W1-y), so no
+  `source:` key; `model.py` is no wave 3 chunk's file.
+- **A parameter a signature needs** (W1 item 4: f8's slowed key) **is added
+  `required: false`, `default: null` (choice)**: the scenarios already
+  using the fault load unchanged (the bookshop's f3 is
+  `pg-join-index-missing`, `scenarios/bookshop-new-server/scenario.yaml:156`,
+  and history is read only in a fake game); every instance in a
+  scenario played fake sets it in its `scenario.yaml`, its `README.md`
+  regenerated in the same commit (its instance table lists the
+  parameters; correction 6).
+- **The `gm.md` note (choice)**: a paragraph opening `**Fake aging.**`,
+  after the note's last paragraph, the run-in labels' convention
+  (`faults/scheduler-transaction-held-open/gm.md:3-48`), so chunk 12's
+  section and the skill's teaching moment point to it by that label.
+- Chunk 11 changes no key the scenario document renders today
+  (`aging.minimum`, `technique`, an instance's parameters), but the
+  added parameters above: every other `README.md` stays fresh until
+  chunk 12.
+
+**9. The supports and tails chunk 12 builds on** (chunk 11 confirms; 12
+reads)
+
+- **The shop** (9.8, D532): f4 `tail-only`, `tail_minimum: 2h`; f5 and
+  f7 `tail-only`, `tail_covers: ["12:00"]`; the other seven `supported`.
+  The full selection: tail 3h, anchor 11:00 (`render.fake_timeline`, H
+  14:00).
+- **The campaign** (9.8 on the scenario as it is): f1 to f3, f8, f9
+  `supported`; f4 and f7 `supported` through the cover if the short fill
+  confirms them, else `tail-only` with the tail their jobs' runs need;
+  f4 also `tail-only` with `tail_covers: ["12:00"]` if its check needs
+  the 12:00 close; f5 `tail-only`, `plant_in: tail` (its instance is
+  planted at `handover-5h`); f6 `tail-only`, `tail_minimum: 1h`; f10
+  `real-only`, no `history:`. **The full selection, by 9.6 on those**:
+  f10 refused, tail 5h (f5's planting moment to H), anchor 09:00.
+- **P0's outcome as applied**: W3-y records the campaign's short fill
+  (wall time, f4 and f7 planted, `rpt.close_day()`'s runs in
+  `rpt.etl_runs` at their virtual instants, its `proconfig` identical
+  after) and the support it set for each. A measurement changing any
+  support or tail above is recorded in W3-y with its run and routed by
+  the driver to `spec-writer` (9.8) before chunk 12 starts.
+- **The short selections** (chunk 12): the shop's f1, f2, f3, f6, f8,
+  f9, f10 are all `supported`; the campaign's f1 to f4 and f7 to f9 lose
+  any of f4, f7 left `tail-only`, f4 by the 12:00 close included (a
+  `tail_covers` instant costs the capped floor plus two hours,
+  `tools/gm/render.py:556-557`).
+
+**10. The calibration runs and the campaign's figures** (chunk 11
+writes; 12 reads)
+
+- `tools/fake_aging/calibrate.py`: scenario, node, key and fault as
+  arguments (plan). **Its output (choice)**: one file per run in
+  `tools/fake_aging/calibration/`, `<scenario id>-<what>-<YYYYMMDDTHHMMZ>.txt`
+  (`<what>` the instance, `fill` or `wal-<node>`), opening with the
+  command, the commit, the start and the wall time. Never reference
+  data: the shop's numbers are read through `extract.sh` and cited by
+  member (W1 item 3).
+- Each run under the lock and the inhibitor, one at a time, under 30
+  minutes, its game torn down after.
+- **The campaign's service times**: a `service-times.yaml` beside each
+  scheduler node's `queries.yaml` whose keys the fill runs: `consumer`,
+  `bi`, `crm` and `gateway` (only `producer` has one; `gmctl fill`
+  refuses a key without one, formats.md "Fake aging's measured
+  figures"); keys shared with the shop copy its figures with their
+  source (W1 item 9). Correction 5.
+- **`wal-rate.yaml`** for the campaign's `db` and `reporting`, formats.md's
+  form, `bytes_per_hour` from `pg_stat_wal.wal_bytes` from after the
+  data load to the run's end, `source:` naming the calibration file.
+  **The shop's file stays chunk 9's (choice)**: 11b measures the shop's
+  rate the same way in one of its short runs if one fits, and W3-y
+  records it beside the file's 43881262 (which includes the seed load,
+  W2-x); the file is unchanged, and chunk 12's M1 comparison decides.
+- **A test (choice)**: `tools/tests/test_fake_aging_faults.py` (new):
+  the twenty definitions carry `aging.fake`, a `history:` unless
+  `real-only`, the `gm.md` note where `tail-only` or `real-only`, and a
+  `# measured:` comment on each number line, so wave 3's gate row ("every
+  fault of the shop and the campaign ... with `aging.fake` and
+  `history:`") is a test (correction 7).
+
+**11. The skill: the dialogue, the fake setup, the never-told rule, the
+feedback** (chunk 13 writes; reads W2 items 6 to 8, 12 and W3 items 1,
+2, 6, 7, 9, 12)
+
+- **Refused instances in a GM-run game (choice)**: the GM composes the
+  selection before render, so render refuses no instance a handout
+  names. An instance an issue in `player/issues.md` (or any handout)
+  names and fake aging can't make is replaced through "Designing a
+  scenario", or the game is played real, or declined (9.1). Render's
+  refusal (D528) stays the safety net: a game runs without an instance
+  no handout names. In the evaluation and the feedback a refused
+  instance is out of the game, neither expected nor credited, never
+  named to the players. Why: the campaign's f10 is `real-only` and issue
+  6 is its (`scenarios/tarnbeck-outdoor-campaign/player/issues.md:22-24`,
+  `gm/answer-key.yaml:746`); handed out without its cause, the issue
+  sends the players after nothing (correction 8).
+- **No `gmctl history` invocation in the skill (choice)**: the import
+  runs by its timer from start-load; the skill names the timer, reads
+  the result in `gmctl status` and the record, and points to
+  `gmctl.md`'s `history` row for a retry. Why: chunk 13 may merge before
+  chunk 10, and its Done when parses every invocation with `gmctl`'s
+  parser.
+- The setup's steps in 9.4's order, every invocation as `gmctl.md`
+  states it (W2 items 7, 11, 12): `render --aging fake --handover H`
+  (it prints the tail and the anchor, and refuses an anchor already
+  passed), `deploy`, `load-data`, `inject`, `fill`, the wait to the
+  anchor, `clean-restart`, `start-load`. H is the time from now to the
+  restart (the setup, W2's figures: the fixture's fill 449 to 526 s for
+  about 15 virtual hours, about 15 minutes from the deploy to the
+  restart) plus the tail.
+- **The never-told search (choice)**: the texts the skill gives a player
+  or a playing initiator (the setup dialogue, the restart's statement
+  and question, the in-world facts, the feedback's customer side) are
+  marked so the Done when's search is mechanical and repeatable at the
+  release gate; W3-z records the marking, the search and its result.
+  Today's restart statement says "the history the aging built"
+  (`SKILL.md:1207`): it changes.
+- The feedback reads the record (`restart.at`, `story_line`, `explains`,
+  `history` with its reason), item 12's section, each fault's
+  `aging.fake.reason` and its `**Fake aging.**` note.
+
+**12. The scenario document's "Fake aging" section, as far as chunk 13
+cites it** (chunk 12 writes in wave 4; 13 reads now)
+
+- **(choice)** Heading `## Fake aging` (anchor `#fake-aging`), the name
+  9.10 and the plan give it, holding 9.10's per-scenario facts: each
+  instance's support with its reason, its tail needs and `plant_in`;
+  the tail the full selection needs, with its anchor at the designed
+  hand-over; the instances refused, with their reasons; the limits that
+  touch its evidence; "not assessed" where the faults are. Its layout
+  and wording are chunk 12's (W4). Chunk 13 cites it by heading and
+  facts only (correction 10).
+
+**13. Wave 3's order, owners and the shared lists** (plan "Wave 3's
+order")
+
+- **Order**: 13 and 11 first; 10 in 13's slot; 10's and 11's Docker
+  runs queue on the lock. **Merge in any order**: once corrections 1, 5,
+  6 and 7 land no file is shared. Checked against the code: of the
+  shared lists, only chunk 10 registers a verb (`tools/gm/__init__.py`)
+  and writes `gmctl.md`; chunk 13 touches neither (its Out); chunk 11
+  adds no verb (9.12: the calibration tool is not `gmctl`) and no
+  fixture; the shop's `scenario.yaml` and `README.md` are chunk 11's
+  alone.
+- **Owners**:
+  - chunk 10: `tools/gm/history.py` (new); `aging.py` (start-load's
+    timer, the checks' line, `records_timer`, `HISTORY_READ`),
+    `localimpl.py`, `state.py`, `restart.py` (item 7), `__init__.py` (the
+    verb); `tools/tests/{test_history,test_aging,test_restart}.py`;
+    `gmctl.md` (the `history` row and output, start-load's and check's
+    rows for the timer and the line); `fixture-fill/` (its fixture
+    faults, the history's run script, its `README.md` regenerated);
+  - chunk 11: the twenty faults' `fault.yaml` and `gm.md`;
+    `tools/fake_aging/{calibrate.py,calibration/}`; the campaign's four
+    `service-times.yaml` and two `wal-rate.yaml`; the shop's (and the
+    campaign's, should one gain a parameter) `scenario.yaml` and
+    `README.md`; `tools/tests/test_fake_aging_faults.py`;
+  - chunk 13: `.claude/skills/game-master/{SKILL.md,feedback.md}`.
+- **What wave 4 reads from W3**: chunk 12, items 1 to 6 and 8 to 10,
+  W3-x and W3-y; 12 also builds item 12's section. Chunks 5, 14 and 16
+  read nothing from W3 (16 regenerates `fixture-fill`'s `README.md`
+  again, after chunk 10's).
+
+**Choices made here, not in the spec** (for the driver's review):
+`gmctl history`'s arguments, refusals, idempotence and retry; no Docker
+lock in its run; `--check-seam`; the output's last line and exit
+status; the record's `seam` values and `reason`; `state.yaml`'s
+`history_import`; the seam's three checks and what the restart resets;
+an instance's span in the past and `suppressed_by` from the hiding
+instance's planting; promtool in a helper container; no Prometheus
+restart, the bounded wait; the early check failing on the import, the
+hand-over check not; the restart's two cases; `fill.emulate` tokens;
+`# measured:` comments; a signature's parameter optional; the `gm.md`
+note's label; the calibration files' names; the shop's WAL rate left
+as it is; the faults' test; refused instances in a GM-run game; no
+`history` invocation in the skill; the never-told search's marking;
+the section's heading.
+
+### Preflight corrections for spec-writer
+
+1. **Chunk 10's Files gain `tools/gm/restart.py` and
+   `tools/tests/test_restart.py`**: `restart.new_timeline`
+   (`tools/gm/restart.py:199-204`) rebuilds the timeline with
+   `render.build_timeline`, which has no fake keys, so after any restart
+   of a fake game `localimpl.left_out` (`tools/gm/localimpl.py:419-430`)
+   loses `refused` (the checks read refused instances again), `is_fake`
+   turns false, and the bastion's `story.md` loses its line
+   (`tools/gm/render.py:605-606`). Chunk 9 noted it ("chunk 11's area",
+   this log, chunk 9a's record: the v0.3 chunk that wrote `restart.py`);
+   no v0.6 chunk owns it, and chunk 10's Done when restarts a fake
+   game from its snapshot. Chunk 10's Scope gains item 7.
+2. **The players have a shell on the Prometheus node**: master spec
+   9.10's row (master-spec.md:1193, "the players have no shell on the
+   Prometheus node (to verify)"), build-plan.md:392-394 and :414, and
+   chunk 12's "no player shell on the Prometheus node"
+   (build-plan.md:1504-1505) against `bricks/prometheus/docs/player.md:8-9`
+   (`ssh player@<node>`), which f10's fix needs (it edits
+   `prometheus.yml` there). What hides the blocks is the TSDB folder,
+   `prometheus:prometheus 0750` (`gm-entrypoint:84-85`). Fix: 9.10's
+   curation to read "the players' shell can't read the TSDB folder";
+   chunk 12's check "the `player` account cannot list
+   `/var/lib/prometheus`"; chunk 10's "the players' access ... read from
+   the write policies" (build-plan.md:1274-1275) to read "the TSDB
+   folder's owner and mode, which the import keeps" (the write policies
+   govern `/etc/prometheus` only, `bricks/prometheus/brick.yaml:55-57`).
+3. **A limit 9.10 lacks: Prometheus' own series show the import**
+   (master-spec.md:1180-1197): `prometheus_tsdb_lowest_timestamp_seconds`
+   drops from `restart.at` to the virtual T0, `prometheus_tsdb_blocks_loaded`
+   and `prometheus_tsdb_storage_blocks_bytes` step up, about 12 minutes
+   after the restart, in the series the `prometheus` job scrapes (the
+   shop's `nodes/prometheus/prometheus.yml:16-19`), readable by any player
+   in Prometheus and Grafana. The tail's own samples can't be rewritten
+   without the admin API. Fix: a 9.10 row (curation none, not covered
+   by the story); its `explains` row in `cleanrestart.EXPLAINS` follows
+   the spec's decision (chunk 10's, `cleanrestart.py` then in its
+   Files); chunk 12's tells script may report it.
+4. **promtool "in the Prometheus node"** (build-plan.md:1268-1269): to
+   read "with the Prometheus node's image, in a helper container on its
+   host" (item 5's reason).
+5. **Chunk 11's Files: the campaign's service times**: "the campaign's
+   service times beside its `queries.yaml` if a key is campaign-only"
+   (build-plan.md:1358-1360, :1344, :372-373) is narrower than what
+   11b's short fill needs: only `nodes/producer/service-times.yaml`
+   exists, and `gmctl fill` refuses a key without one. Fix:
+   `scenarios/tarnbeck-outdoor-campaign/nodes/{consumer,bi,crm,gateway}/service-times.yaml`
+   (new) named.
+6. **Chunk 11's Files: the scenarios setting a new parameter**: W1 item
+   4 (this log, "a fault lacking a parameter its signature needs (f8's
+   slowed key) gains one in chunk 11") makes an instance set it, so
+   `scenarios/tarnbeck-outdoor-shop/{scenario.yaml,README.md}` (and the
+   campaign's, should one of its faults gain one) join chunk 11's Files,
+   the README regenerated in the same commit (workflow deltas, "a chunk
+   changing a generated file's input").
+7. **Chunk 11's Files: `tools/tests/test_fake_aging_faults.py`** (new;
+   item 10): wave 3's gate row (build-plan.md:312) has no test behind it,
+   since the format check accepts a fault without `aging.fake` (optional,
+   W1 item 0).
+8. **Handouts naming an instance fake aging can't make**: 9.1
+   (master-spec.md:885-889) and D528 (access-model.md:119-122: the game
+   runs without a refused instance) are silent on an issue the starter
+   pack carries for it; 9.8's "With f10 out" (master-spec.md:1138) runs
+   the campaign with issue 6 (`player/issues.md:22-24`) and no cause.
+   Fix: 9.1 to say a GM-run game never leaves refused an instance a
+   handout names (item 11); 9.8's campaign note to say issue 6 goes
+   with f10 in a fake game's design. If spec-writer finds 9.1's
+   "replaces ... or declines" does not cover a variant without that
+   issue, it is the owner's.
+9. **9.5's `suppressed_by`** ("drops an entry while a hiding fault is
+   selected", master-spec.md:1058-1059): to read "from the hiding
+   instance's planting", item 4's reason (the campaign's f5 is planted
+   in the tail and hides f4 and f7).
+10. **Chunk 13 reads a section chunk 12 writes a wave later**
+    (build-plan.md:1402 against chunk 12's :1506-1509): chunk 13's
+    Depends to name "capture W3 item 12 (the "Fake aging" section's
+    heading and facts)". And 9.2's "ready in about an hour and a half"
+    (master-spec.md:901-902) needs the setup's time, which no GM-facing
+    document carries: 9.10's per-scenario section to add the fill's
+    measured duration (chunk 12 measures it, build-plan.md Done when).
+11. **For G10.3 after wave 3's gate** (none contradicts the spec;
+    formats.md v36 doesn't carry them): the record's `history` with
+    `seam` values and `reason`; `state.yaml`'s `history_import`; the
+    history unit and `HISTORY_READ`; `--check-seam`; the seam's
+    findings; the `# measured:` comments; the calibration files' names;
+    the `**Fake aging.**` note.
+
+### Questions for the owner (as drafted)
+
+None. Every point above is settled by the spec, a capture, or a
+correction `spec-writer` can make without changing how a game plays;
+correction 8 goes to the owner only if `spec-writer` finds 9.1 doesn't
+cover a scenario variant without the refused instance's issue.
+Recommendation there: the GM designs that variant, or plays the
+campaign real.
+
+### W3 reviewed by the driver, 2026-11-19
+
+Drafted by a `coding-leader` (3cba8b7, about 87 tool calls). The
+capture's (choice) points are accepted as drafted. No owner question.
+Corrections 1 to 11 go to `spec-writer` for plan v9 on `v0.6-w3`.
+Chunk 13 starts at once: its only correction (10: its Depends naming
+W3 item 12) changes no file it builds, and its brief carries W3 items
+7, 8, 11 and 12. Chunk 11 starts once plan v9 is committed
+(corrections 5, 6, 7 give it the campaign's `service-times.yaml`, the
+shop's `scenario.yaml`/`README.md` and the new test); chunk 10 takes
+the next free slot after plan v9 (correction 1 gives it `restart.py`).
+
+### Plan v9 (70fc0d5); chunk 11 started, 2026-11-19
+
+- `spec-writer` applied W3's corrections 1 to 11, none declined: plan
+  v9, 70fc0d5. **D540**: the players keep their Prometheus shell; the
+  TSDB folder (`prometheus:prometheus 0750`) is what hides the blocks.
+  **D541**: Prometheus' own `prometheus_tsdb_*` series step at the
+  import, a documented limit (9.10). **D542**: an instance a handout
+  names that fake aging can't make is never left to render's refusal
+  (a variant without it and its issue, the game real, or decline;
+  the campaign's f10 and issue 6 together; v1.0 gating's campaign
+  blind read becomes that variant). **D543**: `suppressed_by` counts
+  from the hiding instance's planting (formats.md v37 [renumbered v38 at
+  the merge with main]). **D544**: the
+  "Fake aging" section carries the setup's measured time, behind 9.2's
+  "ready in about…". G10.3 added. No owner question.
+- Relayed to chunk 13 (running): D544's duration, D542's selection
+  rule, 9.10 in its Spec sections.
+- Chunk 11 dispatched to a `coding-leader` from 70fc0d5, branch
+  `v0.6-c11-faults-assessed`, split 11a/11b, rotation at ~100 calls.
+
+### Chunk 13 — merged (0ec38b3), 2026-11-19
+
+944731e, merge 0ec38b3 (rebased onto plan v9 first). Only
+`.claude/skills/game-master/{SKILL.md,feedback.md}`.
+
+Done when: the play question asked once with the time available,
+modes offered per 9.1/9.2 (D516: "quick game"/"extended game" by
+duration to a possible player; D544's estimate; D542's selection
+rule); the never-told search over every marked player text: 0 hits
+(28 texts, a probe file with the words gives 3 hits); the fake-mode
+steps in 9.4's order, 44/44 `gmctl` invocations parse with
+`build_parser()`; the feedback in two parts with the tell rule
+("Fake aging in the teaching moment"). No `gmctl history` invocation
+(W3 item 11): the skill names the timer and reads `status`.
+
+**W3-z** (as built): player-facing texts wrapped in `<!-- player -->`
+… `<!-- /player -->` (26 in SKILL.md, 2 in feedback.md); the search
+command and word list (aging/ageing/ages/aged, fill*,
+forge/forged/forgery/forging, virtual, fake*) in SKILL.md's top
+comment; the rule holds in both modes; a picked-up game treats the
+initiator as one who may play; a failed or bad-seam import: retry by
+hand, then set up again or hand over as is.
+
+Left: fake mode is offered only once a scenario document has a
+`## Fake aging` section (chunk 12, wave 4); gmctl.md's `history` row
+(chunk 10). Risk: a solo initiator who also plays can see the GM's
+tool output during setup (`status` prints `aging: fake`); v0.5
+already accepted that risk for setup output.
+
+**For the wave gate:** the unit suite has one failure,
+`test_model.TestV06Templates.test_domain_and_overview_templates`
+(`domain.yaml`'s `overview` not optional), already failing on `main`
+at 9aac312, so not wave 3's: chunk 3's test predates chunk 7a
+(50ee241), which made the domains' overview required. To trace and fix
+at the gate.
+
+Figures: 1 agents, 99 tool calls, 15.7M tokens in / 73k out, max
+context 229k, $5.62 at API prices.
+
+### Chunk 11a — committed (816c090), owner rotated, 2026-11-19
+
+11a on `v0.6-c11-faults-assessed`, not merged (11b, then one merge);
+the worktree kept for 11b, with an ignored reference cache in
+`tools/fake_aging/reference/extracted/` (1.4 GB, deletable). No Docker
+run. The shop's ten faults carry `aging.fake` and `history:`, every
+number `# measured:` against an archive member; f4, f5, f7 `gm.md`
+notes; optional parameters (`database` on scheduler-query-error and
+scheduler-report-unbounded, `key` on scheduler-insert-retry-duplicates
+and pg-join-index-missing, `key`/`blocked-key` on
+scheduler-batch-at-peak) set by the shop's instances;
+`tools/fake_aging/calibrate.py` copied from `10d1bc6` and generalised;
+`test_fake_aging_faults.py` (6 tests, shop only).
+
+**W3-y, the shop's part**: f4 `tail-only` (`tail_minimum: 2h`), f5 and
+f7 `tail-only` (`tail_covers: ["12:00"]`), the other seven `supported`;
+all `plant_in: any`; the full selection's tail stays 3h, anchor 11:00
+(W3 item 9). Signatures from run R: f1 `xact_rollback` 0.100/call; f2
+service {0.198, 0.03}, `temp_bytes` 20 450 000 and `temp_files` 1 per
+call; f3 `tup_inserted` 0.228/call; f4 sawtooth 300 s × 300; f5 lock
+{21.25, 0}; f6, f7, f9 `none`; f8 service {0.024, 0.35},
+`tup_returned` 963 700 and `blks_hit` 12 410 per call; f10 two
+`remove` selectors. No calibration run for the shop (archive reads).
+
+Deviations: (1) **f9's `suppressed_by` over f4 not written**: the
+exporter has no per-table series and R shows f4's sawtooth throughout,
+so f9 hides f4 only in state and logs; the chunk's scope line and W3
+item 4's "the shop's f9 hides f4 over the whole span" are wrong, sent
+to `spec-writer`. (2) f5 has no `daily_spike` (R holds no noon-run
+sample; the shop's span holds no noon before the tail). (3) f1, f2, f3,
+f5 also gained optional parameters (W3 item 8's pattern). The shop's
+`README.md` instance rows were edited by hand: 11b regenerates it with
+the `scenario-document` skill.
+
+Figures (owner 1): see the chunk's total line at its merge.
+
+### Plan v10 (1d582a7); chunk 11b started, 2026-11-19
+
+- `spec-writer`: plan v10, 1d582a7, **D548**: the shop has no
+  `suppressed_by` pair (its f9 hides f4 only in `orders`' state and the
+  autovacuum log lines); the shop's f5 has no `daily_spike`; chunk 11's
+  optional-parameter line as 11a built it. Master spec 9.8's f9 and f5
+  rows and 6.9's shape example corrected. Chunk 12 does not rely on the
+  pair. **W3 item 4's last two sentences now read**: "The shop has no
+  `suppressed_by` pair: its f9 hides f4 only in state and logs (the
+  exporter has no per-table series; R shows f4's `max_tx_duration`
+  sawtooth throughout; spec D548). 9.5's 'while a hiding fault is
+  selected' read so (correction 9)."
+- Chunk 11b dispatched to a fresh `coding-leader`, resuming from
+  816c090 (the shop's `README.md` to be regenerated through the skill).
+  Relayed: confirm in its own run that the campaign's f5 hides f4's and
+  f7's trail in a Prometheus series before writing that pair (D543),
+  else report it as D548's case.
+
+### Chunk 10a — committed (18c85f0), 10b WIP (a2469a1), owner rotated, 2026-11-19
+
+Rotated on the driver's word at ~85 calls, context past 300k. On
+`v0.6-c10-history`, not merged; worktree kept. No Docker run.
+`test_aging`, `test_restart`, `test_cleanrestart`, `test_history`: 156
+OK on a2469a1.
+
+- **10a** (18c85f0): `tools/gm/history.py`'s composer (span from the
+  virtual T0 to `restart.at` on each target's scrape grid; one baseline
+  per series by class, fixes 1, 5, 6; the load shape from the fill's
+  metrics records, bounded 0.25 to 4; the kinds per W3 item 4,
+  `suppressed_by` from the hiding instance's planting, D543;
+  OpenMetrics out) and the seam check (findings `{check, series,
+  detail}`, `check` ∈ `negative`, `reset`, `jump` (size gauges, 1 %
+  tolerance), `empty` (added: no sample before the restart)).
+- **10b WIP** (a2469a1): `gmctl history <dir> --playground <pg>
+  [--check-seam]` per W3 item 1 (refusals; no-op once ok; a failed
+  import's blocks removed before a retry; promtool in a `--rm`,
+  `--pull never`, network-less helper of the node's image; blocks moved
+  in whole, folder untouched, D540; load wait ≤180 s, no Prometheus
+  restart); the record's `history: {at, result, seam, reason}` written
+  last; `state.yaml`'s `history_import: {timer, attempts[]}` with each
+  attempt's figures; the start-load timer `dbagm-<gid>_history` at
+  `restart.at` + 12 min; the checks' line (early ≤600 s and fails, the
+  hand-over never fails); status's line; `restart.new_timeline` keeping
+  the fake keys (W3 item 7); the D541 `EXPLAINS` row, the existing
+  Prometheus rows made conditional on a Prometheus node; the verb
+  registered; `gmctl.md`'s rows (parse with `build_parser()`).
+- W3-x so far: the interface, records and verdicts above; `empty`; the
+  1 % jump tolerance; a no-op rerun after "ok but seam failed" exits 1.
+- Left for 10b's owner: `fixture-dropped-index`'s `history:` (a kind
+  each but `none`, unit-tested only: a deviation to report),
+  `run-history-test.sh`, the fixture run (~25 min estimated), the
+  retention figures, then commit and merge.
+- Finding relayed to chunk 11b: an `instance="{INSTANCE_NODE}"`
+  selector on a `pg_*` series matches nothing (the exporter's target is
+  the `instance`); every selector to be checked against the real label
+  sets.
+
+Figures (owner 1): 1 agent, ~85 tool calls, max context >300k; the
+chunk's total line at its merge.
+
+### Chunk 11 — merged (5c28a1d), 2026-11-19
+
+11b 822b208 (second owner, from 816c090), `v0.6-w3` taken in as
+1732d47, merge 5c28a1d. Worktree and reference cache removed; no
+playground left.
+
+**Host event:** armenelos rebooted at 07:55:46 UTC; every `dbagm`
+image was gone from the local engine afterwards. 11b rebuilt the seven
+the campaign uses (bastion 0.6.0, postgres 0.5.1, pgbouncer 0.1.2,
+scheduler 0.4.0, prometheus 0.2.2, postgres-exporter 0.2.1, grafana
+0.4.0) under the lock in 152 s, cached (old apt layers). The wave gate
+rebuilds every brick; whether with `--no-cache` is the gate's call.
+
+Done when: the twenty definitions load with `aging.fake`, all but the
+campaign's f10 with `history:` (`test_fake_aging_faults.py`, 6 OK, the
+campaign in `COVERED`); every number traced (the test); f5, f6, f10
+`gm.md` notes; runs recorded with wall times: A short real run 1327 s,
+B short fill 1761 s (848 s an idle wait for an hh:02 anchor), B2 short
+fill 559 s; the two `wal-rate.yaml` from run A. Lock waits not counted:
+~21 min behind chunk 10, ~100 min retrying B's window. Both scenario
+`README.md`s regenerated through the `scenario-document` skill (shop:
+11a's hand rows equal the template's, plus six "Knobs" intro lines;
+campaign: f1's parameter row).
+
+**W3-y, the campaign's part**: f1 to f4 and f7 to f9 `supported` (f1
+`counter_per_call` `pg_stat_database_tup_inserted{datname="{DATABASE}"}`
+on `mail.shipped`, `per_call` 70.7; the rest `kind: none`), f5
+`tail-only` `plant_in: tail`, f6 `tail-only` `tail_minimum: 1h`, f10
+`real-only`. Full selection unchanged (W3 item 9): f10 refused, 5h
+tail, anchor 09:00. f1 gained an optional `database` (the campaign sets
+`shop`). **P0 as applied** (B, B2): `rpt.etl_runs` holds the close at
+virtual 23:30Z (01:30 scenario time) and every hourly roll-up at
+virtual :05; the 12:00 close at virtual 10:00Z; `rpt.close_day()`'s
+`proconfig` and `prosrc` md5 identical before and after, only `xmin`
+moved (9.10's limit); B2's check after the restart reads f1, f2, f3,
+f4, f7, f8, f9 present: f4 and f7 stay `supported`, f4 needs no 12:00
+close in the tail. Service times: consumer, crm, gateway, bi and the
+producer's `consent.*` keys written (bi's from `rpt.etl_runs`,
+`rollup.close` on one run; `customs.unavailable` from psql timing).
+WAL rates over 7.2 min of run A after the data load: db 25 418 671,
+reporting 8 326 392 bytes/hour. The shop's WAL rate not measured.
+
+Selector check (chunk 10's finding): all twenty match the real label
+sets; no `instance=` selector on a `pg_*` series; nothing to fix.
+
+Deviations: (1) **no `suppressed_by` for the campaign's f5 over f4 and
+f7**: f4's and f7's trails are rows in `reporting`, `rpt.etl_runs` and
+logs, which no exporter reads; D548's case; touches D543's example and
+9.8's "f5 hides f4 and f7", sent to `spec-writer`. (2) bi and gateway
+are report-only, so their times were measured from the fill's
+`rpt.etl_runs` and psql timing. (3) Calibration file names
+`keys-<node>`, `run-a`, `f1`, `f5` beyond W3 item 10. (4) f1's
+`per_call` and the WAL rates from an evening window (not a day's
+average, unlike the shop's 43 881 262). Found outside the chunk: the
+`scenario-document` template's starter-pack line "(v0.5; the true
+register … stays GM side)" sits outside any "if:" block; for the gate.
+Risk for chunk 12: low-sample figures (`rollup.close` one run, the
+evening WAL and f1 figures).
+
+Figures: 3 agents, 214 tool calls, 31.6M tokens in / 200k out, max
+context 243k, $17.90 at API prices.
+
+### Plan v11 (7f7f170), 2026-11-19
+
+`spec-writer`: **D578** (D579 reserved, unused): no covered fault uses
+`suppressed_by` (the shop's f9 and the campaign's f5 hide in state and
+logs only); D543's rule stands, unit-tested only. Master spec 6.9,
+9.5, 9.7 (a report-only node's key timed from its runs in a fill or
+with psql), 9.8 amended; chunk 10a's and 11b's text; chunk 12 gains how
+to read the campaign's few-run, evening-window figures (`pg_wal`
+checked against `clean_restart.wal`'s padding, never a day's figure; a
+step in f1's series at the seam a finding for v1.0 gating, not a
+failure); G10.3 lists wave 3's as-built forms. No change to chunk 10b.
+
+**W3 amended** (driver, from chunks 11a and 11b and plan v10/v11):
+- item 4: the rule stands, but no covered fault uses it: the shop's f9
+  and the campaign's f5 hide in state and logs only (spec D548, D578);
+  unit-tested only.
+- item 9: as written; P0's outcome: f4 needs no 12:00 close in the
+  tail, f4 and f7 stay `supported`.
+- item 10: calibration file names as built `<scenario>-<what>-<stamp>.txt`
+  with `keys-<node>`, `run-a`, per fault, `fill`, `wal-<node>`; the
+  shop's WAL rate not measured.
+
+### Chunk 10 — merged (552259f), 2026-11-19
+
+10a 18c85f0; 10b 34a151c (the second owner's three WIPs squashed),
+`v0.6-w3` taken in as c18f23b, merge 552259f. Worktree removed.
+
+Done when: `test_history` composes every kind and a `suppressed_by`
+pair, the seam refuses a negative value, a stray reset, a gauge jump
+(28 OK); `test_restart` restarts a fake game both ways, `refused`,
+`left_out` and the story line kept. **`fixture-fill`'s history run**
+(`run-history-test.sh`, run 5, 2026-11-19 12:39, armenelos): **38/0,
+1348 s** with the deployment: the import lands (exit 0, seam ok, 0
+findings), the record's `history {at, result: ok, seam: ok}` written
+last, the TSDB folder `prometheus:prometheus 750` (D540), every kind
+read back over the past; the timer's run at +12 min a no-op; the early
+and hand-over checks read `ok, seam ok`; refused once handed over; the
+snapshot's restart keeps the record and the imported blocks, no history
+timer, `--check-seam` ok; nothing left after teardown.
+
+**W3-x** (as built): W3 item 1's interface plus **one import at a time**
+(`local/<pg>/.history.lock` held for the import; the timer's run waits
+and finds the result); working files `local/<pg>/history/{tail.json,
+history.om,report.json}` removed after a success; the record's
+`history {at, result, seam, reason}`; `state.yaml`'s `history_import
+{timer, scheduling_failed, attempts[{began, ended, outcome, reason,
+seam, figures}]}`, `figures` = `tail_series`, `tail_read_s`, `series`,
+`samples`, `openmetrics_bytes`, `compose_s`, `import_s`, `blocks`,
+`promtool_memory_peak_bytes`, `loaded_after_s`, `seam_s`, `report`,
+`tsdb` (read once the self-scrape shows the blocks, ≤60 s, else
+`stale`); timer `dbagm-<gid>_history` at `restart.at` + 12 min. Seam
+verdicts `negative` (a series the system holds below zero, a `-1`
+setting, held to its own value), `reset`, `jump` (a size gauge's step
+up to the larger of 1 % and the tail's own largest step), `empty`.
+
+Run 5's figures: deploy + load + inject 31 s; fill 227 s (466 virtual
+min); clean-restart 26 s; tail before the import 10 min; `gmctl history`
+68 s (tail read 2081 series 0.4 s; compose 2082 series, 3 879 946
+samples, 476.5 MB OpenMetrics, 4.5 s; promtool 7.9 s, peak 587.6 MiB;
+blocks loaded 50.9 s; seam 4.0 s; 4 blocks ~1.3 MB each); snapshot
+10 s; restart from it 33 s. Retention: the lowest timestamp moved from
+the restart (11:46:21Z) to the virtual T0 + 3 s (04:00:03Z), 4 blocks,
+5 359 865 bytes, unchanged a minute later and after the restart
+(retention 1d / 384MB; a 13 to 15 h past not measured). Verified live:
+promtool `-q` (Prometheus 3.16.0), `memory.peak` in the helper.
+
+Runs: (1) refused at fit, `aging.minimum` ≥ 8h (D150); (2) 24/14,
+1349 s: the helper's `/tmp` dangling link, the two seam refinements;
+(3) 35/3: `prometheus_tsdb_*` read before the self-scrape; (4) the lock
+held by 11b, the script refused its window, nothing deployed; (5) 38/0.
+
+Deviations, for G10.3 via `spec-writer`: `none` unit-tested only (a
+signature's only entry); `run-history-test.sh` starts only between
+hh:38 and hh:41 (exit 3 otherwise: H a whole hour, aging ≥ 8h, the run
+under 30 min); the fixture's `README.md` not regenerated (the fault is
+not its input); `gauge_before` on `pg_database_size_bytes` (no
+per-index series); the run lock.
+
+Findings outside the chunk: (a) **the exporter connects to the
+`postgres` database only**: scenario databases have no
+`pg_stat_user_tables_*`/`pg_stat_user_indexes_*` series, so a signature
+or tell on them matches nothing (11b checked its twenty: none does);
+chunk 12 checks its selectors (for its brief). (b) **`fill.queue_plan`
+drops a `queue` entry outright when any selected fault suppresses it**,
+ignoring the hiding instance's planting (D543); no covered fault uses
+`suppressed_by` (D578), so nothing breaks today: fix-sized, for the
+owner (issue or inserted chunk). (c) `shellcheck` is not installed on
+armenelos. Risks: the GM host's memory (732 MB peak for an 8 h past in
+run 2, about double for 16 h); promtool's ~590 MiB peak in an unlimited
+helper; the run's 30-minute budget has ~7 min of margin.
+
+Figures: 2 agents, 227 tool calls, 44.4M tokens in / 228k out, max
+context 310k (owner 1, marked: rotated at 10a), $24.61 at API prices;
+owner 2 ran ~140 calls, past the bound, on timing windows and lock
+waits.
+
+### Wave 3's chunks all merged, 2026-11-19
+
+Chunks 13 (0ec38b3), 11 (5c28a1d), 10 (552259f). Next: the wave gate.
+
+### Wave 3 gate — 2026-11-19, green after one fix
+
+`coding-executor` at the wave-gate level, armenelos, 12:10–14:33 UTC,
+from 682f6cd; every docker step serialised under the lock and the
+inhibitor, κ = 1, each item under 30 minutes; the VPS unused, nothing
+pruned. Head after the gate: 3bb81c0 (ISS-007, committed by the driver
+during the gate, over the gate's fix f07f0b1).
+
+| Item | Result |
+|---|---|
+| Unit suite | 1496 OK, 2 skipped, 370 s (after the fix) |
+| Scheduler unit tests, replay guard | 113 OK (6 `TestP0`), the real mode's replay byte for byte, 209 s |
+| api unit tests | 36 OK, 30 s |
+| `sh -n`, `py_compile`, `perl -c` | 343 shell (`run-history-test.sh` new), 478 Python, 14 Perl files OK; `shellcheck` not installed |
+| Builds `--no-cache --pull` | ten OK, 163 s |
+| `check-base.sh` | 10/10 Debian 13 |
+| Ten bricks' stack tests | postgres 316, bastion 136, pgbouncer 121, scheduler 179 (824 s), api 89, prometheus 132, postgres-exporter 104, grafana 131, pgwatch 73, health-check 97; all 0 failed |
+| Smokes | smoke 61, monitoring 43, governance 121, load 73 (431 s) |
+| Scenario smokes | bookshop 19, fernway-clinics 18, tarnbeck shop 26 (831 s), tarnbeck campaign 33 (316 s) |
+| `fixture-fill` history test (chunk 10) | **38/0, 1386 s** |
+| `fixture-fill` short test | 65/0, 889 s; p50 checks hold for producer and consumer |
+| `fixture-status` | 27/0, 381 s |
+| `test_fake_aging_faults` | 6 OK |
+| `check_fault_dir`, `check_scenario`, `check_domain_dir` | 39/39 catalogue faults, 37/37 fixture faults; 5/5 scenarios, 32/32 fixtures (fixture-v04-refusals against `catalog/`); 0 problems |
+| Calibration files | 12 in `tools/fake_aging/calibration/`; the 9 that faults and the log name all exist |
+| READMEs (shop, campaign) | the parts wave 3 could change re-rendered by hand: 20 fault-instance rows, 0 mismatches; the "Knobs" intro lines follow the template |
+
+**Fix** (its own commit on `v0.6-w3`): f07f0b1,
+`test_model.TestV06Templates.test_domain_and_overview_templates` expects
+the domain template's `overview` required (D487, master spec 6.5);
+stale since wave 2's f6e14ab, failing on `main` too.
+
+**One rerun (environment)**: the bastion stack test first stopped on
+"image debian:13-slim not built", its stub image, which the 07:55 reboot
+removed and `--pull` builds don't restore; pulled, rerun 136/0.
+
+**dpkg**: the seven images 11b rebuilt from cache diffed against their
+pre-gate lists: no change. api (141 packages), health-check (151) and
+pgwatch (126) had no earlier list; recorded now. G9.1's packages as G9.1
+and the follow-up left them (libpq5 17.12 in api, scheduler,
+health-check; postgres 18.7-1.pgdg13+2 with `pg_cron` 1.6.8-1.pgdg13+3
+and `pgaudit` 18.0-3.pgdg13+2; libcares2 1.34.9-1~deb13u1 in
+pgbouncer). **No package change: no G9.2 row, no post-change check.**
+
+**Figures**:
+- History test: deploy, load and inject 29 s; fill 229 s for 466
+  virtual minutes; clean-restart 28 s; `gmctl history` 81 s (tail's 2081
+  series read 0.4 s; composed 2082 series, 3 880 181 samples, 476.6 MB
+  of OpenMetrics in 4.8 s; promtool 8.5 s, peak 610.4 MiB; blocks loaded
+  51.0 s later; seam check 4.3 s); 5 blocks, 5 566 509 bytes. Lowest
+  timestamp 12:46:23Z → 05:00:03Z (virtual T0 + 3 s), unchanged a minute
+  later and after the restart; snapshot 9 s, restart from it 31 s, the
+  imported blocks kept.
+- Short fill: 467 s for 925 virtual minutes on 2 scheduler nodes;
+  exporter sessions 3710 against 3700 expected; autovacuum 97 runs on
+  `products`, 2 on `customers`; clean-restart 26 s, WAL padding
+  1 084 484 928 bytes in 1.5 s, `pg_wal` 1 056 964 608 bytes; starts
+  +1.3 to +2.2 s from `restart.at`; `stats_reset` 9 s before it.
+- `/home` 55 GB free. Teardown clean; seven untagged pre-rebuild images
+  left (nothing pruned).
+
+Not seen in the gate: D578's case, the template's starter-pack line
+outside an "if:" block (for chunk 12 or 16), ISS-007.
+
+Next: G10.3 to `spec-writer`.
+
+### G10.3 done — 2026-11-19
+
+`spec-writer`, 06a5d21 (formats.md v38 [renumbered v39 at the merge with
+main], master spec, plan v12,
+D580–D583) and b0f7840 (gate row). Every form checked against the code
+(`history.py`, `aging.py`, `state.py`, `restart.py`, `cleanrestart.py`,
+gmctl.md, SKILL.md, `tools/fake_aging/`, the twenty faults, the loader).
+None contradicts the spec.
+
+- D580 the umbrella (as D534); D581 the seam check as built (joins
+  checked on size gauges only, within the larger of 1 % and the tail's
+  largest step; `negative` for a series the system holds below zero;
+  `empty`): master spec 12.1 now reads "size gauges joining", read as a
+  gap filled (the other gauges are drawn from the tail's level); D582 a
+  fake game's restart without history (W3 item 7 as built); D583 one
+  import at a time, `ok` final even with a failed seam, a failed import
+  retried by hand.
+- Chunk 10's Record items and the exporter's reach (`postgres` database
+  only) now in 9.5 and formats.md.
+- Open, for the owner: master spec 9.9 fix 5 claims a `gauge_before` for
+  a dropped index's size, but the shop's f8 (`pg-join-index-missing`)
+  has none (only `fixture-dropped-index` has one); the shop's forged past
+  likely shows no database-size step at f8's planting (about 20 MB on
+  182 MB). Add a measured `gauge_before` to f8, or record a limit.
+- Open, for the owner: nothing enforces a fake game's instance setting a
+  signature's optional parameter (f1's `database`); unset, the selector
+  matches nothing, silently (`test_fake_aging_faults` covers the two
+  scenarios). A render refusal would be fix-sized.
+- Sent as gate fixes (driver's call, text only, the code following the
+  spec): gmctl.md (about line 389) and SKILL.md (about line 1236) advise
+  retrying "a failed seam" by hand, which D583 makes a no-op;
+  `calibrate.py`'s docstring lists the old names; from wave 2,
+  `cleanrestart.EXPLAINS`' real-clock row leaves out Grafana's alert
+  state and history and its no-log row says "the night" where 9.10 says
+  "the fill".
+- Retention measured only in part (section 18): a 13–15 h past and a
+  compaction not measured; for chunk 12's games or v1.0 gating.
+- For chunk 12's brief: its seam check reads `gmctl history`'s verdict
+  (D581) and may use `--check-seam`; its selectors meet the exporter's
+  reach; f8's gap could show in the shop's M1 comparison. Chunks 5, 14,
+  16 read nothing that changed.
+
+`doc-ids compare main v0.6-w3`: 0 collisions.
+
+### After G10.3: gate fixes, ISS-008, plan v13 — 2026-11-19
+
+- Gate fixes (`coding-executor`, unit suite 1496 OK after them): 6334690,
+  gmctl.md and SKILL.md's retry advice follows D583 (a failed import is
+  retried by hand; a failed seam with the import `ok` is never rerun);
+  cd3d37e, `calibrate.py`'s docstring names as formats.md v38 [renumbered
+  v39 at the merge with main];
+  8669bd8, `cleanrestart.EXPLAINS`' real-clock row gains Grafana's alert
+  state and history, its no-log row "covers the fill" (9.10). The
+  real-clock row's "where it shows" still lists no Grafana view (9.10
+  says "those views"); left as is.
+- Owner rulings on G10.3's two open points: the unset optional signature
+  parameter filed as **ISS-008** (Medium, c7e9d80); f8's missing size
+  step **fixed in wave 4**.
+- Plan v13 (`spec-writer`, f7794bf, spec D584): chunk 12a gains f8's
+  measured `gauge_before` on `pg_database_size_bytes` (its Docker, Scope,
+  Files, Done when, Verification and Split rule lines revised). New gate
+  **G13 "O292 ruled"**, the owner's: `gauge_before` as built holds one
+  constant level until the planting, so the shop's database size would
+  read flat 22:00–08:00 and the step equals `value` minus the forged
+  level; O292 asks whether to keep the kind (a 9.10 limit) or make it add
+  its value to the drawn size before the planting (`history.py`,
+  formats.md, `fixture-dropped-index`'s value; spec-writer recommends
+  it). G13 blocks only chunk 12's f8 item, not the chunk's start.
+  `fixture-dropped-index`'s "about 20 MB" is an estimate: chunk 12 must
+  not reuse it.
+
+### Wave 3 report — 2026-11-19
+
+Chunks merged: 13 (0ec38b3), 11 (5c28a1d), 10 (552259f); none moved.
+Gate green after one fix (f07f0b1), then three text fixes after G10.3;
+no package change (no G9.2); G10.3 done (06a5d21, D580–D583). Issues
+filed: ISS-007 (Low), ISS-008 (Medium). `doc-ids compare main v0.6-w3`:
+0 collisions.
+
+Cost: 15 agents, 1,023 tool calls, 148.9M tokens in / 865k out, max
+context 310k, $75.45 at API prices (07:57–about 16:10).
+
+| role | agents | calls | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|
+| coding-leader | 6 | 597 | $52.50 | 70% | **310k** |
+| spec-writer | 5 | 226 | $10.04 | 13% | 201k |
+| coding-executor | 3 | 134 | $7.18 | 10% | 209k |
+| driver (top level) | 1 | 66 | $5.73 | 8% | 232k |
+
+| chunk | agents | calls | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|
+| 10 | 2 | 227 | $24.61 | 33% | **310k** |
+| 11 | 3 | 214 | $17.90 | 24% | 243k |
+| 13 | 1 | 99 | $5.62 | 7% | 229k |
+| outside chunks | | | $27.32 | 36% | |
+
+Over 300k: chunk 10's first owner (85 calls, 310k), which read
+`history.py`'s whole design and the composer's inputs before writing;
+rotated at 10a's commit. 10b's owner ran to 142 calls (276k), past the
+rotation bound, to finish its 23-minute fixture run.
+
+### Handover for wave 4 (read this first in a fresh session)
+
+- State: wave 3 gated on `v0.6-w3` (worktree
+  `~/work/db_audit_gm-wt/v0.6-w3`), merge into `main` on the owner's word;
+  then remove the worktree and the chunk branches `v0.6-c10-history`,
+  `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`.
+- Wave 4: chunks 5, 12, 14, 16 (plan v13). Chunks 5 and 14 have no
+  wave 4 dependency; 12 and 16 need wave 3's merge.
+- G13 cleared (O292 ruled, D585): see the entry below.
+- For chunk 12's brief: f8's `gauge_before` (D584, O292's form); its
+  seam reads `gmctl history`'s verdict (D581), `--check-seam` available;
+  its selectors meet the exporter's reach (the `postgres` database only,
+  9.5); the `player` listing of the TSDB folder is its check; retention
+  past 13–15 h unmeasured.
+- For chunk 12 or 16: the `scenario-document` template's starter-pack
+  line sits outside an "if:" block.
+- Issues open in the area: ISS-007 (fill ignores the hider's planting,
+  D543), ISS-008 (unset signature parameter).
+- Environment: armenelos rebooted 07:55 UTC; `debian:13-slim` pulled
+  again; seven untagged pre-rebuild images left (no prune); `/home` 55 GB
+  free; `shellcheck` not installed; the VPS untouched.
+
+### Main merged in; O292 ruled; wave 3 merged — 2026-11-19
+
+- `spec-writer` merged `main` into `v0.6-w3` (8a8ecf3): main had moved
+  28 commits (the v0.7 spec, 03429d9; v0.7 wave 1, ac17153 and e47df6a,
+  with `tools/play`, `game-mode/publish.py`, the game-assistant agent,
+  D576 and D577). Conflicts only in `specs/formats.md`, `specs/README.md`
+  and `specs/decisions.md`. Both sides had taken formats.md **v37**:
+  main's (v0.7's consolidation) keeps it; the wave's v37 (D543) became
+  **v38** and its v38 (G10.3) **v39**; 22 references renumbered
+  (067e6f7), older log entries annotated. decisions.md kept in number
+  order (interleaved). Unit suite after the merge: 1546 OK, 2 skipped;
+  `doc-ids compare`: 0 collisions; `merge-tree` into main clean.
+- **Since the merge, `doc-get` defaults to v0.7's plan**: a v0.6 driver
+  passes `doc-get --plan specs/versions/v0.6/build-plan.md …`.
+- Owner, on O292: "go with the recommended option". Spec D585 (02beec5,
+  plan v14, formats.md v40, G13 cleared): a `gauge_before` adds its
+  `value` to the level drawn before the planting; f8's `value` is the
+  dropped index's size. Chunk 12a carries it: `history.py`'s sum and a
+  `test_history` case, the `scenario-format` skill's and template's
+  wording, `fixture-dropped-index`'s value measured in `fixture-fill`'s
+  history run (its `run-history-test.sh` check, now asserting
+  `size_before == 202500000`, follows the new form), f8's measured
+  `gauge_before`.
+- Owner: "then merge". Wave 3 merged `--no-ff` into `main`, branch
+  head at this entry's commit; the worktree and the chunk branches
+  `v0.6-c10-history`, `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`
+  removed after.

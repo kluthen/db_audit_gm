@@ -63,3 +63,16 @@ ledger's last start (an estimate: the check cannot read the runner's
 judged moment: after a hand-over, the refused runs of the game count
 until the GM passes the fix's time, `gmctl check --since <the fix's UTC
 time>` (master spec 12.1), as the purpose's notes say.
+
+**Fake aging.** `tail-only`, planted in the tail (`plant_in: tail`;
+`aging.fake`, v0.6 master spec 9.5, 9.8). Its evidence is the refusals
+`password authentication failed for shop_etl` in the PostgreSQL log, which
+must follow its planting, and that log starts at the restart ("older logs
+archived", 9.10): planted in the fill, the refusals before the restart
+would be gone while the role's expiry stayed. So the instance is planted in
+the tail, and the tail reaches back to its planting: the campaign's f5, at
+`handover-5h`, sets a five-hour tail for a full selection (anchor 09:00).
+It hides the roll-up's and the close's work from its planting (f4's and
+f7's further runs), which is state and logs, not a Prometheus series; their
+runs in the fill, before it, are what a real night would have left. A DBA
+reading `rpt.etl_runs` finds runs up to the morning, as in a real game.

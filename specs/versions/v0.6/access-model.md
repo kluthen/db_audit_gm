@@ -10,6 +10,8 @@ its audited operations and its known gaps. This document states only
 what v0.6 adds or changes; where they disagree, this one wins.
 Amended in wave 2, from capture W2's preflight correction 7: a fake
 game's refusal is the instance's, not the game's (7; spec D528).
+Amended in wave 3, from capture W3's preflight correction 8: a GM-run
+game never leaves refused an instance a handout names (7; spec D542).
 
 ## 1. Purpose and scope
 
@@ -119,7 +121,9 @@ acting as a `player`.
 - A `real-only` or unassessed fault instance in a fake game: the
   instance is refused by `gmctl render`, naming its reason, before
   deployment; the game is rendered and runs without it, the refusal
-  listed in the restart record (master spec 6.9).
+  listed in the restart record (master spec 6.9). It is a safety net:
+  in a game the GM runs, an instance a handout names is never left to
+  it (master spec 9.1).
 
 ## 8. Elevation, delegation and non-human actors
 

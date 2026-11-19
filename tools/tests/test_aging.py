@@ -401,7 +401,7 @@ class TestNoLoadControl(unittest.TestCase):
         self.assertEqual(sorted(sub.choices), sorted([
             "fit", "render", "deploy", "load-data", "inject", "start-load", "validate", "check",
             "status", "exec", "logs", "teardown", "snapshot", "restart", "compose", "fill",
-            "clean-restart"]))
+            "clean-restart", "history"]))
         for verb in sub.choices:
             for word in ("pause", "resume", "speed", "trigger", "stop-load", "faster"):
                 self.assertNotIn(word, verb)
@@ -1404,3 +1404,74 @@ class TestFakeEarlyCheck(unittest.TestCase):
     def test_a_short_tail_right_after_the_import(self):
         self.assertEqual(aging.iso(self.due(1)), "2026-11-21T11:17:04Z")   # + 12 min + 5 min
         self.assertEqual(aging.iso(self.due(10 / 60)), "2026-11-21T11:17:04Z")
+
+
+class TestHistoryImportTimer(unittest.TestCase):
+    """A fake game's history import (v0.6 capture W3 items 2, 6): its timer,
+    created by start-load before the early check's, counted by teardown;
+    the checks' line."""
+
+    RESTART = datetime.datetime(2026, 11, 21, 11, 0, 14, tzinfo=datetime.timezone.utc)
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from pathlib import Path
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+
+    def test_timer_due_twelve_minutes_into_the_tail(self):
+        systemd = FakeSystemd(self.root)
+        rec = aging.schedule_history(systemd, "g7", self.root / "scen", "laptop", self.RESTART)
+        self.assertEqual(rec["timer"]["unit"], "dbagm-g7_history")
+        self.assertEqual(rec["timer"]["due"], "2026-11-21T11:12:14Z")
+        self.assertEqual(rec["attempts"], [])
+        service = (systemd.unit_dir / "dbagm-g7_history.service").read_text()
+        self.assertIn(" history ", service)
+        self.assertIn(f"Environment={aging.GAME_ENV}=g7", service)
+        self.assertIn("OnCalendar=2026-11-21 11:12:14 UTC",
+                      (systemd.unit_dir / "dbagm-g7_history.timer").read_text())
+        self.assertTrue(aging.records_timer({"history_import": rec}))
+        self.assertFalse(aging.records_timer({"history_import": {"timer": None}}))
+
+    def test_scheduling_failure_recorded(self):
+        rec = aging.schedule_history(FakeSystemd(self.root, up=False), "g7", self.root, "laptop",
+                                     self.RESTART)
+        self.assertIsNone(rec["timer"])
+        self.assertIn("Failed to connect", rec["scheduling_failed"])
+
+    def test_prometheus_node(self):
+        impl = {"nodes": {"db": {"brick": {"id": "postgres"}},
+                          "mon": {"brick": {"id": "prometheus"}}}}
+        self.assertEqual(aging.prometheus_node(impl), "mon")
+        self.assertIsNone(aging.prometheus_node({"nodes": {"db": {"brick": {"id": "postgres"}}}}))
+
+    def test_the_checks_line(self):
+        impl = {"nodes": {"mon": {"brick": {"id": "prometheus"}}}}
+        ldir = self.root / "local"
+        self.assertEqual(aging.history_check_line(ldir, {"nodes": {}}),
+                         ("history import: none (no Prometheus node)", True))
+        ticks, slept = [0.0], []
+
+        def sleep(s):
+            slept.append(s)
+            ticks[0] += s
+        # the early check waits, bounded, then fails on a missing import
+        line, ok = aging.history_check_line(ldir, impl, wait=True, sleep=sleep,
+                                            clock=lambda: ticks[0])
+        self.assertEqual((line, ok), ("history import: not recorded", False))
+        self.assertEqual(sum(slept), aging.LATE_RUN_WAIT)
+        # the hand-over check does not wait
+        slept.clear()
+        aging.history_check_line(ldir, impl, sleep=sleep, clock=lambda: ticks[0])
+        self.assertEqual(slept, [])
+        record = {"mode": "fake", "history": {"at": "x", "result": "ok", "seam": "ok"}}
+        localimpl.write_restart_record(ldir, record)
+        self.assertEqual(aging.history_check_line(ldir, impl),
+                         ("history import: ok, seam ok", True))
+        record["history"] = {"at": "x", "result": "ok", "seam": "failed",
+                             "reason": "seam jump: pg_database_size_bytes{}: 1 -> 2"}
+        localimpl.write_restart_record(ldir, record)
+        self.assertEqual(aging.history_check_line(ldir, impl),
+                         ("history import: ok, seam failed: seam jump: "
+                          "pg_database_size_bytes{}: 1 -> 2", False))

@@ -28,7 +28,27 @@ before the planned anchor, the tail counting from the restart's
 instant (9.4, 6.9; spec D535); the statistics reset in the restart's
 procedure, before the stop (9.4, 9.9 fix 2, 9.10; spec D536); a data
 file's last virtual write (9.9 fix 8); the scenario document showing an
-instance's `admitted:` (7.6; spec D537).
+instance's `admitted:` (7.6; spec D537). Amended in wave 3, from capture
+W3's preflight corrections: the players' shell on the Prometheus node,
+the TSDB folder keeping the imported blocks from it (9.10, 18; spec
+D540); Prometheus' own series showing the import, a documented limit
+(9.10; spec D541); no refused instance a handout names in a GM-run game
+(9.1, 9.8, 12.2; spec D542); `suppressed_by` from the hiding instance's
+planting (6.3, 9.5; spec D543); the setup's measured time in the
+scenario document's "Fake aging" section, for the quick game's
+duration (9.2, 9.10; spec D544). Amended after chunk 11a, from run R:
+the shop's f9 hides f4 in state and logs only, so no `suppressed_by`
+pair in the shop, and its f5 carries no `daily_spike` (6.9, 9.8; spec
+D548). Amended after chunk 11b: the campaign's f5 hides f4 and f7 in
+state and logs only, so no covered fault carries a `suppressed_by`, the
+rule unit-tested only; a report-only node's keys timed from a fill or
+with psql (6.9, 9.5, 9.7, 9.8; spec D578). Amended after wave 3's gate
+(gate G10.3): the forms as built, stated in formats.md v39 (6.3, 6.7,
+6.9, 9.5, 9.7; spec D580); the seam check's findings, its join checked
+on size gauges (9.4, 12.1; spec D581); a fake game's restart with no
+history (9.4; spec D582); one import at a time, a failed seam never
+imported again (9.4; spec D583); what wave 3 measured (9.4, 9.8, 12.1,
+18).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -283,8 +303,13 @@ in 6.9; rules in 9.5.
   support is `real-only`; a fault with no Prometheus trail says so with
   `- kind: none`. Kinds `queue`, `counter_per_call`, `gauge_sawtooth`,
   `gauge_before`, `daily_spike`, `remove`; `suppressed_by:` drops an
-  entry while a hiding fault is selected. Every number in it is
-  measured.
+  entry from the planting of a hiding fault's instance onward (9.5).
+  Every number in it is measured, and traced by a `# measured:` comment
+  on its line naming the reference member or calibration file it was
+  read from. A parameter only the signature needs is added optional
+  (`required: false`, `default: null`), so the scenarios using the
+  fault load unchanged, and every instance of a scenario played fake
+  sets it.
 - **`seed_changes[].lines`**, optional: the literal lines the change
   puts in the scenario's copy of the item's `file`, `{NAME}` parameter
   placeholders allowed, so a program can find them (a `change:` is
@@ -293,7 +318,7 @@ in 6.9; rules in 9.5.
   whose changes the answer key's diffs carry. The loader checks them
   (6.10); a change without `lines:` stays the GM's to read.
 - **`gm.md`** gains a "Fake aging" note when the support is `tail-only`
-  or `real-only`.
+  or `real-only`: its last paragraph, opening `**Fake aging.**`.
 - **Family `documentation`**, ids `docs-overview-*`: a `seed-file` fault
   on the bastion whose `seed_changes` name `network-overview.md`; the
   network-overview skill writes the handout with the change, the system
@@ -343,11 +368,13 @@ above it. The overview's **Background tasks** read it.
 - The bastion also receives, as configs, the player documentation of
   each brick it documents (section 7.3).
 
-Their forms as built (the timeline's keys, the record as written,
-`state.yaml`'s `hold`, `fill` and `clean_restart`, a `fill.quiet` item
-and the cover's, the status file's JSON and its `rendered` secret, the
-`brick-doc` configs) are in [formats.md](../../formats.md)
-"Local implementation" (v36).
+Their forms as built (the timeline's keys, the record as written with
+its `history`, `state.yaml`'s `hold`, `fill`, `clean_restart` and
+`history_import`, a `fill.quiet` item and the cover's, the history
+import's unit, run lock and working files, the seam check's findings,
+a fake game's restart, the status file's JSON and its `rendered`
+secret, the `brick-doc` configs) are in [formats.md](../../formats.md)
+"Local implementation" (v39).
 
 ### 6.8 Versions and pins
 
@@ -427,10 +454,10 @@ history:                           # mandatory unless real-only
   - kind: counter_per_call
     series: 'node_health_cpu_seconds_total{node="{NODE}"}'
     key: '{KEY}'
-    per_call: 0.067                # measured
+    per_call: 0.067                # measured: <reference member or calibration file>, <what>
   - kind: remove
     series: 'up{job="{TARGET}"}'
-    suppressed_by: [pg-table-autovacuum-off]
+    suppressed_by: [<hiding fault id>]   # no covered fault uses it in v0.6 (9.5)
 
 # brick.yaml
 base: {os: Debian GNU/Linux, version: "13"}
@@ -457,7 +484,8 @@ restart:
     - {observation: statement and shared statistics reset at 11:00,
        where: "pg_stat_statements_info.stats_reset, pg_stat_bgwriter.stats_reset",
        in_world: the maintenance restart reset them}
-history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
+history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}   # result ok|failed; seam ok|failed|unchecked;
+                                   # reason: one line, only when not both ok
 ```
 
 ### 6.10 The loader's new checks
@@ -887,6 +915,13 @@ GM, at setup**; it is not a scenario field.
   replaces, the scenario's fault instances so that every one is
   eligible (9.5), then sets the tail (9.6). If no acceptable selection
   fits, the GM declines the scenario or proposes another, as today.
+- **A handout never names a refused instance**: an instance an issue
+  of the starter pack (or any handout) names and fake aging can't make
+  is never left to `gmctl render`'s refusal, which would hand the
+  players an issue with no cause. The GM plays a variant designed
+  without that instance and its issue (proposing another scenario, as
+  above), plays the game real, or declines. Render's refusal stays the
+  safety net, for an instance no handout names.
 - A scenario with no scheduler node has no aging, and so no mode.
 
 ### 9.2 The initiator who also plays
@@ -900,7 +935,9 @@ So:
 - when the initiator may play, the setup dialogue speaks of a **quick
   game** or an **extended game** by its duration only ("ready in about
   an hour and a half", "ready in about 16 hours") and never names the
-  technique: no aging, fill, forged, virtual clock or fake;
+  technique: no aging, fill, forged, virtual clock or fake; a quick
+  game's duration is the setup's measured time in the scenario
+  document's "Fake aging" section plus the selection's tail (9.10);
 - an initiator who will not play (a teacher, the owner) may be told the
   mode and its limits.
 
@@ -982,8 +1019,18 @@ Steps 1 to 4 are today's setup.
    baseline and the selected faults' history signatures, rebase them on
    the tail, write the past as OpenMetrics, create blocks with
    `promtool tsdb create-blocks-from openmetrics`, copy them in, check
-   the seam. A failed import is recorded, never a teardown, as a
-   failed early check is.
+   the seam. promtool runs in a helper container of the Prometheus
+   node's image on its host, never in the running node; Prometheus
+   loads the blocks by itself and is never restarted for them. A failed
+   import is recorded, never a teardown, as a failed early check is.
+   It is refused before the tail's first 10 minutes have passed and
+   once the game is handed over. One import runs at a time; once one is
+   recorded `ok` a later run changes nothing, so a failed seam is never
+   imported again (the GM sets the game up again or hands it over as it
+   is), while a failed import may be retried by hand. The seam check's
+   findings (`negative`, `reset`, `jump`, `empty`) and the record's
+   `history` are in formats.md; `gmctl history --check-seam` reads the
+   seam again, recording nothing.
 9. **The early check**, by a host timer as today: halfway through the
    tail and no later than one hour before the earliest hand-over, but
    never before the history import is recorded; in a tail under two
@@ -1031,9 +1078,13 @@ with a new row version (9.10).
 
 **As in a real game**: the hand-over, the issues, the GM's stance
 during the game, the final answer, the checks, restarts and the
-hand-over snapshot. A fake game's restart from its snapshot restores
-the imported history with the rest of Prometheus' volume (to verify,
-section 18).
+hand-over snapshot. A fake game's restart from its snapshot is the
+same fake game: the record unchanged, no second import, the imported
+history restored with the rest of Prometheus' volume (measured in wave
+3's history run, the seam `ok` after it). Its restart with no history
+rebuilds the game on the real clock, as the real mode's (no fill, no
+import), the refused instances still out and the story keeping its
+line; the record stays the first game's, for the feedback.
 
 ### 9.5 Fault eligibility
 
@@ -1055,10 +1106,19 @@ instance. Overlays are mandatory: an empty or missing `history:` on a
 drawn per fault: the fault declares its effect on the one shared queue
 model, which writes both the scheduler's log lines and the call
 duration histograms. `remove` wins over every baseline and overlay on
-its series. `suppressed_by` drops an entry while the hiding fault is
-selected: faults that hide or wipe another's trail are wanted, and the
-fake reproduces them, never repairs them; the forged past is always
-before any fix.
+its series. `suppressed_by` drops an entry from the planting of the
+first selected instance of a hiding fault onward, so a hiding instance
+planted in the tail drops nothing from the forged past. No covered fault uses it in v0.6, so it is
+unit-tested only: the shop's f9 and the campaign's f5 hide another's trail
+in state and logs only, which no exporter reads, so their history
+signatures carry no `suppressed_by` (9.8). A signature draws only series
+the game's exporters serve: the `postgres-exporter` connects to the
+`postgres` database alone, so there are no per-table or per-index
+series of a scenario database, and a `pg_*` series' `instance` is the
+exporter's, never the database node's; a dropped index's size shows in
+its database's size (`pg_database_size_bytes`). Faults that hide or wipe another's
+trail are wanted, and the fake reproduces them, never repairs them;
+the forged past is always before any fix.
 
 ### 9.6 The tail's length
 
@@ -1090,7 +1150,15 @@ day's shape comes from the producer profiles. Calibration is one-off
 per fault version. The shop's numbers already come from the research's
 real run. The per-key service times describe the scenario's or the
 domain's keys, so they live beside the `queries.yaml` that defines
-them; the scheduler brick ships the model's code.
+them; the scheduler brick ships the model's code. A key on a
+report-only node, whose job no short real run can move into its window,
+is timed from its own runs in a fill or by running its statement with
+psql, its `source:` saying so (the campaign's `bi` and `gateway`); a
+key measured on a single run carries no spread (`sigma: 0`). Each
+measurement is kept as one file in the repository's calibration folder,
+named by the scenario, what it measured and its instant, opening with
+the command, the commit, the start and the wall time; a `source:` or a
+`# measured:` comment names it (formats.md).
 
 ### 9.8 The scenarios covered, and the starting estimates
 
@@ -1110,11 +1178,11 @@ build.
 | f2 | scheduler-report-unbounded | supported | temp bytes and files per call |
 | f3 | scheduler-insert-retry-duplicates | supported | state; rows at virtual times |
 | f4 | scheduler-transaction-held-open | tail-only, 2 h | autovacuum's "not yet removable" lines are genuine only in the tail; the fill holds the snapshot |
-| f5 | scheduler-batch-at-peak | tail-only, covers 12:00 | the noon lock waits are genuine only in the tail |
+| f5 | scheduler-batch-at-peak | tail-only, covers 12:00 | the noon lock waits are genuine only in the tail; no `daily_spike` (run R holds no sample of the noon run, and the span holds no noon before the tail) |
 | f6 | scheduler-job-wrong-timezone | supported | the 10:00 run, in the fill or the tail |
 | f7 | pgbouncer-pool-too-small | tail-only, covers 12:00 | the fill bypasses the pooler; its statistics start at the restart |
 | f8 | pg-join-index-missing | supported | planted by the fill at virtual 08:00 |
-| f9 | pg-table-autovacuum-off | supported | state; hides f4's trail on `orders` |
+| f9 | pg-table-autovacuum-off | supported | state; hides f4's trail in `orders`' state and the autovacuum log lines only: the exporter has no per-table series and run R shows f4's `max_tx_duration` sawtooth throughout, so no `suppressed_by` |
 | f10 | prometheus-scrape-target-missing | supported | `remove` |
 
 The full selection's tail: three hours (anchor 11:00, the noon peak
@@ -1127,17 +1195,19 @@ inside).
 | f1 | purpose-mail-overlapping-window | supported (P0) | a job every five minutes, virtual |
 | f2 | purpose-leads-stale-consent | supported (P0) | the release at virtual T0, jobs virtual |
 | f3 | purpose-mail-outside-hours | supported (P0) | the campaign job, virtual |
-| f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; whether its check needs the close in the tail is to verify |
-| f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting |
+| f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; its check reads present after the restart with no 12:00 close in the tail (chunk 11's short fill) |
+| f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting; hides f4's and f7's trails in state and logs only (`reporting`'s rows, `rpt.etl_runs`, the logs), which no exporter reads, so no `suppressed_by` |
 | f6 | security-crontab-superuser | tail-only, 1 h | the cron daemon is off in the fill |
 | f7 | purpose-day-boundary-wrong-zone | supported (P0, the cover) | the 01:30 close, virtual |
 | f8 | purpose-receiver-down-unnoticed | supported | the gateway's outage at virtual 08:00–10:00 |
 | f9 | governance-personal-copied | supported | its definitions are state; the `pg_cron` copy's run history holds the tail only |
 | f10 | purpose-heavy-job-on-database-node | **real-only** | a real out-of-memory kill and crash recovery at 03:00, read from the PostgreSQL log; a redesign moving it into the tail is possible later |
 
-f5 hides f4, f7 and f10. With f10 out and f5 planted in the tail, the
-GM checks f5's order against f4's and f7's runs when it composes the
-selection.
+f5 hides f4, f7 and f10, in state and logs. f10 is issue 6's cause (the starter pack's
+"The reporting database"), so a fake game of the campaign is a variant
+designed without f10 and issue 6 (9.1); in it, with f5 planted in the
+tail, the GM checks f5's order against f4's and f7's runs when it
+composes the selection.
 
 **If P0 fails for a fault** (f4 or f7, should the cover not hold): it
 drops to `tail-only`, with the tail its job's runs need, and leaves
@@ -1190,7 +1260,8 @@ isn't expected to find these; a DBA hunting with superuser access can.
 | The LSN and WAL volume, if the padding doesn't hold | `pg_current_wal_lsn()`, segment names | partly | none |
 | Time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | no | `tail-only` or `real-only` |
 | The archive vault and a standby date from the restart | the vault, `pg_stat_replication`, a slot's age | partly | the clinic, later |
-| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start, yes | none; the players have no shell on the Prometheus node (to verify) |
+| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start, yes | none; the players' shell on the Prometheus node can't read the TSDB folder (`prometheus:prometheus`, `0750`), which the import keeps |
+| Prometheus' own series show the import, about 12 minutes after the restart: its lowest timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up (a game with a Prometheus node) | `prometheus_tsdb_lowest_timestamp_seconds`, `prometheus_tsdb_blocks_loaded`, `prometheus_tsdb_storage_blocks_bytes`, in Prometheus and Grafana | no | none: the tail's own samples can't be rewritten without the admin API |
 | The forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | no | none |
 | Each routine the fill covered (one pinning its own `search_path`, 9.4) has a new catalog row version from the fill's minutes, its definition and settings identical | `pg_proc`'s `xmin` against the other routines'; two updates on `pg_proc` in `pg_stat_sys_tables` | partly: a change in the maintenance before the restart, not named | none; only routines pinning their own path are covered |
 
@@ -1203,7 +1274,9 @@ aging ([scenario-lifecycle.md](../../scenario-lifecycle.md) "Aging",
 `aging.fake.reason` and a "Fake aging" note in `gm.md`; per scenario, a
 generated "Fake aging" section of the scenario document (each
 instance's support, the tail the full selection needs, the instances
-refused, the limits that touch its evidence); per game, the restart
+refused, the limits that touch its evidence, and the setup's measured
+time from the deploy to the restart, the fill's duration within it);
+per game, the restart
 record. Nothing reaches the bastion, the starter pack or a handout.
 
 ### 9.11 What the players are told, and when
@@ -1360,8 +1433,8 @@ No aged run.
   or its fallback if P0 fails); fill, clean-restart, a 15-minute tail,
   the history import at about 12 minutes and the early check right
   after it; the checks reading every selected fault present; the seam
-  check (no negative value, no counter reset outside the restart,
-  gauges joining); the tells script on the fixed tells (no negative or
+  check (no negative value, no counter reset outside the restart, size
+  gauges joining, a past present); the tells script on the fixed tells (no negative or
   moving start time, no fill statement in `pg_stat_statements`, one
   `stats_reset` instant, `pg_wal`'s size, autovacuum counts in range);
   for the shop, the M1 and M3 comparisons against the saved real run as
@@ -1369,6 +1442,14 @@ No aged run.
   reading present, P0's jobs' outputs against their invariants, the
   seam and the tells. A start-time check confirms the monitoring
   started with the rest.
+- **The history import, on `fixture-fill`** (wave 3), under 30
+  minutes: the import at `restart.at` plus about 10 minutes, the seam,
+  every kind read back over the past, the timer's run a no-op after it,
+  the checks' line, the refusal once handed over, the snapshot's
+  restart keeping the imported blocks. Its script starts only between
+  hh:38 and hh:41, so the hand-over falls on a whole hour with an aging
+  of at least eight hours inside the 30 minutes. The kind `none` (a
+  signature's only entry, drawing nothing) is unit-tested only.
 
 ### 12.2 Unproven until v1.0 gating
 
@@ -1377,8 +1458,8 @@ Run once before the v1.0 tag, each longer than 30 minutes
 
 - fake aging's full selections with their real tails, on the shop (its
   three-hour tail, f4, f5 and f7 included) and the campaign (f5 planted
-  in the tail, f10 refused, and f2, f3, f4, f7 as `tail-only` if P0
-  failed);
+  in the tail, its variant without f10 and issue 6, 9.8, and f2, f3,
+  f4, f7 as `tail-only` if P0 failed);
 - **the blind reads**, on a fake game of each full selection kept up for
   the read: a fresh agent with player access only, told nothing about
   aging, audits the scenario and is then asked whether anything about
@@ -1605,14 +1686,23 @@ spec:
 - A restart of every service keeps everything the fill wrote (the
   scheduler logs on their volume) and gives fresh process namespaces;
   the monitoring scaled up in the same restart.
-- `daily_spike` and `gauge_before`, never exercised.
+- `daily_spike` and `gauge_before`: measured in wave 3, `fixture-fill`'s
+  history run reading every kind back over the past (`gauge_before` on
+  `pg_database_size_bytes`).
 - A fake game's restart from its hand-over snapshot keeps the imported
-  blocks.
+  blocks: measured in wave 3, the seam `ok` after it.
 - Prometheus' retention against imported blocks older than the head,
-  after a compaction.
-- Whether the players have any shell on the Prometheus node (they
-  should not).
-- Whether the campaign's f4 check needs the 12:00 close in the tail.
+  after a compaction: measured partial in wave 3, the lowest timestamp
+  at the virtual T0 a minute after the import and after the snapshot's
+  restart (a past of under eight hours); a 13 to 15 hour past and a compaction
+  not measured.
+- The players' shell on the Prometheus node can't read the TSDB folder,
+  whose owner and mode the import keeps (the shell itself stays: f10's
+  fix edits `prometheus.yml` there): the folder measured
+  `prometheus:prometheus 0750` after the import in wave 3; the `player`
+  account's listing is chunk 12's check.
+- Whether the campaign's f4 check needs the 12:00 close in the tail:
+  measured in wave 3, it doesn't (9.8).
 - The bricks' exact versions if a build finds more to change (folded
   into the unreleased version).
 

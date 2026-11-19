@@ -67,17 +67,18 @@ HELPER_MOUNT = "/gm-clean"
 # The documented limits (master spec 9.10) as the restart record's
 # `explains`, kept where they hold in the game (capture W2 item 8): the
 # archive's row only with an archiving node, the covered routines' only when
-# fill.quiet lists a cover. (when, observation, where, in_world)
+# fill.quiet lists a cover, Prometheus' two only with a Prometheus node (the
+# import's limit: spec D541, chunk 10). (when, observation, where, in_world)
 EXPLAINS = (
     (None, "the restart itself: the postmaster's start, every container's start, process IDs "
            "counted from it, the statistics' reset time, the logs' first lines",
      "pg_postmaster_start_time(), ps, stats_reset, the log folder",
      "the maintenance restart of the story line"),
     (None, "no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the "
-           "scheduler's own log covers the night)",
+           "scheduler's own log does cover the fill)",
      "the log folders", "older logs archived at the maintenance (the story line)"),
     (None, "real-clock actors start at the restart: pg_cron's run history, the crontab's runs, "
-           "the pooler's statistics, archiving",
+           "the pooler's statistics, archiving, Grafana's alert state and history",
      "cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver",
      "partly: they were restarted at the maintenance"),
     (None, "the data files' inode change times are the fill's real minutes",
@@ -91,9 +92,14 @@ EXPLAINS = (
      "the fill's span in logs and views", None),
     ("archiving", "the archive vault and a standby date from the restart",
      "the vault, pg_stat_replication, a slot's age", "partly: the maintenance"),
-    (None, "Prometheus' imported blocks carry their creation time, and Prometheus starts at the "
-           "restart",
+    ("prometheus", "Prometheus' imported blocks carry their creation time, and Prometheus "
+                   "starts at the restart",
      "the TSDB's files; Prometheus' runtime info", "the start: the maintenance restart"),
+    ("prometheus", "Prometheus' own series show the import, about 12 minutes after the restart: "
+                   "its lowest timestamp drops from the restart to the virtual T0, its loaded "
+                   "blocks and their bytes step up",
+     "prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, "
+     "prometheus_tsdb_storage_blocks_bytes, in Prometheus and Grafana", None),
     (None, "the forged past's fine shape: series appearing over the day, rarely called statements",
      "Prometheus", None),
     ("cover", "each routine the fill covered has a new catalog row version from the fill's "
@@ -103,13 +109,14 @@ EXPLAINS = (
 )
 
 
-def explains(st):
+def explains(st, impl=None):
     """The restart record's `explains` for this game (W2 item 8)."""
-    from . import fill
+    from . import aging, fill
     items = list((st.get("hold") or {}).get("items") or []) + list(
         (st.get("fill") or {}).get("quiet") or [])
     holds = {"archiving": any(i.get("what") == fill.ARCHIVING_WHAT for i in items),
-             "cover": any(i.get("routine") for i in items)}
+             "cover": any(i.get("routine") for i in items),
+             "prometheus": bool(aging.prometheus_node(impl))}
     return [{"observation": obs, "where": where, "in_world": world or "none: not covered by the story"}
             for when, obs, where, world in EXPLAINS if when is None or holds[when]]
 
@@ -429,7 +436,7 @@ class CleanRestart:
     def rewrite_stack(self):
         from .render import build_stack, dump_stack, story_line
         self.record["restart"] = {"at": None, "story_line": story_line(self.record["anchor"]),
-                                  "explains": explains(self.st)}
+                                  "explains": explains(self.st, self.impl)}
         localimpl.write_restart_record(self.ldir, self.record)
         localimpl.write_text(Path(self.ldir) / localimpl.STACK_FILE,
                              dump_stack(build_stack(self.scenario, self.impl, False), self.impl["game_id"]))

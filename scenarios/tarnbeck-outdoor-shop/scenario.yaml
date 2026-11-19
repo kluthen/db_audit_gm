@@ -438,6 +438,7 @@ fault_instances:
     node: producer
     parameters:
       key: catalog.lookup           # its product-code search entry, one call in ten
+      database: shop                # the history signature's series (fake aging, v0.6)
     visibility: hidden
   - id: f2
     fault:
@@ -447,6 +448,7 @@ fault_instances:
     parameters:
       key: reports.best-days
       date-column: placed_at
+      database: shop                # the history signature's series (fake aging, v0.6)
     visibility: known
   - id: f3
     fault:
@@ -459,6 +461,7 @@ fault_instances:
       id-column: event_id
       time-column: received_at
       db-node: db
+      key: deliveries.ingest        # the history signature's key (fake aging, v0.6)
     visibility: known
   - id: f4
     fault:
@@ -477,6 +480,8 @@ fault_instances:
       job: close-day
       shape: business-hours
       quiet-below: 0.5
+      key: orders.close-day         # the history signature's lock (fake aging, v0.6)
+      blocked-key: orders.place
     visibility: known
     aging_minimum: 15h              # its first run at 12:00, T0 + 14h, plus 1h (spec D189)
   - id: f6
@@ -509,6 +514,7 @@ fault_instances:
       database: shop
       table-name: order_lines
       column: order_id
+      key: orders.detail            # the history signature's slowed key (fake aging, v0.6)
     visibility: known
     plant_at: handover-6h           # 08:00: the index dropped "this morning"
     aging_minimum: 4h               # the morning's traffic on the order pages

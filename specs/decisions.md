@@ -394,6 +394,38 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   extension half). pgAudit 18.1 (upstream 2026-11-17) changes which audit
   lines are logged: a later game-content decision, not in v0.6 unless the
   owner says so. Now in: [build plan](versions/v0.6/build-plan.md) G9.1.
+- **D540 (2026-11-19, spec-writer, capture W3's preflight correction 2):
+  the players keep their shell on the Prometheus node; the TSDB folder
+  (`prometheus:prometheus`, `0750`) keeps the imported blocks from it,**
+  and the import keeps that owner and mode. f10's fix edits
+  `prometheus.yml` there, so "no shell (to verify)" was wrong. Now in:
+  [master spec](versions/v0.6/master-spec.md#910-documented-limits)
+  9.10, 18; [build plan](versions/v0.6/build-plan.md) chunks 10, 12.
+- **D541 (2026-11-19, spec-writer, capture W3's preflight correction 3):
+  Prometheus' own series showing the import are a documented limit,**
+  not covered by the story, no curation (the tail's samples can't be
+  rewritten without the admin API); the restart record's `explains`
+  carries it. Now in: [master spec](versions/v0.6/master-spec.md#910-documented-limits)
+  9.10; [build plan](versions/v0.6/build-plan.md) chunk 10.
+- **D542 (2026-11-19, spec-writer, capture W3's preflight correction 8):
+  a GM-run game never leaves refused an instance a handout names;** the
+  GM plays a variant without it and its issue, plays real, or declines,
+  render's refusal (D528) the safety net. 9.1's "replaces ... or
+  proposes another" covers the variant: no owner question. Now in:
+  [master spec](versions/v0.6/master-spec.md#91-two-modes-and-choosing-one)
+  9.1, 9.8, 12.2; [access model](versions/v0.6/access-model.md#7-denial-behaviour) 7.
+- **D543 (2026-11-19, spec-writer, capture W3's preflight correction 9):
+  `suppressed_by` drops an entry from the hiding instance's planting
+  onward,** not over the whole span: the campaign's f5, planted in the
+  tail, hides f4's and f7's trails only from then. Now in:
+  [master spec](versions/v0.6/master-spec.md#95-fault-eligibility) 6.3,
+  9.5; [formats.md](formats.md) v38.
+- **D544 (2026-11-19, spec-writer, capture W3's preflight correction 10):
+  the scenario document's "Fake aging" section carries the setup's
+  measured time, deploy to restart,** and a quick game's stated duration
+  is that time plus the selection's tail; no GM-facing document carried
+  it. Now in: [master spec](versions/v0.6/master-spec.md#92-the-initiator-who-also-plays)
+  9.2, 9.10; [build plan](versions/v0.6/build-plan.md) chunks 12, 13.
 - **D545 (2026-11-19, owner request, relayed by the coordinator): a game
   assistant, a player-side helper distinct from the GM**, with no access
   to the game's background: player handouts and basic bastion activity
@@ -417,6 +449,12 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   O275, the set O276. Now in: [game-assistant.md](versions/v0.7/game-assistant.md) 4, 6.
   *Amended by D550 (the player's access, no fixed read set) and D554 (the
   report's location free) (2026-11-19).*
+- **D548 (2026-11-19, spec-writer, chunk 11a's measured deviation): the
+  shop's f9 carries no `suppressed_by` over f4,** since it hides f4 only
+  in state and logs: the exporter has no per-table series and run R
+  shows f4's `max_tx_duration` sawtooth throughout. The shop's f5 has no
+  `daily_spike` (R holds no noon-run sample). Now in: [master spec](versions/v0.6/master-spec.md#98-the-scenarios-covered-and-the-starting-estimates)
+  6.9, 9.8; [build plan](versions/v0.6/build-plan.md) chunk 11.
 - **D549 (2026-11-19, owner ruling, relayed by the coordinator): v0.7,
   the game assistant its subject** ("it'll be v0.7"), after v0.6 and
   before v1.0; the repository's game mode (D555–D557) joins it. Closes
@@ -604,3 +642,46 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   consolidation dropped it. Now in:
   [master spec](versions/v0.7/master-spec.md#82-what-main-carries) 8.2;
   [build plan](versions/v0.7/build-plan.md) chunk 7.
+- **D578 (2026-11-19, spec-writer, chunk 11b's measured deviations):
+  the campaign's f5 carries no `suppressed_by` over f4 and f7,** whose
+  trails are rows in `reporting`, `rpt.etl_runs` and logs, which no
+  exporter reads (D548's case): no covered fault uses D543's rule, which
+  stands, unit-tested only. A report-only node's keys are timed from a
+  fill or with psql. Now in: [master spec](versions/v0.6/master-spec.md#95-fault-eligibility)
+  6.9, 9.5, 9.7, 9.8; [build plan](versions/v0.6/build-plan.md) chunks 10, 11, 12, G10.3.
+- **D580 (2026-11-19, spec-writer, gate G10.3 after wave 3's gate):
+  wave 3's forms written as built,** each checked against the code on
+  `v0.6-w3`; none contradicts the spec, which they complete (reported,
+  not settled: 9.9 fix 5's `gauge_before`, which no covered fault carries).
+  Now in: [formats.md](formats.md) v39 "Scenario", "Local implementation",
+  "Fault definition"; [master spec](versions/v0.6/master-spec.md) 6.3, 6.7, 6.9, 9.5, 9.7, 9.8, 12.1, 18.
+- **D581 (2026-11-19, spec-writer, chunk 10's choice routed to G10.3):
+  the seam's join is checked on size gauges only,** within the larger of
+  1 % and the tail's own largest step; `negative` holds a series the
+  system keeps below zero to its own value; `empty` added. Other gauges
+  are drawn from the tail's level, so no join to check. Now in:
+  [formats.md](formats.md) v39; [master spec](versions/v0.6/master-spec.md#121-short-tests-only) 9.4 step 8, 12.1.
+- **D582 (2026-11-19, spec-writer, capture W3 item 7 as built): a fake
+  game's restart with no history rebuilds on the real clock,** refused
+  instances still out, the story line and the record kept; the spec said
+  only "as in a real game". From the snapshot it stays the same fake game.
+  Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode) 9.4;
+  [formats.md](formats.md) v39.
+- **D583 (2026-11-19, spec-writer, chunk 10's choice routed to G10.3):
+  one history import at a time (a run lock), and once one is recorded
+  `ok` no run imports again, a failed seam included;** a failed import is
+  retried by hand, its blocks removed first. So the timer's run after a
+  hand run, or a second hand run, is harmless. Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
+  9.4 step 8; [formats.md](formats.md) v39.
+- **D584 (2026-11-19, the owner, after G10.3: "Fix in wave 4"): the
+  shop's f8 (`pg-join-index-missing`) gains a measured `gauge_before` on
+  `pg_database_size_bytes`, with its `# measured:` comment,** so master
+  spec 9.9 fix 5 holds as written rather than becoming a limit. Chunk 12
+  takes it (its shop game plays f8). The value's form raised as O292.
+  Now in: [build plan](versions/v0.6/build-plan.md) v13, chunk 12, G13.
+- **D585 (2026-11-19, the owner: "go with the recommended option on
+  O292"): a `gauge_before` adds its `value` to the level drawn before
+  the planting, instead of holding one level;** f8's is the dropped
+  index's size, so the shop's size keeps the load's shape (9.9 fix 5 as
+  written). Closes O292. Now in: [formats.md](formats.md) v40 "Fault
+  definition"; [build plan](versions/v0.6/build-plan.md) v14, chunk 12, G13.

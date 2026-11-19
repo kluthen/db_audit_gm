@@ -1,0 +1,17 @@
+# Service times of the crm machine's jobs (v0.6 master spec 9.7; capture W1
+# item 9, W3 item 10): the database's work for one call, in seconds,
+# lognormal (median, sigma of its logarithm), read by gmctl fill from this
+# folder, never a seed file, never on a node. Its keys are jobs, one call a
+# run: no spread measured within a minute, so sigma 0. mail.shipped's figure
+# is the overlapping window's (f1 is a seed fault, in from the start).
+source: >-
+  v0.6 chunk 11b, run A (a short real run of tarnbeck-outdoor-campaign on
+  armenelos, 2026-11-19 07:57 to 08:20 UTC, leads.extract, mail.campaign and
+  escalate.customs moved to every two minutes from 08:09),
+  tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-crm-20261119T0817Z.txt
+keys:
+  leads.extract: {median: 0.0091, sigma: 0}
+  mail.shipped: {median: 0.016, sigma: 0}
+  mail.campaign: {median: 0.0019, sigma: 0}
+  declare.exports: {median: 0.012, sigma: 0}
+  escalate.customs: {median: 0.0042, sigma: 0}

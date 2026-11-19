@@ -1,0 +1,14 @@
+command: run A's step "f1" (gmctl exec on db as postgres; gmctl exec on crm as root): psql -XAt -d shop -c "SELECT count(*), count(DISTINCT order_id), min(sent_at), max(sent_at) FROM mail_outbox WHERE template = 'order-shipped' AND sent_at >= '<the load's start, 2026-11-19T08:01:49Z>'"; grep -E ' job=mail-shipped | key=mail.shipped ' /var/log/scheduler/scheduler.log
+commit: 816c090 (with chunk 11b's uncommitted definitions)
+start: 2026-11-19T08:17:12Z
+wall time: 1 s (run A, playground cal-a, armenelos: 07:57:50Z to 08:19:57Z, 1327 s with the deployment and the teardown)
+
+rows|distinct orders|first sent_at|last sent_at
+435|223|2026-11-19 08:05:00.329046+00|2026-11-19 08:10:00.003856+00
+
+mail.shipped's runs (the crm scheduler's log):
+2026-11-19T08:05:00Z run job=mail-shipped key=mail.shipped phase=end status=ok rows=223 ms=67.9
+2026-11-19T08:10:00Z run job=mail-shipped key=mail.shipped phase=end status=ok rows=212 ms=16.7
+2026-11-19T08:15:00Z run job=mail-shipped key=mail.shipped phase=end status=ok rows=0 ms=1.0
+
+repeated rows: 435 - 223 = 212, over the 3 calls: 70.7 a call

@@ -21,6 +21,20 @@ applies_to:
 aging:
   technique: real-time
   minimum: 0m                       # the evidence shows at once (a restored state, D160)
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the table's setting and its dead rows are state, which the fill makes
+      as the day's updates do
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no Prometheus trail. The
+# exporter reads the database statistics only (it connects to postgres), so
+# no per-table series shows the table's dead rows; run R's r-dump/r.om has
+# none.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

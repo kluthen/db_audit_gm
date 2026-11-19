@@ -58,6 +58,13 @@ aging:
                                     # start, the recovery within seconds; the scenario raises
                                     # the instance's aging_minimum to that run's offset from T0
                                     # plus this
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: real-only
+    reason: >-
+      its evidence is a real out-of-memory kill and the crash recovery at
+      03:00 in the PostgreSQL log, the cgroup's counters and the statistics'
+      reset, which the fill can emulate in outcome only and the restart
+      erases (master spec 9.10); no history
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

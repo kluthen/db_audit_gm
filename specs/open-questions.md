@@ -332,9 +332,10 @@ the closed entries are kept here until v0.6's archive moves them:
 ## v0.6: fake aging
 
 Raised by the fake aging draft (D489–D493) and closed by the owner on
-2026-11-15; none open; the closed entries are kept here until v0.6's
-archive moves them. Text on
+2026-11-15; the closed entries are kept here until v0.6's archive moves
+them. Text on
 [versions/v0.6/fake-aging.md](versions/v0.6/fake-aging.md#questions-for-the-owner).
+O292 raised by the build (D584), closed by D585.
 
 - **O271** (v0.6; **closed**, D494, against the recommendation) — Are
   the players ever told their game was fake-aged? Never: not during
@@ -345,6 +346,19 @@ archive moves them. Text on
 - **O272** (v0.6; **closed**, D495, as recommended) — Which scenarios
   does v0.6 make fake-ageable? The shop and the campaign (its f10
   `real-only`); the clinic later.
+- **O292** (v0.6; **closed**, D585, as recommended; raised by D584,
+  gate G13 of the [build plan](versions/v0.6/build-plan.md)) — The form of f8's
+  `gauge_before`. As built (`tools/gm/history.py`, formats.md v39) it
+  holds one absolute `value` flat over the forged past until the
+  planting: the shop's database size would read flat from 22:00 to
+  08:00 (fix 5 also says "growing with the load's shape"), the step at
+  08:00 is `value` less the forged size there, so it reads as the
+  index's size only if `value` is set from the shop's own level, and
+  that shop number sits in a catalogue fault `bookshop-new-server` uses
+  too. Keep the kind (the flat night a 9.10 limit), or make the entry
+  add its value, the index's size, to the drawn size before the
+  planting (`history.py`, formats.md, `fixture-dropped-index`'s value).
+  Recommended: the latter. Ruled so: a `gauge_before` adds its value.
 
 ## v0.5: scope, the domain procedure, post-mortems
 

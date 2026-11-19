@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v37; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v40; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -44,6 +44,18 @@ and its `rendered` secret; the `brick-doc` configs. Draft v37, at v0.7's
 consolidation: the GM and the game assistant as agents for Claude Code
 and OpenCode, the GM's skills, the launcher `tools/play`, and the game
 branch's layout ("Enforcement", "The agents and the game branch").
+Draft v38, in v0.6's wave 3 (capture W3): `suppressed_by` drops an entry
+from the hiding instance's planting (D543). Draft v39, after v0.6's
+wave 3 gate (gate G10.3), with wave 3's forms as built (D580 to D583):
+the history import (its timer, its run lock, its working files,
+`--check-seam`),
+the restart record's `history` and `state.yaml`'s `history_import`, the
+seam check's findings, a fake game's restart; a history signature's
+`# measured:` comments, its optional parameters, the exporter's reach,
+the `**Fake aging.**` note; the calibration files, a report-only node's
+service times and a one-run key's `sigma: 0`. Draft v40, the owner's
+ruling on O292 (D585): a `gauge_before` adds its `value` to the level
+drawn before the planting, a dropped index's the index's size.
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -455,7 +467,13 @@ The owner's requirements (D23), with the earlier rulings that apply:
   beside the `queries.yaml` defining them, `keys:` mapping each key a
   stream or job of the node runs to `{median, sigma}` (seconds of
   database work a call, lognormal); `gmctl fill` refuses a key without
-  one, naming the key and the file. Each primary `postgres` node (not a
+  one, naming the key and the file. A key on a report-only node, whose
+  jobs no short real run can move into its window, is timed from its own
+  runs in a fill (the campaign's `bi` from `rpt.etl_runs`' ledger times)
+  or by running its statement with psql (the campaign's
+  `customs.unavailable`), its `source:` saying which; a key measured on
+  one run carries `sigma: 0`, no spread measured, and its `source:` says
+  so (D578). Each primary `postgres` node (not a
   standby) of a scenario played fake has `nodes/<node>/wal-rate.yaml`,
   `bytes_per_hour:` the WAL the node writes in an hour at the scenario's
   load, a positive whole number, measured; `gmctl clean-restart` pads
@@ -463,6 +481,19 @@ The owner's requirements (D23), with the earlier rulings that apply:
   without the file or with a malformed one (duplicate keys refused, as
   the loader's), naming it. The loader reads neither: a scenario only
   ever played real needs neither.
+
+  A figure measured in a short real run is recorded by the calibration
+  tool (`tools/fake_aging/calibrate.py`, `--record <what>`) or the run's
+  script in one file per measurement,
+  `tools/fake_aging/calibration/<scenario id>-<what>-<YYYYMMDDTHHMMZ>.txt`,
+  opening with `command:`, `commit:`, `start:` and `wall time:` lines.
+  `<what>` as built in wave 3: `keys-<node>` (a node's service times),
+  `run-<letter>` (the run itself: its steps and windows, `run-a`), the
+  instance (`f1`, `f5`: a fault's figures), `fill` (a short fill), and
+  `wal-<node>` (a WAL rate). A `source:` here, and a `# measured:`
+  comment in a fault's history ("Fault definition"), names that file;
+  the shop's figures name a member of the reference instead (master
+  spec 12.3), never a copy of it.
 
   ```yaml
   # nodes/db/wal-rate.yaml
@@ -567,7 +598,7 @@ stopped, D36), so a restarted GM can find where it was.
 
 ### A fake game's records (from v0.6)
 
-From v0.6 (D506; forms as built in waves 1 and 2, D534) a fake-aged game
+From v0.6 (D506; forms as built in waves 1 to 3, D534, D580) a fake-aged game
 keeps its timeline in `implementation.yaml`, its **restart record** in
 `local/<playground>/fake-aging.yaml`, and its progress in `state.yaml`.
 All are GM-side, out of the players' reach like the answer key;
@@ -611,6 +642,8 @@ restart:
        where: "pg_postmaster_start_time(), ps, stats_reset, the log folder",
        in_world: the maintenance restart of the story line}
 history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
+# or: {at: ..., result: ok, seam: failed, reason: "seam jump: <series>: ...; and 2 more"}
+# or: {at: ..., result: failed, seam: unchecked, reason: "Prometheus did not load the blocks within 180 s ..."}
 ```
 
 A refused instance's `reason` is its fault's `aging.fake.reason`
@@ -619,8 +652,17 @@ planned anchor's date and time in UTC, as appended to `story.md`.
 `explains` holds the rows of the v0.6 master spec's 9.10 table that hold
 in this game: the archive's row only when the hold or the fill turned
 archiving off, the covered routines' row only when `fill.quiet` lists a
-cover; `in_world` reads `none: not covered by the story` where the story
-covers nothing. `history` is the history import's (master spec 6.9).
+cover, Prometheus' two rows (its imported blocks, its own series showing
+the import, D541) only in a game with a `prometheus` node; `in_world`
+reads `none: not covered by the story` where the story covers nothing.
+`history` is the history import's, written last, by `gmctl history`
+alone, through the whole file: `at` the attempt's end, to the second;
+`result` `ok` once the blocks are in and Prometheus has loaded them,
+`failed` otherwise; `seam` `ok` (no finding), `failed`, or `unchecked`
+when the import failed before the check; `reason` only when the two
+are not both `ok`, one line: the error, or the first three findings as
+`seam <check>: <series>: <detail>`, `"; "`-joined, then `; and <n>
+more`. A retry replaces it.
 
 **Progress in `state.yaml`.** The stage stays `injected` from the inject
 to `start-load`; no new stage.
@@ -652,6 +694,95 @@ to `start-load`; no new stage.
   `clean_restart.outcome: ok` and `restart.at`. The earliest hand-over
   (never before it plus the tail), the early check and the outages count
   from `load.anchor`.
+- `history_import: {timer, scheduling_failed, attempts}`: the history
+  import's progress (not `history`, which is the stage history).
+  `start-load` writes it in a game with a `prometheus` node, before the
+  early check's timer: `timer` is the history unit's record (`{unit,
+  due, created_at}`, as `early_check.timer`), `scheduling_failed` only
+  when it could not be created, `attempts: []`. Each `gmctl history`
+  import appends `{began, ended, outcome: ok|failed, reason, seam:
+  [<finding>], figures}`; `figures` holds what the attempt measured:
+  `tail_series`, `tail_read_s`, `series`, `samples`,
+  `openmetrics_bytes`, `compose_s`, `report` (the composer's counts),
+  `import_s`, `blocks` (`{<block id>: bytes}`),
+  `promtool_memory_peak_bytes`, `loaded_after_s`, `seam_s`, `tsdb`
+  (Prometheus' three `prometheus_tsdb_*` series once its self-scrape
+  shows the blocks, within 60 s, else as read with `stale: true`), and
+  on a retry `removed_before_retry` (the failed attempt's block ids),
+  each only as far as the attempt got. A restart clears `timer` and
+  keeps the attempts; a teardown and a restart count `timer` among the
+  game's timers, so they know one exists with the manager unreachable. A
+  fake game's check records (`early_check.result`, each
+  `handover_checks` item) gain `history`, the check's line after
+  `history import: ` (`ok, seam ok`; `<result>, seam <seam>: <reason>`;
+  `not recorded`; `none (no Prometheus node)`).
+
+**The history import** (D580, D583). `start-load` creates the unit
+`dbagm-<game_id>_history`, due `restart.at` plus 12 minutes (never
+moved by `--test-tail-floor`), running `gmctl history <dir> --playground
+<pg>`; a game without a `prometheus` node has none. `gmctl history` is
+refused, nothing done or recorded, in a game that is not fake or has no
+`prometheus` node, at another stage than `load-started`, at or after
+`handed-over`, and before `restart.at` plus 10 minutes, the tail's
+first minutes it reads. One import at a time: an import holds
+`local/<playground>/.history.lock` (an exclusive `flock`), so the
+timer's run and the GM's never import at once; the second, once the
+lock is free, reads the refusals and the record again. Once `history.result` is `ok` a run prints the
+recorded result and changes nothing, exit 0 with the seam `ok` and 1
+with it `failed`: a failed seam is never imported again. After
+`failed` it imports again, first removing from the TSDB volume every
+block wholly before the restart and any half-moved one. A timer's run
+first waits up to 600 s for the game's nodes and imports anyway. The
+working files are `local/<playground>/history/{tail.json, history.om,
+report.json}`, removed after an `ok` import and kept after a failed
+one. promtool runs in a helper container of the Prometheus node's
+image on its host (`--rm`, `--pull never`, no network, labelled with
+the game), each block moved into the TSDB volume whole under a name
+Prometheus skips until its rename, owned `prometheus:prometheus`, the
+folder left `0750` (D540); Prometheus loads them by itself within 180
+s, else `failed`, and is never restarted. `--check-seam` runs the seam
+check alone against the live Prometheus, at any stage once
+`history.result` is `ok`, and records nothing (exit 0 no finding, 1
+otherwise). The output's last line: `Game <id>: history from the
+virtual T0 <instant> to the restart <instant> imported at <instant>;
+seam ok|failed (<n> findings)`, or `Game <id>: history import failed
+at <instant>: <reason> (recorded; nothing torn down)`, or with
+`--check-seam` `Game <id>: seam ok|failed (<n> findings); nothing
+recorded`; each finding on a line before it, `  seam <check>: <series>:
+<detail>`. Exit 0 only when `result` and `seam` are both `ok`.
+`gmctl status` reads `history import: <result> at <at>, seam <seam>`
+and the reason on the next line, or before the import `history import:
+due <instant> (timer <unit>)` or `history import: FAILED to schedule:
+<why>`.
+
+**The seam check's findings** (D581), `{check, series, detail}`, the
+series as its label set; the verdict is `ok` with none:
+
+- `negative`: a value in the forged past below zero, or below the
+  series' own value where the system itself holds it below zero (a
+  setting's `-1`); or a value below zero at the join coming from a past
+  that was not;
+- `reset`: a counter going down in the forged past, or going down at
+  the restart on a series the restart keeps (`pg_stat_database_*`, the
+  table and index statistics);
+- `jump`: a size gauge (`*_size_bytes`, `*_used_bytes`,
+  `*_free_bytes`) whose first value from the restart on differs from
+  its last forged value by more than the larger of 1 % and the tail's
+  own largest step between two samples in its first 5 minutes; other
+  gauges are drawn around the tail's level with its spread and are not
+  checked at the join;
+- `empty` (`series` `*`): no sample at all before the restart.
+
+**A fake game's restart** (D582), with `gmctl restart`: from the
+hand-over snapshot it is the same fake game, the timeline's
+`virtual_t0`, `anchor`, `tail` and `refused` kept, the record unchanged,
+its `history` included, no history unit and no second import, the
+imported blocks back with Prometheus' volume; with no history the
+timeline keeps `anchor`, `tail` and `refused` but not `virtual_t0`, so
+the rebuild runs on the real clock as the real mode's no-history
+restart (no fill, no import, no history line in the checks) while the
+refused instances stay out and the story keeps its line, and the record
+stays the first game's, for the feedback.
 
 **A `fill.quiet` or `hold` item** says what was turned off, how, and how
 to restore it:
@@ -1072,12 +1203,51 @@ faults/<fault-id>/
   `daily_spike` or `remove` (which wins over every baseline and overlay
   on its series), with the fault's parameter placeholders, every number
   measured by a short real run, and `suppressed_by: [<fault id>]` to drop
-  an entry while a hiding fault is selected. The loader refuses an empty
+  an entry from the planting of the first selected instance of a hiding
+  fault onward (one planted in the tail drops nothing from the forged
+  past). The loader refuses an empty
   or missing `history:` on a `supported` or `tail-only` fault, and
   `tail_minimum` or `tail_covers` elsewhere; `gmctl render --aging fake`
   refuses a `real-only` or unassessed instance, naming its reason. A
   `tail-only` or `real-only` fault's `gm.md` has a "Fake aging" note.
-  Shapes: [v0.6 master spec](versions/v0.6/master-spec.md) 6.9.
+  Shapes: [v0.6 master spec](versions/v0.6/master-spec.md) 6.9. As built
+  in v0.6's wave 3 (D580):
+  - `fill.emulate` holds short kebab-case tokens (`held-snapshot`,
+    `lock-wait`, `pool-queue`; `[]` when the fill imitates nothing),
+    for the GM: no program reads them, the loader checks only that
+    each is a non-empty string.
+  - Every number of a history entry carries, on its own line, a comment
+    `# measured: <source>, <what>`, `<source>` a member of the shop's
+    reference (`r-dump/r.om`) or a calibration file
+    (`tools/fake_aging/calibration/<file>`, "Scenario" above); the
+    loader refuses unknown keys in an entry, so the trace is a comment,
+    never a key. `tools/tests/test_fake_aging_faults.py` checks it on
+    the covered scenarios' faults, the source existing.
+  - A parameter only a history signature needs (a `{DATABASE}` or
+    `{KEY}` the injection doesn't use) is added `required: false`,
+    `default: null`, its description saying it is read only in a fake
+    game, so the scenarios using the fault load unchanged; every
+    instance of a scenario played fake sets it, its `README.md`
+    regenerated with it. No loader or render check enforces it (an
+    unset one leaves `None` in the selector, which matches nothing);
+    `test_fake_aging_faults.py` checks the covered scenarios' instances
+    resolve every placeholder.
+  - A history entry's selector names series the game's exporters
+    serve: the `postgres-exporter` connects to the `postgres` database
+    only, so a scenario database has no `pg_stat_user_tables_*` or
+    `pg_stat_user_indexes_*` series, and a `pg_*` series' `instance`
+    label is the exporter's target, never the database node: an
+    `instance=` or per-table selector on a `pg_*` series matches
+    nothing. A dropped index's size is drawn with a `gauge_before` on
+    `pg_database_size_bytes{datname=...}`, its `value` the index's size.
+    `- kind: none` is a signature's only entry.
+  - A `gauge_before` adds its `value` to the level drawn on its series
+    up to the planting, instead of holding one level (D585): the series
+    keeps its shape and steps by `value` at the planting. On a series
+    the tail lacks (a dropped object's) it reads `value` alone.
+  - The `gm.md` note is a paragraph opening `**Fake aging.**`, the
+    note's last, after its run-in labelled paragraphs; the skills point
+    to it by that label.
 - **Solvability probe**: what it runs as the player user and what it
   expects. Descriptive only in v0.1; a manual play-through checks it
   (D38).
