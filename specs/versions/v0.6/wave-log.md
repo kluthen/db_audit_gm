@@ -2896,3 +2896,65 @@ OK on a2469a1.
 
 Figures (owner 1): 1 agent, ~85 tool calls, max context >300k; the
 chunk's total line at its merge.
+
+### Chunk 11 — merged (5c28a1d), 2026-11-19
+
+11b 822b208 (second owner, from 816c090), `v0.6-w3` taken in as
+1732d47, merge 5c28a1d. Worktree and reference cache removed; no
+playground left.
+
+**Host event:** armenelos rebooted at 07:55:46 UTC; every `dbagm`
+image was gone from the local engine afterwards. 11b rebuilt the seven
+the campaign uses (bastion 0.6.0, postgres 0.5.1, pgbouncer 0.1.2,
+scheduler 0.4.0, prometheus 0.2.2, postgres-exporter 0.2.1, grafana
+0.4.0) under the lock in 152 s, cached (old apt layers). The wave gate
+rebuilds every brick; whether with `--no-cache` is the gate's call.
+
+Done when: the twenty definitions load with `aging.fake`, all but the
+campaign's f10 with `history:` (`test_fake_aging_faults.py`, 6 OK, the
+campaign in `COVERED`); every number traced (the test); f5, f6, f10
+`gm.md` notes; runs recorded with wall times: A short real run 1327 s,
+B short fill 1761 s (848 s an idle wait for an hh:02 anchor), B2 short
+fill 559 s; the two `wal-rate.yaml` from run A. Lock waits not counted:
+~21 min behind chunk 10, ~100 min retrying B's window. Both scenario
+`README.md`s regenerated through the `scenario-document` skill (shop:
+11a's hand rows equal the template's, plus six "Knobs" intro lines;
+campaign: f1's parameter row).
+
+**W3-y, the campaign's part**: f1 to f4 and f7 to f9 `supported` (f1
+`counter_per_call` `pg_stat_database_tup_inserted{datname="{DATABASE}"}`
+on `mail.shipped`, `per_call` 70.7; the rest `kind: none`), f5
+`tail-only` `plant_in: tail`, f6 `tail-only` `tail_minimum: 1h`, f10
+`real-only`. Full selection unchanged (W3 item 9): f10 refused, 5h
+tail, anchor 09:00. f1 gained an optional `database` (the campaign sets
+`shop`). **P0 as applied** (B, B2): `rpt.etl_runs` holds the close at
+virtual 23:30Z (01:30 scenario time) and every hourly roll-up at
+virtual :05; the 12:00 close at virtual 10:00Z; `rpt.close_day()`'s
+`proconfig` and `prosrc` md5 identical before and after, only `xmin`
+moved (9.10's limit); B2's check after the restart reads f1, f2, f3,
+f4, f7, f8, f9 present: f4 and f7 stay `supported`, f4 needs no 12:00
+close in the tail. Service times: consumer, crm, gateway, bi and the
+producer's `consent.*` keys written (bi's from `rpt.etl_runs`,
+`rollup.close` on one run; `customs.unavailable` from psql timing).
+WAL rates over 7.2 min of run A after the data load: db 25 418 671,
+reporting 8 326 392 bytes/hour. The shop's WAL rate not measured.
+
+Selector check (chunk 10's finding): all twenty match the real label
+sets; no `instance=` selector on a `pg_*` series; nothing to fix.
+
+Deviations: (1) **no `suppressed_by` for the campaign's f5 over f4 and
+f7**: f4's and f7's trails are rows in `reporting`, `rpt.etl_runs` and
+logs, which no exporter reads; D548's case; touches D543's example and
+9.8's "f5 hides f4 and f7", sent to `spec-writer`. (2) bi and gateway
+are report-only, so their times were measured from the fill's
+`rpt.etl_runs` and psql timing. (3) Calibration file names
+`keys-<node>`, `run-a`, `f1`, `f5` beyond W3 item 10. (4) f1's
+`per_call` and the WAL rates from an evening window (not a day's
+average, unlike the shop's 43 881 262). Found outside the chunk: the
+`scenario-document` template's starter-pack line "(v0.5; the true
+register … stays GM side)" sits outside any "if:" block; for the gate.
+Risk for chunk 12: low-sample figures (`rollup.close` one run, the
+evening WAL and f1 figures).
+
+Figures: 3 agents, 214 tool calls, 31.6M tokens in / 200k out, max
+context 243k, $17.90 at API prices.

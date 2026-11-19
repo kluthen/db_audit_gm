@@ -141,7 +141,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
-| 3 | 10, 11, 13 | wave 2 | in progress (13 merged) |
+| 3 | 10, 11, 13 | wave 2 | in progress (11, 13 merged) |
 | 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | planned |
 
 ```
@@ -1332,7 +1332,13 @@ arguments and output; the record's `history` field (`at`, `result`,
 
 ### Chunk 11 — The faults assessed: `aging.fake`, `history:`, calibration
 
-Status: planned
+Status: merged (w3, 5c28a1d)
+Record: 11a 816c090, 11b 822b208, merge 5c28a1d. Differs: no
+`suppressed_by` pair in either scenario (the shop's f9, spec D548; the
+campaign's f5 over f4 and f7, sent to `spec-writer`); bi and gateway
+service times measured from `rpt.etl_runs` and psql timing (report-only
+nodes); calibration file names beyond W3 item 10; f1's `per_call` and
+the WAL rates from an evening window. W3-y in the wave log.
 Wave: 3
 Depends on: chunks 3, 8, 15; chunk 1 (the reference)
 Docker: heavy (the campaign's calibration runs and its short fill, one
