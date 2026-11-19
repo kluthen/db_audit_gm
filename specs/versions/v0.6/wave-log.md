@@ -4014,3 +4014,43 @@ span in the script, which costs about 3 more minutes of fill, the
   the read-only session the grid itself prescribes (predates the chunk).
 - For the wave gate: existing scenarios' smokes with the D592 seeds.
 - Figures: 1 agents, 166 tool calls, 26.5M tokens in / 76k out, max context 227k, $7.81 at API prices.
+
+### Chunk 16 — merged (d24715c), 2026-11-20
+
+- Commits 5d37c7f (16a: `fixture-alias` to `fixture-load`) and 7860234
+  (16b: the rest); merged --no-ff, no conflicts. Branch deleted.
+- Evidence: 34 fixture scenario documents from chunk 12c's template (32
+  regenerated, 12c's two byte-identical); checked by script for the
+  warning, "Fake aging" in every one, "Third parties" and "Composition"
+  wherever their keys are, `admitted:` tables, "Data register", no
+  placeholders left; a second run reproduces all 34 byte for byte. Unit
+  suite 1559 OK, 2 skipped. Only `tools/tests/fixtures/*/README.md`
+  changed.
+- Method: no generator exists in the repo; the owner applied the
+  template with an uncommitted script (scratchpad `gen/scendoc.py`,
+  `apply.py`, `run.sh`), validated on the five scenarios and 12c's two
+  fixtures. `run.sh` regenerates every fixture document (for 17b if it
+  changes `fixture-fill` or `fixture-clinic-front` inputs).
+- **Open, for spec-writer at G10.4 (the template, capture W4 items
+  7-10; information some fixture documents carried by hand is now
+  gone):**
+  1. node keys `options:` (9 fixtures) and `standby_of:` have no place
+     in the template; aldermoor-centre's document invents "Options" and
+     "Standby of" lines; `fixture-monitoring-v05` and `fixture-reports`
+     lost them;
+  2. "Column classification" handles only `domain:`; a `domains:`
+     scenario gets "the scenario's own" (`fixture-register`,
+     `-clinic-load`, `-archive` lost richer wording);
+  3. nothing says which database each composed domain loads into except
+     the Composition table's "At"; "Restored-backup data" reads "none."
+     where data comes only from domains;
+  4. no wording for an empty pg_cron jobs table (kept the existing
+     "— | none | … | nothing scheduled in the baseline" row);
+  5. owner's calls on ambiguities: totals at the end of the placement
+     table; scenario-only bricks/faults kept in existing order; the
+     starter-pack line's ", and the data policy"; `cron.schedule` jobs
+     listed as postgres in `cron.database_name`.
+  Also seen in `scenarios/*` (out of scope): aldermoor-centre lists s6
+  under the vault limit though its evidence reads the data register;
+  bookshop-new-server writes one total as "2.25G".
+- Figures: 1 agents, 75 tool calls, 12.9M tokens in / 85k out, max context 253k, $5.39 at API prices.

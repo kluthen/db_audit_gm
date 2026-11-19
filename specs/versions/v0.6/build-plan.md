@@ -2260,7 +2260,11 @@ Architecture capture: none beyond W2.
 
 ### Chunk 16 — The fixtures' scenario documents regenerated
 
-Status: planned
+Status: merged (w4, d24715c)
+Record: 5d37c7f (16a) and 7860234 (16b), merged as d24715c on
+2026-11-20; no deviation from the spec or the captures. 34 fixture
+documents from chunk 12c's template (32 regenerated, 2 unchanged); a
+second run changes none. Template gaps found are in the wave log.
 Wave: 4
 Depends on: chunks 12c, 14, 17c (in wave 4: starts once all three have
 merged; 17c changes the fixtures' handouts, stories and seeds their
