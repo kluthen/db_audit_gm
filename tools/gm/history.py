@@ -511,13 +511,15 @@ class Composer:
 
     def size(self, smp, ts):
         """A ramp ending at the tail's first value: the tail's slope, per
-        unit of load, over the load's shape (fix 5), never below zero."""
+        unit of load, over the load's shape (fix 5), never below zero (a
+        setting the tail holds below zero, -1 for "no limit", stays at it)."""
         (t0, v0), (t1, v1) = smp[0], smp[-1]
         slope = (v1 - v0) / (t1 - t0) if t1 > t0 else 0.0
+        floor = min(0.0, v0)
         out, v = [], v0
         for t in reversed(ts):
             v -= slope * self.step * self.shape.ratio(t)
-            out.append(max(0.0, v))
+            out.append(max(floor, v))
         out.reverse()
         return [round(x) for x in out] if float(v0).is_integer() else out
 
@@ -769,15 +771,21 @@ def finding(check, series, detail):
 def seam_findings(past, tail_first, meta):
     """The seam's verdict from what Prometheus holds: `past`: {series key:
     {"labels", "min", "last", "resets"}} over the forged span; `tail_first`:
-    {series key: (labels, first value from the restart on)}. Returns the
-    findings, [] when the seam is ok."""
+    {series key: (labels, first value from the restart on[, the largest
+    step between two of its samples there])}. Returns the findings, []
+    when the seam is ok. A series below zero in the tail itself (a
+    setting's -1) is held to that value; a size gauge's join may step as
+    far as the tail's own largest step."""
     out = []
     if not past:
         return [finding("empty", "*", "no sample before the restart: the history is not there")]
     for key in sorted(past):
         p = past[key]
         lb = p["labels"]
-        if p.get("min") is not None and p["min"] < 0:
+        # a series the system itself holds below zero (a setting's -1, "no
+        # limit") is held to its own value, never to zero
+        own = tail_first[key][1] if key in tail_first else 0.0
+        if p.get("min") is not None and p["min"] < min(0.0, own):
             out.append(finding("negative", key, f"{_value(p['min'])} in the forged past"))
         counter = is_counter(lb, meta)
         if counter and (p.get("resets") or 0) > 0:
@@ -790,12 +798,516 @@ def seam_findings(past, tail_first, meta):
             out.append(finding("reset", key, f"{_value(last)} -> {_value(first)} at the restart, "
                                              "which keeps this counter"))
         if not counter and is_size(lb["__name__"]) and last is not None:
+            # beyond the tolerance and beyond the tail's own largest step (a
+            # volume growing by whole blocks, a WAL filling after its start)
+            step = tail_first[key][2] if len(tail_first[key]) > 2 else 0.0
             rel = abs(first - last) / max(abs(last), 1.0)
-            if rel > JUMP_TOLERANCE:
+            if rel > JUMP_TOLERANCE and abs(first - last) > step:
                 out.append(finding("jump", key, f"{_value(last)} -> {_value(first)} at the join "
-                                                f"({rel:.1%}, tolerance {JUMP_TOLERANCE:.0%})"))
+                                                f"({rel:.1%}, tolerance {JUMP_TOLERANCE:.0%}, the "
+                                                f"tail's own step {_value(step)})"))
     for key in sorted(tail_first):
-        lb, first = tail_first[key]
-        if first < 0:
+        lb, first = tail_first[key][:2]
+        last = (past.get(key) or {}).get("last")
+        # below zero at the join, coming from a forged past that was not
+        if first < 0 and (last is None or last >= 0):
             out.append(finding("negative", key, f"{_value(first)} at the join"))
     return out
+
+
+# --- gmctl history (capture W3 items 1, 2, 5) ---------------------------------------------
+
+HISTORY_DIR = "history"             # local/<playground>/history/: the working files
+TAIL_FILE, OM_FILE, REPORT_FILE = "tail.json", "history.om", "report.json"
+RUN_LOCK = ".history.lock"          # local/<playground>/: one import at a time
+PROM_DATA_VOLUME = "promdata"       # the brick's TSDB volume (bricks/prometheus/brick.yaml)
+PROM_API = "http://127.0.0.1:9090/prometheus/api/v1"   # its web_path, /prometheus/
+TSDB_MOUNT = "/gm-tsdb"
+# in the helper container's own layer, removed with it (--rm); never /tmp,
+# the image's link to /run/tmp, which s6 creates at boot and the helper,
+# started without s6, lacks
+HELPER_WORK = "/gm-history"
+QUERY_TIMEOUT = 120                 # seconds for one query
+LOAD_WAIT = 180                     # seconds for Prometheus to load the blocks by itself
+LOAD_POLL = 10
+SEAM_CHUNK = 7200                   # seconds of the past one seam query reads
+SEAM_TAIL = 300                     # seconds of the tail the seam reads its first values in
+REASON_FINDINGS = 3                 # findings named in the record's one-line reason
+ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
+
+# The helper container (capture W3 item 5): promtool with the node's image, on
+# its host, never in the running node; the OpenMetrics on stdin; each block
+# moved in whole, owned prometheus:prometheus, under a name Prometheus skips
+# until its rename; the folder itself, prometheus:prometheus 0750, untouched
+# (spec D540).
+IMPORT_SCRIPT = f"""set -eu
+mkdir -p {HELPER_WORK}
+cat > {HELPER_WORK}/{OM_FILE}
+TMPDIR={HELPER_WORK} promtool tsdb create-blocks-from openmetrics -q {HELPER_WORK}/{OM_FILE} \\
+    {HELPER_WORK}/blocks >&2
+echo "peak $(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo unknown)"
+for b in {HELPER_WORK}/blocks/*; do
+    id=${{b##*/}}
+    case "$id" in ??????????????????????????) [ -d "$b" ] || continue ;; *) continue ;; esac
+    rm -rf "{TSDB_MOUNT}/${{id:?}}.tmp-for-creation"
+    cp -a "$b" "{TSDB_MOUNT}/$id.tmp-for-creation"
+    chown -R prometheus:prometheus "{TSDB_MOUNT}/$id.tmp-for-creation"
+    mv "{TSDB_MOUNT}/$id.tmp-for-creation" "{TSDB_MOUNT}/$id"
+    echo "block $id $(du -sb "{TSDB_MOUNT}/$id" | cut -f1)"
+done
+"""
+
+# A failed attempt's blocks removed before a retry: every block wholly before
+# the restart (Prometheus' own begin at it), and any half-moved one.
+REMOVE_SCRIPT = f"""set -eu
+for b in {TSDB_MOUNT}/*; do
+    id=${{b##*/}}
+    [ -n "$id" ] || continue
+    case "$id" in
+        *.tmp-for-creation) rm -rf "{TSDB_MOUNT}/${{id:?}}"; echo "removed $id"; continue ;;
+    esac
+    [ -f "{TSDB_MOUNT}/$id/meta.json" ] || continue
+    max=$(tr -d ' \\n' < "{TSDB_MOUNT}/$id/meta.json" | sed -n 's/.*"maxTime":\\([0-9]*\\).*/\\1/p')
+    if [ -n "$max" ] && [ "$max" -le "$GM_RESTART_MS" ]; then
+        rm -rf "{TSDB_MOUNT}/${{id:?}}"
+        echo "removed $id"
+    fi
+done
+"""
+
+
+class Prometheus:
+    """The game's Prometheus HTTP API, read-only, through `curl` in its node
+    (as `prom.py` did): GET on /api/v1 only."""
+
+    def __init__(self, ldir, node, docker):
+        self.ldir, self.node, self.docker = ldir, node, docker
+
+    def get(self, path, **params):
+        import shlex
+        from .execnode import exec_node
+        from .model import GmError
+        script = f"curl -fsS --max-time {QUERY_TIMEOUT} -G {shlex.quote(f'{PROM_API}/{path}')}"
+        for k, v in params.items():
+            script += f" --data-urlencode {shlex.quote(f'{k}={v}')}"
+        run = exec_node(self.ldir, self.node, "prometheus", stdin=script + "\n",
+                        timeout=QUERY_TIMEOUT + 30, docker=self.docker)
+        if not run.ok:
+            detail = " ".join((run.stderr or run.stdout or "").split())[:200]
+            raise GmError(f"Prometheus {path}: exit {run.returncode}: {detail}")
+        try:
+            data = json.loads(run.stdout)
+        except ValueError:
+            raise GmError(f"Prometheus {path}: not JSON") from None
+        if data.get("status") != "success":
+            raise GmError(f"Prometheus {path}: {data.get('error') or data.get('status')}")
+        return data["data"]
+
+    def query(self, expr, at):
+        return self.get("query", query=expr, time=f"{at:.3f}")["result"]
+
+
+ALL = '{__name__=~".+"}'
+NAME_LABEL = "gm_name"
+# The functions over time drop __name__ (and refuse two series left with one
+# label set): the name rides in NAME_LABEL through a subquery.
+NAMED = f'label_replace({ALL}, "{NAME_LABEL}", "$1", "__name__", "(.+)")'
+
+
+def read_tail(prom, restart):
+    """The tail's first HISTORY_READ minutes, every series, from the restart
+    on, and the metadata (what the research's `snapshot.py` wrote)."""
+    from .aging import HISTORY_READ
+    window = int(HISTORY_READ.total_seconds())
+    series = []
+    for r in prom.query(f"{ALL}[{window}s]", restart + window):
+        samples = [[float(t), float(v)] for t, v in r.get("values") or [] if float(t) >= restart]
+        if samples:
+            series.append({"labels": r["metric"], "samples": samples})
+    return {"restart": restart, "series": series, "metadata": prom.get("metadata")}
+
+
+def read_seam(prom, vt0, restart):
+    """What the seam check reads (W3 item 3): over the forged span, in
+    SEAM_CHUNK slices (a query's samples bounded, so Prometheus' memory too),
+    each series' minimum, last value and resets; the tail's first value of
+    each from the restart on. Returns (past, tail_first)."""
+    past = {}
+    end = restart - 0.001
+    edges, t = [], vt0
+    while t < end:
+        edges.append((t, min(t + SEAM_CHUNK, end)))
+        t += SEAM_CHUNK
+    step = f"{int(STEP)}s"
+    for lo, hi in edges:
+        window = f"{int(math.ceil(hi - lo + STEP * 2))}s"     # overlapping: no reset unseen
+        for kind in ("last", "min", "resets"):
+            fn = {"last": "last_over_time", "min": "min_over_time", "resets": "resets"}[kind]
+            for r in prom.query(f"{fn}({NAMED}[{window}:{step}])", hi):
+                lb = dict(r["metric"])
+                name = lb.pop(NAME_LABEL, None)
+                if not name:
+                    continue
+                lb["__name__"] = name
+                p = past.setdefault(series_key(lb), {"labels": lb, "min": None, "last": None,
+                                                     "resets": 0})
+                v = float(r["value"][1])
+                if kind == "last":
+                    p["last"] = v
+                elif kind == "min":
+                    p["min"] = v if p["min"] is None else min(p["min"], v)
+                else:
+                    p["resets"] += v
+    tail_first = {}
+    for r in prom.query(f"{ALL}[{SEAM_TAIL}s]", restart + SEAM_TAIL):
+        samples = [(float(t), float(v)) for t, v in r.get("values") or [] if float(t) >= restart]
+        if samples:
+            step = max((abs(b[1] - a[1]) for a, b in zip(samples, samples[1:])), default=0.0)
+            tail_first[series_key(r["metric"])] = (r["metric"], samples[0][1], step)
+    return {k: p for k, p in past.items() if p["last"] is not None}, tail_first
+
+
+@dataclass
+class HistoryResult:
+    game_id: str
+    record: dict = None             # the restart record's `history`
+    findings: list = field(default_factory=list)
+    virtual_t0: str = None
+    restart: str = None
+    noop: bool = False
+    checked_only: bool = False
+    figures: dict = field(default_factory=dict)
+    lines: list = field(default_factory=list)
+
+    @property
+    def exit_code(self):
+        if self.checked_only:
+            return 0 if not self.findings else 1
+        rec = self.record or {}
+        return 0 if rec.get("result") == "ok" and rec.get("seam") == "ok" else 1
+
+    def text(self):
+        out = list(self.lines)
+        out += [f"  seam {f['check']}: {f['series']}: {f['detail']}" for f in self.findings]
+        if self.checked_only:
+            out.append(f"Game {self.game_id}: seam {'ok' if not self.findings else 'failed'} "
+                       f"({len(self.findings)} findings); nothing recorded")
+            return "\n".join(out)
+        rec = self.record or {}
+        if self.noop:
+            out.append("Already recorded; nothing done.")
+        if rec.get("result") == "ok":
+            count = len(self.findings) if not self.noop else ("0" if rec.get("seam") == "ok"
+                                                               else "recorded")
+            out.append(f"Game {self.game_id}: history from the virtual T0 {self.virtual_t0} to "
+                       f"the restart {self.restart} imported at {rec.get('at')}; seam "
+                       f"{rec.get('seam')} ({count} findings)")
+        else:
+            out.append(f"Game {self.game_id}: history import failed at {rec.get('at')}: "
+                       f"{rec.get('reason')} (recorded; nothing torn down)")
+        return "\n".join(out)
+
+
+def refusal(st, impl, record, now, check_seam=False):
+    """Why `gmctl history` is refused (W3 item 1), None when it may run."""
+    from . import aging
+    gid = st.get("game_id")
+    if not record or record.get("mode") != "fake":
+        return f"game {gid} is not a fake game (no restart record of mode fake)"
+    if not aging.prometheus_node(impl):
+        return f"game {gid} has no prometheus node: there is no history to import"
+    if check_seam:
+        if (record.get("history") or {}).get("result") != "ok":
+            return f"game {gid}: no history import recorded ok; --check-seam reads one"
+        return None
+    if st.get("stage") in aging.AFTER_HANDOVER:
+        return (f"game {gid} is at stage {st.get('stage')}: the history is imported before the "
+                "hand-over, never while the players read Prometheus")
+    restart = aging.parse_instant((record.get("restart") or {}).get("at"))
+    if restart is None or st.get("stage") != aging.LOAD_STAGE:
+        return (f"game {gid} is at stage {st.get('stage')}: the history follows the restart and "
+                "start-load (gmctl clean-restart, then gmctl start-load)")
+    if now < restart + aging.HISTORY_READ:
+        return (f"game {gid}: the history reads the tail's first "
+                f"{int(aging.HISTORY_READ.total_seconds() // 60)} minutes: not before "
+                f"{aging.iso(restart + aging.HISTORY_READ)}")
+    return None
+
+
+def selection(scenario, impl, st):
+    """The game's selection (W3 item 4): (instance, fault id, planted_at
+    epoch or None, entries) of each instance the game plays."""
+    from . import inject, model
+    out = []
+    plantings = st.get("plantings") or {}
+    for inst, fault in inject.fault_instances(scenario, impl):
+        planted = (plantings.get(inst["id"]) or {}).get("planted_at")
+        out.append((inst["id"], fault.id, epoch(planted) if planted else None,
+                    model.instance_history(scenario, inst["id"]) or ()))
+    return out
+
+
+def scheduler_targets(tail, nodes):
+    """{scheduler node: its target's `instance` label} from the tail."""
+    out = {}
+    for s in tail["series"]:
+        inst = s["labels"].get("instance") or ""
+        host = inst.rsplit(":", 1)[0]
+        if s["labels"]["__name__"].startswith(SCHEDULER_PREFIX) and host in nodes:
+            out.setdefault(host, inst)
+    return out
+
+
+def helper_args(impl, node, *rest):
+    """A helper container of the Prometheus node's image on its host, the
+    TSDB volume mounted (W3 item 5; as restart's and clean-restart's)."""
+    from . import localimpl
+    from .restart import volume_name
+    return ["run", "--rm", "-i", "--pull", "never", "--network", "none", "--user", "0:0",
+            "--label", f"{localimpl.LABEL_GAME}={impl['game_id']}", *rest,
+            "-v", f"{volume_name(impl, node, PROM_DATA_VOLUME)}:{TSDB_MOUNT}",
+            "--entrypoint", "sh", impl["nodes"][node]["image"]]
+
+
+def import_blocks(docker, impl, node, om_path):
+    """Blocks created and moved in. Returns ({block id: bytes}, promtool's
+    memory peak in bytes or None)."""
+    from .model import GmError
+    host = docker.on_host(impl["nodes"][node].get("host"))
+    with open(om_path, "rb") as stdin:
+        r = host.run(helper_args(impl, node) + ["-c", IMPORT_SCRIPT], stdin=stdin, check=False)
+    if r.returncode != 0:
+        detail = " ".join((r.stderr or "").split())[-300:] or f"exit status {r.returncode}"
+        raise GmError(f"the import's helper container: {detail}")
+    blocks, peak = {}, None
+    for line in (r.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[0] == "block" and ULID_RE.match(parts[1]):
+            blocks[parts[1]] = int(parts[2])
+        elif len(parts) == 2 and parts[0] == "peak":
+            peak = int(parts[1]) if parts[1].isdigit() else None
+    if not blocks:
+        raise GmError("promtool created no block")
+    return blocks, peak
+
+
+def remove_blocks(docker, impl, node, restart):
+    """A failed attempt's blocks removed before a retry (W3 item 1)."""
+    from .model import GmError
+    host = docker.on_host(impl["nodes"][node].get("host"))
+    r = host.run(helper_args(impl, node, "-e", f"GM_RESTART_MS={int(restart * 1000)}")
+                 + ["-s"], input=REMOVE_SCRIPT, check=False)
+    if r.returncode != 0:
+        detail = " ".join((r.stderr or "").split())[-300:] or f"exit status {r.returncode}"
+        raise GmError(f"removing the failed attempt's blocks: {detail}")
+    return [line.split()[1] for line in (r.stdout or "").splitlines()
+            if line.startswith("removed ")]
+
+
+def wait_loaded(prom, vt0, restart, sleep, clock, bound=LOAD_WAIT, interval=LOAD_POLL):
+    """Prometheus loads the blocks by itself (its reload, about a minute):
+    never restarted (W3 item 5). Seconds waited, None when not loaded."""
+    from .model import GmError
+    probe = (vt0 + restart) / 2
+    start = clock()
+    while True:
+        try:
+            r = prom.query(f"count({ALL})", probe)
+            if r and float(r[0]["value"][1]) > 0:
+                return round(clock() - start, 1)
+        except GmError:
+            pass
+        if clock() - start >= bound:
+            return None
+        sleep(interval)
+
+
+TSDB_SCRAPE_WAIT = 60               # seconds for Prometheus' self-scrape to show the blocks
+
+
+def tsdb_figures(prom, now, sleep, clock, bound=TSDB_SCRAPE_WAIT, interval=LOAD_POLL):
+    """Prometheus' own view of its TSDB (spec D541's series), for W3-x:
+    read once its self-scrape shows a loaded block (its series lag the
+    load by a scrape), else as they are after `bound` seconds, with
+    `stale: true`. `now()` gives the instant to read at."""
+    start = clock()
+    while True:
+        out = {}
+        for name in ("prometheus_tsdb_lowest_timestamp_seconds",
+                     "prometheus_tsdb_blocks_loaded", "prometheus_tsdb_storage_blocks_bytes"):
+            r = prom.query(name, now())
+            if r:
+                out[name] = float(r[0]["value"][1])
+        if out.get("prometheus_tsdb_blocks_loaded", 0) > 0:
+            return out
+        if clock() - start >= bound:
+            return dict(out, stale=True)
+        sleep(interval)
+
+
+def reason_of(findings):
+    head = "; ".join(f"seam {f['check']}: {f['series']}: {f['detail']}"
+                     for f in findings[:REASON_FINDINGS])
+    more = len(findings) - REASON_FINDINGS
+    return head + (f"; and {more} more" if more > 0 else "")
+
+
+def run_lock(ldir):
+    """An exclusive `flock` on `<ldir>/.history.lock`, held for a whole
+    import: the GM's hand run and the timer's never import at once; the
+    second waits for the first, then finds its result (a no-op after
+    `ok`). Never the state lock (held only around a write)."""
+    import contextlib
+    import fcntl
+    import os
+    from pathlib import Path
+
+    @contextlib.contextmanager
+    def held():
+        Path(ldir).mkdir(parents=True, exist_ok=True)
+        fd = os.open(Path(ldir) / RUN_LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
+    return held()
+
+
+def run(scenario_dir, playground, check_seam=False, docker=None, now=None, sleep=None,
+        clock=None):
+    """`gmctl history`; returns a HistoryResult (its `exit_code` is the
+    command's). Raises GmError on a refusal (nothing done, nothing
+    recorded). Never takes the development Docker lock (W3 item 1); an
+    import holds the game's run lock (run_lock), the refusals read again
+    once it is taken."""
+    from . import aging, localimpl
+    from .model import GmError
+    ldir, st = aging._game(scenario_dir, playground)
+    aging.timer_run(st)
+    why = refusal(st, localimpl.read_implementation(ldir), localimpl.read_restart_record(ldir),
+                  now or aging.now_utc(), check_seam)
+    if why:
+        raise GmError(why + "; nothing done")
+    if check_seam:
+        return _run(scenario_dir, playground, True, docker, now, sleep, clock)
+    with run_lock(ldir):
+        return _run(scenario_dir, playground, False, docker, now, sleep, clock)
+
+
+def _run(scenario_dir, playground, check_seam, docker, now, sleep, clock):
+    import shutil
+    import time
+    from pathlib import Path
+    from . import aging, localimpl, model
+    from .docker import for_local_dir
+    from .fill import FILL_DIR, METRICS_SUFFIX
+    from .model import GmError
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+    ldir, st = aging._game(scenario_dir, playground)
+    by_timer = aging.timer_run(st)
+    impl = localimpl.read_implementation(ldir)
+    record = localimpl.read_restart_record(ldir)
+    why = refusal(st, impl, record, now or aging.now_utc(), check_seam)
+    if why:
+        raise GmError(why + "; nothing done")
+    node = aging.prometheus_node(impl)
+    vt0, restart = epoch(record["virtual_t0"]), epoch(record["restart"]["at"])
+    result = HistoryResult(st.get("game_id"), virtual_t0=record["virtual_t0"],
+                           restart=record["restart"]["at"])
+    docker = docker or for_local_dir(ldir)
+    prom = Prometheus(ldir, node, docker)
+    if check_seam:
+        result.checked_only = True
+        past, first = read_seam(prom, vt0, restart)
+        result.findings = seam_findings(past, first, prom.get("metadata"))
+        result.record = record.get("history")
+        return result
+    done = record.get("history") or {}
+    if done.get("result") == "ok":
+        result.record, result.noop = done, True
+        return result
+    if by_timer:
+        down = aging.wait_for_nodes(docker, impl, sleep=sleep, clock=clock)
+        if down:
+            result.lines.append(f"Nodes not running after {aging.LATE_RUN_WAIT} s: "
+                                f"{', '.join(down)}; importing anyway.")
+    attempt = {"began": aging.iso(aging.now_utc()), "ended": None, "outcome": None,
+               "reason": None, "seam": []}
+    figures, work = {}, Path(ldir) / HISTORY_DIR
+    seam_state, reason, outcome = "unchecked", None, "failed"
+    try:
+        if done.get("result") == "failed":
+            figures["removed_before_retry"] = remove_blocks(docker, impl, node, restart)
+        work.mkdir(parents=True, exist_ok=True)
+        t = time.monotonic()
+        tail = read_tail(prom, restart)
+        figures["tail_series"] = len(tail["series"])
+        figures["tail_read_s"] = round(time.monotonic() - t, 1)
+        if not tail["series"]:
+            raise GmError("the tail holds no sample from the restart on")
+        localimpl.write_text(work / TAIL_FILE, json.dumps(tail))
+        metrics = {}
+        for sched in aging.scheduler_nodes(impl):
+            path = Path(ldir) / FILL_DIR / f"{sched}{METRICS_SUFFIX}"
+            if path.is_file():
+                metrics[sched] = read_metrics(path.read_text().splitlines())
+        scenario = model.load_scenario(scenario_dir)
+        timeline = impl.get(localimpl.TIMELINE) or {}
+        t = time.monotonic()
+        composer = Composer(vt0, restart, tail, metrics=metrics,
+                            scheduler_instances=scheduler_targets(tail, set(metrics)),
+                            selection=selection(scenario, impl, st),
+                            shift=timeline.get("shift") or 0, seed=timeline.get("seed") or 0)
+        with open(work / OM_FILE, "w", buffering=1 << 20) as f:
+            report = composer.write(f)
+        figures["compose_s"] = round(time.monotonic() - t, 1)
+        figures["series"], figures["samples"] = report.series, report.samples
+        figures["openmetrics_bytes"] = (work / OM_FILE).stat().st_size
+        figures["report"] = {k: v for k, v in report.as_dict().items() if k != "clamped"}
+        figures["report"]["clamped"] = len(report.clamped)
+        localimpl.write_text(work / REPORT_FILE, json.dumps(report.as_dict(), indent=1))
+        t = time.monotonic()
+        blocks, peak = import_blocks(docker, impl, node, work / OM_FILE)
+        figures["import_s"] = round(time.monotonic() - t, 1)
+        figures["blocks"] = blocks
+        figures["promtool_memory_peak_bytes"] = peak
+        waited = wait_loaded(prom, vt0, restart, sleep, clock)
+        if waited is None:
+            raise GmError(f"Prometheus did not load the blocks within {LOAD_WAIT} s (it is never "
+                          "restarted for them)")
+        figures["loaded_after_s"] = waited
+        outcome = "ok"
+        t = time.monotonic()
+        past, first = read_seam(prom, vt0, restart)
+        result.findings = seam_findings(past, first, tail["metadata"])
+        figures["seam_s"] = round(time.monotonic() - t, 1)
+        seam_state = "ok" if not result.findings else "failed"
+        if result.findings:
+            reason = reason_of(result.findings)
+        try:
+            figures["tsdb"] = tsdb_figures(prom, lambda: aging.now_utc().timestamp(), sleep,
+                                           clock)
+        except GmError as exc:
+            figures["tsdb"] = {"unread": str(exc)}
+    except GmError as exc:
+        reason = str(exc)
+    rec = {"at": aging.iso(aging.now_utc()), "result": outcome, "seam": seam_state}
+    if reason:
+        rec["reason"] = " ".join(reason.split())
+    attempt.update(ended=rec["at"], outcome=outcome, reason=rec.get("reason"),
+                   seam=result.findings, figures=figures)
+
+    def change(state):
+        hist = state.get(aging.HISTORY_IMPORT) or {"timer": None, "attempts": []}
+        hist.setdefault("attempts", []).append(attempt)
+        state[aging.HISTORY_IMPORT] = hist
+    localimpl.update_state(ldir, change)
+    record = localimpl.read_restart_record(ldir) or record
+    record["history"] = rec
+    localimpl.write_restart_record(ldir, record)
+    if outcome == "ok":
+        shutil.rmtree(work, ignore_errors=True)
+    result.record, result.figures = rec, figures
+    return result

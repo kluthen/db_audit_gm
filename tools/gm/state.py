@@ -191,8 +191,18 @@ def aging_mode_lines(ldir, impl, state):
     out.append(f"    restart: at {restart.get('at')}" if restart else
                "    restart: not yet (gmctl fill, then gmctl clean-restart)")
     history = record.get("history")
+    scheduled = state.get("history_import") or {}
     if history:
-        out.append(f"    history import: {history.get('result')} at {history.get('at')}")
+        # capture W3 item 2
+        out.append(f"    history import: {history.get('result')} at {history.get('at')}, "
+                   f"seam {history.get('seam')}")
+        if history.get("reason"):
+            out.append(f"      {history['reason']}")
+    elif scheduled.get("scheduling_failed"):
+        out.append(f"    history import: FAILED to schedule: {scheduled['scheduling_failed']}")
+    elif scheduled.get("timer"):
+        out.append(f"    history import: due {scheduled['timer'].get('due')} "
+                   f"(timer {scheduled['timer'].get('unit')})")
     return out
 
 

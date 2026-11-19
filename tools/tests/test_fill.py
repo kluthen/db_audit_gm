@@ -328,7 +328,10 @@ class TestPlan(FilledGame):
         self.assertEqual((p.fill_node, p.nodes, p.pg_nodes), ("producer", ["producer", "consumer"],
                                                               ["db"]))
         self.assertEqual(p.pauses, {self.f8_at: ["f8"]})
-        self.assertEqual(p.queue, [])
+        # f8's queue entry (v0.6 chunk 10: a kind each), from its pause
+        self.assertEqual(p.queue, [{"instance": "f8", "node": "producer", "key": "orders.detail",
+                                    "planted_at": self.f8_at,
+                                    "service": {"median": 0.0014, "sigma": 0.35}}])
         self.assertEqual(p.overrides, {
             "producer": {"app": {"target": "db:5432",
                                  "pool": {"id": "pooler/shop/shop_app", "size": 3}}},

@@ -16,6 +16,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `aging`      `start-load`, `inject --at`, the host timers, the outages, the
                early and hand-over checks, `status`'s aging lines (v0.3);
 - `fill`       `fill`, a fake game's past run in minutes on one virtual clock (v0.6);
+- `history`    `history`, a fake game's Prometheus past forged, imported and joined
+               to the tail, and the seam check (v0.6);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
 - `snapshot`   the hand-over snapshot, each volume by its brick's method (v0.3);
 - `restart`    the whole-game restart, from the snapshot or with no history (v0.3);
@@ -126,6 +128,17 @@ def _cmd_fill(args):
     result = fill.fill(args.scenario_dir, args.playground)
     print(result.text())
     return 0 if result.ok else 1
+
+
+def _cmd_history(args):
+    from . import aging, history
+    try:
+        result = history.run(args.scenario_dir, args.playground, check_seam=args.check_seam)
+    except aging.TimerRefused as exc:      # a stale timer: exit 1, nothing recorded (W2 item 5)
+        print(f"gmctl history: {exc}", file=sys.stderr)
+        return 1
+    print(result.text())
+    return result.exit_code
 
 
 def _cmd_clean_restart(args):
@@ -320,6 +333,17 @@ def build_parser():
                                              "fill ok)")
     _scenario_args(p)
     p.set_defaults(func=_cmd_clean_restart)
+
+    p = sub.add_parser("history", help="a fake game's Prometheus past from the virtual T0 to "
+                                       "the restart, forged, imported and joined to the tail, "
+                                       "then the seam checked (its timer runs it 12 minutes "
+                                       "into the tail; needs stage load-started); exit 0 "
+                                       "imported with the seam ok, 1 otherwise")
+    _scenario_args(p)
+    p.add_argument("--check-seam", action="store_true",
+                   help="the seam check alone, on a game whose import is recorded ok; records "
+                        "nothing; exit 0 ok, 1 failed")
+    p.set_defaults(func=_cmd_history)
 
     p = sub.add_parser("validate", help="the official run of every node's public validator; "
                                         "exit 0 green, 1 red, 2 error")

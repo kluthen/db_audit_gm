@@ -97,6 +97,9 @@ EARLY_BEFORE = datetime.timedelta(hours=1)      # ... and at most the earliest -
 # right after it.
 HISTORY_ACTION = "history"
 HISTORY_AFTER = datetime.timedelta(minutes=12)
+HISTORY_READ = datetime.timedelta(minutes=10)   # the tail's first minutes `gmctl history` reads
+HISTORY_IMPORT = "history_import"               # state.yaml's key (capture W3 item 2)
+PROMETHEUS_BRICK = "prometheus"
 SHORT_TAIL = datetime.timedelta(hours=2)
 LOST_FREE_MINUTES = 30              # lost time that does not move the earliest hand-over
 
@@ -477,10 +480,10 @@ def game_units(systemd, game_id):
 
 
 def records_timer(st):
-    """Whether the game's state records any timer (a planting's or the
-    early check's)."""
+    """Whether the game's state records any timer (a planting's, the
+    early check's or the history import's)."""
     st = st or {}
-    if (st.get("early_check") or {}).get("timer"):
+    if (st.get("early_check") or {}).get("timer") or (st.get(HISTORY_IMPORT) or {}).get("timer"):
         return True
     return any((p or {}).get("timer") for p in (st.get("plantings") or {}).values())
 
@@ -519,6 +522,33 @@ def remove_game_timers(systemd, game_id, st):
     if left:
         raise GmError(f"teardown of game {game_id} left host timer units: {', '.join(left)}")
     return units, None
+
+
+def prometheus_node(impl):
+    """The game's Prometheus node (brick `prometheus`), None without one."""
+    return next((name for name, node in ((impl or {}).get("nodes") or {}).items()
+                 if (node.get("brick") or {}).get("id") == PROMETHEUS_BRICK), None)
+
+
+def history_due(restart_at):
+    """The history import's due time: HISTORY_AFTER into the tail (9.4
+    step 8), never scaled by a test floor (capture W3 item 6)."""
+    return restart_at + HISTORY_AFTER
+
+
+def schedule_history(systemd, game_id, scenario_dir, playground, restart_at, now=None):
+    """A fake game's history import timer (capture W3 items 2, 6), created
+    by start-load before the early check's: returns state.yaml's
+    `history_import` `{timer, attempts}`, `scheduling_failed` when it
+    could not be created (recorded, nothing torn down)."""
+    record = {"timer": None, "attempts": []}
+    try:
+        record["timer"] = create_timer(systemd, game_id, HISTORY_ACTION, history_due(restart_at),
+                                       gmctl_argv(HISTORY_ACTION, scenario_dir, playground),
+                                       now=now)
+    except GmError as exc:
+        record["scheduling_failed"] = str(exc)
+    return record
 
 
 class TimerRefused(GmError):
@@ -615,10 +645,12 @@ class StartLoadResult:
     early_check: dict = None                        # the timer's record
     early_error: str = None
     plantings: list = field(default_factory=list)   # [(instance, command)]
+    history: dict = None                            # a fake game's history_import record
 
     @property
     def ok(self):
-        return bool(self.t0) and not self.early_error
+        return bool(self.t0) and not self.early_error \
+            and not (self.history or {}).get("scheduling_failed")
 
     def text(self):
         out = [f"Game {self.game_id}: starting the load at {self.began}."]
@@ -632,6 +664,12 @@ class StartLoadResult:
                        "game (gmctl teardown). Stage injected.")
             return "\n".join(out)
         out.append(f"Load started: T0 {self.t0}. Stage {LOAD_STAGE}.")
+        if (self.history or {}).get("timer"):
+            out.append(f"History import scheduled at {self.history['timer']['due']} "
+                       f"(timer {self.history['timer']['unit']}).")
+        if (self.history or {}).get("scheduling_failed"):
+            out.append("The history import could NOT be scheduled: "
+                       f"{self.history['scheduling_failed']}")
         if self.early_check:
             out.append(f"Early check scheduled at {self.early_check['due']} "
                        f"(timer {self.early_check['unit']}).")
@@ -738,6 +776,8 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
     result.t0 = iso(t0)
 
     systemd = systemd or Systemd()
+    if fake and prometheus_node(impl):
+        result.history = schedule_history(systemd, gid, scenario_dir, playground, anchor)
     try:
         due = early_check_due(ldir, impl, st)
         timer = create_timer(systemd, gid, EARLY_ACTION, due,
@@ -747,6 +787,8 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
         timer, result.early_error = None, str(exc)
 
     def record_early(state):
+        if result.history is not None:
+            state[HISTORY_IMPORT] = result.history
         state["early_check"] = {"timer": timer, "result": None}
         if result.early_error:
             state["early_check"]["scheduling_failed"] = result.early_error
@@ -1488,6 +1530,13 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
         if health != "healthy":
             failures.append(f"node {name}: {health}" + (f" ({detail})" if detail else ""))
     run.lines.append("nodes: " + ", ".join(f"{n} {h}" for n, h in record["nodes"].items()))
+    if localimpl.is_fake(impl):
+        line, imported = history_check_line(ldir, impl, wait=kind == EARLY_CHECK,
+                                            sleep=sleep, clock=clock)
+        run.lines.append(line)
+        record["history"] = line.split(": ", 1)[1]
+        if kind == EARLY_CHECK and not imported:
+            failures.append(line)
     record["failures"] = failures
     record["passed"] = not failures
     too_soon = [f for f in record["faults"] if f["verdict"] == "too-soon" and not f["passed"]]
@@ -1510,6 +1559,28 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
             write_earliest(state, impl, current)
     localimpl.update_state(ldir, write)
     return run
+
+
+def history_check_line(ldir, impl, wait=False, sleep=time.sleep, clock=time.monotonic,
+                       bound=LATE_RUN_WAIT, interval=NODE_POLL):
+    """A fake game's checks read the history import (capture W3 item 6):
+    `(line, ok)`. The early check waits, up to `bound` seconds, for
+    `history` in the restart record; only `ok, seam ok` is ok. A game with
+    no Prometheus node has none, and passes."""
+    if not prometheus_node(impl):
+        return "history import: none (no Prometheus node)", True
+    deadline = clock() + bound
+    while True:
+        found = (localimpl.read_restart_record(ldir) or {}).get("history")
+        if found or not wait or clock() >= deadline:
+            break
+        sleep(interval)
+    if not found:
+        return "history import: not recorded", False
+    if found.get("result") == "ok" and found.get("seam") == "ok":
+        return "history import: ok, seam ok", True
+    return (f"history import: {found.get('result')}, seam {found.get('seam')}"
+            + (f": {found['reason']}" if found.get("reason") else "")), False
 
 
 # --- The earliest hand-over's record and the hand-over (W2 items 7, 11) ----

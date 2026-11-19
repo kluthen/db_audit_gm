@@ -312,8 +312,13 @@ def past_of(out):
 
 
 def first_of(t):
-    return {history.series_key(s["labels"]): (s["labels"], s["samples"][0][1])
-            for s in t["series"]}
+    """What read_seam reads of the tail: the first value, the largest step."""
+    out = {}
+    for s in t["series"]:
+        vals = [v for _, v in s["samples"]]
+        step = max((abs(b - a) for a, b in zip(vals, vals[1:])), default=0.0)
+        out[history.series_key(s["labels"])] = (s["labels"], vals[0], step)
+    return out
 
 
 class TestSeam(unittest.TestCase):
@@ -361,6 +366,34 @@ class TestSeam(unittest.TestCase):
         found = history.seam_findings(past, first_of(tail()), META)
         self.assertEqual([(f["check"], f["series"]) for f in found], [("jump", k)])
 
+    def test_what_the_system_holds_below_zero_and_whole_block_steps(self):
+        """A setting's -1 ("no limit") is no negative finding, a size one
+        included, and a volume growing by whole blocks joins within the
+        tail's own step (the fixture's run, 2026-11-19)."""
+        t = tail()
+        n = 40
+        t["series"] += [
+            tail_series({"__name__": "pg_roles_connection_limit", **PG, "rolname": "shop"},
+                        [-1] * n),
+            tail_series({"__name__": "pg_settings_max_slot_wal_keep_size_bytes", **PG},
+                        [-1] * n),
+            tail_series({"__name__": "node_health_volume_used_bytes", "job": "node-health",
+                         "instance": "db:9110", "volume": "pgdata"},
+                        [4096 * (1 + i // 8) for i in range(n)], phase=3.0)]
+        c = history.Composer(VT0, R, t, metrics=metrics(),
+                             scheduler_instances={"producer": "producer:9120"},
+                             selection=[], shift=SHIFT, seed=7)
+        out = {history.series_key(lb): (lb, points) for lb, points in c.compose()}
+        size = out[key("pg_settings_max_slot_wal_keep_size_bytes", **PG)][1]
+        self.assertEqual({v for _, v in size}, {-1})
+        self.assertEqual(history.seam_findings(past_of(out), first_of(t), META), [])
+        # a forged value below the setting's own -1 is still a finding
+        past = past_of(out)
+        k = key("pg_roles_connection_limit", **PG, rolname="shop")
+        past[k]["min"] = -2
+        found = history.seam_findings(past, first_of(t), META)
+        self.assertEqual([(f["check"], f["series"]) for f in found], [("negative", k)])
+
     def test_empty(self):
         found = history.seam_findings({}, first_of(tail()), META)
         self.assertEqual([f["check"] for f in found], ["empty"])
@@ -368,3 +401,267 @@ class TestSeam(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- gmctl history: the verb, with a stand-in Prometheus and helper ------------------------
+
+import datetime as _dt
+import re as _re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest import mock
+
+from tools.gm import aging, localimpl
+from tools.gm.model import GmError
+
+GID = "g1"
+IMPL = {"game_id": GID, "nodes": {
+    "prometheus": {"service": f"{GID}_prometheus", "image": "127.0.0.1:5000/dbagm/prometheus:x",
+                   "brick": {"id": "prometheus"}},
+    "producer": {"service": f"{GID}_producer", "image": "s", "brick": {"id": "scheduler"}}},
+    "timeline": {"virtual_t0": history.iso(VT0), "anchor": history.iso(R), "tail": "1h",
+                 "refused": [], "shift": SHIFT, "seed": 7}}
+
+
+class MiniPrometheus:
+    """The game's Prometheus, in memory: the tail, plus whatever the helper
+    container imported (parsed from the OpenMetrics it was fed)."""
+
+    def __init__(self):
+        self.series = {history.series_key(s["labels"]): (s["labels"], [tuple(x) for x in s["samples"]])
+                       for s in tail()["series"]}
+        self.loaded = True
+        self.queries = []
+
+    def load(self, text):
+        for line in text.splitlines():
+            if line.startswith("#"):
+                continue
+            head, v, t = line.rsplit(" ", 2)
+            name, body = head[:-1].split("{", 1)
+            lb = dict(_re.findall(r'([a-zA-Z_]\w*)="((?:[^"\\]|\\.)*)"', body), __name__=name)
+            k = history.series_key(lb)
+            self.series.setdefault(k, (lb, []))[1].append((float(t), float(v)))
+        for k, (lb, pts) in self.series.items():
+            pts.sort()
+
+    def get(self, path, **params):
+        return META
+
+    def query(self, expr, at):
+        self.queries.append(expr)
+        if expr.startswith("count("):
+            past = any(t < R for _, pts in self.series.values() for t, _ in pts)
+            return [{"value": [at, "1"]}] if past and self.loaded else []
+        if expr.startswith("prometheus_tsdb"):
+            return [{"value": [at, "1"]}]
+        m = _re.match(r"^(\w+)\(label_replace\(.*\)\[(\d+)s:\d+s\]\)$", expr)
+        if m:
+            fn, w = m.group(1), int(m.group(2))
+            out = []
+            for lb, pts in self.series.values():
+                vals = [v for t, v in pts if at - w < t <= at]
+                if not vals:
+                    continue
+                v = {"last_over_time": vals[-1], "min_over_time": min(vals),
+                     "resets": sum(1 for a, b in zip(vals, vals[1:]) if b < a)}[fn]
+                metric = {k: x for k, x in lb.items() if k != "__name__"}
+                metric[history.NAME_LABEL] = lb["__name__"]
+                out.append({"metric": metric, "value": [at, str(v)]})
+            return out
+        m = _re.match(r"^\{__name__=~\"\.\+\"\}\[(\d+)s\]$", expr)
+        assert m, expr
+        w = int(m.group(1))
+        return [{"metric": lb, "values": [[t, str(v)] for t, v in pts if at - w < t <= at]}
+                for lb, pts in self.series.values() if any(at - w < t <= at for t, _ in pts)]
+
+
+class HelperDocker:
+    """The helper containers: the import fed its OpenMetrics on stdin."""
+
+    def __init__(self, prom, fail=False):
+        self.prom, self.fail, self.runs = prom, fail, []
+
+    def on_host(self, host):
+        return self
+
+    def run(self, args, input=None, stdin=None, check=True, **kw):
+        self.runs.append(args)
+        if "-c" in args:
+            if self.fail:
+                return subprocess.CompletedProcess(args, 1, "", "promtool: out of order sample")
+            self.prom.load(stdin.read().decode())
+            return subprocess.CompletedProcess(
+                args, 0, "peak 120000000\nblock 01JD0000000000000000000000 4096\n", "")
+        return subprocess.CompletedProcess(args, 0, "removed 01JD0000000000000000000000\n", "")
+
+
+class TestVerb(unittest.TestCase):
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.scenario = self.root / "scenario"
+        self.ldir = localimpl.local_dir(self.scenario, "laptop")
+        localimpl.new_state(self.ldir, GID, "load-started")
+        localimpl.write_implementation(self.ldir, IMPL)
+        localimpl.write_restart_record(self.ldir, {
+            "mode": "fake", "virtual_t0": history.iso(VT0), "anchor": history.iso(R),
+            "tail": "1h", "handover_planned": history.iso(R + 3600), "refused": [],
+            "restart": {"at": history.iso(R), "story_line": "x", "explains": []}})
+        fdir = self.ldir / "fill"
+        fdir.mkdir(parents=True)
+        (fdir / "producer.metrics.jsonl").write_text(
+            "\n".join(json.dumps({k: v for k, v in r.items() if k != "t"})
+                      for r in metrics()["producer"]) + "\n")
+        self.prom = MiniPrometheus()
+        patches = [mock.patch.object(history, "Prometheus", lambda *a: self.prom),
+                   mock.patch.object(history, "selection",
+                                     lambda *a: [("f8", "fixture-dropped-index", PLANT,
+                                                  SIGNATURE)]),
+                   mock.patch("tools.gm.model.load_scenario", lambda d: None),
+                   mock.patch.dict("os.environ", {}, clear=False)]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        import os
+        os.environ.pop(aging.GAME_ENV, None)
+
+    def run_history(self, docker, **kw):
+        now = _dt.datetime.fromtimestamp(R + 720, _dt.timezone.utc)
+        ticks = [0.0]
+
+        def sleep(s):
+            ticks[0] += s
+        return history.run(self.scenario, "laptop", docker=docker, now=now, sleep=sleep,
+                           clock=lambda: ticks[0], **kw)
+
+    def test_import_recorded_and_seam_ok(self):
+        result = self.run_history(HelperDocker(self.prom))
+        self.assertEqual(result.exit_code, 0, result.text())
+        rec = localimpl.read_restart_record(self.ldir)
+        self.assertEqual(list(rec)[-1], "history")              # written last
+        self.assertEqual(rec["history"]["result"], "ok")
+        self.assertEqual(rec["history"]["seam"], "ok")
+        self.assertNotIn("reason", rec["history"])
+        attempt = localimpl.read_state(self.ldir)["history_import"]["attempts"][-1]
+        self.assertEqual(attempt["outcome"], "ok")
+        self.assertEqual(attempt["seam"], [])
+        self.assertEqual(attempt["figures"]["blocks"], {"01JD0000000000000000000000": 4096})
+        self.assertEqual(attempt["figures"]["tsdb"]["prometheus_tsdb_blocks_loaded"], 1.0)
+        self.assertNotIn("stale", attempt["figures"]["tsdb"])
+        self.assertFalse((self.ldir / history.HISTORY_DIR).exists())    # removed after success
+        self.assertRegex(result.text().splitlines()[-1],
+                         r"^Game g1: history from the virtual T0 \S+ to the restart \S+ "
+                         r"imported at \S+; seam ok \(0 findings\)$")
+        # once ok: printed again, nothing done, nothing run
+        docker = HelperDocker(self.prom)
+        again = self.run_history(docker)
+        self.assertTrue(again.noop)
+        self.assertEqual(again.exit_code, 0)
+        self.assertEqual(docker.runs, [])
+        self.assertEqual(len(localimpl.read_state(self.ldir)["history_import"]["attempts"]), 1)
+        # --check-seam: the verdict alone, nothing recorded
+        before = (self.ldir / localimpl.RESTART_RECORD_FILE).read_bytes()
+        checked = self.run_history(HelperDocker(self.prom), check_seam=True)
+        self.assertEqual((checked.exit_code, checked.findings), (0, []))
+        self.assertEqual((self.ldir / localimpl.RESTART_RECORD_FILE).read_bytes(), before)
+
+    def test_a_second_run_waits_for_the_first_then_finds_its_result(self):
+        import threading
+        lock = history.run_lock(self.ldir)
+        lock.__enter__()                       # a run importing (the GM's by hand)
+        done, docker = {}, HelperDocker(self.prom)
+        second = threading.Thread(target=lambda: done.update(r=self.run_history(docker)))
+        second.start()                         # the timer's, meanwhile
+        second.join(1.0)
+        self.assertTrue(second.is_alive())     # waiting, nothing run
+        self.assertEqual(docker.runs, [])
+        self.assertIsNone(localimpl.read_state(self.ldir).get("history_import"))
+        rec = localimpl.read_restart_record(self.ldir)   # the first finishes: ok recorded
+        rec["history"] = {"at": history.iso(R + 780), "result": "ok", "seam": "ok"}
+        localimpl.write_restart_record(self.ldir, rec)
+        lock.__exit__(None, None, None)
+        second.join(10)
+        self.assertFalse(second.is_alive())
+        self.assertTrue(done["r"].noop)
+        self.assertEqual((done["r"].exit_code, docker.runs), (0, []))
+
+    def test_tsdb_figures_wait_for_the_self_scrape(self):
+        answers = iter(["0", "0", "0", "0", "0", "0", "1.7e9", "4", "5373353"])
+
+        class Lagging:
+            def query(self, expr, at):
+                return [{"value": [at, next(answers)]}]
+        ticks = [0.0]
+        out = history.tsdb_figures(Lagging(), lambda: 0.0, lambda s: ticks.__setitem__(
+            0, ticks[0] + s), lambda: ticks[0])
+        self.assertEqual(out["prometheus_tsdb_blocks_loaded"], 4.0)
+        self.assertEqual(ticks[0], 2 * history.LOAD_POLL)
+        never = history.tsdb_figures(type("P", (), {"query": lambda s, e, a: [
+            {"value": [a, "0"]}]})(), lambda: 0.0, lambda s: ticks.__setitem__(
+            0, ticks[0] + s), lambda: ticks[0])
+        self.assertTrue(never["stale"])
+
+    def test_failed_import_recorded_then_retried(self):
+        result = self.run_history(HelperDocker(self.prom, fail=True))
+        self.assertEqual(result.exit_code, 1)
+        rec = localimpl.read_restart_record(self.ldir)["history"]
+        self.assertEqual((rec["result"], rec["seam"]), ("failed", "unchecked"))
+        self.assertIn("out of order sample", rec["reason"])
+        self.assertIn("(recorded; nothing torn down)", result.text())
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "load-started")
+        self.assertTrue((self.ldir / history.HISTORY_DIR / history.OM_FILE).is_file())
+        with self.assertRaisesRegex(GmError, "--check-seam reads one"):
+            self.run_history(HelperDocker(self.prom), check_seam=True)
+        docker = HelperDocker(self.prom)
+        retry = self.run_history(docker)
+        self.assertEqual(retry.exit_code, 0, retry.text())
+        self.assertIn("-s", docker.runs[0])                       # the removal first
+        self.assertIn(f"GM_RESTART_MS={int(R * 1000)}", docker.runs[0])
+        attempts = localimpl.read_state(self.ldir)["history_import"]["attempts"]
+        self.assertEqual([a["outcome"] for a in attempts], ["failed", "ok"])
+
+    def test_not_loaded_in_time_fails(self):
+        self.prom.loaded = False
+        result = self.run_history(HelperDocker(self.prom))
+        rec = localimpl.read_restart_record(self.ldir)["history"]
+        self.assertEqual((rec["result"], rec["seam"]), ("failed", "unchecked"))
+        self.assertIn("never restarted", rec["reason"])
+        self.assertEqual(result.exit_code, 1)
+
+    def test_a_bad_seam_fails_the_command(self):
+        lb = {"__name__": "pg_stat_user_tables_n_dead_tup", **PG, "relname": "orders"}
+        self.prom.series[history.series_key(lb)][1].append((R - 30, -5.0))
+        result = self.run_history(HelperDocker(self.prom))
+        rec = localimpl.read_restart_record(self.ldir)["history"]
+        self.assertEqual((rec["result"], rec["seam"]), ("ok", "failed"))
+        self.assertIn("seam negative", rec["reason"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("  seam negative: ", result.text())
+
+    def test_refusals(self):
+        st = {"game_id": GID, "stage": "load-started"}
+        record = localimpl.read_restart_record(self.ldir)
+        at = _dt.datetime.fromtimestamp(R + 720, _dt.timezone.utc)
+        self.assertIsNone(history.refusal(st, IMPL, record, at))
+        self.assertIn("not a fake game", history.refusal(st, IMPL, None, at))
+        self.assertIn("not a fake game", history.refusal(st, IMPL, {"mode": "real"}, at))
+        no_prom = dict(IMPL, nodes={"producer": IMPL["nodes"]["producer"]})
+        self.assertIn("no prometheus node", history.refusal(st, no_prom, record, at))
+        self.assertIn("follows the restart and start-load",
+                      history.refusal(dict(st, stage="injected"), IMPL, record, at))
+        self.assertIn("follows the restart",
+                      history.refusal(st, IMPL, dict(record, restart=None), at))
+        early = _dt.datetime.fromtimestamp(R + 599, _dt.timezone.utc)
+        self.assertIn("first 10 minutes", history.refusal(st, IMPL, record, early))
+        self.assertIn("never while the players read Prometheus",
+                      history.refusal(dict(st, stage="handed-over"), IMPL, record, at))
+        # nothing written by a refusal
+        before = (self.ldir / "state.yaml").read_bytes()
+        with self.assertRaisesRegex(GmError, "first 10 minutes.*nothing done"):
+            history.run(self.scenario, "laptop", docker=HelperDocker(self.prom),
+                        now=early)
+        self.assertEqual((self.ldir / "state.yaml").read_bytes(), before)
