@@ -78,8 +78,10 @@ local overlay, so no push can carry dev mode and there is nothing to
 swap:
 
 - `README.md` becomes the game's: what the game is, how to start one
-  (a fresh clone, then the GM agent, `claude --agent game-master` or
-  `opencode --agent game-master`), the players' assistant (`claude
+  (a fresh clone, then the GM agent, `claude --agent game-master
+  --settings .claude/game-master.settings.json` through the launcher that
+  writes that file, agents.md AG6, or `opencode --agent game-master`),
+  the players' assistant (`claude
   --agent game-assistant --settings .claude/game-assistant.settings.json`
   or `opencode --agent game-assistant`), the trust line (the repository
   holds the answers; players don't read it). The developer's content

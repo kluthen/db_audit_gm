@@ -486,3 +486,8 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   supported"): each agent defined in both dialects, kept in step by hand
   with no automated sync, as dev_team does. Now in:
   [agents.md](versions/v0.7/agents.md) 1–3.
+- **D562 (2026-11-19, owner ruling, relayed by the coordinator): the game
+  assistant has no web access** ("no web access"), as recommended: no
+  `WebFetch` or `WebSearch` in its Claude Code tools, `webfetch: deny`
+  and `websearch: deny` in OpenCode. Closes O289. Now in:
+  [agents.md](versions/v0.7/agents.md) 5.

@@ -1,6 +1,6 @@
 # The game's agents: the GM and the game assistant
 
-Status: draft v1
+Status: draft v2
 
 From v0.7 the GM and the game assistant are **agent definitions**, not
 skills, for Claude Code and OpenCode both (D559–D561). This draft says
@@ -113,7 +113,7 @@ not documented (AG5).
 
 | | Claude Code | OpenCode |
 |---|---|---|
-| The GM | `claude --agent game-master` | `opencode --agent game-master` |
+| The GM | `claude --agent game-master --settings .claude/game-master.settings.json` (AG6) | `opencode --agent game-master` |
 | The game assistant | `claude --agent game-assistant --settings .claude/game-assistant.settings.json` | `opencode --agent game-assistant` |
 
 Proposed (AG1): no `default_agent` and no `agent` setting in game mode,
@@ -131,7 +131,8 @@ Proposed (AG2):
   on the bastion through the player's shared SSH connection and `curl`
   to the web front (game-assistant.md GA23); `Write` and `Edit` for its
   report and drafts; no `Skill`, no `Agent` (a subagent it spawned would
-  bring its own, wider tools), no `WebFetch` or `WebSearch` (O289). The
+  bring its own, wider tools), no `WebFetch` or `WebSearch` (no web
+  access, D562). The
   session settings file `.claude/game-assistant.settings.json` sets
   `skillOverrides` to `"off"` for `game-master`, `scenario-format`,
   `scenario-document`, `data-register` and `network-overview`, and
@@ -139,7 +140,7 @@ Proposed (AG2):
   their helpers. It may also deny `Bash(psql:*)`, `Bash(docker:*)` and
   `Bash(tools/gmctl:*)` as speed bumps, the trust line unchanged.
 - **OpenCode**: `mode: primary`; `permission`: `skill: deny`,
-  `task: deny`, `webfetch: deny`, `websearch: deny` (O289); `read`,
+  `task: deny`, `webfetch: deny`, `websearch: deny` (D562); `read`,
   `glob`, `grep`, `list` allowed; `edit: {"*": ask, "play/**": allow}`,
   its default folder free and anything else asked (D554);
   `bash: {"*": allow, "psql*": deny, "docker*": deny, "*gmctl*": deny}`,
@@ -153,13 +154,15 @@ Proposed (AG3):
 - **Claude Code**: the GM's tools as its work needs them today (reading
   and writing scenario folders, `Bash` for `gmctl`, Docker and SSH,
   D29), with `Skill` for its helpers. An agent's `tools:` can't narrow
-  `Skill` to some skills, so the GM may also invoke any user-level skill
-  of the machine it runs on; its core file names the four it uses, on
-  trust.
+  `Skill` to some skills, so the GM could also invoke any user-level
+  skill of the machine it runs on; its session settings file hides them
+  (AG6), and its core file names its own skills.
 - **OpenCode**: `mode: primary`; `skill: {"*": deny,
   "scenario-format": allow, "scenario-document": allow,
   "data-register": allow, "network-overview": allow}`, verified as a
-  form OpenCode resolves.
+  form OpenCode resolves, with the GM's workflow skills added to the
+  allowed names once the split below makes them. No settings file is
+  needed there.
 - **The core file and its skills** (AG4): today's
   `.claude/skills/game-master/` (`SKILL.md` 97 KB, `gmctl.md` 51 KB,
   `feedback.md` 12 KB) becomes the agent's core file, holding the stance
@@ -169,10 +172,48 @@ Proposed (AG3):
   taking the final answer and evaluating it, the feedback) and its
   references (`gmctl.md`). The split itself is the build's work.
 
+**The GM's session settings on Claude Code** (AG6, proposed, at the
+owner's request): the GM is started as `claude --agent game-master
+--settings .claude/game-master.settings.json`, a session-only file like
+the assistant's, which sets `skillOverrides` to `"off"` for every skill
+the session would see that is not the GM's own (its four helpers, and
+its workflow skills once split), `disableBundledSkills: true` (Claude
+Code's bundled skills off), and `autoMemoryEnabled: false`.
+
+- **How it covers skills the repository doesn't know.** Claude Code's
+  skills page (code.claude.com/docs/en/skills.md, "Override skill
+  visibility from settings", read 2026-11-19) keys `skillOverrides` by
+  skill name, documents no wildcard, and treats a skill absent from it
+  as `"on"`. Its permission rules don't fill the gap: "When you add
+  allow rules, Claude isn't limited to the skills they name", and
+  denying `Skill` outright would block the helpers. So the file is
+  **generated at each launch**, not committed: a launcher script
+  (`tools/play gm`, say) lists the skills the session would load (the
+  user's `~/.claude/skills/*/SKILL.md`, the clone's
+  `.claude/skills/*/SKILL.md`, nested ones included), writes the
+  git-ignored `.claude/game-master.settings.json` with every name but
+  the GM's own set to `"off"`, then starts the GM with it; a skill
+  installed since the last launch is covered by the next. Rejected: a
+  committed list, which hides only skills the repository knows while
+  user-level skills differ per machine (the owner's has some thirty);
+  accepting that only known skills are hidden.
+- **Plugin skills are outside it**: the same page says "Plugin skills
+  are not affected by `skillOverrides`. Manage those through `/plugin`
+  instead", and skills synced from claude.ai reach a Claude Desktop
+  session as a plugin. They stay a known gap on the trust line; the
+  launcher prints the plugins it finds enabled, as a warning to the
+  person starting the game.
+- The assistant's file needs no generation: it has no `Skill` tool, so
+  only the GM's five skills need hiding from its listing (section 5),
+  a fixed list it can commit. The same launcher may start it
+  (`tools/play assistant`).
+
 ## 7. Build impact
 
 - **New**: the four agent files; `.claude/game-assistant.settings.json`;
-  the GM's workflow skills split out of today's skill.
+  the launcher that generates `.claude/game-master.settings.json`
+  (git-ignored) and starts each agent (AG6); the GM's workflow skills
+  split out of today's skill.
 - **Changed**: `.claude/skills/game-master/` stops being a skill invoked
   as `/game-master`; every reference to `/game-master` (the specs, the
   bricks' GM documentation, the scenario documents' template, the
@@ -184,6 +225,9 @@ Proposed (AG3):
   them, or the game-mode `CLAUDE.md`).
 - **The check** (AG5, proposed): the v0.7 build, or its release gate,
   starts the assistant in each tool, asks it to list its skills and to
-  invoke one of the GM's, and records what it sees; and does the same
-  for the GM with a skill outside its four (OpenCode refuses it; Claude
-  Code allows it, AG3). O282 closes on that record.
+  invoke one of the GM's, and records what it sees. The GM half: the GM,
+  started in each tool as the launcher starts it, is asked to list its
+  skills and to invoke one that is not its own (a user-level skill, and
+  a plugin skill where one is enabled); expected: OpenCode refuses it
+  (AG3), Claude Code hides and refuses the user-level one (AG6) and
+  still shows the plugin one, the known gap. O282 closes on that record.
