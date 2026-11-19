@@ -1,0 +1,122 @@
+# Catalog fault: the network overview claims a backup that does not exist
+# (v0.6 master spec 6.3, 8.5, trap N5; capture W2 items 3 and 4 of
+# specs/versions/v0.6/wave-log.md; build plan chunk 14). An overview fault:
+# a seed-file change of the bastion's network-overview.md, the players'
+# handout, written by the network-overview skill; nothing in the system
+# changes. One customer node's entry claims, under Backups, a protection
+# the node does not have (by the spec's example, the WAL archived to the
+# vault on a server sending only a nightly base backup), so a restore the
+# customer believes possible (back to yesterday noon) is not. Resolved by
+# propose: the players cannot edit the customer's documentation; the
+# corrected entry is judged at the final answer against the answer key's
+# overview_diff.
+
+# --- Identity ---------------------------------------------------------
+id: docs-overview-backup-claimed
+version: 0.1.0
+title: The network overview claims a backup a server does not have
+family: documentation
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: bastion
+      versions: ["0.6.0"]
+  preconditions:
+    - a scenario with a network overview (gm/network-overview.yaml), its bastion mapping network-overview.md
+    - the node a customer node with an entry whose true Backups lack the claimed protection (a database server sending only a nightly base backup, with no WAL archive; one with no backup at all)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the handout and the system's witness show at once (the
+                                    # node's archive settings, the vault's manifests)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  node:
+    description: >-
+      the customer node whose overview entry claims the backup (machines in
+      the clinic, which sends a nightly base backup and archives no WAL)
+    default: null
+    required: true
+  claimed:
+    description: >-
+      the claimed protection, one Backups line as the handout writes it
+      ("WAL archived to Cold Storage, segment by segment"); the sealed check
+      looks for it, without regard to case, among the entry's Backups lines
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: network-overview.md
+      change: >-
+        the handout (the scenario's player/network-overview.md), written by
+        the network-overview skill, gives the node's entry under Backups the
+        claimed line, and drops what in its true lines says the opposite
+        (a "(no WAL archive)" note, a "none" item); every other entry, the
+        header and Your access unchanged; the true overview
+        (gm/network-overview.yaml) unchanged, the instance's overview_diff
+        one item, the node's backups, true and handed out
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: bastion
+    source: the network overview, ~/network-overview.md (and the web front's "Network overview")
+    how: awk '/^### {NODE}$/,/^## /' ~/network-overview.md | grep -n -A6 '\*\*Backups\*\*'
+    shows: the node's entry claims the backup ({CLAIMED})
+  - where: bastion
+    source: the node's archive settings and replication, the vault's manifests
+    how: >-
+      psql -h {NODE} -c 'SHOW archive_mode' -c 'SHOW archive_command'
+      -c 'SELECT * FROM pg_stat_archiver' -c 'SELECT * FROM pg_stat_replication';
+      curl -s "http://cold-storage:8000/manifests?type=wal&source={NODE}"
+    shows: >-
+      archive_mode off (or no archive_command), pg_stat_archiver with no
+      archived segment, no replica; the vault (its hostname as partners.md
+      gives it) holding no wal manifest for the node, only its nightly base
+      backups: the claimed backup does not exist
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names the claimed backup as absent: the overview's entry for the node
+    claims it, the system shows none (archive_mode, pg_stat_archiver,
+    pg_stat_replication, the vault's manifests); what the customer believes
+    it can restore (a point in time, yesterday noon) it cannot, only the
+    last base backup.
+  proposal: >-
+    the corrected entry: the node's Backups as they truly are (the
+    answer key's overview_diff), and the choice put to the customer of
+    making the claim true (archiving the WAL) or the documentation honest;
+    the customer's overview updated by whoever keeps it.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Someone deleted rows on {NODE} yesterday afternoon. Our documentation
+  says the server is backed up continuously; can we bring it back to
+  yesterday noon?
