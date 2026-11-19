@@ -36,7 +36,10 @@ D540); Prometheus' own series showing the import, a documented limit
 (9.1, 9.8, 12.2; spec D542); `suppressed_by` from the hiding instance's
 planting (6.3, 9.5; spec D543); the setup's measured time in the
 scenario document's "Fake aging" section, for the quick game's
-duration (9.2, 9.10; spec D544).
+duration (9.2, 9.10; spec D544). Amended after chunk 11a, from run R:
+the shop's f9 hides f4 in state and logs only, so no `suppressed_by`
+pair in the shop, and its f5 carries no `daily_spike` (6.9, 9.8; spec
+D548).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -438,7 +441,7 @@ history:                           # mandatory unless real-only
     per_call: 0.067                # measured
   - kind: remove
     series: 'up{job="{TARGET}"}'
-    suppressed_by: [pg-table-autovacuum-off]
+    suppressed_by: [purpose-etl-role-expired]
 
 # brick.yaml
 base: {os: Debian GNU/Linux, version: "13"}
@@ -1130,11 +1133,11 @@ build.
 | f2 | scheduler-report-unbounded | supported | temp bytes and files per call |
 | f3 | scheduler-insert-retry-duplicates | supported | state; rows at virtual times |
 | f4 | scheduler-transaction-held-open | tail-only, 2 h | autovacuum's "not yet removable" lines are genuine only in the tail; the fill holds the snapshot |
-| f5 | scheduler-batch-at-peak | tail-only, covers 12:00 | the noon lock waits are genuine only in the tail |
+| f5 | scheduler-batch-at-peak | tail-only, covers 12:00 | the noon lock waits are genuine only in the tail; no `daily_spike` (run R holds no sample of the noon run, and the span holds no noon before the tail) |
 | f6 | scheduler-job-wrong-timezone | supported | the 10:00 run, in the fill or the tail |
 | f7 | pgbouncer-pool-too-small | tail-only, covers 12:00 | the fill bypasses the pooler; its statistics start at the restart |
 | f8 | pg-join-index-missing | supported | planted by the fill at virtual 08:00 |
-| f9 | pg-table-autovacuum-off | supported | state; hides f4's trail on `orders` |
+| f9 | pg-table-autovacuum-off | supported | state; hides f4's trail in `orders`' state and the autovacuum log lines only: the exporter has no per-table series and run R shows f4's `max_tx_duration` sawtooth throughout, so no `suppressed_by` |
 | f10 | prometheus-scrape-target-missing | supported | `remove` |
 
 The full selection's tail: three hours (anchor 11:00, the noon peak

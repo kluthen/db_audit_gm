@@ -2742,3 +2742,157 @@ W3 item 12) changes no file it builds, and its brief carries W3 items
 (corrections 5, 6, 7 give it the campaign's `service-times.yaml`, the
 shop's `scenario.yaml`/`README.md` and the new test); chunk 10 takes
 the next free slot after plan v9 (correction 1 gives it `restart.py`).
+
+### Plan v9 (70fc0d5); chunk 11 started, 2026-11-19
+
+- `spec-writer` applied W3's corrections 1 to 11, none declined: plan
+  v9, 70fc0d5. **D540**: the players keep their Prometheus shell; the
+  TSDB folder (`prometheus:prometheus 0750`) is what hides the blocks.
+  **D541**: Prometheus' own `prometheus_tsdb_*` series step at the
+  import, a documented limit (9.10). **D542**: an instance a handout
+  names that fake aging can't make is never left to render's refusal
+  (a variant without it and its issue, the game real, or decline;
+  the campaign's f10 and issue 6 together; v1.0 gating's campaign
+  blind read becomes that variant). **D543**: `suppressed_by` counts
+  from the hiding instance's planting (formats.md v37). **D544**: the
+  "Fake aging" section carries the setup's measured time, behind 9.2's
+  "ready in about…". G10.3 added. No owner question.
+- Relayed to chunk 13 (running): D544's duration, D542's selection
+  rule, 9.10 in its Spec sections.
+- Chunk 11 dispatched to a `coding-leader` from 70fc0d5, branch
+  `v0.6-c11-faults-assessed`, split 11a/11b, rotation at ~100 calls.
+
+### Chunk 13 — merged (0ec38b3), 2026-11-19
+
+944731e, merge 0ec38b3 (rebased onto plan v9 first). Only
+`.claude/skills/game-master/{SKILL.md,feedback.md}`.
+
+Done when: the play question asked once with the time available,
+modes offered per 9.1/9.2 (D516: "quick game"/"extended game" by
+duration to a possible player; D544's estimate; D542's selection
+rule); the never-told search over every marked player text: 0 hits
+(28 texts, a probe file with the words gives 3 hits); the fake-mode
+steps in 9.4's order, 44/44 `gmctl` invocations parse with
+`build_parser()`; the feedback in two parts with the tell rule
+("Fake aging in the teaching moment"). No `gmctl history` invocation
+(W3 item 11): the skill names the timer and reads `status`.
+
+**W3-z** (as built): player-facing texts wrapped in `<!-- player -->`
+… `<!-- /player -->` (26 in SKILL.md, 2 in feedback.md); the search
+command and word list (aging/ageing/ages/aged, fill*,
+forge/forged/forgery/forging, virtual, fake*) in SKILL.md's top
+comment; the rule holds in both modes; a picked-up game treats the
+initiator as one who may play; a failed or bad-seam import: retry by
+hand, then set up again or hand over as is.
+
+Left: fake mode is offered only once a scenario document has a
+`## Fake aging` section (chunk 12, wave 4); gmctl.md's `history` row
+(chunk 10). Risk: a solo initiator who also plays can see the GM's
+tool output during setup (`status` prints `aging: fake`); v0.5
+already accepted that risk for setup output.
+
+**For the wave gate:** the unit suite has one failure,
+`test_model.TestV06Templates.test_domain_and_overview_templates`
+(`domain.yaml`'s `overview` not optional), already failing on `main`
+at 9aac312, so not wave 3's: chunk 3's test predates chunk 7a
+(50ee241), which made the domains' overview required. To trace and fix
+at the gate.
+
+Figures: 1 agents, 99 tool calls, 15.7M tokens in / 73k out, max
+context 229k, $5.62 at API prices.
+
+### Chunk 11a — committed (816c090), owner rotated, 2026-11-19
+
+11a on `v0.6-c11-faults-assessed`, not merged (11b, then one merge);
+the worktree kept for 11b, with an ignored reference cache in
+`tools/fake_aging/reference/extracted/` (1.4 GB, deletable). No Docker
+run. The shop's ten faults carry `aging.fake` and `history:`, every
+number `# measured:` against an archive member; f4, f5, f7 `gm.md`
+notes; optional parameters (`database` on scheduler-query-error and
+scheduler-report-unbounded, `key` on scheduler-insert-retry-duplicates
+and pg-join-index-missing, `key`/`blocked-key` on
+scheduler-batch-at-peak) set by the shop's instances;
+`tools/fake_aging/calibrate.py` copied from `10d1bc6` and generalised;
+`test_fake_aging_faults.py` (6 tests, shop only).
+
+**W3-y, the shop's part**: f4 `tail-only` (`tail_minimum: 2h`), f5 and
+f7 `tail-only` (`tail_covers: ["12:00"]`), the other seven `supported`;
+all `plant_in: any`; the full selection's tail stays 3h, anchor 11:00
+(W3 item 9). Signatures from run R: f1 `xact_rollback` 0.100/call; f2
+service {0.198, 0.03}, `temp_bytes` 20 450 000 and `temp_files` 1 per
+call; f3 `tup_inserted` 0.228/call; f4 sawtooth 300 s × 300; f5 lock
+{21.25, 0}; f6, f7, f9 `none`; f8 service {0.024, 0.35},
+`tup_returned` 963 700 and `blks_hit` 12 410 per call; f10 two
+`remove` selectors. No calibration run for the shop (archive reads).
+
+Deviations: (1) **f9's `suppressed_by` over f4 not written**: the
+exporter has no per-table series and R shows f4's sawtooth throughout,
+so f9 hides f4 only in state and logs; the chunk's scope line and W3
+item 4's "the shop's f9 hides f4 over the whole span" are wrong, sent
+to `spec-writer`. (2) f5 has no `daily_spike` (R holds no noon-run
+sample; the shop's span holds no noon before the tail). (3) f1, f2, f3,
+f5 also gained optional parameters (W3 item 8's pattern). The shop's
+`README.md` instance rows were edited by hand: 11b regenerates it with
+the `scenario-document` skill.
+
+Figures (owner 1): see the chunk's total line at its merge.
+
+### Plan v10 (1d582a7); chunk 11b started, 2026-11-19
+
+- `spec-writer`: plan v10, 1d582a7, **D548**: the shop has no
+  `suppressed_by` pair (its f9 hides f4 only in `orders`' state and the
+  autovacuum log lines); the shop's f5 has no `daily_spike`; chunk 11's
+  optional-parameter line as 11a built it. Master spec 9.8's f9 and f5
+  rows and 6.9's shape example corrected. Chunk 12 does not rely on the
+  pair. **W3 item 4's last two sentences now read**: "The shop has no
+  `suppressed_by` pair: its f9 hides f4 only in state and logs (the
+  exporter has no per-table series; R shows f4's `max_tx_duration`
+  sawtooth throughout; spec D548). 9.5's 'while a hiding fault is
+  selected' read so (correction 9)."
+- Chunk 11b dispatched to a fresh `coding-leader`, resuming from
+  816c090 (the shop's `README.md` to be regenerated through the skill).
+  Relayed: confirm in its own run that the campaign's f5 hides f4's and
+  f7's trail in a Prometheus series before writing that pair (D543),
+  else report it as D548's case.
+
+### Chunk 10a — committed (18c85f0), 10b WIP (a2469a1), owner rotated, 2026-11-19
+
+Rotated on the driver's word at ~85 calls, context past 300k. On
+`v0.6-c10-history`, not merged; worktree kept. No Docker run.
+`test_aging`, `test_restart`, `test_cleanrestart`, `test_history`: 156
+OK on a2469a1.
+
+- **10a** (18c85f0): `tools/gm/history.py`'s composer (span from the
+  virtual T0 to `restart.at` on each target's scrape grid; one baseline
+  per series by class, fixes 1, 5, 6; the load shape from the fill's
+  metrics records, bounded 0.25 to 4; the kinds per W3 item 4,
+  `suppressed_by` from the hiding instance's planting, D543;
+  OpenMetrics out) and the seam check (findings `{check, series,
+  detail}`, `check` ∈ `negative`, `reset`, `jump` (size gauges, 1 %
+  tolerance), `empty` (added: no sample before the restart)).
+- **10b WIP** (a2469a1): `gmctl history <dir> --playground <pg>
+  [--check-seam]` per W3 item 1 (refusals; no-op once ok; a failed
+  import's blocks removed before a retry; promtool in a `--rm`,
+  `--pull never`, network-less helper of the node's image; blocks moved
+  in whole, folder untouched, D540; load wait ≤180 s, no Prometheus
+  restart); the record's `history: {at, result, seam, reason}` written
+  last; `state.yaml`'s `history_import: {timer, attempts[]}` with each
+  attempt's figures; the start-load timer `dbagm-<gid>_history` at
+  `restart.at` + 12 min; the checks' line (early ≤600 s and fails, the
+  hand-over never fails); status's line; `restart.new_timeline` keeping
+  the fake keys (W3 item 7); the D541 `EXPLAINS` row, the existing
+  Prometheus rows made conditional on a Prometheus node; the verb
+  registered; `gmctl.md`'s rows (parse with `build_parser()`).
+- W3-x so far: the interface, records and verdicts above; `empty`; the
+  1 % jump tolerance; a no-op rerun after "ok but seam failed" exits 1.
+- Left for 10b's owner: `fixture-dropped-index`'s `history:` (a kind
+  each but `none`, unit-tested only: a deviation to report),
+  `run-history-test.sh`, the fixture run (~25 min estimated), the
+  retention figures, then commit and merge.
+- Finding relayed to chunk 11b: an `instance="{INSTANCE_NODE}"`
+  selector on a `pg_*` series matches nothing (the exporter's target is
+  the `instance`); every selector to be checked against the real label
+  sets.
+
+Figures (owner 1): 1 agent, ~85 tool calls, max context >300k; the
+chunk's total line at its merge.

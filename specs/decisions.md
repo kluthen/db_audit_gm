@@ -426,3 +426,9 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   is that time plus the selection's tail; no GM-facing document carried
   it. Now in: [master spec](versions/v0.6/master-spec.md#92-the-initiator-who-also-plays)
   9.2, 9.10; [build plan](versions/v0.6/build-plan.md) chunks 12, 13.
+- **D548 (2026-11-19, spec-writer, chunk 11a's measured deviation): the
+  shop's f9 carries no `suppressed_by` over f4,** since it hides f4 only
+  in state and logs: the exporter has no per-table series and run R
+  shows f4's `max_tx_duration` sawtooth throughout. The shop's f5 has no
+  `daily_spike` (R holds no noon-run sample). Now in: [master spec](versions/v0.6/master-spec.md#98-the-scenarios-covered-and-the-starting-estimates)
+  6.9, 9.8; [build plan](versions/v0.6/build-plan.md) chunk 11.
