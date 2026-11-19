@@ -3771,3 +3771,44 @@ span in the script, which costs about 3 more minutes of fill, the
   (release gate item 4), `bastion:0.6.0` only.
 - Figures: 2 agents, 142 tool calls, 22.2M tokens in / 116k out, max
   context 289k, $8.69 at API prices.
+
+### Plan v15 (a935a6d, merged 177a7d3); chunk 12a started — 2026-11-19
+
+- `spec-writer` applied W4's corrections 1 to 7, none declined: plan
+  v15. **D586**: the owner's "Scale R to span" (master spec 12.1
+  amended). Chunk 12 split: **12a** (D585's sum, f8's measured
+  `gauge_before`, `fixture-fill`'s history run; Docker light), **12b**
+  (the four tools, `smoke-fake-aging.sh`, both short games, their
+  records; Docker heavy; after 12a and 12c), **12c** (the scenario
+  document: "Fake aging", `admitted:`, the starter-pack line, the
+  zero-entries overview case, every scenario's README; no Docker).
+  Chunk 16 now depends on 12c and 14 (not 12b), so it may run beside
+  12b. G10.4 added (open). Release gate estimate ~4 h.
+- Chunk 14's notes settled by the spec, no owner question: the overview
+  and register faults stay not assessed (master spec 9.5, 9.8: no
+  covered scenario uses them); the zero-entries case is in 12c.
+- Chunk 12a dispatched from 177a7d3 beside chunk 5, branch
+  `v0.6-c12a-gauge-before`. 12c takes chunk 5's slot.
+
+### Chunk 5 — merged (da4bd14), 2026-11-19
+
+- 6646829 on `v0.6-c5-grafana-node`, merged `--no-ff` as da4bd14 (on
+  177a7d3, no conflict). Done when met: the `node` variable
+  (`label_values(node_health_cpu_limit_cores, node)`, multi, "All" =
+  `.*`, refreshed on time-range change); all 7 queries filtered
+  `{node=~"$node"}`; the stack test opens `?var-node=<name>`, each
+  query returns that node only, `no-such-node` returns nothing, "All"
+  both nodes; the 8 seeded copies byte-identical to the companion.
+  Grafana stack test 139 passed / 0 failed in 183 s (two test-only fixes
+  on the way: no `/tmp` in the client image, panel 7's two series per
+  node). Image build 15 s, from cache; Grafana 13.3.1 unchanged. Unit
+  suite 1558 OK, 2 skipped.
+- For G8 (at the gate, with any other image wave 4 rebuilds): the
+  image's `dpkg-query` list (129 packages) saved at
+  `/tmp/claude-1001/-home-bastien-work-db-audit-gm/e95c81d0-9133-4a5d-85a1-2bc7abccbc57/scratchpad/grafana-0.4.0-dpkg-query.txt`; no dependency changed.
+- For the wave gate: a possible flake in the existing check "a data
+  source pointing nowhere is a finding" (health still OK once, right
+  after a provisioning reload; passed on runs 2 and 3); `bricks/grafana/brick.yaml`'s
+  header comment still says the `node` variable "comes with its
+  chunk" (stale, a one-line gate fix).
+- Figures: 1 agents, 91 tool calls, 10.5M tokens in / 50k out, max context 167k, $3.91 at API prices.

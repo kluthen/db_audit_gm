@@ -1571,7 +1571,10 @@ Architecture capture: none beyond W2 and W3.
 
 ### Chunk 5 — `grafana` 0.4.0: Node health's `node` variable
 
-Status: planned
+Status: merged (w4, da4bd14)
+Record: 6646829, merged as da4bd14 on 2026-11-19; no deviation from the
+spec. Unstated in 8.6, chosen in the chunk: "All" sends `.*`, the
+variable refreshes on a time-range change.
 Wave: 4
 Depends on: chunk 2; G3, G4
 Docker: light (one image, its stack test)
