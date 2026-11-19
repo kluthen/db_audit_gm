@@ -122,3 +122,15 @@ cumulative statistic on the node restarts at the incident, so no other
 fault's evidence there may rest on statistics. While the backend swaps,
 the host slows for the seconds to minutes before the kill: hence 03:00,
 alone, and never a shared host.
+
+**Fake aging.** `real-only` (`aging.fake`, v0.6 master spec 9.5, 9.8): a
+fake game refuses it, naming its reason. Its evidence is a real
+out-of-memory kill at 03:00 and the crash recovery after it, read from the
+PostgreSQL log, the node's cgroup (`oom_kill`, `memory.peak`) and the
+statistics reset at the incident's second; the fill emulates time-driven
+behaviour in outcome only, and the maintenance restart starts the log, the
+cgroup and the statistics afresh (9.10), so none of it could be shown. In
+the campaign it is issue 6's cause: a fake game of the campaign is a
+variant designed without f10 and issue 6, or the game is played real, or
+the request is declined (spec D542). Moving the incident into the tail, a
+night's run at a tail instant, is a possible later redesign (9.8).

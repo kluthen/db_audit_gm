@@ -25,6 +25,28 @@ aging:
   technique: real-time
   minimum: 1h                       # counted from the job's first run at its planted time (spec
                                     # D189): the scenario's instance raises its aging_minimum
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: tail-only
+    reason: >-
+      the batch's lock waits at its peak run (the stalled calls, the
+      PostgreSQL log's lock waits) are genuine only when that run happens
+      in the tail, so the tail must hold the job's time
+    tail_covers: ["12:00"]
+    plant_in: any
+    fill:
+      emulate: [lock-wait]
+# The history signature (master spec 9.5, 9.7): the lock's effect on the
+# shared queue model, from its planting. The number from run R
+# (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15): the noon run of
+# orders.close-day took 23.247 s in R's log (calibrate-r-producer-f5-20261115.txt),
+# less the key's own service time (2.0 s, the shop's service-times.yaml) and
+# the client's round trip. One run is one call: no spread was measured, so
+# sigma is 0. R's Prometheus holds no sample of the noon's lock counts, so
+# no daily_spike is drawn (the tail holds the job's time in any case).
+history:
+  - kind: queue
+    key: '{KEY}'
+    lock: {median: 21.25, sigma: 0, blocks: ['{BLOCKED_KEY}']}  # measured: calibrate-r-producer-f5-20261115.txt, orders.close-day p50 23247 ms at 12:00, less 2.0 s service
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -39,6 +61,21 @@ parameters:
   quiet-below:
     description: the multiplier at or below which an hour of the shape counts as quiet
     default: 0.5
+    required: false
+
+  key:
+    description: >-
+      the queries.yaml key the job runs, for the history signature (v0.6
+      master spec 9.5); optional, read only in a fake game, so every
+      instance in a scenario played fake sets it
+    default: null
+    required: false
+  blocked-key:
+    description: >-
+      the key whose calls wait on the batch's row locks (the checkout), for
+      the history signature's lock (v0.6 master spec 9.5); optional, read
+      only in a fake game, so every instance in a scenario played fake sets it
+    default: null
     required: false
 
 # --- How it is planted ------------------------------------------------

@@ -50,3 +50,14 @@ fix; terminating the session is first aid.
 carries a hold above 0 (on the entry, a pool entry or the sequence);
 *fixed* once none does. It reads 0 only where a scenario made the
 repository editable anyway, since the fault is report or propose only.
+
+**Fake aging.** `tail-only`, with a tail of at least two hours
+(`aging.fake`, v0.6 master spec 9.5, 9.8). The fill holds the snapshot
+(`held-snapshot`), so the night's dead rows are in the tables and the
+history draws the held transaction's age in Prometheus; but autovacuum's
+"dead but not yet removable" lines are written by the real autovacuum in
+the PostgreSQL log, which starts at the restart ("older logs archived",
+9.10), and they need the updated tables to reach their thresholds again
+under a held snapshot: two hours of tail give several. Where
+`pg-table-autovacuum-off` is on the same table, autovacuum never visits it
+and the lines come from the other tables only, as in a real game.

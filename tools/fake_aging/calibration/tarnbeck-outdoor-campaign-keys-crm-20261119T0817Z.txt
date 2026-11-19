@@ -1,0 +1,18 @@
+command: tools/fake_aging/calibrate.py /home/bastien/work/db_audit_gm-wt/v0.6-c11-faults-assessed/scenarios/tarnbeck-outdoor-campaign keys --node crm --playground cal-a --since 2026-11-19T08:02:02Z --record keys-crm
+commit: 816c090
+start: 2026-11-19T08:17:10Z
+wall time: 0 s
+
+node crm; key lines 2026-11-19T08:02:02Z to end
+key                            min   calls errors  share    p50 s  hold s   median sigma
+declare.exports                  3       3      0  0.000   0.0126     0.0   0.0122     -
+escalate.customs                 3       3      0  0.000   0.0046     0.0   0.0042     -
+leads.extract                    4       4      0  0.000   0.0095     0.0   0.0091     -
+mail.campaign                    3       3      0  0.000   0.0023     0.0   0.0019     -
+mail.shipped                     3       3      0  0.000   0.0167     0.0   0.0163     -
+service-times.yaml keys (median/sigma, seconds):
+  declare.exports: {median: 0.012, sigma: 0}
+  escalate.customs: {median: 0.0042, sigma: 0}
+  leads.extract: {median: 0.0091, sigma: 0}
+  mail.campaign: {median: 0.0019, sigma: 0}
+  mail.shipped: {median: 0.016, sigma: 0}

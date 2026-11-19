@@ -25,6 +25,29 @@ aging:
   technique: real-time
   minimum: 2h                       # idle in transaction at once; dead rows not yet removable
                                     # need the updated tables to reach their autovacuum thresholds
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: tail-only
+    reason: >-
+      autovacuum's "dead but not yet removable" lines are genuine only in
+      the tail, the PostgreSQL log starting at the restart; the fill holds
+      the snapshot, so the night's dead rows are there
+    tail_minimum: 2h
+    plant_in: any
+    fill:
+      emulate: [held-snapshot]
+# The history signature (master spec 9.5, 9.7): the held transaction's age,
+# the exporter's series; the calls' latencies (the hold included) reach the
+# past through the fill's metrics record (capture W1 item 9). Numbers from
+# run R (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15), read with
+# tools/fake_aging/calibrate.py gauge from the reference's r-dump/r.om. Not
+# suppressed by pg-table-autovacuum-off: that fault hides this one's trail
+# on its table (the dead rows, autovacuum's lines), which no series carries;
+# R, which had both, shows this sawtooth throughout.
+history:
+  - kind: gauge_sawtooth
+    series: 'pg_stat_activity_max_tx_duration{application_name="{INSTANCE_NODE}",state="idle in transaction"}'
+    period: 300s                    # measured: r-dump/r.om, the consumer's idle-in-transaction age falls every 300 s (228 falls), 2026-11-14T10:00Z to 11-15T08:00Z
+    amplitude: 300                  # measured: r-dump/r.om, the same series' maximum 299.8 s (minimum 14.7, median 157.2, 4560 samples)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

@@ -2800,3 +2800,183 @@ at the gate.
 
 Figures: 1 agents, 99 tool calls, 15.7M tokens in / 73k out, max
 context 229k, $5.62 at API prices.
+
+### Chunk 11a — committed (816c090), owner rotated, 2026-11-19
+
+11a on `v0.6-c11-faults-assessed`, not merged (11b, then one merge);
+the worktree kept for 11b, with an ignored reference cache in
+`tools/fake_aging/reference/extracted/` (1.4 GB, deletable). No Docker
+run. The shop's ten faults carry `aging.fake` and `history:`, every
+number `# measured:` against an archive member; f4, f5, f7 `gm.md`
+notes; optional parameters (`database` on scheduler-query-error and
+scheduler-report-unbounded, `key` on scheduler-insert-retry-duplicates
+and pg-join-index-missing, `key`/`blocked-key` on
+scheduler-batch-at-peak) set by the shop's instances;
+`tools/fake_aging/calibrate.py` copied from `10d1bc6` and generalised;
+`test_fake_aging_faults.py` (6 tests, shop only).
+
+**W3-y, the shop's part**: f4 `tail-only` (`tail_minimum: 2h`), f5 and
+f7 `tail-only` (`tail_covers: ["12:00"]`), the other seven `supported`;
+all `plant_in: any`; the full selection's tail stays 3h, anchor 11:00
+(W3 item 9). Signatures from run R: f1 `xact_rollback` 0.100/call; f2
+service {0.198, 0.03}, `temp_bytes` 20 450 000 and `temp_files` 1 per
+call; f3 `tup_inserted` 0.228/call; f4 sawtooth 300 s × 300; f5 lock
+{21.25, 0}; f6, f7, f9 `none`; f8 service {0.024, 0.35},
+`tup_returned` 963 700 and `blks_hit` 12 410 per call; f10 two
+`remove` selectors. No calibration run for the shop (archive reads).
+
+Deviations: (1) **f9's `suppressed_by` over f4 not written**: the
+exporter has no per-table series and R shows f4's sawtooth throughout,
+so f9 hides f4 only in state and logs; the chunk's scope line and W3
+item 4's "the shop's f9 hides f4 over the whole span" are wrong, sent
+to `spec-writer`. (2) f5 has no `daily_spike` (R holds no noon-run
+sample; the shop's span holds no noon before the tail). (3) f1, f2, f3,
+f5 also gained optional parameters (W3 item 8's pattern). The shop's
+`README.md` instance rows were edited by hand: 11b regenerates it with
+the `scenario-document` skill.
+
+Figures (owner 1): see the chunk's total line at its merge.
+
+### Plan v10 (1d582a7); chunk 11b started, 2026-11-19
+
+- `spec-writer`: plan v10, 1d582a7, **D548**: the shop has no
+  `suppressed_by` pair (its f9 hides f4 only in `orders`' state and the
+  autovacuum log lines); the shop's f5 has no `daily_spike`; chunk 11's
+  optional-parameter line as 11a built it. Master spec 9.8's f9 and f5
+  rows and 6.9's shape example corrected. Chunk 12 does not rely on the
+  pair. **W3 item 4's last two sentences now read**: "The shop has no
+  `suppressed_by` pair: its f9 hides f4 only in state and logs (the
+  exporter has no per-table series; R shows f4's `max_tx_duration`
+  sawtooth throughout; spec D548). 9.5's 'while a hiding fault is
+  selected' read so (correction 9)."
+- Chunk 11b dispatched to a fresh `coding-leader`, resuming from
+  816c090 (the shop's `README.md` to be regenerated through the skill).
+  Relayed: confirm in its own run that the campaign's f5 hides f4's and
+  f7's trail in a Prometheus series before writing that pair (D543),
+  else report it as D548's case.
+
+### Chunk 10a — committed (18c85f0), 10b WIP (a2469a1), owner rotated, 2026-11-19
+
+Rotated on the driver's word at ~85 calls, context past 300k. On
+`v0.6-c10-history`, not merged; worktree kept. No Docker run.
+`test_aging`, `test_restart`, `test_cleanrestart`, `test_history`: 156
+OK on a2469a1.
+
+- **10a** (18c85f0): `tools/gm/history.py`'s composer (span from the
+  virtual T0 to `restart.at` on each target's scrape grid; one baseline
+  per series by class, fixes 1, 5, 6; the load shape from the fill's
+  metrics records, bounded 0.25 to 4; the kinds per W3 item 4,
+  `suppressed_by` from the hiding instance's planting, D543;
+  OpenMetrics out) and the seam check (findings `{check, series,
+  detail}`, `check` ∈ `negative`, `reset`, `jump` (size gauges, 1 %
+  tolerance), `empty` (added: no sample before the restart)).
+- **10b WIP** (a2469a1): `gmctl history <dir> --playground <pg>
+  [--check-seam]` per W3 item 1 (refusals; no-op once ok; a failed
+  import's blocks removed before a retry; promtool in a `--rm`,
+  `--pull never`, network-less helper of the node's image; blocks moved
+  in whole, folder untouched, D540; load wait ≤180 s, no Prometheus
+  restart); the record's `history: {at, result, seam, reason}` written
+  last; `state.yaml`'s `history_import: {timer, attempts[]}` with each
+  attempt's figures; the start-load timer `dbagm-<gid>_history` at
+  `restart.at` + 12 min; the checks' line (early ≤600 s and fails, the
+  hand-over never fails); status's line; `restart.new_timeline` keeping
+  the fake keys (W3 item 7); the D541 `EXPLAINS` row, the existing
+  Prometheus rows made conditional on a Prometheus node; the verb
+  registered; `gmctl.md`'s rows (parse with `build_parser()`).
+- W3-x so far: the interface, records and verdicts above; `empty`; the
+  1 % jump tolerance; a no-op rerun after "ok but seam failed" exits 1.
+- Left for 10b's owner: `fixture-dropped-index`'s `history:` (a kind
+  each but `none`, unit-tested only: a deviation to report),
+  `run-history-test.sh`, the fixture run (~25 min estimated), the
+  retention figures, then commit and merge.
+- Finding relayed to chunk 11b: an `instance="{INSTANCE_NODE}"`
+  selector on a `pg_*` series matches nothing (the exporter's target is
+  the `instance`); every selector to be checked against the real label
+  sets.
+
+Figures (owner 1): 1 agent, ~85 tool calls, max context >300k; the
+chunk's total line at its merge.
+
+### Chunk 11 — merged (5c28a1d), 2026-11-19
+
+11b 822b208 (second owner, from 816c090), `v0.6-w3` taken in as
+1732d47, merge 5c28a1d. Worktree and reference cache removed; no
+playground left.
+
+**Host event:** armenelos rebooted at 07:55:46 UTC; every `dbagm`
+image was gone from the local engine afterwards. 11b rebuilt the seven
+the campaign uses (bastion 0.6.0, postgres 0.5.1, pgbouncer 0.1.2,
+scheduler 0.4.0, prometheus 0.2.2, postgres-exporter 0.2.1, grafana
+0.4.0) under the lock in 152 s, cached (old apt layers). The wave gate
+rebuilds every brick; whether with `--no-cache` is the gate's call.
+
+Done when: the twenty definitions load with `aging.fake`, all but the
+campaign's f10 with `history:` (`test_fake_aging_faults.py`, 6 OK, the
+campaign in `COVERED`); every number traced (the test); f5, f6, f10
+`gm.md` notes; runs recorded with wall times: A short real run 1327 s,
+B short fill 1761 s (848 s an idle wait for an hh:02 anchor), B2 short
+fill 559 s; the two `wal-rate.yaml` from run A. Lock waits not counted:
+~21 min behind chunk 10, ~100 min retrying B's window. Both scenario
+`README.md`s regenerated through the `scenario-document` skill (shop:
+11a's hand rows equal the template's, plus six "Knobs" intro lines;
+campaign: f1's parameter row).
+
+**W3-y, the campaign's part**: f1 to f4 and f7 to f9 `supported` (f1
+`counter_per_call` `pg_stat_database_tup_inserted{datname="{DATABASE}"}`
+on `mail.shipped`, `per_call` 70.7; the rest `kind: none`), f5
+`tail-only` `plant_in: tail`, f6 `tail-only` `tail_minimum: 1h`, f10
+`real-only`. Full selection unchanged (W3 item 9): f10 refused, 5h
+tail, anchor 09:00. f1 gained an optional `database` (the campaign sets
+`shop`). **P0 as applied** (B, B2): `rpt.etl_runs` holds the close at
+virtual 23:30Z (01:30 scenario time) and every hourly roll-up at
+virtual :05; the 12:00 close at virtual 10:00Z; `rpt.close_day()`'s
+`proconfig` and `prosrc` md5 identical before and after, only `xmin`
+moved (9.10's limit); B2's check after the restart reads f1, f2, f3,
+f4, f7, f8, f9 present: f4 and f7 stay `supported`, f4 needs no 12:00
+close in the tail. Service times: consumer, crm, gateway, bi and the
+producer's `consent.*` keys written (bi's from `rpt.etl_runs`,
+`rollup.close` on one run; `customs.unavailable` from psql timing).
+WAL rates over 7.2 min of run A after the data load: db 25 418 671,
+reporting 8 326 392 bytes/hour. The shop's WAL rate not measured.
+
+Selector check (chunk 10's finding): all twenty match the real label
+sets; no `instance=` selector on a `pg_*` series; nothing to fix.
+
+Deviations: (1) **no `suppressed_by` for the campaign's f5 over f4 and
+f7**: f4's and f7's trails are rows in `reporting`, `rpt.etl_runs` and
+logs, which no exporter reads; D548's case; touches D543's example and
+9.8's "f5 hides f4 and f7", sent to `spec-writer`. (2) bi and gateway
+are report-only, so their times were measured from the fill's
+`rpt.etl_runs` and psql timing. (3) Calibration file names
+`keys-<node>`, `run-a`, `f1`, `f5` beyond W3 item 10. (4) f1's
+`per_call` and the WAL rates from an evening window (not a day's
+average, unlike the shop's 43 881 262). Found outside the chunk: the
+`scenario-document` template's starter-pack line "(v0.5; the true
+register … stays GM side)" sits outside any "if:" block; for the gate.
+Risk for chunk 12: low-sample figures (`rollup.close` one run, the
+evening WAL and f1 figures).
+
+Figures: 3 agents, 214 tool calls, 31.6M tokens in / 200k out, max
+context 243k, $17.90 at API prices.
+
+### Plan v11 (7f7f170), 2026-11-19
+
+`spec-writer`: **D578** (D579 reserved, unused): no covered fault uses
+`suppressed_by` (the shop's f9 and the campaign's f5 hide in state and
+logs only); D543's rule stands, unit-tested only. Master spec 6.9,
+9.5, 9.7 (a report-only node's key timed from its runs in a fill or
+with psql), 9.8 amended; chunk 10a's and 11b's text; chunk 12 gains how
+to read the campaign's few-run, evening-window figures (`pg_wal`
+checked against `clean_restart.wal`'s padding, never a day's figure; a
+step in f1's series at the seam a finding for v1.0 gating, not a
+failure); G10.3 lists wave 3's as-built forms. No change to chunk 10b.
+
+**W3 amended** (driver, from chunks 11a and 11b and plan v10/v11):
+- item 4: the rule stands, but no covered fault uses it: the shop's f9
+  and the campaign's f5 hide in state and logs only (spec D548, D578);
+  unit-tested only.
+- item 9: as written; P0's outcome: f4 needs no 12:00 close in the
+  tail, f4 and f7 stay `supported`.
+- item 10: calibration file names as built `<scenario>-<what>-<stamp>.txt`
+  with `keys-<node>`, `run-a`, per fault, `fill`, `wal-<node>`; the
+  shop's WAL rate not measured.

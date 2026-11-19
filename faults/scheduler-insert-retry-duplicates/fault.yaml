@@ -31,6 +31,24 @@ aging:
   technique: real-time
   minimum: 1h                       # the answer key's window is at most this, so the first full
                                     # window after planting holds the fault's behaviour
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the duplicates are state: the fill runs the resending builder, so the
+      repeated rows are in the table at their virtual times; the history
+      draws the extra rows inserted
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5, 9.7). The number from run R
+# (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15): the reference's
+# m1-fa-real-20261115T0800/duplicates.csv against the key's calls in
+# r-dump/r.om (tools/fake_aging/calibrate.py per-call).
+history:
+  - kind: counter_per_call          # a resent call inserts its row twice
+    series: 'pg_stat_database_tup_inserted{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 0.228                 # measured: m1-fa-real-20261115T0800/duplicates.csv, 2837 repeated events (76997 - 74160) over deliveries.ingest's 12437 calls in r-dump/r.om, 2026-11-14T07:57Z to 11-15T08:00Z
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -56,6 +74,14 @@ parameters:
       (never a pooler)
     default: null
     required: true
+
+  key:
+    description: >-
+      the queries.yaml key mapped to the resending builder, for the history
+      signature (v0.6 master spec 9.5); optional, read only in a fake game,
+      so every instance in a scenario played fake sets it
+    default: null
+    required: false
 
 # --- How it is planted ------------------------------------------------
 injection:

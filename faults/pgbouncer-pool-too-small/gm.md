@@ -46,3 +46,12 @@ reloaded reads *present*. *Fixed* once `SHOW DATABASES` gives the
 database a `pool_size` of at least `min-pool-size` and a
 `max_connections` (its `max_db_connections`) of 0 or at least
 `min-pool-size`. The pool mode is not judged.
+
+**Fake aging.** `tail-only`: the tail must hold the business peak that
+drains the pool (`tail_covers`, 12:00 in the shop; v0.6 master spec 9.5,
+9.8). The fill goes straight to the database (`pool-queue`: the queue
+model reads the pool's size from `pgbouncer.ini`), so the scheduler's
+latencies of the night are right, but the pooler's own evidence (`SHOW
+POOLS`' waiting clients and `maxwait`, its log's lines) starts at the
+restart with its statistics (9.10, the real-clock actors) and shows only
+once the peak is in the tail.
