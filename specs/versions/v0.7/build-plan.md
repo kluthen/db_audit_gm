@@ -46,7 +46,7 @@ states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2 | in progress (2026-11-19) |
+| 1 | 1, 2, 3 | G1, G2 | gated (2026-11-19); merge into `main` on the owner's word |
 | 2 | 4, 5, 6, 7, 9 | G3, G4, wave 1 | planned |
 | 3 | 8 | G6 | planned; conditional: runs only for what G6 finds (a listing leaking a GM skill's description, an OpenCode answer needing a change), otherwise dropped. One chunk because what it holds can't be known before wave 2's gate. |
 

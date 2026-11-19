@@ -352,3 +352,77 @@ memory: .claude/settings.json: missing (game-mode/settings.json absent)
   and the domain specs, be carried on `main`?
   - Proposed default: the domain notes' glosses are enough.
   - Chunk 9 doesn't wait on it.
+
+### Wave 1 gate — 2026-11-19
+
+Run on armenelos at 2026-11-19T10:37Z, on `v0.7-w1` at 93d9c08, under
+`flock /tmp/dbagm-docker.lock` and `systemd-inhibit`. Wave 1 builds no
+brick, so there are no image builds or stack tests.
+
+- **Full unit suite:** 1506 tests in 363 s, 1 failure, 2 skipped. The
+  failure is the pre-existing v0.6 one,
+  `test_model.TestV06Templates.test_domain_and_overview_templates`
+  (v0.6's to fix; it fails on `v0.6-w3` too). The `__pycache__` failure
+  chunk 3 fixed doesn't recur.
+- **`sh -n`:** 597 shell files, 0 failures.
+- **`py_compile`:** 475 Python files, 0 failures.
+- **The assistant's definition loads in OpenCode:** `opencode agent
+  list` names `game-assistant (primary)`, and `opencode debug agent
+  game-assistant` resolves:
+  - `skill * deny`, `task * deny`;
+  - `webfetch` and `websearch` allowed;
+  - read, glob, grep, list and todowrite allowed;
+  - `edit * ask`, then `play/** allow`;
+  - `bash * allow`, then `psql*`, `docker*` and `*gmctl*` denied.
+
+  Its final `read * allow` overrides OpenCode's default ask on `.env`
+  files, as chunk 1 noted.
+- **It loads in Claude Code:** the headless check (plan v2) reports its
+  tools as `Read, Write, Edit, Bash, WebFetch, WebSearch` and skills as
+  `none`.
+- **`publish.py --check-only`:** the starting state of chunk 3's entry,
+  unchanged: exit 1 with 3 `replace`, 1 `memory`, 2 `agents` and 45
+  `pointer` findings.
+- **The worktree is clean** after the gate.
+- **Wave sync:** none needed. There is no intent register (no
+  documentalist sync), and no chunk changed a dependency (no
+  security-advisor check).
+- **`doc-ids compare main v0.7-w1`:** 0 collisions, 0 warnings (base
+  03429d9).
+
+### Wave 1 figures
+
+6 agents, 179 tool calls, 17.4M tokens in / 169k out, max context 259k
+(the top-level driver), $9.26 at API prices, from 10:52 to 11:42 (0h50).
+
+| role | agents | calls | cost | max ctx |
+|---|---:|---:|---:|---:|
+| coding-leader | 3 | 102 | $5.31 | 139k |
+| spec-writer | 2 | 62 | $2.36 | 116k |
+| driver (top level) | 1 | 15 | $1.59 | 259k |
+
+By chunk: chunk 1 $1.98, chunk 2 $0.65, chunk 3 $2.68; outside chunks
+$3.94. No agent passed 300k of context.
+
+### Open after wave 1
+
+- **Merge into `main`:** on the owner's word.
+- **G3 (v0.6 released):** open, held by v0.6's driver and the owner.
+- **G4 (the switch to `dev`):** open; on the owner's word after G3.
+- **G6:** at wave 2's gate.
+- **Owner questions:**
+  - O291, the clinic's trap witnesses on `main`, needed before the
+    first publish;
+  - whether master spec 10's `claude agents` mention gets an "amended
+    in wave" note.
+- **Told to the owner:**
+  - D577 (`SECURITY_TODO.md` dev-only);
+  - the v0.6 test failure (for the v0.6 session);
+  - the expected `specs/` conflicts when `v0.6-w3` merges.
+- **Branches left:**
+  - the wave branch `v0.7-w1` and its worktree, until the merge;
+  - the chunk branches `v0.7-c1-assistant-agent`,
+    `v0.7-c2-play-assistant` and `v0.7-c3-publish-main` (merged, no
+    worktrees), removed at the merge.
+- **Wave 2 waits for G3 and G4.** It starts with capture W2 (the GM's
+  skill names, for chunk 5), and covers chunk 9 at its start.
