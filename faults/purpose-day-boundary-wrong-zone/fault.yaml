@@ -30,6 +30,25 @@ aging:
                                     # D189): the scenario raises the instance's aging_minimum to
                                     # the close's offset from T0 plus this (T0 22:00, close 01:30:
                                     # 3h30 plus 1h, 4h30 or 270m)
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the nightly close runs in the fill at its virtual 01:30, the
+      procedure pinning its own settings reached by the cover (P0), so the
+      days it closes wrong are dated as a real night dates them
+    plant_in: any
+    fill:
+      emulate: []
+# Supported confirmed by v0.6 chunk 11b's short fill (runs B and B2,
+# tools/fake_aging/calibration/tarnbeck-outdoor-campaign-fill-20261119T1044Z.txt
+# and -20261119T1115Z.txt): rpt.close_day()'s run in rpt.etl_runs at its
+# virtual 01:30, its proconfig and source identical after the fill, and
+# the sealed check present just after the restart.
+# The history signature (master spec 9.5): no Prometheus trail. The close
+# runs in the reporting database, which no exporter reads; its evidence
+# is the procedure, the closed days and the run ledger (rpt.etl_runs).
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

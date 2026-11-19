@@ -585,7 +585,7 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `f1` | `purpose-mail-overlapping-window` 0.1.0 | `crm` | none | known | `T0` | 65m |
+| `f1` | `purpose-mail-overlapping-window` 0.1.0 | `crm` | database = shop | known | `T0` | 65m |
 | `f2` | `purpose-leads-stale-consent` 0.1.0 | `crm` | none | known | `T0` | 11h |
 | `f3` | `purpose-mail-outside-hours` 0.1.0 | `crm` | none | known | `T0` | 11h |
 | `f4` | `purpose-watermark-misses-updates` 0.1.0 | `bi` | none | known | `T0` | 15h |

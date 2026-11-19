@@ -127,6 +127,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `db`
@@ -220,6 +222,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `consumer`
@@ -242,6 +246,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -277,6 +283,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 160M | 512M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `exporter`
@@ -295,6 +303,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.05 | 48M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -318,6 +328,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 272M | 256M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -377,14 +389,14 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `f1` | `scheduler-query-error` 0.1.0 | `producer` | key = catalog.lookup | hidden | `T0` | the definition's |
-| `f2` | `scheduler-report-unbounded` 0.1.0 | `consumer` | key = reports.best-days, date-column = placed_at | known | `T0` | the definition's |
-| `f3` | `scheduler-insert-retry-duplicates` 0.1.0 | `producer` | database = shop, table-name = delivery_events, id-column = event_id, time-column = received_at, db-node = db | known | `T0` | the definition's |
+| `f1` | `scheduler-query-error` 0.1.0 | `producer` | key = catalog.lookup, database = shop | hidden | `T0` | the definition's |
+| `f2` | `scheduler-report-unbounded` 0.1.0 | `consumer` | key = reports.best-days, date-column = placed_at, database = shop | known | `T0` | the definition's |
+| `f3` | `scheduler-insert-retry-duplicates` 0.1.0 | `producer` | database = shop, table-name = delivery_events, id-column = event_id, time-column = received_at, db-node = db, key = deliveries.ingest | known | `T0` | the definition's |
 | `f4` | `scheduler-transaction-held-open` 0.1.0 | `consumer` | key = reports.dashboard | hidden | `T0` | the definition's |
-| `f5` | `scheduler-batch-at-peak` 0.1.0 | `producer` | job = close-day, shape = business-hours, quiet-below = 0.5 | known | `T0` | 15h |
+| `f5` | `scheduler-batch-at-peak` 0.1.0 | `producer` | job = close-day, shape = business-hours, quiet-below = 0.5, key = orders.close-day, blocked-key = orders.place | known | `T0` | 15h |
 | `f6` | `scheduler-job-wrong-timezone` 0.1.0 | `consumer` | job = accounting-export, offset = -8 | known | `T0` | 13h |
 | `f7` | `pgbouncer-pool-too-small` 0.1.0 | `pooler` | database = shop, min-pool-size = 6 | known | `T0` | 10h |
-| `f8` | `pg-join-index-missing` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id | known | `handover-6h` | 4h |
+| `f8` | `pg-join-index-missing` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id, key = orders.detail | known | `handover-6h` | 4h |
 | `f9` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = shop, table-name = orders | hidden | `T0` | 12h |
 | `f10` | `prometheus-scrape-target-missing` 0.1.0 | `prometheus` | node = pooler | hidden | `T0` | the definition's |
 

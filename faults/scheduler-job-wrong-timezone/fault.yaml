@@ -25,6 +25,21 @@ aging:
   technique: real-time
   minimum: 1h                       # counted from the job's first run at the wrong time (spec
                                     # D189): the scenario's instance raises its aging_minimum
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the fill reads the job's time and zone from jobs.yaml and runs it at
+      its wrong hour on the virtual clock, so the run is in the log and the
+      database whether that hour falls in the fill or the tail
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): no overlay. The job's runs at the
+# wrong hour reach the past through the fill's metrics record
+# (scheduler_job_runs_total and the call histograms, capture W1 item 9),
+# never drawn twice.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

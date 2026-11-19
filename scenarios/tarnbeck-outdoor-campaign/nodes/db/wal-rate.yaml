@@ -1,0 +1,11 @@
+# The WAL rate of node db (v0.6 master spec 9.9 fix 4; capture W2 item 11,
+# W3 item 10): gmctl clean-restart pads a fake game's WAL to a day's worth,
+# 24 times bytes_per_hour. Beside the node's seed files, never mapped into it.
+source: >-
+  v0.6 chunk 11b, run A (a short real run of tarnbeck-outdoor-campaign on
+  armenelos, 2026-11-19), tools/fake_aging/calibration/tarnbeck-outdoor-campaign-wal-db-20261119T0809Z.txt:
+  pg_stat_wal.wal_bytes 453684523 after the data load and the T0 plantings
+  (08:01:49Z) to 456742882 at 08:09:02Z, 7.2 minutes of the scenario's load
+  from its start, at 21:01 to 21:09 company time (the producer's shape 0.6),
+  the data load excluded
+bytes_per_hour: 25418671    # WAL the node writes in an hour at the scenario's load, measured

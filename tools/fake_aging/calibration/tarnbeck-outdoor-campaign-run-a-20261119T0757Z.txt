@@ -1,0 +1,39 @@
+command: chunk 11b run A, a short real run of tarnbeck-outdoor-campaign (flock /tmp/dbagm-docker.lock systemd-inhibit ... sh run-a.sh): gmctl fit (one host, armenelos, 3 CPU / 5G / 14G), render --handover 2026-11-20T01:00Z (real), deploy, load-data, inject, calibrate.py wal --mark (db, reporting), start-load; 420 s of the scenario's load; wal --from-mark; the jobs of consumer, crm and producer moved into the window (bi and gateway report-only: refused); 480 s; calibrate.py keys per node; f1's rows; f5 planted (inject --at now), 150 s; teardown
+commit: 816c090 (with chunk 11b's uncommitted definitions)
+start: 2026-11-19T07:57:50Z (lock acquired at once)
+wall time: 1327 s, deployment and teardown included
+
+07:57:50Z +0s start (lock held)
+07:57:52Z +2s render --handover 2026-11-20T01:00Z (real)
+07:57:53Z +3s deploy
+08:01:30Z +220s load-data
+08:01:48Z +238s inject
+db: wal_bytes 453684523 at 2026-11-19T08:01:49Z (marked)
+reporting: wal_bytes 14061092 at 2026-11-19T08:01:49Z (marked)
+08:01:49Z +239s start-load
+08:02:02Z +252s phase 1: the scenario's load, 420 s
+db: wal_bytes 453684523 at 2026-11-19T08:01:49Z to 456742882 at 2026-11-19T08:09:02Z (7.2 min)
+bytes_per_hour: 25418671
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-wal-db-20261119T0809Z.txt
+reporting: wal_bytes 14061092 at 2026-11-19T08:01:49Z to 15062889 at 2026-11-19T08:09:02Z (7.2 min)
+bytes_per_hour: 8326392
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-wal-reporting-20261119T0809Z.txt
+08:09:03Z +673s phase 2: jobs moved into the window
+gm-reload-scheduler: reloaded queries.yaml, builders/, scripts/ and jobs.yaml.
+gm-reload-scheduler: this node is report-only: its files cannot be changed, so nothing was reloaded.
+gm-reload-scheduler: reloaded queries.yaml, builders/, scripts/ and jobs.yaml.
+gm-reload-scheduler: this node is report-only: its files cannot be changed, so nothing was reloaded.
+gm-reload-scheduler: reloaded queries.yaml, builders/, scripts/ and jobs.yaml.
+08:17:10Z +1160s keys
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-consumer-20261119T0817Z.txt
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-bi-20261119T0817Z.txt
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-crm-20261119T0817Z.txt
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-gateway-20261119T0817Z.txt
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-keys-producer-20261119T0817Z.txt
+08:17:12Z +1162s f1: the shipping notices since the load started
+435|223|2026-11-19 08:05:00.329046+00|2026-11-19 08:10:00.003856+00
+08:17:12Z +1162s f5 planted now
+recorded: tools/fake_aging/calibration/tarnbeck-outdoor-campaign-f5-20261119T0819Z.txt
+08:19:44Z +1314s done
+08:19:44Z +1314s teardown
+08:19:57Z +1327s end; wall time 1327 s

@@ -741,7 +741,8 @@ fault_instances:
       id: purpose-mail-overlapping-window
       version: 0.1.0
     node: crm
-    parameters: {}
+    parameters:
+      database: shop                # the source's database, for the fake history's series
     visibility: known
     aging_minimum: 65m              # the first five-minute run at 22:05, plus 1h (spec D247)
   - id: f2
