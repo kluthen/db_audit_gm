@@ -208,7 +208,7 @@ it.
 ### Chunk 2 — merged 2026-11-19
 
 - Commit 6e85d26, merged `--no-ff` as 3204b82. No deviation.
-- `tools/test_play.py` has 13 tests. Each runs in its own fixture
+- `tools/tests/test_play.py` has 13 tests. Each runs in its own fixture
   repository, so `dev` is only ever created there. The fakes in
   `tools/tests/fakebin/` record the exact argument lists of capture W1
   item 3.
