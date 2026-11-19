@@ -75,10 +75,10 @@ EXPLAINS = (
      "pg_postmaster_start_time(), ps, stats_reset, the log folder",
      "the maintenance restart of the story line"),
     (None, "no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the "
-           "scheduler's own log covers the night)",
+           "scheduler's own log does cover the fill)",
      "the log folders", "older logs archived at the maintenance (the story line)"),
     (None, "real-clock actors start at the restart: pg_cron's run history, the crontab's runs, "
-           "the pooler's statistics, archiving",
+           "the pooler's statistics, archiving, Grafana's alert state and history",
      "cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver",
      "partly: they were restarted at the maintenance"),
     (None, "the data files' inode change times are the fill's real minutes",
