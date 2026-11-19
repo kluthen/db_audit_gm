@@ -1,6 +1,9 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v9 (2026-11-19): capture W3's preflight corrections written in
+Status: v10 (2026-11-19): after chunk 11a, from run R (spec D548): the
+shop's f9 carries no `suppressed_by` over f4 (f9 hides f4 in state and
+logs only), its f5 no `daily_spike`; chunk 11's parameters as built.
+v9 (2026-11-19): capture W3's preflight corrections written in
 (spec D540 to D544): chunk 10 gains a fake game's restart and the
 import's limit in `explains`; chunk 11 the campaign's service times,
 the shop's new parameter and the faults' test; the players' shell on
@@ -1348,7 +1351,11 @@ applied.
     `history:` from the research's real run (its measured costs, the
     overlay classes rewritten per fault definition with its parameter
     placeholders, never per instance); `queue` entries as effects on
-    the shared queue model; f9's `suppressed_by` hiding f4's trail;
+    the shared queue model; no `suppressed_by` in the shop: f9 hides
+    f4 in `orders`' state and the autovacuum log lines only, the
+    exporter having no per-table series (run R shows f4's
+    `max_tx_duration` sawtooth throughout), and f5 has no
+    `daily_spike` (R holds no sample of the noon run), spec D548;
     the calibration tool, `tools/fake_aging/calibrate.py`, from the
     research's `calibrate.py`, **copied and generalised** (scenario,
     node, key and fault as arguments), its origin named; the shop's
@@ -1378,9 +1385,11 @@ applied.
     scenario's load, the data load excluded, its `source:` naming the
     run;
   - each `gm.md`'s "Fake aging" note for `tail-only` and `real-only`;
-  - a parameter a signature needs (f8's slowed key, say) added to its
-    fault optional, so the scenarios already using the fault load
-    unchanged; every instance in a scenario played fake sets it;
+  - a parameter a signature needs added to its fault optional, so the
+    scenarios already using the fault load unchanged; every instance in
+    a scenario played fake sets it (the shop's, as built in 11a:
+    `database` on f1 and f2, `key` on f3 and f8, `key` and
+    `blocked-key` on f5);
   - a test of the twenty definitions (`aging.fake`, `history:` unless
     `real-only`, the note, each number's `# measured:` comment), wave
     3's gate row.
