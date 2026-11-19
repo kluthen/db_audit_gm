@@ -394,3 +394,35 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   extension half). pgAudit 18.1 (upstream 2026-11-17) changes which audit
   lines are logged: a later game-content decision, not in v0.6 unless the
   owner says so. Now in: [build plan](versions/v0.6/build-plan.md) G9.1.
+- **D540 (2026-11-19, spec-writer, capture W3's preflight correction 2):
+  the players keep their shell on the Prometheus node; the TSDB folder
+  (`prometheus:prometheus`, `0750`) keeps the imported blocks from it,**
+  and the import keeps that owner and mode. f10's fix edits
+  `prometheus.yml` there, so "no shell (to verify)" was wrong. Now in:
+  [master spec](versions/v0.6/master-spec.md#910-documented-limits)
+  9.10, 18; [build plan](versions/v0.6/build-plan.md) chunks 10, 12.
+- **D541 (2026-11-19, spec-writer, capture W3's preflight correction 3):
+  Prometheus' own series showing the import are a documented limit,**
+  not covered by the story, no curation (the tail's samples can't be
+  rewritten without the admin API); the restart record's `explains`
+  carries it. Now in: [master spec](versions/v0.6/master-spec.md#910-documented-limits)
+  9.10; [build plan](versions/v0.6/build-plan.md) chunk 10.
+- **D542 (2026-11-19, spec-writer, capture W3's preflight correction 8):
+  a GM-run game never leaves refused an instance a handout names;** the
+  GM plays a variant without it and its issue, plays real, or declines,
+  render's refusal (D528) the safety net. 9.1's "replaces ... or
+  proposes another" covers the variant: no owner question. Now in:
+  [master spec](versions/v0.6/master-spec.md#91-two-modes-and-choosing-one)
+  9.1, 9.8, 12.2; [access model](versions/v0.6/access-model.md#7-denial-behaviour) 7.
+- **D543 (2026-11-19, spec-writer, capture W3's preflight correction 9):
+  `suppressed_by` drops an entry from the hiding instance's planting
+  onward,** not over the whole span: the campaign's f5, planted in the
+  tail, hides f4's and f7's trails only from then. Now in:
+  [master spec](versions/v0.6/master-spec.md#95-fault-eligibility) 6.3,
+  9.5; [formats.md](formats.md) v37.
+- **D544 (2026-11-19, spec-writer, capture W3's preflight correction 10):
+  the scenario document's "Fake aging" section carries the setup's
+  measured time, deploy to restart,** and a quick game's stated duration
+  is that time plus the selection's tail; no GM-facing document carried
+  it. Now in: [master spec](versions/v0.6/master-spec.md#92-the-initiator-who-also-plays)
+  9.2, 9.10; [build plan](versions/v0.6/build-plan.md) chunks 12, 13.

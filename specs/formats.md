@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v36; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v37; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -40,7 +40,9 @@ overview's form; fake aging's measured figures beside a node's files
 timeline's keys, the restart record as written, `state.yaml`'s `hold`,
 `fill` and `clean_restart`, a `fill.quiet` item and P0's cover's, the
 fill's metrics record, `--test-tail-floor`); the partners' status file
-and its `rendered` secret; the `brick-doc` configs.
+and its `rendered` secret; the `brick-doc` configs. Draft v37, in v0.6's
+wave 3 (capture W3): `suppressed_by` drops an entry from the hiding
+instance's planting (D543).
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -1043,7 +1045,9 @@ faults/<fault-id>/
   `daily_spike` or `remove` (which wins over every baseline and overlay
   on its series), with the fault's parameter placeholders, every number
   measured by a short real run, and `suppressed_by: [<fault id>]` to drop
-  an entry while a hiding fault is selected. The loader refuses an empty
+  an entry from the planting of the first selected instance of a hiding
+  fault onward (one planted in the tail drops nothing from the forged
+  past). The loader refuses an empty
   or missing `history:` on a `supported` or `tail-only` fault, and
   `tail_minimum` or `tail_covers` elsewhere; `gmctl render --aging fake`
   refuses a `real-only` or unassessed instance, naming its reason. A
