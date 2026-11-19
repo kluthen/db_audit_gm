@@ -136,8 +136,6 @@ Data, restored from `data/records.sql`:
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *), scheduled by load-data after the part's load, in portal, as portal_housekeeping. |
 
-The domains loaded here by `load-data`, after the data file: `vet-core`, `vet-housing` and `vet-scheduling` into the database `clinic`; `vet-portal` into the database `portal` (see "Composition" below).
-
 #### Node `lab`
 
 - **Brick**: `postgres`, version 0.5.1 (pinned).
@@ -165,8 +163,6 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_connections` | 100 | 10 .. 200 | yes |
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
-
-Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the database `lab` (see "Composition" below).
 
 #### Node `machines`
 
@@ -211,8 +207,6 @@ Data, restored from `data/machines.sql`:
   | Table | Holds |
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions, events-partitions), scheduled by load-data after the part's loads, each as mach_maint. |
-
-The domain loaded here by `load-data`, after the data file: `vet-machinery` into the databases `pacs`, `vitals` and `biomed` (see "Composition" below).
 
 #### Node `partners-db`
 
@@ -285,20 +279,20 @@ Composed from the catalogue's domains at design time; its record,
   - `vet-portal` after `vet-core`, `vet-lab`: the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404).
 - **Scale**: checked: the core and its five parts at one centre's scale, each as its own fixture measured it: the core about 0.27 million rows, housing 0.14, scheduling 0.13, the lab 0.33, the machinery 0.28, the portal 0.20.
 - **Left out** (a fixture's least environment):
-  - `vet-core`'s `pms`: load only: no practice software node (spec D407)
-  - `vet-core`'s `api/clinic-api`: load only: no lookup API node (spec D407)
-  - `vet-core`'s `partners/centres`: load only: the other centres' state loaded and checked on partners-db, no partners' node (spec D435)
-  - `vet-housing`'s `pms`: load only: no practice software node (spec D407)
-  - `vet-housing`'s `ward`: load only: no ward service node (spec D407)
-  - `vet-scheduling`'s `pms`: load only: no practice software node (spec D407)
-  - `vet-lab`'s `lis`: load only: no laboratory information system node (spec D407)
-  - `vet-lab`'s `api/lab-api`: load only: no lab order API node (spec D407)
-  - `vet-lab`'s `partners/xlab`: load only: the external lab's state loaded and checked on partners-db, no partners' node (spec D407)
-  - `vet-lab`'s `partners/practices`: load only: the practices' state loaded and checked on partners-db, no partners' node (spec D407)
-  - `vet-machinery`'s `equipment`: load only: no machines' producer node (spec D407)
-  - `vet-portal`'s `api/portal-api`: load only: no portal API node (spec D407)
-  - `vet-portal`'s `partners/owners`: load only: the owners' state loaded and checked on partners-db, no owners' route (spec D407)
-  - `vet-portal`'s `pms`: load only: no practice software node, so no desk stream (spec D407)
+  - `vet-core`'s `pms`: load only: no practice software node (spec D407).
+  - `vet-core`'s `api/clinic-api`: load only: no lookup API node (spec D407).
+  - `vet-core`'s `partners/centres`: load only: the other centres' state loaded and checked on partners-db, no partners' node (spec D435).
+  - `vet-housing`'s `pms`: load only: no practice software node (spec D407).
+  - `vet-housing`'s `ward`: load only: no ward service node (spec D407).
+  - `vet-scheduling`'s `pms`: load only: no practice software node (spec D407).
+  - `vet-lab`'s `lis`: load only: no laboratory information system node (spec D407).
+  - `vet-lab`'s `api/lab-api`: load only: no lab order API node (spec D407).
+  - `vet-lab`'s `partners/xlab`: load only: the external lab's state loaded and checked on partners-db, no partners' node (spec D407).
+  - `vet-lab`'s `partners/practices`: load only: the practices' state loaded and checked on partners-db, no partners' node (spec D407).
+  - `vet-machinery`'s `equipment`: load only: no machines' producer node (spec D407).
+  - `vet-portal`'s `api/portal-api`: load only: no portal API node (spec D407).
+  - `vet-portal`'s `partners/owners`: load only: the owners' state loaded and checked on partners-db, no owners' route (spec D407).
+  - `vet-portal`'s `pms`: load only: no practice software node, so no desk stream (spec D407).
 - **Merge resolutions**: none: no two sources of one layer collided.
 - **Scenario layer**: none.
 - **Coherence**: checked by `load-data` at every setup, after the loads,
@@ -427,7 +421,7 @@ None.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, and the data register `player/data-register.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, and the data policy `player/data-policy.md`, the partners `player/partners.md`, the data register `player/data-register.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`
@@ -437,8 +431,11 @@ None.
   - `records`: `data/records.sql`
   - `machines`: `data/machines.sql`
   - `partners-db`: `data/partners-db.sql`
-  - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-housing/`, `domains/vet-scheduling/`, `domains/vet-lab/`, `domains/vet-machinery/`, `domains/vet-portal/`.
-- **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml`, each key prefixed with its table's database.
+- **Column classification**: `data/classification.yaml`, the scenario's own.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`.
 - **Composition** (GM side, never shipped): `composition.yaml`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

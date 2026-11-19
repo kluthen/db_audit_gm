@@ -97,6 +97,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `records`
@@ -104,7 +106,6 @@ No knobs.
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
-- **Options**: `monitoring` (pgwatch's and the health node's target).
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -168,6 +169,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 160M | 512M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `pgwatch`
@@ -186,6 +189,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 96M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -211,6 +216,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 272M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `health`
@@ -223,8 +230,7 @@ No knobs.
 - **Published ports**: none.
 - **Seed files**: `health.yaml` → `nodes/health/health.yaml`; `crontab`
   → `nodes/health/crontab`; `scripts/` → `nodes/health/scripts`.
-- **Crontab roles**: none (its crontab connects as `monitoring`, the
-  brick's own secret).
+- **Crontab roles**: none: its crontab connects as no customer role.
 
 Resources (absolute, never recomputed per playground):
 
@@ -232,6 +238,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -336,10 +344,13 @@ None.
     `nodes/grafana/dashboards.yaml`, `nodes/grafana/node-health.json`,
     `nodes/grafana/postgresql.json`, `nodes/grafana/pgwatch.json`,
     `nodes/grafana/alert-rules.yaml`
-  - `health`: `nodes/health/health.yaml`, `nodes/health/crontab`,
-    `nodes/health/scripts/` (`disk-alarm`, `backup-there`)
+  - `health`: `nodes/health/health.yaml`, `nodes/health/crontab`, `nodes/health/scripts`
 - **Restored-backup data**, streamed in after deployment:
   - `records`: `data/records.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

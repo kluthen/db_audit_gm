@@ -66,7 +66,7 @@ The story as the players read it: `player/story.md`.
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.4.0 (pinned); scenario-only, in `bricks/`.
+- **Brick**: `bastion`, version 0.4.0 (pinned), scenario-only, in bricks/.
 - **Role**: bastion. **Stateful**: yes. **Write policy**: report-only.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -87,7 +87,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.4.0 (pinned); scenario-only, in `bricks/`.
+- **Brick**: `postgres`, version 0.4.0 (pinned), scenario-only, in bricks/.
 - **Role**: database. **Stateful**: yes. **Write policy**: fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -124,7 +124,7 @@ Data, restored from `data/db.sql`:
 
 #### Node `reporting`
 
-- **Brick**: `postgres`, version 0.4.0 (pinned); scenario-only, in `bricks/`.
+- **Brick**: `postgres`, version 0.4.0 (pinned), scenario-only, in bricks/.
 - **Role**: database. **Stateful**: yes. **Write policy**: fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -167,7 +167,7 @@ Data, restored from `data/reporting.sql`:
 
 #### Node `bi`
 
-- **Brick**: `scheduler`, version 0.2.0 (pinned); scenario-only, in `bricks/`.
+- **Brick**: `scheduler`, version 0.2.0 (pinned), scenario-only, in bricks/.
 - **Role**: transformer. **Stateful**: yes. **Write policy**: fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -321,3 +321,42 @@ None.
 - **Column classification**: `data/classification.yaml`, the scenario's copy of `domains/fixture-shop/data/classification.yaml`.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`.
 - **Scenario-only bricks and faults**: `bricks/bastion/`, `bricks/postgres/`, `bricks/scheduler/`, `faults/fixture-random-page-cost/`, `faults/fixture-copy-runs/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 16h, the scenario's aging: the virtual T0 at 22:00 the day before,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `f2` | `fixture-copy-runs` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-v04-refusals-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

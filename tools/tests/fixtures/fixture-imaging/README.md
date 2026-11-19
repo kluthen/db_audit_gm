@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), `domains/vet-machinery/producers/equipment/` with the scenario layer `compose/equipment/` (into `nodes/equipment/`), and the scenario layer `compose/interfaces/` alone, holding the purpose `vet-imaging-orders`'s runner material (into `nodes/interfaces/`); its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`), `vet-machinery`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -92,6 +92,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `records`
@@ -123,9 +125,6 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain `vet-core` is loaded into the database
-`clinic` (see section 1).
-
 #### Node `clinic-api`
 
 - **Brick**: `api`, version 0.1.1 (pinned).
@@ -143,6 +142,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 128M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -163,6 +164,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -211,9 +214,6 @@ Data, restored from `data/machines.sql`:
   |---|---|
   | `cron.job` | pg_cron's jobs; vet-machinery's three partition jobs (vitals-partitions, readings-partitions, events-partitions), scheduled by load-data after the part's loads, each as mach_maint. |
 
-The domain `vet-machinery` is loaded into the databases `pacs`, `vitals`
-and `biomed` (see section 1).
-
 #### Node `equipment`
 
 - **Brick**: `scheduler`, version 0.4.0 (pinned).
@@ -232,6 +232,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -254,6 +256,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 ### Flows
@@ -269,6 +273,32 @@ No knobs.
 | `equipment` | `clinic-api` | the identity job (each new worklist entry's animal and owner, every minute) and the census (the current stays, every five minutes), behind clinic_lookup | http 8000 | every minute, every five minutes |
 | `interfaces` | `records` | purpose 13's jobs post-imaging-orders and fetch-imaging-reports, the record as vet_interfaces | postgresql 5432 | every minute, every five minutes |
 | `interfaces` | `machines` | purpose 13's jobs, the worklist written and the finals and cancellations read as mach_orders in pacs | postgresql 5432 | every minute, every five minutes |
+
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM. `gmctl
+compose` writes the files of `clinic-api`, `equipment`, `interfaces`, `pms` (each `nodes/<node>/`): its output, never edited by
+hand.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+| `vet-machinery` | — | `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner`, `core_stay` |
+
+- **Load order**: `vet-core` → `vet-machinery`.
+- **Derivations**: none.
+- **Scale**: checked: the machinery's worklist from the core's sent imaging requests (about 2 980), its sessions on the core's stays; about 0.28 million rows, 75 MB beside the core's 0.27 million.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `partners/centres`: no partners' nodes: the other centres' stub (purpose 4's) is fixture-exchanges', its fragments composed in test_compose.py (spec D435).
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: `compose/equipment/`, `compose/interfaces/`, `compose/pms/`.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
 
 ### Purposes
 
@@ -361,33 +391,55 @@ None.
   warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
-  - `clinic-api`: `nodes/clinic-api/api.yaml`, `nodes/clinic-api/routes/`
-    (`animals.py`, `stays.py`), `nodes/clinic-api/db/` (`animals.py`,
-    `stays.py`)
+  - `clinic-api`: `nodes/clinic-api/api.yaml`, `nodes/clinic-api/routes/`, `nodes/clinic-api/db/`
   - `pms`: `nodes/pms/queries.yaml`, `nodes/pms/jobs.yaml`,
     `nodes/pms/schedule.yaml`
   - `machines`: `nodes/machines/postgresql.conf`,
     `nodes/machines/pg_hba.conf`
-  - `equipment`: `nodes/equipment/queries.yaml`,
-    `nodes/equipment/jobs.yaml`, `nodes/equipment/schedule.yaml`,
-    `nodes/equipment/scripts/` (`lookup.py`)
-  - `interfaces`: `nodes/interfaces/queries.yaml`,
-    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`,
-    `nodes/interfaces/scripts/` (`imaging_orders.py`)
+  - `equipment`: `nodes/equipment/queries.yaml`, `nodes/equipment/jobs.yaml`, `nodes/equipment/schedule.yaml`, `nodes/equipment/scripts/`
+  - `interfaces`: `nodes/interfaces/queries.yaml`, `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`, `nodes/interfaces/scripts/`
 - **Restored-backup data**, streamed in after deployment:
-  - `machines`: `data/machines.sql` (the database `jobs` and pg_cron in it)
-  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
-    `data/load.sql` into `records/clinic`, then `vet-machinery`'s, in
-    `composition.yaml`'s order: for each of `pacs`, `vitals` and `biomed`
-    on `machines`, the database created with `CONNECT` revoked from
-    `PUBLIC`, its `data/<database>/schema.sql`, then `vet-core`'s
-    `data/keys.sql` ahead of its `data/<database>/load.sql`; then its
-    `data/cron.sql` on `machines`' `jobs`; then the purpose
-    `vet-imaging-orders`'s DDL (its `ddl.source`,
-    `purposes/vet-imaging-orders/material/source/ddl.sql`, in
-    `records/clinic`, and its `ddl.target`,
-    `purposes/vet-imaging-orders/material/target/ddl.sql`, in
-    `machines/pacs`); then `vet-machinery`'s `data/coherence.yaml` checks.
+  - `machines`: `data/machines.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/equipment/`, `compose/interfaces/`, `compose/pms/`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 8h, the scenario's aging: the virtual T0 at 06:00,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-imaging-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+| each routine the fill covered has a new catalog row version from the fill's minutes, its definition and settings identical | pg_proc's xmin against the other routines'; two updates on pg_proc in pg_stat_sys_tables | partly: a change in the maintenance before the restart, not named | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

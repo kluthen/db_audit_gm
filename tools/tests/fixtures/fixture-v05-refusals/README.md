@@ -47,8 +47,7 @@ A small shop takes orders, posts some to an external laboratory through its
 order API, ships its archive to an off-site vault, and keeps a read-only
 replica of its database.
 
-The story as the players read it: `player/story.md`. The bastion's seed
-files map `partners.md`: the page is in the starter pack.
+The story as the players read it: `player/story.md`.
 
 ## 3. Topology
 
@@ -312,6 +311,23 @@ Data, restored from `data/partners.sql`:
 | `standby` | `db` | streaming replication | postgresql 5432 | continuous |
 | `exporter` | `db` | the exporter's statistics queries, as monitoring | postgresql 5432 | every 15 s |
 
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `northfield-lab` | Northfield Veterinary Laboratories | an external reference laboratory | round-trip | partners-api, partners-db | `northfield-lab` | `player/README.md` | none | none |
+| `cold-storage` | Cold Storage | the off-site vault | inbound | partners-api, partners-db | `cold-storage` | `player/README.md` | none | none |
+| `authority` | The Authority | an authority with no node | outbound | none | `authority` | `player/README.md` | none | none |
+
 ## 4. Host topology it was designed for
 
 Platform: swarm.
@@ -419,10 +435,7 @@ None.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology,
-  node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the partners `player/partners.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
   - `standby`: `nodes/standby/postgresql.conf`, `nodes/standby/pg_hba.conf`
@@ -441,3 +454,42 @@ None.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-job-every-minute/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 8h, the scenario's aging: the virtual T0 at 06:00,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-job-every-minute` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `f2` | `pg-table-autovacuum-off` | `supported` | — | any | the table's setting and its dead rows are state, which the fill makes as the day's updates do | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-v05-refusals-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

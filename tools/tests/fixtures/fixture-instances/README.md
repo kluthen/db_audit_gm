@@ -198,8 +198,8 @@ classes: `data/classification.yaml`.
 
 | Class | Locations | Separation | Readers | Outbound |
 |---|---|---|---|---|
-| `personal` | db/shop | instance | shop_app | mail-provider (db/shop/mail_outbox): email, name, order_id |
-| `customer-linked` | db/shop | — | shop_app | none |
+| `personal` | `db/shop` | instance | `shop_app` | `mail-provider` (`db/shop/mail_outbox`): email, name, order_id |
+| `customer-linked` | `db/shop` | — | `shop_app` | none |
 | `internal` | any | — | — | none |
 
 The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
@@ -292,3 +292,7 @@ None.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.
