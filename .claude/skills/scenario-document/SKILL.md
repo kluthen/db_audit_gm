@@ -8,7 +8,7 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). This is its **v0.5 version**, expected
+skill's [template](template.md). This is its **v0.6 version**, expected
 to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
@@ -34,7 +34,9 @@ register (v0.5)" below) and v0.6's (`specs/versions/v0.6/master-spec.md`,
 6.1, 6.2 and 8, with capture W2 item 6 of
 `specs/versions/v0.6/wave-log.md`: a node's description, site and users,
 the "Network overview" section and the overview beside each fault; see
-"The network overview (v0.6)" below). The template's sections follow the keys of the
+"The network overview (v0.6)" below; and 7.6, 9.5 and 9.10, with capture
+W3 item 12 and W4 items 7 to 9: an instance's admitted incident, the
+"Fake aging" section, the starter-pack line; see "The v0.6 items" below). The template's sections follow the keys of the
 format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -63,6 +65,11 @@ so the document is filled field by field.
   not a document.
 - After **any** change to `scenario.yaml`, `gm/answer-key.yaml` or
   `brief.md`, in the same change.
+- After a change to what the "Fake aging" section reads (v0.6): a fault
+  definition's `aging.fake` or its `gm.md` "**Fake aging.**" note, for
+  every scenario with an instance of it, and a new short-game record
+  `tools/fake_aging/calibration/<id>-short-game-*.txt`, for its scenario;
+  in the same change.
 - Before deploying, when `README.md` is missing or does not match the
   authoritative files (its scenario version, or any value, differs).
 - After this template changes, for the scenarios the GM is about to use.
@@ -90,7 +97,12 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
    "The v0.5 items" below). A scenario listing `domains:` adds its
    composition record, `composition.yaml`, and `merge.yaml` when present
    (the "Composition" section, "The v0.5 items" below), with the node
-   lines `tools/gmctl compose <dir> --check` prints.
+   lines `tools/gmctl compose <dir> --check` prints. The "Fake aging"
+   section (v0.6) reads each fault instance's definition (`aging.fake`,
+   its `gm.md` note), the rows of `tools/gm/cleanrestart.py`'s
+   `EXPLAINS` with the seed `postgresql.conf` files and the data and
+   domains' schema files their conditions name, and the newest short-game
+   record; see "The v0.6 items" below.
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -129,6 +141,12 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      `false_alarms:` entry with each evidence entry; every fault
      instance's `backlog:` with its `what` and `cleanup`, under that
      instance's answer (spec D472);
+   - from v0.6: every instance's `admitted:` with its partner, title,
+     `from`, `until` and text; the "Fake aging" section last, in every
+     document: "None: ..." for a scenario without `aging:`, otherwise one
+     row per instance (support, or "not assessed"), the full selection's
+     tail and anchor, or "not assessed", the setup time or "not measured",
+     and the limits that hold with the instances each touches;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it
@@ -350,6 +368,85 @@ an overview fault) gets no such line.
 The entries are not copied: the GM reads `gm/network-overview.yaml` itself
 on a restart. A scenario without an overview has no such section and no
 such lines.
+
+**A true overview with no entry** (a fixture whose topology is the
+bastion alone, v0.6 chunk 14's: the loader refuses an entry for a node
+outside the topology): the subsection says the true overview describes no
+node of the scenario's topology, gives its third-party rows, and makes no
+claim that the handout renders it; the "No overview fault" line drops
+"the handout is the true overview rendered as is". Where the handout came
+from is no fact of the authoritative files, so the document says nothing
+of it.
+
+## The v0.6 items
+
+- **An instance's admitted incident** (`admitted:`, master spec 7.6; spec
+  D537; capture W4 item 8): in section 5, after the plantings' line, only
+  when an instance has one: "Admitted by a partner on its status page:", a
+  table (instance, partner, title, `from`, `until` as written, "—" when
+  absent), then each one's text quoted, in the order of
+  `fault_instances`. So the GM knows what a status page will say and when
+  without reading `scenario.yaml`. An instance left out of a game's
+  selection, or refused in a fake game, admits nothing: that is the game's,
+  not the document's.
+- **The starter-pack line** (capture W4 item 9): the true register,
+  `gm/data-register.yaml`, is named beside the data register only, when
+  the bastion maps `data-register.md`.
+- **"Fake aging"** (master spec 9.5, 9.6, 9.10; spec D544; captures W3
+  item 12 and W4 item 7): an unnumbered `## Fake aging` after section 7,
+  **in every document**: the GM skill treats a document without it as
+  stale for a fake game. For a scenario without `aging:` it is one line,
+  "None: the scenario does not age, so it has no fake game." Otherwise:
+  - the virtual span: `aging.minimum`, the virtual T0 at the designed
+    hand-over minus it, scenario time;
+  - a row per instance from its definition's `aging.fake`: support, or
+    **not assessed** without `aging.fake`; its tail needs
+    (`tail_minimum`, `tail_covers`); `plant_in`; its reason as written;
+    whether its `gm.md` has a "**Fake aging.**" note (the note itself is
+    not copied);
+  - the full selection at the designed hand-over, by master spec 9.6 as
+    `render.fake_timeline` computes it: the tail, the anchor, the
+    instances refused (`real-only`) with their reasons; with any instance
+    not assessed, "not assessed: no fake game of this scenario until every
+    instance is" instead. Compute it with the function itself (a planned
+    hand-over on any day at `aging.handover_at`), never by hand;
+  - the setup's measured time (spec D544): from the newest
+    `tools/fake_aging/calibration/<id>-short-game-*.txt` (written by
+    `tools/tests/smoke-fake-aging.sh --record`), the deploy to
+    `restart.at`, the wait for the anchor not counted, and the fill's
+    duration within it, the file named; **"not measured"** without one;
+  - the limits: the rows of `tools/gm/cleanrestart.py`'s `EXPLAINS` (9.10's
+    table, the restart record's `explains`) that hold for the scenario by
+    the record's own conditions, read at design time: the archive's row
+    when a postgres node's seed `postgresql.conf` sets `archive_mode` on
+    with an `archive_command` or `archive_library`; Prometheus' two when a
+    node runs the `prometheus` brick; the covered routines' when a function
+    or procedure in the scenario's data files or its domains' schema files
+    sets its own `search_path` (9.4's cover). So the document and the
+    record never disagree.
+
+**Matching an instance's evidence to a limit.** An instance is listed
+beside a limit when one of its answer-key evidence entries reads where the
+row shows, by its `where`, `source` and `how`:
+
+| Limit (EXPLAINS row) | Evidence that reads where it shows |
+|---|---|
+| the restart itself | `pg_postmaster_start_time()`, a process list (`ps`), a `stats_reset`, or a log of a restarted service: PostgreSQL's server log (pgBadger's report over it included), the pooler's log, a cron job's log (`/var/log/postgresql/cron/`) |
+| no log before the restart | the same logs (the scheduler's own log is not one: it covers the fill) |
+| real-clock actors | `cron.job_run_details`, a cron job's log, PgBouncer's console (`SHOW ...`) or its `stats:` lines, `pg_stat_archiver`, Grafana's alert state or history |
+| inode change times | `pg_stat_file()`, `stat`, `ls -lc` |
+| last-use times | `pg_stat_user_tables`, `pg_stat_user_indexes` |
+| the LSN and WAL volume | an LSN (`pg_current_wal_lsn()`, `pg_last_wal_*_lsn()`), a WAL segment's name (`last_archived_wal`, `pg_wal`) |
+| time-driven behaviour | what the definition's `aging.fake.fill.emulate` lists (a held snapshot, a lock wait, a pool's queue), or a timeout or an out-of-memory kill read in a log or a view |
+| the archive vault and a standby | the archive vault (its manifests or page), a standby's replication state (`pg_stat_replication`, its receive and replay positions), a replication slot |
+| Prometheus' imported blocks | the TSDB's files, Prometheus' runtime information |
+| Prometheus' own series | the `prometheus_tsdb_*` series |
+| the forged past's fine shape | a series read in Prometheus (`ui:prometheus`) or in a Grafana panel on Prometheus (`ui:grafana`) |
+| covered routines | `pg_proc`'s `xmin`, `pg_stat_sys_tables` (a routine's definition read with `\sf` is not: it is identical) |
+
+A row no evidence reads gets "none of this scenario's evidence". The rule
+judges where the evidence reads, not whether the instance is eligible: a
+refused or not assessed instance is listed as any other.
 
 ## What it does not describe
 

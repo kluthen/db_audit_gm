@@ -995,3 +995,58 @@ the expected answer): none.
   copy of `domains/shop/data/classification.yaml`.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 16h, the scenario's aging: the virtual T0 at 22:00
+  the day before, scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `purpose-mail-overlapping-window` | `supported` | — | any | the fill runs mail.shipped every five virtual minutes through the scheduler's own code on the virtual clock (P0), so every notice goes twice at virtual times; the history draws the repeated rows each run inserts | — |
+| `f2` | `purpose-leads-stale-consent` | `supported` | — | any | the release at the virtual T0 moves the unsubscribe link to its new entry in the fill, and the win-back jobs read the stale flag on the virtual clock (P0), so the leads and mail after a withdrawal are rows dated in the fill's span, as a real night writes them | — |
+| `f3` | `purpose-mail-outside-hours` | `supported` | — | any | the campaign job runs on the virtual clock in the fill (P0), so the mail it sends at night in the recipients' zones is dated at its virtual instants, from the company's 08:00 | — |
+| `f4` | `purpose-watermark-misses-updates` | `supported` | — | any | the hourly roll-up and the source's 12:00 close run on the virtual clock in the fill (P0, the close's procedure through the cover), so the published days lag the source's invoicing at virtual instants | — |
+| `f5` | `purpose-etl-role-expired` | `tail-only` | — | the tail | its refusals in the PostgreSQL log must follow its planting, and that log starts at the restart, so it is planted in the tail | yes |
+| `f6` | `security-crontab-superuser` | `tail-only` | at least 1h | any | the cron daemon is off in the fill and the PostgreSQL log starts at the restart, so the entry's peer connections as postgres show only from the tail's runs: an hour of tail holds one | yes |
+| `f7` | `purpose-day-boundary-wrong-zone` | `supported` | — | any | the nightly close runs in the fill at its virtual 01:30, the procedure pinning its own settings reached by the cover (P0), so the days it closes wrong are dated as a real night dates them | — |
+| `f8` | `purpose-receiver-down-unnoticed` | `supported` | — | any | the gateway's outage is its timeline's key switch at virtual 08:00 to 10:00, which the fill runs, so the unanswered declarations and the escalations finding nothing are in the fill's span | — |
+| `f9` | `governance-personal-copied` | `supported` | — | any | the server, the mapping, the foreign table, the job and the copied rows are state; pg_cron's run history holds the tail only, as every real-clock actor's (master spec 9.10) | — |
+| `f10` | `purpose-heavy-job-on-database-node` | `real-only` | — | any | its evidence is a real out-of-memory kill and the crash recovery at 03:00 in the PostgreSQL log, the cgroup's counters and the statistics' reset, which the fill can emulate in outcome only and the restart erases (master spec 9.10); no history | yes |
+
+- **The full selection**: a tail of 5h, anchored at 09:00, scenario
+  time; refused: `f10` (`real-only`): its evidence is a real
+  out-of-memory kill and the crash recovery at 03:00 in the PostgreSQL
+  log, the cgroup's counters and the statistics' reset, which the fill
+  can emulate in outcome only and the restart erases (master spec 9.10);
+  no history.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/tarnbeck-outdoor-campaign-short-game-*.txt`,
+  yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | `f5`, `f6`, `f10` |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | `f5`, `f6`, `f10` |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | `f6`, `f9`, `f10` |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | `f10` |
+| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start: the maintenance restart | none of this scenario's evidence |
+| Prometheus' own series show the import, about 12 minutes after the restart: its lowest timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up | prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, prometheus_tsdb_storage_blocks_bytes, in Prometheus and Grafana | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+| each routine the fill covered has a new catalog row version from the fill's minutes, its definition and settings identical | pg_proc's xmin against the other routines'; two updates on pg_proc in pg_stat_sys_tables | partly: a change in the maintenance before the restart, not named | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

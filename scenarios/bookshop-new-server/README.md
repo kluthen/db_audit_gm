@@ -470,3 +470,7 @@ None.
   - `db`: `data/db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.
