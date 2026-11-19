@@ -679,3 +679,9 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   spec 9.9 fix 5 holds as written rather than becoming a limit. Chunk 12
   takes it (its shop game plays f8). The value's form raised as O292.
   Now in: [build plan](versions/v0.6/build-plan.md) v13, chunk 12, G13.
+- **D585 (2026-11-19, the owner: "go with the recommended option on
+  O292"): a `gauge_before` adds its `value` to the level drawn before
+  the planting, instead of holding one level;** f8's is the dropped
+  index's size, so the shop's size keeps the load's shape (9.9 fix 5 as
+  written). Closes O292. Now in: [formats.md](formats.md) v40 "Fault
+  definition"; [build plan](versions/v0.6/build-plan.md) v14, chunk 12, G13.

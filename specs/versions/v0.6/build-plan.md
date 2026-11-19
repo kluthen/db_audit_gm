@@ -1,6 +1,11 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v13 (2026-11-19): the owner's ruling after G10.3 (spec D584):
+Status: v14 (2026-11-19): O292 ruled (spec D585), G13 cleared: a
+`gauge_before` adds its value to the level drawn before the planting,
+f8's the dropped index's size; chunk 12a carries it (`history.py`, the
+skill's wording, `fixture-dropped-index`'s value and its history run's
+check), formats.md v40.
+v13 (2026-11-19): the owner's ruling after G10.3 (spec D584):
 chunk 12 gives the shop's f8 a measured `gauge_before`, its form
 waiting on O292 (G13).
 v12 (2026-11-19): after wave 3's gate, G10.3 done (formats.md
@@ -39,7 +44,7 @@ Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
-[formats.md](../../formats.md) v39. No design set (no interface to
+[formats.md](../../formats.md) v40. No design set (no interface to
 design, spec D2). Where this plan and those documents disagree, they win
 and the plan is corrected.
 
@@ -140,7 +145,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | done (2026-11-19, 06a5d21, spec D580) |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
-| G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | open |
+| G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
 
 G5, G7 and G8 are post-change checks on resolved versions, G6 a
 preflight on candidates (skill `dependency-gating-protocol`).
@@ -381,7 +386,13 @@ wave 4":
 
 | Ruling | Spec | Chunks it touches |
 |---|---|---|
-| The shop's f8 gains a measured `gauge_before` on `pg_database_size_bytes`, so master spec 9.9 fix 5 holds as written; its form is O292 (G13) | D584 | 12 |
+| The shop's f8 gains a measured `gauge_before` on `pg_database_size_bytes`, so master spec 9.9 fix 5 holds as written; its form ruled by D585 | D584 | 12 |
+
+Ruled on 2026-11-19, O292 (G13), "go with the recommended option":
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| A `gauge_before` adds its `value` to the level drawn on its series before the planting, instead of holding one level; f8's `value` is the dropped index's size | D585 | 12 |
 
 Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 2026-11-17"), all three as recommended:
@@ -1574,7 +1585,8 @@ Wave: 4
 Depends on: chunks 7, 8, 9, 10, 11, 15; chunk 1 (the reference)
 Docker: heavy (one short fake game of the shop and one of the campaign;
 f8's index measured from a short run of the shop's database, if not
-from the reference, one at a time under the lock)
+from the reference; `fixture-fill`'s history run once; one at a time
+under the lock)
 Architecture capture: W4: the verification tools' arguments and
 verdicts, and the short-game script's name, which the release gate
 calls.
@@ -1634,11 +1646,28 @@ calls.
     `calibrate.py gauge`; the comment names the member) or in a short
     run of the shop (`--record f8`, the file
     `tools/fake_aging/calibration/tarnbeck-outdoor-shop-f8-<YYYYMMDDTHHMMZ>.txt`,
-    which the comment names). The number's form waits on O292 (G13):
-    as built, `value` is the level held until the planting.
+    which the comment names). Its `value` is the index's size, added
+    to the drawn size up to the planting (spec D585).
     `test_fake_aging_faults.py` already checks every `value:` line's
-    comment and source; it is extended only if O292's ruling asks
-    more of it;
+    comment and source, unchanged;
+  - **`gauge_before` adds its value** (spec D585, formats.md v40,
+    "Fault definition"): in `tools/gm/history.py`, a `gauge_before`
+    adds its `value` to the level drawn on its series up to the
+    planting instead of holding that level; a series the tail lacks
+    (a dropped object's) still reads `value` alone, so
+    `test_history.py`'s `test_gauge_before` holds as it is, and a case
+    is added for the sum on a series the tail has. The
+    `scenario-format` skill's and its `fault.yaml` template's
+    `gauge_before` wording follow (`value`: what is added until the
+    planting). `fixture-dropped-index`'s `value` becomes its index's
+    size, measured in `fixture-fill`'s history run (the index's
+    `pg_relation_size` before the fill drops it, a figure the run
+    prints), its comment naming that run instead of the "about 20 MB"
+    estimate; if the run cannot read it, the value stays the estimate,
+    the comment says so, and the chunk's record names it.
+    `run-history-test.sh`'s `gauge_before` check follows the new form
+    (the size steps down by `value` at the planting) and the run
+    passes once, under the lock;
   - **the scenario document's "Fake aging" section** (the
     `scenario-document` skill and its template): each instance's
     support, the tail the full selection needs, the instances refused
@@ -1663,7 +1692,9 @@ calls.
   `tools/tests/fixtures/{fixture-status,fixture-v06-refusals}/README.md`;
   `faults/pg-join-index-missing/fault.yaml` (f8's `gauge_before`);
   `tools/fake_aging/calibration/` (f8's file, if measured in a run);
-  whatever O292's ruling adds.
+  `tools/gm/history.py`, `tools/tests/test_history.py`;
+  `.claude/skills/scenario-format/{SKILL.md,templates/fault.yaml}`;
+  `tools/tests/fixtures/fixture-fill/{faults/fixture-dropped-index/fault.yaml,run-history-test.sh}`.
 - Spec sections: [12.1](master-spec.md#121-short-tests-only),
   [9.10](master-spec.md#910-documented-limits),
   [9.9](master-spec.md#99-the-fix-list),
@@ -1676,7 +1707,10 @@ calls.
   deploy to the restart and the import's time recorded; the shop's M1 and M3 comparisons within the reference's
   tolerances; f8's `history:` carrying its measured `gauge_before`,
   `test_fake_aging_faults.py` passing, and the shop's forged past
-  stepping down at f8's planting by the index's size; the scenario
+  stepping down at f8's planting by the index's size; `gauge_before`
+  adding its value, `test_history.py` green, `fixture-fill`'s history
+  run passing with `fixture-dropped-index`'s value its index's size;
+  the scenario
   document's section present for the shop and
   the campaign, and stating "not assessed" where a scenario's faults
   are; `fixture-status`'s and `fixture-v06-refusals`' scenario
@@ -1685,8 +1719,10 @@ calls.
 - Verification: chunk checks; the two short games, one at a time,
   under the lock; in the shop's, `pg_database_size_bytes` for `shop`
   over the forged past read at f8's planting (08:00), its step against
-  the measured size (spec D584).
-- Split rule: 12a the tools, the script, f8's `gauge_before` and the
+  the measured size (spec D584); `fixture-fill`'s history run once,
+  under the lock (spec D585).
+- Split rule: 12a the tools, the script, `gauge_before`'s sum (spec
+  D585), f8's `gauge_before`, `fixture-dropped-index`'s value and the
   shop's game; 12b the campaign's game and the scenario document's
   section.
 

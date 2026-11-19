@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v39; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v40; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -53,7 +53,9 @@ the restart record's `history` and `state.yaml`'s `history_import`, the
 seam check's findings, a fake game's restart; a history signature's
 `# measured:` comments, its optional parameters, the exporter's reach,
 the `**Fake aging.**` note; the calibration files, a report-only node's
-service times and a one-run key's `sigma: 0`.
+service times and a one-run key's `sigma: 0`. Draft v40, the owner's
+ruling on O292 (D585): a `gauge_before` adds its `value` to the level
+drawn before the planting, a dropped index's the index's size.
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -1237,8 +1239,12 @@ faults/<fault-id>/
     label is the exporter's target, never the database node: an
     `instance=` or per-table selector on a `pg_*` series matches
     nothing. A dropped index's size is drawn with a `gauge_before` on
-    `pg_database_size_bytes{datname=...}`, the database's size with the
-    index. `- kind: none` is a signature's only entry.
+    `pg_database_size_bytes{datname=...}`, its `value` the index's size.
+    `- kind: none` is a signature's only entry.
+  - A `gauge_before` adds its `value` to the level drawn on its series
+    up to the planting, instead of holding one level (D585): the series
+    keeps its shape and steps by `value` at the planting. On a series
+    the tail lacks (a dropped object's) it reads `value` alone.
   - The `gm.md` note is a paragraph opening `**Fake aging.**`, the
     note's last, after its run-in labelled paragraphs; the skills point
     to it by that label.
