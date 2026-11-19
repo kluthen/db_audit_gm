@@ -1,6 +1,6 @@
 # Game mode and memory
 
-Status: draft v1
+Status: draft v2
 
 The repository as players and GMs meet it, apart from the repository as
 it is developed. Raised on 2026-11-19 by the game assistant's session
@@ -64,7 +64,12 @@ The owner, 2026-11-19:
   the register faults and the overview faults. The game-master skill
   uses each of them "with the … skill" during setup, so making them
   user-only (`disable-model-invocation: true`) would stop the GM from
-  invoking them unless it reads their files instead (O282).
+  invoking them, a request in a skill's own instructions included
+  (O282).
+- **From v0.7 the GM and the assistant are agents** (D559–D561;
+  [agents.md](agents.md)). Under `claude --agent <name>`, `CLAUDE.md` and
+  the project's automatic memory still load (agents.md 3): whatever
+  game mode's `CLAUDE.md` says, the assistant reads too.
 
 ## 3. Producing game mode (O286)
 
@@ -73,15 +78,22 @@ local overlay, so no push can carry dev mode and there is nothing to
 swap:
 
 - `README.md` becomes the game's: what the game is, how to start one
-  (a fresh clone, `/game-master`), the players' assistant
-  (`/game-assistant`), the trust line (the repository holds the answers;
-  players don't read it). The developer's content moves to
+  (a fresh clone, then the GM agent, `claude --agent game-master` or
+  `opencode --agent game-master`), the players' assistant (`claude
+  --agent game-assistant --settings .claude/game-assistant.settings.json`
+  or `opencode --agent game-assistant`), the trust line (the repository
+  holds the answers; players don't read it). The developer's content
+  moves to
   `specs/README.md`, already the spec tree's index, and a
   `DEVELOPING.md` for the layout and the tooling.
 - `CLAUDE.md` is the game's: this checkout is for playing; no
-  development; the GM's and the assistant's skills are invoked
-  explicitly; no game data in memory (MD2); the GM side of every
-  scenario is the GM's.
+  development; the GM and the assistant are started by name; no game
+  data in memory (MD2); the GM side of every scenario is the GM's. It
+  loads into every session, the assistant's included, so it holds
+  nothing the assistant may not read: no fault, no aging mode, no
+  scenario's GM side. OpenCode gets the same text, by a project
+  `opencode.json` with `instructions: ["CLAUDE.md"]` or an `AGENTS.md`,
+  once the build has checked which OpenCode loads unasked (agents.md 3).
 - The developer's own instructions live outside the tracked files: a
   git-ignored local file, or the developer's user-level memory.
 - **A check before every push**: a script (`tools/tests/check-game-mode.sh`,
@@ -102,10 +114,14 @@ and what a reader is first told, not about hiding the answers.
 
 Proposed (MD2): the GM's memory is the game's local implementation and
 nothing else; the GM writes no game data to Claude Code's automatic
-memory; the game-mode `CLAUDE.md` and the game-master skill both say so;
-and, if Claude Code lets a project turn its automatic memory off in its
-committed settings (to verify at build), game mode does. The game
-assistant keeps no memory beyond its drafts (game-assistant.md 12).
+memory; the game-mode `CLAUDE.md` and the GM's agent both say so; and
+game mode's committed `.claude/settings.json` sets
+`autoMemoryEnabled: false` (a documented setting; the environment
+variable `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` does the same for one
+session), which turns it off for every session in the clone, the GM's
+included, as D555 wants once the GM's memory is its local
+implementation. The game assistant keeps no memory beyond its drafts
+(game-assistant.md 12). OpenCode's side is to check (agents.md 3).
 
 The alternatives: the rule in `CLAUDE.md` and the skill only, on trust;
 a GM memory folder of its own (`scenarios/<s>/local/memory/`, say),
@@ -113,10 +129,24 @@ which the local implementation already is in all but name.
 
 ## 5. The skills' listing (O282)
 
-Proposed (MD3): the four GM sub-skills' descriptions rewritten neutral
-("GM only, invoked by the game master during setup: generates a
-scenario's …"), without the answer key or the faults, so the listing
-leaks nothing and the GM can still invoke them; the game assistant never
-invokes another skill (game-assistant.md GA5). Making them user-only
-(`disable-model-invocation: true`), the first recommendation, works only
-if the game-master skill reads their files instead of invoking them.
+**Invocation is closed** by the assistant's definitions: no `Skill` in
+its Claude Code `tools:`, `skill: deny` in OpenCode (D559;
+[agents.md](agents.md) 5).
+
+**The listing**, the skills' names and descriptions in its context:
+
+- Claude Code: whether an agent session still shows it is not
+  documented. Proposed (MD4): the assistant's session-only settings file
+  sets `skillOverrides` to `"off"` for `game-master` and the four
+  helpers, which hides them from the model's listing; session-only,
+  because committed project settings would hide the helpers from the GM
+  too.
+- OpenCode: not verified whether `skill: deny` hides the listing.
+- Both are settled by the build's empirical check (agents.md 7, AG5).
+
+MD3, the four helpers' descriptions rewritten neutral ("GM only, invoked
+by the game master during setup: generates a scenario's …", without the
+answer key or the faults), becomes optional defence in depth, and the
+fallback if the check finds a listing still leaking. Making the helpers
+user-only (`disable-model-invocation: true`) stays ruled out: it would
+stop the GM from invoking them.

@@ -408,6 +408,7 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   stance, as D13's light enforcement. Rejected: an exported player
   workspace with deny rules; Claude Code installed on the bastion. Now
   in: [game-assistant.md](versions/v0.7/game-assistant.md) 1, 3.
+  *Amended by D559 (an agent, not a skill) (2026-11-19).*
 - **D547 (2026-11-19, owner ruling, same relay): the bastion link is a
   fixed, read-only set of reads, never a shell; the assistant's files are
   local,** the players copying the report to `~/report.md`, where the GM
@@ -467,3 +468,21 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   and later. Closes O283, O284, O285. Now in:
   [references/grille-audit-pg.md](references/grille-audit-pg.md),
   [game-assistant.md](versions/v0.7/game-assistant.md) 11.
+- **D559 (2026-11-19, owner ruling, relayed by the coordinator): the game
+  assistant is an agent, not a skill,** amending D546: one definition for
+  Claude Code and one for OpenCode, allowed no skill (no `Skill` in its
+  tools, `skill: deny`), started by name, still on trust. Asked "can't we
+  limit the skill this agent is allowed to use ?", the owner took
+  dev_team's agent pattern. Now in: [agents.md](versions/v0.7/agents.md)
+  1, 5; [game-assistant.md](versions/v0.7/game-assistant.md) 1.
+- **D560 (2026-11-19, owner ruling, same relay): the GM is an agent too**
+  ("the GM should also be an agent as well"), allowed its four helper
+  skills; today's `game-master` skill becomes its core file plus
+  workflow skills and references, split at build in a v0.7 chunk after
+  v0.6's merge. D6 and D33 hold: a GM session is one started as the GM
+  agent. Now in: [agents.md](versions/v0.7/agents.md) 1, 4, 6, 7.
+- **D561 (2026-11-19, owner ruling, same relay): Claude Code and OpenCode
+  both supported** ("Ensure both claude code and opencode are
+  supported"): each agent defined in both dialects, kept in step by hand
+  with no automated sync, as dev_team does. Now in:
+  [agents.md](versions/v0.7/agents.md) 1–3.

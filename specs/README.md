@@ -27,7 +27,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3; fake aging beside it from v0.6, D489), hand-over (the handouts static, which may be wrong, English), end of the game | draft v14 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates; where a job runs (D207); from v0.4, the purpose, the domain, governance and the new fields; a test-only brick change bumps nothing (D229); an outbound flow's `fields` are its outbox's payload keys (D231); `separation: instance` refused with `locations: any` (D253); a `state` fault's `seed_changes` (D254); from v0.5, the domain format, composing domains, the data register and the purpose format's extensions (D338, closing O111); a domain's producer folders per node (D344), the `api` node's `api.yaml` (D345), the `api` role (D349); wave 2's format items as built (D364): loading a composed domain from the catalogue (the database convention and `:"DBNAME"`, `load_epoch`, a core's `keys.sql`, a partner's `data.sql`, `coherence.yaml`, a check reading `partners` on its node, D383), the `partners/` catalogue folder, the owners' traffic in `producers/partners/owners/` (D369); the merge's scenario layer `compose/<node>/` in the layout | draft v36, v0.6's format items at its consolidation (v34), a `seed_changes` item's declared `lines:` from wave 1 (v35, D521) and waves 1 and 2's forms as built (v36, D534: the true overview's form, `service-times.yaml` and `wal-rate.yaml`, a fake game's records, the status file, the brick pages) (the network overview, `admitted:`, `aging.fake`, `history:`, the restart record, `base:`, two loader refusals); amended in v0.5's build (v32: wave 4's format items as built, G18; v33: wave 5's, G19) |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v11 |
-| [versions/v0.7/](versions/v0.7/README.md) | v0.7's page: the [game assistant](versions/v0.7/game-assistant.md), a player-side helper skill with the player's access and no background, a coach (D545–D554), and the repository's [game mode](versions/v0.7/game-mode.md), the GM's memory kept clean (D555–D557) | drafting opened 2026-11-19 (D549); game assistant draft v2, game mode draft v1; O282, O286–O288 open |
+| [versions/v0.7/](versions/v0.7/README.md) | v0.7's page: the [game assistant](versions/v0.7/game-assistant.md), a player-side helper with the player's access and no background, a coach (D545–D554); the GM and the assistant as [agents](versions/v0.7/agents.md) for Claude Code and OpenCode (D559–D561); the repository's [game mode](versions/v0.7/game-mode.md), the GM's memory kept clean (D555–D557) | drafting opened 2026-11-19 (D549); game assistant draft v3, agents draft v1, game mode draft v2; O282, O286–O289 open |
 | [references/grille-audit-pg.md](references/grille-audit-pg.md) | The owner's PostgreSQL audit grid, a verbatim copy (French), informative only (D558) | reference |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v19 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v19 |
@@ -332,8 +332,10 @@ access model.
   access-model gap (D474); G13's findings 1 and 4 known limits, the
   loader's seed-file check for v0.6 (O269) and the clinic's setup for
   v1.0 gating (O270) (D476).
-- v0.7 (2026-11-19, D549): the game assistant, `/game-assistant`, a
-  skill in this repository with the player's access on trust (two trust
+- v0.7 (2026-11-19, D549): the game assistant, an agent for Claude Code
+  and OpenCode allowed no skill, as the GM becomes an agent allowed its
+  helpers, the two dialects kept by hand (D559–D561, amending D546), with
+  the player's access on trust (two trust
   lines: in the assistant, in the players), no background, never a
   database, writing only the report and its drafts wherever the players
   like, a coach, always available, no channel to the GM, graded
@@ -341,7 +343,7 @@ access model.
   D546, D550–D554; D547 amended); the owner's audit grid an informative
   example (D558); the GM leaks no game data through memory, only game
   mode is pushed, a game played from a fresh clone (D555–D557). Open:
-  O282, O286–O288 ([v0.7](versions/v0.7/README.md)).
+  O282, O286–O289 ([v0.7](versions/v0.7/README.md)).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -359,5 +361,6 @@ access model.
 2. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.
 3. v0.7 ([page](versions/v0.7/README.md), opened 2026-11-19): the
-   owner's rulings on O282, O286–O288 and the drafts' GA and MD
-   proposals.
+   owner's rulings on O282, O286–O289 and the drafts' GA, MD and AG
+   proposals; the GM's conversion to an agent a v0.7 chunk after v0.6's
+   merge (D560).

@@ -1,13 +1,17 @@
 # The game assistant
 
-Status: draft v2
+Status: draft v3
 
 A player-side helper, distinct from the GM: a DBA colleague the players
 call on during the game, coaching them, holding none of the game's
 background. Opened on 2026-11-19 (D545–D547), placed in v0.7 the same
 day (D549) and shaped by the owner's second round of rulings
-(D550–D554, D558). Its sibling in v0.7, the repository's game mode and
-memory rules, is [game-mode.md](game-mode.md). Settled items are stated
+(D550–D554, D558); an agent, not a skill, since the owner's third
+round (D559–D561).
+Its siblings in v0.7: [agents.md](agents.md), the GM's and the
+assistant's agent definitions for Claude Code and OpenCode, and
+[game-mode.md](game-mode.md), the repository's game mode and memory
+rules. Settled items are stated
 as fact; tentative ones are tagged `(proposed)` and labelled **GA1**,
 **GA2**… so the owner can confirm them by label (labels are stable;
 GA11, GA12, GA16, GA20 and GA21 are now settled and no longer
@@ -41,9 +45,11 @@ the access model at consolidation (proposed, GA1).
 
 Settled:
 
-- **A skill in this repository**, `/game-assistant` in `.claude/skills/`,
-  invoked explicitly, as `/game-master` is (D546), from the game's own
-  clone of the repository (D557).
+- **An agent in this repository** (D559, amending D546), one definition
+  for Claude Code and one for OpenCode, allowed no skill, started by
+  name (`claude --agent game-assistant`, `opencode --agent
+  game-assistant`), from the game's own clone of the repository (D557);
+  its definitions are [agents.md](agents.md) 5.
 - **The player's access, on trust** (D550, amending D547): the bastion
   as `player`, the web front with the tools password, the handouts. No
   door, no channel of its own. Its limits are stance rules, on two trust
@@ -142,7 +148,7 @@ password the player gives it. No brick or `gmctl` change.
 **In the repository** (GA4, proposed): an allow-list; everything else is
 off-limits by its stance:
 
-1. its own skill and its reference files;
+1. its own agent definition and its reference files;
 2. the starter pack and handouts as the players have them on the
    bastion (above); the scenario's `player/` folder as a fallback
    (`README.md`, `story.md`, `issues.md`, and when present
@@ -168,8 +174,9 @@ record); `faults/`, every fault's `gm.md` among them; every brick's
 stubs), `post_mortem/` (a handout given after the final answer, D251);
 `specs/` but the grid, `tools/`, `issues/`, `.tech`,
 `SECURITY_TODO.md`; every other skill in `.claude/skills/`. It never runs
-`tools/gmctl` or `docker`, and never invokes another skill (GA5,
-proposed; O282).
+`tools/gmctl` or `docker`, and invokes no skill: its definitions allow
+none (D559; GA5, proposed, now only the `gmctl` and `docker` part; O282
+on whether it still sees the skills' listing).
 
 **The partners' credentials** (GA6, proposed): the home copy of
 `partners.md` and its page on the front carry the customer's own
@@ -313,10 +320,11 @@ reads) is not a paste; the purview of section 3 keeps the values out.
   report; the GM is in its own session). The bastion's player
   documentation gains a short "The game assistant" section saying the
   same (a `bastion` documentation change).
-- **Never the same session** (GA18, proposed): `/game-assistant` refuses
-  to start in a session that has already run `/game-master` or read any
-  GM-side material, and asks for a fresh one; `/game-master` refuses a
-  session that has run `/game-assistant` (a change to the GM skill).
+- **Never the same session** (GA18, proposed): a session is started as
+  one agent or the other (D559, D560). Where a tool lets a running
+  session switch agents (OpenCode's primary agents, to verify,
+  [agents.md](agents.md) 3), each refuses a session whose history holds
+  the other's work or any GM-side material, and asks for a fresh one.
 - **How the report reaches the GM, checked** (2026-11-19): gm-stance.md
   ("The final answer") takes a report pasted, left in `~/report.md`, by
   discussion or a mix; the game-master skill's hand-over and "Report
@@ -325,8 +333,8 @@ reads) is not a paste; the purview of section 3 keeps the values out.
   on your machine and paste it to the game master)". Nothing requires
   the bastion: a report kept anywhere reaches the GM pasted. None of
   them names the GM reading a file the players point it to on the GM's
-  machine; adding that way is a build item for the game-master skill
-  and the README template, not a change made here.
+  machine; adding that way is a build item for the GM's agent and the
+  README template, not a change made here.
 
 ## 10. How much it helps: a coach
 
@@ -354,8 +362,8 @@ to fit our need, but it doesn't need to be enforced here." A verbatim
 copy, in French with an English note at its head, is
 [references/grille-audit-pg.md](../../references/grille-audit-pg.md),
 in a `references/` folder of the spec tree: the tree is where the
-project's sources live, the skill doesn't exist yet, and the build may
-move it beside the skill as a reference file.
+project's sources live, the agent doesn't exist yet, and the build may
+move it beside the agent's files as a reference.
 
 What it holds: a process in five steps (frame: the observation window,
 the statistics' reset dates, a day's timeline; sweep every axis without
@@ -410,16 +418,18 @@ Checked on `main` 9aac312:
 - **Skills**: `game-master` has `disable-model-invocation: true`; the
   four GM sub-skills don't, and their descriptions, listed in every
   session at the repository root, name the answer key and the register
-  and overview faults (O282).
+  and overview faults (O282; the assistant's definitions allow no skill,
+  [agents.md](agents.md) 5).
 - **Player-side material**: `scenarios/<s>/player/` per scenario;
   `bricks/<b>/docs/player.md` for every brick.
 
-What a build touches: the new skill (its stance from this draft, the
-grid as a reference file if moved there); `.gitignore` (`play/`); the
-bastion's player documentation (GA17); the game-master skill's session
-rule (GA18) and, if wanted, a fourth way of taking the report, a file
-the players point to (section 9), with the player README template; the
-sub-skills' frontmatter (O282); the repository's game mode
+What a build touches: the assistant's two agent definitions and its
+session settings file (its stance from this draft, the grid as a
+reference if moved there; [agents.md](agents.md) 7); `.gitignore`
+(`play/`); the bastion's player documentation (GA17); the GM's agent,
+for the session rule (GA18) and, if wanted, a fourth way of taking the
+report, a file the players point to (section 9), with the player README
+template; the repository's game mode
 ([game-mode.md](game-mode.md)); at consolidation, concept.md's actors,
 planes-and-access.md's planes table and the access model (a new actor
 with the player's access and its stance's limits, the two trust lines as
@@ -430,5 +440,5 @@ known gaps).
 - Whether v1.0 gating's stance check-list gains assistant items (the
   purview kept, no database, the graded reminder, no channel to the GM),
   and whether its blind reads (D492) run as this assistant: O288.
-- The skill's own text (its opening, its refusals): written at build,
+- The agent's own text (its opening, its refusals): written at build,
   from this draft once ruled.
