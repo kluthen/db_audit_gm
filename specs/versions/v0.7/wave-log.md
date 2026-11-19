@@ -406,7 +406,8 @@ $3.94. No agent passed 300k of context.
 
 ### Open after wave 1
 
-- **Merge into `main`:** on the owner's word.
+- **Merge into `main`:** done on the owner's word (2026-11-19, ac17153,
+  not pushed); worktree and chunk branches removed.
 - **G3 (v0.6 released):** open, held by v0.6's driver and the owner.
 - **G4 (the switch to `dev`):** open; on the owner's word after G3.
 - **G6:** at wave 2's gate.
