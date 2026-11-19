@@ -328,3 +328,27 @@ agents: .claude/agents/game-master.md: missing (the GM, Claude Code)
 agents: .opencode/agents/game-master.md: missing (the GM, OpenCode)
 memory: .claude/settings.json: missing (game-mode/settings.json absent)
 ```
+
+### Plan v3 — 2026-11-19
+
+- **Commit:** spec-writer's 8c0a40f.
+- **D576, chunk 9 inserted:** it carries the GM notes' links into
+  dev-only paths.
+  - It rewrites the 41 links as plain provenance text, in 6
+    `domains/*/docs/gm.md`, 16 `purposes/*/gm.md` and
+    `partners/README.md`.
+  - Wave 2, no Docker. No v0.6 chunk edits these files.
+  - It needs no documentalist peek: the repository has no intent
+    register. Wave 2's start covers it.
+- **Chunk 4 corrected:** its scope now names the 4 `.claude/skills/`
+  pointers, and its Done when reads "no `pointer` finding under
+  `.claude/`".
+- **D577, a master spec amendment in wave 1:** `SECURITY_TODO.md` joins
+  8.2's dev-only list, restoring the reviewed draft's entry. Chunk 7
+  carries it into `game-mode/paths` and `publish.py`'s constant.
+  - No ruling is needed; the owner is told.
+- **O291 raised for the owner, before the first publish:** should the
+  clinic's trap witnesses, now in `specs/versions/v0.5/clinic-traps.md`
+  and the domain specs, be carried on `main`?
+  - Proposed default: the domain notes' glosses are enough.
+  - Chunk 9 doesn't wait on it.
