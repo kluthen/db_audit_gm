@@ -3167,3 +3167,82 @@ None contradicts the spec.
   16 read nothing that changed.
 
 `doc-ids compare main v0.6-w3`: 0 collisions.
+
+### After G10.3: gate fixes, ISS-008, plan v13 — 2026-11-19
+
+- Gate fixes (`coding-executor`, unit suite 1496 OK after them): 6334690,
+  gmctl.md and SKILL.md's retry advice follows D583 (a failed import is
+  retried by hand; a failed seam with the import `ok` is never rerun);
+  cd3d37e, `calibrate.py`'s docstring names as formats.md v38;
+  8669bd8, `cleanrestart.EXPLAINS`' real-clock row gains Grafana's alert
+  state and history, its no-log row "covers the fill" (9.10). The
+  real-clock row's "where it shows" still lists no Grafana view (9.10
+  says "those views"); left as is.
+- Owner rulings on G10.3's two open points: the unset optional signature
+  parameter filed as **ISS-008** (Medium, c7e9d80); f8's missing size
+  step **fixed in wave 4**.
+- Plan v13 (`spec-writer`, f7794bf, spec D584): chunk 12a gains f8's
+  measured `gauge_before` on `pg_database_size_bytes` (its Docker, Scope,
+  Files, Done when, Verification and Split rule lines revised). New gate
+  **G13 "O292 ruled"**, the owner's: `gauge_before` as built holds one
+  constant level until the planting, so the shop's database size would
+  read flat 22:00–08:00 and the step equals `value` minus the forged
+  level; O292 asks whether to keep the kind (a 9.10 limit) or make it add
+  its value to the drawn size before the planting (`history.py`,
+  formats.md, `fixture-dropped-index`'s value; spec-writer recommends
+  it). G13 blocks only chunk 12's f8 item, not the chunk's start.
+  `fixture-dropped-index`'s "about 20 MB" is an estimate: chunk 12 must
+  not reuse it.
+
+### Wave 3 report — 2026-11-19
+
+Chunks merged: 13 (0ec38b3), 11 (5c28a1d), 10 (552259f); none moved.
+Gate green after one fix (f07f0b1), then three text fixes after G10.3;
+no package change (no G9.2); G10.3 done (06a5d21, D580–D583). Issues
+filed: ISS-007 (Low), ISS-008 (Medium). `doc-ids compare main v0.6-w3`:
+0 collisions.
+
+Cost: 15 agents, 1,023 tool calls, 148.9M tokens in / 865k out, max
+context 310k, $75.45 at API prices (07:57–about 16:10).
+
+| role | agents | calls | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|
+| coding-leader | 6 | 597 | $52.50 | 70% | **310k** |
+| spec-writer | 5 | 226 | $10.04 | 13% | 201k |
+| coding-executor | 3 | 134 | $7.18 | 10% | 209k |
+| driver (top level) | 1 | 66 | $5.73 | 8% | 232k |
+
+| chunk | agents | calls | cost | share | max ctx |
+|---|---:|---:|---:|---:|---:|
+| 10 | 2 | 227 | $24.61 | 33% | **310k** |
+| 11 | 3 | 214 | $17.90 | 24% | 243k |
+| 13 | 1 | 99 | $5.62 | 7% | 229k |
+| outside chunks | | | $27.32 | 36% | |
+
+Over 300k: chunk 10's first owner (85 calls, 310k), which read
+`history.py`'s whole design and the composer's inputs before writing;
+rotated at 10a's commit. 10b's owner ran to 142 calls (276k), past the
+rotation bound, to finish its 23-minute fixture run.
+
+### Handover for wave 4 (read this first in a fresh session)
+
+- State: wave 3 gated on `v0.6-w3` (worktree
+  `~/work/db_audit_gm-wt/v0.6-w3`), merge into `main` on the owner's word;
+  then remove the worktree and the chunk branches `v0.6-c10-history`,
+  `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`.
+- Wave 4: chunks 5, 12, 14, 16 (plan v13). Chunks 5 and 14 have no
+  wave 4 dependency; 12 and 16 need wave 3's merge.
+- Open gate: **G13 (O292)**, the owner's; blocks chunk 12's f8 item
+  only.
+- For chunk 12's brief: f8's `gauge_before` (D584, O292's form); its
+  seam reads `gmctl history`'s verdict (D581), `--check-seam` available;
+  its selectors meet the exporter's reach (the `postgres` database only,
+  9.5); the `player` listing of the TSDB folder is its check; retention
+  past 13–15 h unmeasured.
+- For chunk 12 or 16: the `scenario-document` template's starter-pack
+  line sits outside an "if:" block.
+- Issues open in the area: ISS-007 (fill ignores the hider's planting,
+  D543), ISS-008 (unset signature parameter).
+- Environment: armenelos rebooted 07:55 UTC; `debian:13-slim` pulled
+  again; seven untagged pre-rebuild images left (no prune); `/home` 55 GB
+  free; `shellcheck` not installed; the VPS untouched.

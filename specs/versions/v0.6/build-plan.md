@@ -158,7 +158,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
-| 3 | 10, 11, 13 | wave 2 | chunks merged; gate next |
+| 3 | 10, 11, 13 | wave 2 | gated (2026-11-19); merge on the owner's word |
 | 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | planned |
 
 ```
