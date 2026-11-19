@@ -42,7 +42,13 @@ pair in the shop, and its f5 carries no `daily_spike` (6.9, 9.8; spec
 D548). Amended after chunk 11b: the campaign's f5 hides f4 and f7 in
 state and logs only, so no covered fault carries a `suppressed_by`, the
 rule unit-tested only; a report-only node's keys timed from a fill or
-with psql (6.9, 9.5, 9.7, 9.8; spec D578).
+with psql (6.9, 9.5, 9.7, 9.8; spec D578). Amended after wave 3's gate
+(gate G10.3): the forms as built, stated in formats.md v38 (6.3, 6.7,
+6.9, 9.5, 9.7; spec D580); the seam check's findings, its join checked
+on size gauges (9.4, 12.1; spec D581); a fake game's restart with no
+history (9.4; spec D582); one import at a time, a failed seam never
+imported again (9.4; spec D583); what wave 3 measured (9.4, 9.8, 12.1,
+18).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -298,7 +304,12 @@ in 6.9; rules in 9.5.
   `- kind: none`. Kinds `queue`, `counter_per_call`, `gauge_sawtooth`,
   `gauge_before`, `daily_spike`, `remove`; `suppressed_by:` drops an
   entry from the planting of a hiding fault's instance onward (9.5).
-  Every number in it is measured.
+  Every number in it is measured, and traced by a `# measured:` comment
+  on its line naming the reference member or calibration file it was
+  read from. A parameter only the signature needs is added optional
+  (`required: false`, `default: null`), so the scenarios using the
+  fault load unchanged, and every instance of a scenario played fake
+  sets it.
 - **`seed_changes[].lines`**, optional: the literal lines the change
   puts in the scenario's copy of the item's `file`, `{NAME}` parameter
   placeholders allowed, so a program can find them (a `change:` is
@@ -307,7 +318,7 @@ in 6.9; rules in 9.5.
   whose changes the answer key's diffs carry. The loader checks them
   (6.10); a change without `lines:` stays the GM's to read.
 - **`gm.md`** gains a "Fake aging" note when the support is `tail-only`
-  or `real-only`.
+  or `real-only`: its last paragraph, opening `**Fake aging.**`.
 - **Family `documentation`**, ids `docs-overview-*`: a `seed-file` fault
   on the bastion whose `seed_changes` name `network-overview.md`; the
   network-overview skill writes the handout with the change, the system
@@ -357,11 +368,13 @@ above it. The overview's **Background tasks** read it.
 - The bastion also receives, as configs, the player documentation of
   each brick it documents (section 7.3).
 
-Their forms as built (the timeline's keys, the record as written,
-`state.yaml`'s `hold`, `fill` and `clean_restart`, a `fill.quiet` item
-and the cover's, the status file's JSON and its `rendered` secret, the
-`brick-doc` configs) are in [formats.md](../../formats.md)
-"Local implementation" (v36).
+Their forms as built (the timeline's keys, the record as written with
+its `history`, `state.yaml`'s `hold`, `fill`, `clean_restart` and
+`history_import`, a `fill.quiet` item and the cover's, the history
+import's unit, run lock and working files, the seam check's findings,
+a fake game's restart, the status file's JSON and its `rendered`
+secret, the `brick-doc` configs) are in [formats.md](../../formats.md)
+"Local implementation" (v38).
 
 ### 6.8 Versions and pins
 
@@ -441,7 +454,7 @@ history:                           # mandatory unless real-only
   - kind: counter_per_call
     series: 'node_health_cpu_seconds_total{node="{NODE}"}'
     key: '{KEY}'
-    per_call: 0.067                # measured
+    per_call: 0.067                # measured: <reference member or calibration file>, <what>
   - kind: remove
     series: 'up{job="{TARGET}"}'
     suppressed_by: [<hiding fault id>]   # no covered fault uses it in v0.6 (9.5)
@@ -471,7 +484,8 @@ restart:
     - {observation: statement and shared statistics reset at 11:00,
        where: "pg_stat_statements_info.stats_reset, pg_stat_bgwriter.stats_reset",
        in_world: the maintenance restart reset them}
-history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}
+history: {at: 2026-11-21T11:12:30Z, result: ok, seam: ok}   # result ok|failed; seam ok|failed|unchecked;
+                                   # reason: one line, only when not both ok
 ```
 
 ### 6.10 The loader's new checks
@@ -1005,8 +1019,18 @@ Steps 1 to 4 are today's setup.
    baseline and the selected faults' history signatures, rebase them on
    the tail, write the past as OpenMetrics, create blocks with
    `promtool tsdb create-blocks-from openmetrics`, copy them in, check
-   the seam. A failed import is recorded, never a teardown, as a
-   failed early check is.
+   the seam. promtool runs in a helper container of the Prometheus
+   node's image on its host, never in the running node; Prometheus
+   loads the blocks by itself and is never restarted for them. A failed
+   import is recorded, never a teardown, as a failed early check is.
+   It is refused before the tail's first 10 minutes have passed and
+   once the game is handed over. One import runs at a time; once one is
+   recorded `ok` a later run changes nothing, so a failed seam is never
+   imported again (the GM sets the game up again or hands it over as it
+   is), while a failed import may be retried by hand. The seam check's
+   findings (`negative`, `reset`, `jump`, `empty`) and the record's
+   `history` are in formats.md; `gmctl history --check-seam` reads the
+   seam again, recording nothing.
 9. **The early check**, by a host timer as today: halfway through the
    tail and no later than one hour before the earliest hand-over, but
    never before the history import is recorded; in a tail under two
@@ -1054,9 +1078,13 @@ with a new row version (9.10).
 
 **As in a real game**: the hand-over, the issues, the GM's stance
 during the game, the final answer, the checks, restarts and the
-hand-over snapshot. A fake game's restart from its snapshot restores
-the imported history with the rest of Prometheus' volume (to verify,
-section 18).
+hand-over snapshot. A fake game's restart from its snapshot is the
+same fake game: the record unchanged, no second import, the imported
+history restored with the rest of Prometheus' volume (measured in wave
+3's history run, the seam `ok` after it). Its restart with no history
+rebuilds the game on the real clock, as the real mode's (no fill, no
+import), the refused instances still out and the story keeping its
+line; the record stays the first game's, for the feedback.
 
 ### 9.5 Fault eligibility
 
@@ -1083,7 +1111,12 @@ first selected instance of a hiding fault onward, so a hiding instance
 planted in the tail drops nothing from the forged past. No covered fault uses it in v0.6, so it is
 unit-tested only: the shop's f9 and the campaign's f5 hide another's trail
 in state and logs only, which no exporter reads, so their history
-signatures carry no `suppressed_by` (9.8). Faults that hide or wipe another's
+signatures carry no `suppressed_by` (9.8). A signature draws only series
+the game's exporters serve: the `postgres-exporter` connects to the
+`postgres` database alone, so there are no per-table or per-index
+series of a scenario database, and a `pg_*` series' `instance` is the
+exporter's, never the database node's; a dropped index's size shows in
+its database's size (`pg_database_size_bytes`). Faults that hide or wipe another's
 trail are wanted, and the fake reproduces them, never repairs them;
 the forged past is always before any fix.
 
@@ -1120,7 +1153,12 @@ domain's keys, so they live beside the `queries.yaml` that defines
 them; the scheduler brick ships the model's code. A key on a
 report-only node, whose job no short real run can move into its window,
 is timed from its own runs in a fill or by running its statement with
-psql, its `source:` saying so (the campaign's `bi` and `gateway`).
+psql, its `source:` saying so (the campaign's `bi` and `gateway`); a
+key measured on a single run carries no spread (`sigma: 0`). Each
+measurement is kept as one file in the repository's calibration folder,
+named by the scenario, what it measured and its instant, opening with
+the command, the commit, the start and the wall time; a `source:` or a
+`# measured:` comment names it (formats.md).
 
 ### 9.8 The scenarios covered, and the starting estimates
 
@@ -1157,7 +1195,7 @@ inside).
 | f1 | purpose-mail-overlapping-window | supported (P0) | a job every five minutes, virtual |
 | f2 | purpose-leads-stale-consent | supported (P0) | the release at virtual T0, jobs virtual |
 | f3 | purpose-mail-outside-hours | supported (P0) | the campaign job, virtual |
-| f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; whether its check needs the close in the tail is to verify |
+| f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; its check reads present after the restart with no 12:00 close in the tail (chunk 11's short fill) |
 | f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting; hides f4's and f7's trails in state and logs only (`reporting`'s rows, `rpt.etl_runs`, the logs), which no exporter reads, so no `suppressed_by` |
 | f6 | security-crontab-superuser | tail-only, 1 h | the cron daemon is off in the fill |
 | f7 | purpose-day-boundary-wrong-zone | supported (P0, the cover) | the 01:30 close, virtual |
@@ -1395,8 +1433,8 @@ No aged run.
   or its fallback if P0 fails); fill, clean-restart, a 15-minute tail,
   the history import at about 12 minutes and the early check right
   after it; the checks reading every selected fault present; the seam
-  check (no negative value, no counter reset outside the restart,
-  gauges joining); the tells script on the fixed tells (no negative or
+  check (no negative value, no counter reset outside the restart, size
+  gauges joining, a past present); the tells script on the fixed tells (no negative or
   moving start time, no fill statement in `pg_stat_statements`, one
   `stats_reset` instant, `pg_wal`'s size, autovacuum counts in range);
   for the shop, the M1 and M3 comparisons against the saved real run as
@@ -1404,6 +1442,14 @@ No aged run.
   reading present, P0's jobs' outputs against their invariants, the
   seam and the tells. A start-time check confirms the monitoring
   started with the rest.
+- **The history import, on `fixture-fill`** (wave 3), under 30
+  minutes: the import at `restart.at` plus about 10 minutes, the seam,
+  every kind read back over the past, the timer's run a no-op after it,
+  the checks' line, the refusal once handed over, the snapshot's
+  restart keeping the imported blocks. Its script starts only between
+  hh:38 and hh:41, so the hand-over falls on a whole hour with an aging
+  of at least eight hours inside the 30 minutes. The kind `none` (a
+  signature's only entry, drawing nothing) is unit-tested only.
 
 ### 12.2 Unproven until v1.0 gating
 
@@ -1640,15 +1686,23 @@ spec:
 - A restart of every service keeps everything the fill wrote (the
   scheduler logs on their volume) and gives fresh process namespaces;
   the monitoring scaled up in the same restart.
-- `daily_spike` and `gauge_before`, never exercised.
+- `daily_spike` and `gauge_before`: measured in wave 3, `fixture-fill`'s
+  history run reading every kind back over the past (`gauge_before` on
+  `pg_database_size_bytes`).
 - A fake game's restart from its hand-over snapshot keeps the imported
-  blocks.
+  blocks: measured in wave 3, the seam `ok` after it.
 - Prometheus' retention against imported blocks older than the head,
-  after a compaction.
+  after a compaction: measured partial in wave 3, the lowest timestamp
+  at the virtual T0 a minute after the import and after the snapshot's
+  restart (a past of under eight hours); a 13 to 15 hour past and a compaction
+  not measured.
 - The players' shell on the Prometheus node can't read the TSDB folder,
   whose owner and mode the import keeps (the shell itself stays: f10's
-  fix edits `prometheus.yml` there).
-- Whether the campaign's f4 check needs the 12:00 close in the tail.
+  fix edits `prometheus.yml` there): the folder measured
+  `prometheus:prometheus 0750` after the import in wave 3; the `player`
+  account's listing is chunk 12's check.
+- Whether the campaign's f4 check needs the 12:00 close in the tail:
+  measured in wave 3, it doesn't (9.8).
 - The bricks' exact versions if a build finds more to change (folded
   into the unreleased version).
 

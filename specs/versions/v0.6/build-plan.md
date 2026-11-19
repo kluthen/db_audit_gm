@@ -1,6 +1,14 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v11 (2026-11-19): after chunk 11b (spec D578): the campaign's
+Status: v12 (2026-11-19): after wave 3's gate, G10.3 done (formats.md
+v38, spec D580): wave 3's forms as built, with chunk 10's record (the
+run lock, the seam's refined `negative` and `jump` and its `empty`
+(spec D581), `none` unit-tested only, `gauge_before` on
+`pg_database_size_bytes`, the history run's hh:38 to hh:41 start, the
+exporter's reach as a constraint on `history:` entries); a fake game's
+restart with no history (spec D582); one import at a time, a failed
+seam never imported again (spec D583). No chunk changes.
+v11 (2026-11-19): after chunk 11b (spec D578): the campaign's
 f5 carries no `suppressed_by` over f4 and f7 (state and logs only), so
 no covered fault uses one; bi's and gateway's keys timed from the fill
 and with psql; the campaign's low-sample, evening-window figures read
@@ -28,7 +36,7 @@ Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
-[formats.md](../../formats.md) v37. No design set (no interface to
+[formats.md](../../formats.md) v38. No design set (no interface to
 design, spec D2). Where this plan and those documents disagree, they win
 and the plan is corrected.
 
