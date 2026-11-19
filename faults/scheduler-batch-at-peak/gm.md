@@ -42,3 +42,14 @@ while `jobs.yaml` is not reloaded, while the job is gone (the batch must
 still run), or while a run in the next 35 days falls in a UTC hour whose
 multiplier on that weekday is above `quiet-below`; *fixed* once every run
 is in a quiet hour.
+
+**Fake aging.** `tail-only`: the tail must hold the job's peak run
+(`tail_covers`, 12:00 in the shop; v0.6 master spec 9.5, 9.8). The fill
+emulates the lock's outcome only (`lock-wait`, 9.10's time-driven
+behaviour), so the stalled calls, the PostgreSQL log's lock waits and the
+pool running dry are genuine only when the run happens after the restart.
+The history gives the lock's effect on the scheduler's latencies from the
+planting; it draws no lock counts, which the research's real run did not
+capture. When a fault planted in the tail would hide the batch (a role
+expired, a job removed), the GM checks the order of the two when composing
+the selection.

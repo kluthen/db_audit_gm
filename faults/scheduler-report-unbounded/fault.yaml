@@ -24,6 +24,32 @@ aging:
   minimum: 30m                      # temporary files and slow statements at every run: half an
                                     # hour holds several runs of a reporting stream (a scenario
                                     # running it as a job raises the instance's minimum)
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the fill runs the report for real, so its sorts spill and its slow
+      statements are in the statistics; the history draws the temporary
+      bytes and files of each run, and the report's longer service time
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5, 9.7). Numbers from run R
+# (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15): the counters read
+# with tools/fake_aging/calibrate.py per-call from the reference's
+# r-dump/r.om, the service time from R's log as calibrate-r-consumer-20261115.txt
+# summarises it (hours 06 to 10, one call a minute, so a minute's p50 is a call).
+history:
+  - kind: queue                     # each call's work from the planting: the unbounded sort
+    key: '{KEY}'
+    service: {median: 0.198, sigma: 0.03}  # measured: calibrate-r-consumer-20261115.txt, reports.best-days p50 196-200 ms; sigma ln(205/198)/1.28 from the minutes' p90 203-208 ms
+  - kind: counter_per_call          # each run spills its sort to one temporary file
+    series: 'pg_stat_database_temp_bytes{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 20450000              # measured: r-dump/r.om, temp_bytes 4.417e9 over reports.best-days' 216 calls, 2026-11-14T09:00Z to 11-15T08:00Z
+  - kind: counter_per_call
+    series: 'pg_stat_database_temp_files{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 1                     # measured: r-dump/r.om, temp_files 216 over reports.best-days' 216 calls, same window
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -35,6 +61,14 @@ parameters:
     description: the column whose bound (the report's period) is missing
     default: null
     required: true
+
+  database:
+    description: >-
+      the database the report's connection uses, for the history
+      signature's per-database series (v0.6 master spec 9.5); optional, read
+      only in a fake game, so every instance in a scenario played fake sets it
+    default: null
+    required: false
 
 # --- How it is planted ------------------------------------------------
 injection:

@@ -27,6 +27,22 @@ aging:
   technique: real-time
   minimum: 30m                      # thirty minutes of business-hours load (spec D189): the
                                     # scenario's instance raises its aging_minimum
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: tail-only
+    reason: >-
+      the fill goes straight to the database, so the pooler's own waiting
+      clients and statistics start at the restart, and the peak that drains
+      the pool must be in the tail
+    tail_covers: ["12:00"]
+    plant_in: any
+    fill:
+      emulate: [pool-queue]
+# The history signature (master spec 9.5): no overlay. The queue model reads
+# the pool's size from pgbouncer.ini (capture W1 item 9), so the past's
+# latencies come through the fill's metrics record; the pooler exports no
+# series of its own.
+history:
+  - kind: none
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

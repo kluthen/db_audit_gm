@@ -23,6 +23,25 @@ aging:
   technique: real-time
   minimum: 10m                      # errors from the first call: ten minutes give ten key
                                     # lines with errors= above 0 and their error lines
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the fill runs the key's calls through the scheduler's own code, so a
+      call in ten fails in the fill as it would live, its lines in the log;
+      the history draws the rollbacks the failed calls cost the database
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5, 9.7): the failed calls' errors
+# and latencies reach the past through the fill's metrics record, not
+# here (capture W1 item 9). Numbers from run R (research/fake-aging
+# 10d1bc6, fa-real 2026-11-14 to 15), read with tools/fake_aging/calibrate.py
+# per-call from the reference's r-dump/r.om (tools/fake_aging/reference).
+history:
+  - kind: counter_per_call          # a failed call rolls its transaction back
+    series: 'pg_stat_database_xact_rollback{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 0.100                 # measured: r-dump/r.om, xact_rollback 6693 over catalog.lookup's 66619 calls, 2026-11-14T09:00Z to 11-15T08:00Z
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -33,6 +52,14 @@ parameters:
       whose calls another instance's evidence needs
     default: null
     required: true
+
+  database:
+    description: >-
+      the database the key's connection uses, for the history signature's
+      per-database series (v0.6 master spec 9.5); optional, read only in a
+      fake game, so every instance in a scenario played fake sets it
+    default: null
+    required: false
 
 # --- How it is planted ------------------------------------------------
 injection:

@@ -20,6 +20,36 @@ applies_to:
 aging:
   technique: real-time
   minimum: 0m                       # the evidence shows at once (a restored state, D160)
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the fill drops the index at the instance's planting on the virtual
+      clock, so the later joins scan the table; the history draws the
+      scanned rows and blocks of each call and its longer service time
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5, 9.7). Numbers from run R
+# (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15; f8 planted at
+# 2026-11-15T02:00Z): the counters read with tools/fake_aging/calibrate.py
+# per-call --planted from the reference's r-dump/r.om, the rate per call of
+# every key from 2026-11-14T20:00Z taken as the baseline; the service time
+# from R's log as calibrate-r-producer-20261115.txt summarises it, its sigma
+# the key's own (R's p95 is the pool's queue, f7, which the model adds). The
+# database node's CPU was measured too and left out: 0.0012 s a call, within
+# the baseline's noise (0.0087 s a call of any key before, 0.0088 after).
+history:
+  - kind: queue                     # each call's work from the planting: the join scans the table
+    key: '{KEY}'
+    service: {median: 0.024, sigma: 0.35}  # measured: calibrate-r-producer-20261115.txt, orders.detail p50 24 ms in hours 08-10 after the planting (2 ms before); sigma the key's own (service-times.yaml)
+  - kind: counter_per_call
+    series: 'pg_stat_database_tup_returned{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 963700                # measured: r-dump/r.om, tup_returned 2.826e9 after the planting less the baseline, over orders.detail's 2902 calls, 2026-11-15T02:00Z to 08:00Z
+  - kind: counter_per_call
+    series: 'pg_stat_database_blks_hit{datname="{DATABASE}"}'
+    key: '{KEY}'
+    per_call: 12410                 # measured: r-dump/r.om, blks_hit 3.883e7 after the planting less the baseline, over the same 2902 calls
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -35,6 +65,14 @@ parameters:
     description: the joined column; every index leading with it (primary key and constraint indexes aside) is dropped
     default: null
     required: true
+
+  key:
+    description: >-
+      the queries.yaml key whose join the missing index slows, for the
+      history signature (v0.6 master spec 9.5); optional, read only in a
+      fake game, so every instance in a scenario played fake sets it
+    default: null
+    required: false
 
 # --- How it is planted ------------------------------------------------
 injection:

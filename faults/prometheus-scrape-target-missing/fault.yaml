@@ -23,6 +23,23 @@ applies_to:
 aging:
   technique: real-time
   minimum: 0m                       # the evidence shows at once (a restored state, D160)
+  fake:                             # v0.6 master spec 6.3, 9.5, 9.8 (capture W3 items 8, 9)
+    support: supported
+    reason: >-
+      the missing target is a file's state, and the history removes the
+      node's node-health series from the forged past as it was never scraped
+    plant_in: any
+    fill:
+      emulate: []
+# The history signature (master spec 9.5): remove, winning over every
+# baseline and overlay on its series. No number; checked against run R
+# (research/fake-aging 10d1bc6), whose r-dump/r.om holds no series of the
+# pooler's target.
+history:
+  - kind: remove
+    series: '{job="node-health",instance="{NODE}:9110"}'
+  - kind: remove
+    series: '{__name__=~"node_health_.*",node="{NODE}"}'
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
