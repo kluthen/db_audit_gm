@@ -1235,10 +1235,12 @@ running. What follows holds for it, with these differences:
   `none (no Prometheus node)`); the hand-over check prints the same line
   and never fails on it. A failed import, or a failed seam, leaves the
   forged past missing or visibly wrong in Prometheus and Grafana, which
-  a player would notice: retry it by hand before the hand-over (the
-  `history` row of the [command reference](gmctl.md)); if it fails
-  again, tell the initiator and offer to set the game up again, or, if
-  they choose, hand it over as it is. To an initiator who may play, say
+  a player would notice. A failed import: retry it by hand before the
+  hand-over (the `history` row of the [command reference](gmctl.md)).
+  If it fails again, or the seam failed with the import `ok` (don't
+  rerun it then: it never imports again, a rerun only prints the
+  recorded result), tell the initiator and offer to set the game up
+  again, or, if they choose, hand it over as it is. To an initiator who may play, say
   only <!-- player -->"A check of the game's preparation failed: the
   monitoring's history is incomplete. I can set the game up again, ready
   at 16:00 UTC, or hand it over as it is."<!-- /player --> (with your

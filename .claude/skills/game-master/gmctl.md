@@ -387,9 +387,12 @@ password or key. The GM's reads, one per tool, are in the skill's
   the restart keeps; `jump`: a size gauge stepping at the join; `empty`:
   nothing before the restart), or `Game <id>: history import failed at
   <instant>: <reason> (recorded; nothing torn down)`. Read the result in
-  `gmctl status` too. A failed import or a failed seam: run `gmctl
-  history` again by hand; if it fails again, set the game up again or
-  hand it over as is (the past missing or uneven in Prometheus).
+  `gmctl status` too. A failed import: run `gmctl history` again by
+  hand; if it fails again, set the game up again or hand it over as is
+  (the past missing or uneven in Prometheus). A failed seam with the
+  import `ok`: don't run it again (it never imports again; a rerun only
+  prints the recorded result and exits 1); set the game up again or
+  hand it over as is (the past uneven in Prometheus).
   Spoilers: keep it from the players.
 - **`inject --at`**: with an instant, `the planting of <id> is scheduled
   at <instant> (timer <unit>)`; a new instant replaces the timer. With
