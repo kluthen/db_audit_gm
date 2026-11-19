@@ -463,3 +463,9 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   retried by hand, its blocks removed first. So the timer's run after a
   hand run, or a second hand run, is harmless. Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
   9.4 step 8; [formats.md](formats.md) v38.
+- **D584 (2026-11-19, the owner, after G10.3: "Fix in wave 4"): the
+  shop's f8 (`pg-join-index-missing`) gains a measured `gauge_before` on
+  `pg_database_size_bytes`, with its `# measured:` comment,** so master
+  spec 9.9 fix 5 holds as written rather than becoming a limit. Chunk 12
+  takes it (its shop game plays f8). The value's form raised as O292.
+  Now in: [build plan](versions/v0.6/build-plan.md) v13, chunk 12, G13.
