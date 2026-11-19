@@ -394,3 +394,23 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   extension half). pgAudit 18.1 (upstream 2026-11-17) changes which audit
   lines are logged: a later game-content decision, not in v0.6 unless the
   owner says so. Now in: [build plan](versions/v0.6/build-plan.md) G9.1.
+- **D545 (2026-11-19, owner request, relayed by the coordinator): a game
+  assistant, a player-side helper distinct from the GM**, with no access
+  to the game's background: player handouts and basic bastion activity
+  only, never a database, no file beyond the report and its drafts
+  (tracking only when asked), DBA and basic dev knowledge, SQL written
+  unverified for the players to run, a reminder of the breach when a
+  player hands it database snippets. Not in v0.6 (O274). Now in:
+  [game-assistant.md](game-assistant.md) 1.
+- **D546 (2026-11-19, owner ruling, same relay): the assistant is a skill
+  in this repository, `/game-assistant`, on trust,** invoked at the
+  repository root as `/game-master` is; its off-limits material is so by
+  stance, as D13's light enforcement. Rejected: an exported player
+  workspace with deny rules; Claude Code installed on the bastion. Now
+  in: [game-assistant.md](game-assistant.md) 1, 3.
+- **D547 (2026-11-19, owner ruling, same relay): the bastion link is a
+  fixed, read-only set of reads, never a shell; the assistant's files are
+  local,** the players copying the report to `~/report.md`, where the GM
+  fetches it. A shell as `player` reaches every database (`~/.pgpass`).
+  Rejected: writing into the bastion's home; paste only. The mechanism is
+  O275, the set O276. Now in: [game-assistant.md](game-assistant.md) 4, 6.

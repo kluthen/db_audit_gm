@@ -27,6 +27,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3; fake aging beside it from v0.6, D489), hand-over (the handouts static, which may be wrong, English), end of the game | draft v14 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates; where a job runs (D207); from v0.4, the purpose, the domain, governance and the new fields; a test-only brick change bumps nothing (D229); an outbound flow's `fields` are its outbox's payload keys (D231); `separation: instance` refused with `locations: any` (D253); a `state` fault's `seed_changes` (D254); from v0.5, the domain format, composing domains, the data register and the purpose format's extensions (D338, closing O111); a domain's producer folders per node (D344), the `api` node's `api.yaml` (D345), the `api` role (D349); wave 2's format items as built (D364): loading a composed domain from the catalogue (the database convention and `:"DBNAME"`, `load_epoch`, a core's `keys.sql`, a partner's `data.sql`, `coherence.yaml`, a check reading `partners` on its node, D383), the `partners/` catalogue folder, the owners' traffic in `producers/partners/owners/` (D369); the merge's scenario layer `compose/<node>/` in the layout | draft v36, v0.6's format items at its consolidation (v34), a `seed_changes` item's declared `lines:` from wave 1 (v35, D521) and waves 1 and 2's forms as built (v36, D534: the true overview's form, `service-times.yaml` and `wal-rate.yaml`, a fake game's records, the status file, the brick pages) (the network overview, `admitted:`, `aging.fake`, `history:`, the restart record, `base:`, two loader refusals); amended in v0.5's build (v32: wave 4's format items as built, G18; v33: wave 5's, G19) |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v11 |
+| [game-assistant.md](game-assistant.md) | The game assistant: a player-side helper skill, distinct from the GM, with no access to the game's background (D545–D547); its reads, writes, the bastion link, SQL, database snippets, its relation to the GM, how much it helps, an audit method fitted to the game | draft v1, opened 2026-11-19 outside v0.6; version not set (O274); O274–O285 open |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v19 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v19 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
@@ -330,6 +331,13 @@ access model.
   access-model gap (D474); G13's findings 1 and 4 known limits, the
   loader's seed-file check for v0.6 (O269) and the clinic's setup for
   v1.0 gating (O270) (D476).
+- The game assistant (2026-11-19, draft, not in v0.6): a player-side
+  helper, `/game-assistant`, a skill in this repository on trust, with
+  no background, no database, a fixed read-only set of reads on the
+  bastion and its files local, the report copied by the players to
+  `~/report.md` (D545–D547); its version (O274), bastion link (O275),
+  help level (O277) and the owner's audit grid as its method (O283–O285)
+  open ([game-assistant.md](game-assistant.md)).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -346,3 +354,6 @@ access model.
    [roadmap](versions/README.md#v10-gating), O249 and O270 among it.
 2. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.
+3. The game assistant ([draft](game-assistant.md), opened 2026-11-19,
+   not in v0.6): the owner's rulings on O274–O285, O277 (how much it
+   helps) and O275 (the bastion link) first.
