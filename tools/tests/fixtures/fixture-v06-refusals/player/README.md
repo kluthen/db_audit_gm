@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (PostgreSQL 18) and `producer` (the
+Nodes: `bastion` (you are here), `db` (PostgreSQL 19) and `producer` (the
 shop's order service). Reach them with `ssh db` or `ssh producer`. Times
 are the customer's, {{customer_timezone}}.
 

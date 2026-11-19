@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `records` (PostgreSQL 18), `prometheus`,
+Nodes: `bastion` (you are here), `records` (PostgreSQL 19), `prometheus`,
 `pgwatch` (a PostgreSQL metrics collector), `grafana` and `health` (the
 health checks and their status page). Reach each with `ssh <node>`; reach
 `records` with `psql` from there.

@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `lab` (PostgreSQL 18) and `exporter` (the
+Nodes: `bastion` (you are here), `lab` (PostgreSQL 19) and `exporter` (the
 PostgreSQL exporter). Reach each with `ssh <node>`; reach `lab` with `psql`
 from there.
 

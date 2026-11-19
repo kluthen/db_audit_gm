@@ -285,8 +285,8 @@ instances:
         shows: >-
           "tuples: ... are dead but not yet removable" and "removable cutoff:
           ..., which was ... XIDs old when operation ended" at every run, the
-          cutoff held back by the oldest open snapshot (PostgreSQL 18's
-          wording; "oldest xmin" before 15)
+          cutoff held back by the oldest open snapshot (PostgreSQL 19's
+          wording, as 15 to 18; "oldest xmin" before 15)
       - where: bastion
         source: the tables' statistics
         how: >-

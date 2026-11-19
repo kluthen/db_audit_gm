@@ -8,8 +8,8 @@ asked to look at. You have up to 4 hours.
 
 | Node | What it is | Your access | Write policy |
 |---|---|---|---|
-| `bastion` | this machine: SSH, PostgreSQL 18 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
-| `db` | the clinics' PostgreSQL 18 server, database `clinic` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
+| `bastion` | this machine: SSH, PostgreSQL 19 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
+| `db` | the clinics' PostgreSQL 19 server, database `clinic` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
 | `prometheus` | Prometheus, which collects the metrics | `ssh prometheus`; its web interface | **fixable** |
 | `exporter` | the PostgreSQL exporter, which reads PostgreSQL's statistics for Prometheus | `ssh exporter` | **fixable** |
 | `grafana` | Grafana: the dashboards and the alert rules | `ssh grafana`; its web interface | **fixable** |

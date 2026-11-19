@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (PostgreSQL 18), `prometheus`,
+Nodes: `bastion` (you are here), `db` (PostgreSQL 19), `prometheus`,
 `exporter` (the PostgreSQL exporter) and `grafana`. Reach each with
 `ssh <node>`; reach `db` with `psql` from there.
 

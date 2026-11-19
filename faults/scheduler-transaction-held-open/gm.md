@@ -20,10 +20,13 @@ render; nothing runs at injection.
   pooler, where it would pin a server connection).
 - The answer key adds the PostgreSQL log's autovacuum lines naming dead
   rows not yet removable and the removable cutoff (`node:<db>`, with
-  `log_autovacuum_min_duration = 0`). PostgreSQL 18 prints `tuples: ...
+  `log_autovacuum_min_duration = 0`). PostgreSQL 19 prints `tuples: ...
   are dead but not yet removable` and `removable cutoff: ..., which was
-  ... XIDs old when operation ended`; "oldest xmin" is the wording before
-  PostgreSQL 15.
+  ... XIDs old when operation ended` (read on 19.0, v0.6 chunk 17c; the
+  wording of 15 to 18 unchanged); "oldest xmin" is the wording before
+  PostgreSQL 15. On 19 the analyze half is its own `automatic analyze`
+  line, logged under `log_autoanalyze_min_duration` (0 beside the
+  autovacuum setting in every seed, spec D592).
 - Its seed changes name `queries.yaml` and `schedule.yaml`, which is never
   fixable, so the loader refuses an expected `fix` on any node (spec
   D186): report or propose.

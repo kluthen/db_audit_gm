@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (PostgreSQL 18), `pooler`
+Nodes: `bastion` (you are here), `db` (PostgreSQL 19), `pooler`
 (PgBouncer), `producer` (the order service's scheduler), `consumer` (the
 reporting service's scheduler), `prometheus`, `exporter` (the PostgreSQL
 exporter) and `grafana`. Reach each with `ssh <node>`; reach `db` with

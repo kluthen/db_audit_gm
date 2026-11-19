@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here) and `db` (PostgreSQL 18). Reach `db` with
+Nodes: `bastion` (you are here) and `db` (PostgreSQL 19). Reach `db` with
 `ssh db`, then `psql`.
 
 DO NOT TAMPER: the lines `local all postgres peer`, `local replication

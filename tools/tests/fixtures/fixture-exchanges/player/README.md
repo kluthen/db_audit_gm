@@ -1,8 +1,8 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `records` (PostgreSQL 18, the clinic's
+Nodes: `bastion` (you are here), `records` (PostgreSQL 19, the clinic's
 medical record in the database `clinic`, the back office's in `office`),
-`lab` (PostgreSQL 18, the laboratory's database `lab`) and `clinic-api`
+`lab` (PostgreSQL 19, the laboratory's database `lab`) and `clinic-api`
 (the record's API: the lookups, and the other centres' exchanges). Reach
 each with `ssh <node>`; reach the databases with `psql` from there.
 
