@@ -120,7 +120,9 @@ history:                            # optional: mandatory unless aging.fake.supp
                                     #   node when needed;
                                     # gauge_sawtooth: series, period (a duration), amplitude (a
                                     #   number); phase optional (a duration, 0s);
-                                    # gauge_before: series, value (the level until the planting);
+                                    # gauge_before: series, value (what is added to the level
+                                    #   drawn until the planting, D585; alone on a series the
+                                    #   tail lacks);
                                     # daily_spike: series, at ("HH:MM", scenario time), duration,
                                     #   value (the level during the spike);
                                     # remove: series;

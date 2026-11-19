@@ -955,7 +955,10 @@ master spec 6.3 and 6.5):
   none`. Each entry's `kind` and its fields: `counter_per_call` (`series`,
   `key`, `per_call` a number; `node`), `gauge_sawtooth` (`series`,
   `period` a duration, `amplitude` a number; `phase` a duration),
-  `gauge_before` (`series`, `value`), `daily_spike` (`series`, `at`
+  `gauge_before` (`series`, `value`: what is added to the level drawn on
+  the series until the planting, spec D585, so the series keeps its shape
+  and steps down by `value` at the planting; a series the tail lacks, a
+  dropped object's, reads `value` alone), `daily_spike` (`series`, `at`
   `"HH:MM"`, `duration`, `value`), `remove` (`series`), `queue` (`key`,
   exactly one of `service: {median, sigma}` and `lock: {median, sigma,
   blocks: [<key>...]}`; `node`); any entry may carry `suppressed_by:

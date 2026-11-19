@@ -195,6 +195,27 @@ class TestKinds(unittest.TestCase):
         kept = self.points(key("pg_stat_user_indexes_size_bytes", **PG, indexrelname="kept"))
         self.assertTrue(all(v == 16384 for _, v in kept))
 
+    def test_gauge_before_adds_its_value(self):
+        """On a series the tail has, the value is added to the level drawn
+        up to the planting, which keeps its shape and steps down by the
+        value at the planting (spec D585)."""
+        size = key("pg_database_size_bytes", **PG, datname="shop")
+        _, base = compose([])
+        c, out = compose([("f8", "fixture-dropped-index", PLANT, (
+            entry("gauge_before", series='pg_database_size_bytes{datname="shop"}',
+                  value=20_000_000),))])
+        self.assertNotIn(size, c.report.synthesized)
+        drawn, plain = dict(out[size][1]), dict(base[size][1])
+        self.assertEqual(set(drawn), set(plain))
+        before = [t for t in plain if t < PLANT]
+        after = [t for t in plain if t >= PLANT]
+        self.assertTrue(len(before) > 100 and len(after) > 100)
+        self.assertTrue(all(drawn[t] == plain[t] + 20_000_000 for t in before))
+        self.assertTrue(all(drawn[t] == plain[t] for t in after))
+        # the step at the planting is the value, less the drawn level's own move
+        last, first = before[-1], after[0]
+        self.assertAlmostEqual(drawn[last] - drawn[first], 20_000_000, delta=8192 * 4)
+
     def test_daily_spike(self):
         pts = self.points(key("pg_stat_activity_count", **PG, datname="shop", state="active"))
         lo = math.floor(R / 86400) * 86400 + 10 * 3600      # 10:00 UTC, after the planting

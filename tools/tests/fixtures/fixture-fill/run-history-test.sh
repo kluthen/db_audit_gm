@@ -15,7 +15,8 @@
 #   or 14 min; the anchor H - T, 5.5 to 8 min after the start, the fill's
 #   time: the run refuses to start outside that window, exit 3, nothing
 #   deployed; start it between hh:38 and hh:41) -> deploy -> load-data ->
-#   inject -> fill ->
+#   inject -> the index f8 drops measured (its pg_relation_size, a FIGURE:
+#   fixture-dropped-index's gauge_before value, checked equal) -> fill ->
 #   clean-restart at the anchor -> start-load; then:
 #   - the history timer dbagm-<game id>_history due at restart.at + 12 min;
 #   - the TSDB folder's owner and mode (prometheus:prometheus 0750) before
@@ -30,8 +31,9 @@
 #     right after the import and a minute later (the retention);
 #   - the composed kinds read back from Prometheus over the past: the
 #     daily spike's value in its window, the removed series absent after
-#     the planting and present before, the size gauge's value before the
-#     planting, the sawtooth's rise;
+#     the planting and present before, the size gauge stepping down by
+#     the gauge_before's value at the planting (spec D585), the sawtooth's
+#     rise;
 #   - the timer's own run at + 12 min a no-op (one attempt recorded);
 #   - the early check by hand: its history line `ok, seam ok`;
 #   - at the earliest hand-over: the hand-over check's line, the snapshot,
@@ -73,6 +75,12 @@ pass() { printf 'PASS  %s\n' "$*"; passes=$((passes + 1)); }
 fail() { printf 'FAIL  %s\n' "$*"; failures=$((failures + 1)); }
 info() { printf '....  %s\n' "$*"; }
 figure() { printf 'FIGURE  %s\n' "$*"; }
+gauge_value() {   # the gauge_before's value in the copy's fixture-dropped-index
+    python3 -c 'import sys, yaml
+h = yaml.safe_load(open(sys.argv[1]))["history"]
+print(*[int(e["value"]) for e in h if e["kind"] == "gauge_before"])' \
+        "$SCN/faults/fixture-dropped-index/fault.yaml"
+}
 same() {   # same <description> <expected> <actual>
     if [ "$2" = "$3" ]; then pass "$1"; else fail "$1 (expected [$2], got [$3])"; fi
 }
@@ -180,6 +188,15 @@ d = json.load(sys.stdin)["data"]["result"]
 print("\n".join(sorted(" ".join(f"{k}={v}" for k, v in sorted(r["metric"].items()) if k != "__name__")
                        + " " + r["value"][1] for r in d)))'
 }
+# One PromQL range selector at an instant: its single series' samples, one
+# line each, `<epoch> <value>`.
+promr() {   # promr <selector>[<range>] <epoch>
+    docker exec "$(ctr prometheus)" curl -fsS --max-time 60 -G "$API/query" \
+        --data-urlencode "query=$1" --data-urlencode "time=$2" \
+        | python3 -c 'import json, sys
+d = json.load(sys.stdin)["data"]["result"]
+print("\n".join(f"{t} {v}" for r in d[:1] for t, v in r["values"]))'
+}
 tsdb() {   # Prometheus' own view of its TSDB, one line
     printf 'lowest %s, blocks %s, bytes %s' \
         "$(iso "$(promq prometheus_tsdb_lowest_timestamp_seconds | awk '{printf "%d", $NF}')")" \
@@ -213,6 +230,12 @@ d_s=$(( $(date +%s) - t ))
 $GMCTL load-data "$SCN" --playground "$PG" >/dev/null || { fail "load-data"; exit 1; }
 $GMCTL inject "$SCN" --playground "$PG" >/dev/null || { fail "inject"; exit 1; }
 pass "deploy, load-data, inject ($(( $(date +%s) - t )) s, the deploy $d_s s)"
+# the index f8 drops, before the fill drops it at its pause: its size is
+# fixture-dropped-index's gauge_before value (spec D585)
+IDX=$(dbsql shop "SELECT pg_relation_size('order_lines_order_id_idx')")
+VALUE=$(gauge_value)
+figure "the index f8 drops, before the fill: order_lines_order_id_idx $IDX bytes (pg_relation_size)"
+same "fixture-dropped-index's gauge_before value: the index's size" "$IDX" "$VALUE"
 t=$(date +%s)
 $GMCTL fill "$SCN" --playground "$PG" > "$tmp/fill.out" 2> "$tmp/fill.err" \
     || { tail -n 20 "$tmp/fill.err"; fail "fill: $(stval fill.reason)"; exit 1; }
@@ -220,7 +243,7 @@ fill_s=$(( $(date +%s) - t ))
 same "the fill: ok, f8 planted at its virtual instant" "ok $F8_AT" \
     "$(stval fill.outcome) $(stval plantings.f8.planted_at)"
 figure "the fill: $fill_s s ($(( (anchor - $(epoch "$VT0")) / 60 )) virtual minutes)"
-figure "the shop's size after the fill: $(dbsql postgres "SELECT pg_database_size('shop')") bytes (f8's gauge_before: 202500000)"
+figure "the shop's size after the fill: $(dbsql postgres "SELECT pg_database_size('shop')") bytes (f8's gauge_before adds $VALUE before its planting)"
 wait_until $(( anchor + 1 ))
 t=$(date +%s)
 $GMCTL clean-restart "$SCN" --playground "$PG" > "$tmp/restart.out" 2>&1 \
@@ -305,7 +328,9 @@ kinds=$(
   echo "spike $(promq 'pg_stat_activity_count{datname="shop",state="active"}' "$SPIKE" | awk '{print $NF}' | sort -u | tr '\n' ',')"
   echo "removed_after $(promq 'count(pg_locks_count{datname="shop",mode="sireadlock"})' $(( P + 1800 )) | awk '{print $NF}')"
   echo "removed_before $(promq 'count(pg_locks_count{datname="shop",mode="sireadlock"})' $(( P - 1800 )) | awk '{print $NF}')"
-  echo "size_before $(promq 'pg_database_size_bytes{datname="shop"}' $(( P - 1800 )) | awk '{print $NF}')"
+  echo "size_around $(promr 'pg_database_size_bytes{datname="shop"}[2m]' $(( P + 60 )) | tr '\n' ',')"
+  echo "value $VALUE"
+  echo "planted $P"
   echo "tup_rate_before $(promq 'rate(pg_stat_database_tup_returned{datname="shop"}[10m])' $(( P - 900 )) | awk '{print $NF}')"
   echo "tup_rate_after $(promq 'rate(pg_stat_database_tup_returned{datname="shop"}[10m])' $(( P + 900 )) | awk '{print $NF}')"
   echo "saw $(promq 'max(max_over_time(pg_stat_activity_max_tx_duration{datname="shop",state="active"}[10m]))' $(( P + 1200 )) | awk '{print $NF}')"
@@ -328,7 +353,17 @@ def check(name, ok):
 check("daily_spike: 6 active sessions in its window", "6" in v["spike"].split(","))
 check("remove: no sireadlock series after the planting", v["removed_after"] == "")
 check("remove: the series before the planting", v["removed_before"] not in ("", "0"))
-check("gauge_before: the database's size 202500000 before the planting", num("size_before") == 202500000)
+# the size's last sample before the planting less its first after it: the
+# value, within 1 % of it (the drawn level moves far less between scrapes)
+around = [tuple(map(float, p.split())) for p in v["size_around"].split(",") if p.strip()]
+planted, value = float(v["planted"]), float(v["value"])
+before = [x for t, x in around if t < planted]
+after = [x for t, x in around if t >= planted]
+step = before[-1] - after[0] if before and after else None
+print(f"FIGURE  gauge_before: the size's step at the planting {step} (value {value:.0f})")
+check(f"gauge_before: the database's size steps down by its value at the planting "
+      f"({step} for {value:.0f})",
+      step is not None and abs(step - value) <= 0.01 * value)
 a, b = num("tup_rate_after"), num("tup_rate_before")
 check("counter_per_call: tup_returned's rate higher after the planting", a is not None and b is not None and a > b)
 s, sb = num("saw"), num("saw_before")
