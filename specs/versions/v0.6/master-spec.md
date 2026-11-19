@@ -39,7 +39,10 @@ scenario document's "Fake aging" section, for the quick game's
 duration (9.2, 9.10; spec D544). Amended after chunk 11a, from run R:
 the shop's f9 hides f4 in state and logs only, so no `suppressed_by`
 pair in the shop, and its f5 carries no `daily_spike` (6.9, 9.8; spec
-D548).
+D548). Amended after chunk 11b: the campaign's f5 hides f4 and f7 in
+state and logs only, so no covered fault carries a `suppressed_by`, the
+rule unit-tested only; a report-only node's keys timed from a fill or
+with psql (6.9, 9.5, 9.7, 9.8; spec D578).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -441,7 +444,7 @@ history:                           # mandatory unless real-only
     per_call: 0.067                # measured
   - kind: remove
     series: 'up{job="{TARGET}"}'
-    suppressed_by: [purpose-etl-role-expired]
+    suppressed_by: [<hiding fault id>]   # no covered fault uses it in v0.6 (9.5)
 
 # brick.yaml
 base: {os: Debian GNU/Linux, version: "13"}
@@ -1077,9 +1080,10 @@ model, which writes both the scheduler's log lines and the call
 duration histograms. `remove` wins over every baseline and overlay on
 its series. `suppressed_by` drops an entry from the planting of the
 first selected instance of a hiding fault onward, so a hiding instance
-planted in the tail drops nothing from the forged past (the campaign's
-f5 hides f4 and f7 from its planting, `handover-5h`; their trails
-before it are real in a real game). Faults that hide or wipe another's
+planted in the tail drops nothing from the forged past. No covered fault uses it in v0.6, so it is
+unit-tested only: the shop's f9 and the campaign's f5 hide another's trail
+in state and logs only, which no exporter reads, so their history
+signatures carry no `suppressed_by` (9.8). Faults that hide or wipe another's
 trail are wanted, and the fake reproduces them, never repairs them;
 the forged past is always before any fix.
 
@@ -1113,7 +1117,10 @@ day's shape comes from the producer profiles. Calibration is one-off
 per fault version. The shop's numbers already come from the research's
 real run. The per-key service times describe the scenario's or the
 domain's keys, so they live beside the `queries.yaml` that defines
-them; the scheduler brick ships the model's code.
+them; the scheduler brick ships the model's code. A key on a
+report-only node, whose job no short real run can move into its window,
+is timed from its own runs in a fill or by running its statement with
+psql, its `source:` saying so (the campaign's `bi` and `gateway`).
 
 ### 9.8 The scenarios covered, and the starting estimates
 
@@ -1151,14 +1158,14 @@ inside).
 | f2 | purpose-leads-stale-consent | supported (P0) | the release at virtual T0, jobs virtual |
 | f3 | purpose-mail-outside-hours | supported (P0) | the campaign job, virtual |
 | f4 | purpose-watermark-misses-updates | supported (P0, the cover) | the roll-up and the 12:00 close, virtual; whether its check needs the close in the tail is to verify |
-| f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting |
+| f5 | purpose-etl-role-expired | tail-only, planted in the tail | its refusals in the PostgreSQL log must follow its planting; hides f4's and f7's trails in state and logs only (`reporting`'s rows, `rpt.etl_runs`, the logs), which no exporter reads, so no `suppressed_by` |
 | f6 | security-crontab-superuser | tail-only, 1 h | the cron daemon is off in the fill |
 | f7 | purpose-day-boundary-wrong-zone | supported (P0, the cover) | the 01:30 close, virtual |
 | f8 | purpose-receiver-down-unnoticed | supported | the gateway's outage at virtual 08:00–10:00 |
 | f9 | governance-personal-copied | supported | its definitions are state; the `pg_cron` copy's run history holds the tail only |
 | f10 | purpose-heavy-job-on-database-node | **real-only** | a real out-of-memory kill and crash recovery at 03:00, read from the PostgreSQL log; a redesign moving it into the tail is possible later |
 
-f5 hides f4, f7 and f10. f10 is issue 6's cause (the starter pack's
+f5 hides f4, f7 and f10, in state and logs. f10 is issue 6's cause (the starter pack's
 "The reporting database"), so a fake game of the campaign is a variant
 designed without f10 and issue 6 (9.1); in it, with f5 planted in the
 tail, the GM checks f5's order against f4's and f7's runs when it

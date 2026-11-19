@@ -1,6 +1,11 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v10 (2026-11-19): after chunk 11a, from run R (spec D548): the
+Status: v11 (2026-11-19): after chunk 11b (spec D578): the campaign's
+f5 carries no `suppressed_by` over f4 and f7 (state and logs only), so
+no covered fault uses one; bi's and gateway's keys timed from the fill
+and with psql; the campaign's low-sample, evening-window figures read
+as such by chunk 12; G10.3 gains 11b's forms as built.
+v10 (2026-11-19): after chunk 11a, from run R (spec D548): the
 shop's f9 carries no `suppressed_by` over f4 (f9 hides f4 in state and
 logs only), its f5 no `daily_spike`; chunk 11's parameters as built.
 v9 (2026-11-19): capture W3's preflight corrections written in
@@ -121,7 +126,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
 | G10.1 | Wave 1's forms as built, from capture W1 and the chunk records in the wave log: the fill's interface (`gm_scheduler fill`'s FillConfig, PAUSE/GO/DONE/FAILED), the `<node>.metrics.jsonl` record, `service-times.yaml`'s place and shape, the restart record's fields (`local/<pg>/fake-aging.yaml`), `fill.quiet`, the `fill-sql` command | `spec-writer` | Release gate item 2 | done (2026-11-17, b2578a0, spec D534; with G10.2) |
 | G10.2 | Wave 2's forms as built, from capture W2 (its preflight correction 8) and the chunk records in the wave log: the status file's form and its secret (the `rendered` kind), the `brick-doc` configs; the true overview's keys; the restart record as written, with `state.yaml`'s `hold` and `clean_restart`; `timeline`'s fake keys (`virtual_t0`, `anchor`, `tail`, `refused`); `wal-rate.yaml`; the cover's `fill.quiet` item (`routine`, `restore.database`); `--test-tail-floor` | `spec-writer`, after wave 2's gate | Release gate item 2 | done (2026-11-17, b2578a0, spec D534) |
-| G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names; the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | open |
+| G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | open |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 
@@ -1272,7 +1277,8 @@ arguments and output; the record's `history` field (`at`, `result`,
     selected faults' history signatures (their placeholders resolved
     from the instance's parameters, fix 10; `queue` entries drawn from
     the queue model; `remove` winning on its series; `suppressed_by`
-    honoured from the hiding instance's planting, spec D543); fix 1 (noise clamped at zero and scaled, start times
+    honoured from the hiding instance's planting, spec D543, which no
+    covered fault uses, so unit tests only, spec D578); fix 1 (noise clamped at zero and scaled, start times
     constant and stepping only at the restart, the restart itself drawn
     at the anchor); fix 5 (the measured costs, `gauge_before`, nothing
     below the night's floor, activity gauges around the tail's median,
@@ -1375,6 +1381,9 @@ applied.
     virtual instants (`rpt.etl_runs`) and its `search_path` setting
     identical after; either one not confirmed `tail-only` with the tail
     its job's runs need (master spec 9.8);
+    no `suppressed_by` in the campaign: f5 hides f4's and f7's trails
+    in `reporting`'s rows, `rpt.etl_runs` and the logs only, which no
+    exporter reads (spec D578);
     f5 `tail-only` planted in the tail, f6 `tail-only` one hour, f10
     `real-only` with its reason and no `history:`; each signature's
     numbers from one short real run of the fault, under 30 minutes,
@@ -1382,14 +1391,18 @@ applied.
     Prometheus trail `- kind: none`; the service time of each key the
     campaign's fill runs (a `service-times.yaml` on each scheduler node
     lacking one: `consumer`, `bi`, `crm`, `gateway`; a key shared with the
-    shop copying its figures with their source); whether f4's check
+    shop copying its figures with their source; the keys of `bi` and
+    `gateway`, report-only nodes whose jobs no short run can move, timed
+    from the fill's `rpt.etl_runs` and with psql, master spec 9.7);
+    whether f4's check
     needs the 12:00 close in the tail; the
     WAL rate of each of the campaign's primaries, `db` and `reporting`
     (`wal-rate.yaml`, formats.md v36; capture W2 item 11), which
     chunk 12's short game needs for `clean-restart`: `bytes_per_hour`
     from `pg_stat_wal.wal_bytes` over one of its short real runs at the
     scenario's load, the data load excluded, its `source:` naming the
-    run;
+    run (as built, 7.2 minutes of an evening window, the producer's
+    shape 0.6, not a day's average);
   - each `gm.md`'s "Fake aging" note for `tail-only` and `real-only`;
   - a parameter a signature needs added to its fault optional, so the
     scenarios already using the fault load unchanged; every instance in
@@ -1566,6 +1579,16 @@ calls.
     check showing the monitoring started with the rest; the `player`
     account unable to list `/var/lib/prometheus` on the Prometheus node
     (spec D540);
+  - **the campaign's figures read as measured** (chunk 11b, spec D578):
+    low-sample and from an evening window, not a day's average like the
+    shop's 43 881 262: f1's `per_call` (three calls), the WAL rates of
+    `db` and `reporting` (7.2 minutes at the producer's shape 0.6),
+    `rollup.close` (one run, `sigma: 0`). The tells read `pg_wal`'s
+    size against the padding `state.yaml`'s `clean_restart.wal`
+    records, never against a day's figure the campaign has none of; a
+    step in f1's series at the seam is recorded in the chunk's record
+    as a finding for a day-long measurement (v1.0 gating), not a
+    failure of the game;
   - **the scenario document's "Fake aging" section** (the
     `scenario-document` skill and its template): each instance's
     support, the tail the full selection needs, the instances refused

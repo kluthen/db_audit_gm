@@ -432,3 +432,10 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   shows f4's `max_tx_duration` sawtooth throughout. The shop's f5 has no
   `daily_spike` (R holds no noon-run sample). Now in: [master spec](versions/v0.6/master-spec.md#98-the-scenarios-covered-and-the-starting-estimates)
   6.9, 9.8; [build plan](versions/v0.6/build-plan.md) chunk 11.
+- **D578 (2026-11-19, spec-writer, chunk 11b's measured deviations):
+  the campaign's f5 carries no `suppressed_by` over f4 and f7,** whose
+  trails are rows in `reporting`, `rpt.etl_runs` and logs, which no
+  exporter reads (D548's case): no covered fault uses D543's rule, which
+  stands, unit-tested only. A report-only node's keys are timed from a
+  fill or with psql. Now in: [master spec](versions/v0.6/master-spec.md#95-fault-eligibility)
+  6.9, 9.5, 9.7, 9.8; [build plan](versions/v0.6/build-plan.md) chunks 10, 11, 12, G10.3.
