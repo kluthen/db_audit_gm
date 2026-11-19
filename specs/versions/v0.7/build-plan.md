@@ -30,7 +30,7 @@ states only its deltas.
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | The master spec, the access model and this plan approved | owner | every chunk | done (2026-11-19, spec D574) |
-| G2 | `v0.7-spec` merged into `main` (after `doc-ids compare main v0.7-spec`) | owner's word (given 2026-11-19, spec D574), driver | wave 1 | open; cleared at merge |
+| G2 | `v0.7-spec` merged into `main` (after `doc-ids compare main v0.7-spec`) | owner's word (given 2026-11-19, spec D574), driver | wave 1 | done (2026-11-19, merge 03429d9) |
 | G3 | v0.6 released: its release gate passed, `bastion` 0.6.0 released, chunk 13 merged | v0.6's wave driver, owner | waves 2, 3 | open |
 | G4 | The switch: wave 1 merged into `main`, then `dev` created from `main` at v0.6's release commit (or the merge after it holding wave 1); every open branch's base noted in the wave log | owner's word, driver | waves 2, 3 | open |
 | G5 | `main`'s history and `dev`'s remote: one snapshot commit per publish, history never rewritten, `dev` kept off the public remote | owner ruling | the release gate's first publish | done (2026-11-19, spec D575) |
@@ -40,7 +40,7 @@ states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2 | planned |
+| 1 | 1, 2, 3 | G1, G2 | in progress (2026-11-19) |
 | 2 | 4, 5, 6, 7 | G3, G4, wave 1 | planned |
 | 3 | 8 | G6 | planned; conditional: runs only for what G6 finds (a listing leaking a GM skill's description, an OpenCode answer needing a change), otherwise dropped. One chunk because what it holds can't be known before wave 2's gate. |
 
