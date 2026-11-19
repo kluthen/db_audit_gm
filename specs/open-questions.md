@@ -408,7 +408,7 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
 - **O284** (**closed**, D558) — Cutting the grid to the game's scope:
   not enforced; the draft's table kept as informative notes.
 - **O285** (**closed**, D558) — Where it lives: a verbatim copy at
-  [references/grille-audit-pg.md](references/grille-audit-pg.md); a
+  [references/grille-audit-pg.md](../references/grille-audit-pg.md); a
   game-scoped English rewrite optional and later.
 - **O286** (**closed**, D564, against the recommendation) — How game
   mode is produced. `main` is the game branch, a side dev branch the
