@@ -126,8 +126,6 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain loaded here by `load-data`: `vet-core` into the database `clinic` (see "Composition" below).
-
 #### Node `lab`
 
 - **Brick**: `postgres`, version 0.5.1 (pinned).
@@ -155,8 +153,6 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_connections` | 100 | 10 .. 200 | yes |
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
-
-Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the database `lab` (see "Composition" below).
 
 #### Node `lab-api`
 
@@ -312,10 +308,10 @@ Composed from the catalogue's domains at design time; its record,
 - **Derivations**: none.
 - **Scale**: checked: the core and its lab at one centre's scale: about 0.27 and 0.33 million rows, 49 and 54 MB.
 - **Left out** (a fixture's least environment):
-  - `vet-core`'s `pms`: no practice software node in the send-outs fixture (eight nodes at most, D314)
-  - `vet-core`'s `api/clinic-api`: no lookup API node in the send-outs fixture (eight nodes at most, D314): the lab's identity lookups are lis's, left out too
-  - `vet-lab`'s `lis`: no information system node in the send-outs fixture (eight nodes at most, D314): the short test receives, validates and releases as lis would (time placed)
-  - `vet-core`'s `partners/centres`: the partners' nodes carry the lab's partners only (eight nodes at most, D314): the other centres' stub (purpose 4's) is fixture-exchanges' (spec D435)
+  - `vet-core`'s `pms`: no practice software node in the send-outs fixture (eight nodes at most, D314).
+  - `vet-core`'s `api/clinic-api`: no lookup API node in the send-outs fixture (eight nodes at most, D314): the lab's identity lookups are lis's, left out too.
+  - `vet-lab`'s `lis`: no information system node in the send-outs fixture (eight nodes at most, D314): the short test receives, validates and releases as lis would (time placed).
+  - `vet-core`'s `partners/centres`: the partners' nodes carry the lab's partners only (eight nodes at most, D314): the other centres' stub (purpose 4's) is fixture-exchanges' (spec D435).
 - **Merge resolutions**: none: no two sources of one layer collided.
 - **Scenario layer**: `compose/interfaces/`, `compose/partners-backend/`.
 - **Coherence**: checked by `load-data` at every setup, after the loads,
@@ -468,7 +464,44 @@ Judged at the final answer, on the report alone: no sealed check.
   - `partners-db`: `nodes/partners-db/postgresql.conf`, `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
   - `partners-db`: `data/partners-db.sql`
-  - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-lab/`.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`.
 - **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/interfaces/`, `compose/partners-backend/`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 8h, the scenario's aging: the virtual T0 at 16:00 the day before,
+  scenario time, for the hand-over designed at 00:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-send-outs-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.
