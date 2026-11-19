@@ -1,10 +1,11 @@
 # v0.7 — the game assistant
 
-Status: draft v2. **Consolidated** on 2026-11-19 into the
+Status: draft v3. **Consolidated** on 2026-11-19 into the
 [master spec](master-spec.md) and its [access model](access-model.md)
 (D573), after an independent review of the drafts (REJECT, ten
 findings, all closed: D572); the [build plan](build-plan.md) v1 written
-the same day; both for the owner's approval. The three drafts stay as
+the same day; all three **approved** by the owner the same day,
+`main`'s history settled (D574, D575). The three drafts stay as
 the working record; where they and the master spec differ, the master
 spec wins. Opened on 2026-11-19 (D549), after v0.6 and before v1.0.
 
@@ -36,9 +37,6 @@ informative (D558).
 
 ## Open
 
-- The owner's approval of the master spec, its access model and the
-  build plan, which confirms the game branch's shape (MD5–MD8) and where
-  the assistant runs, carried for review in context (D573).
-- O290 ([open-questions.md](../../open-questions.md), "The game
-  assistant"): `main`'s history and `dev`'s remote; it gates the first
-  publish, at the release gate.
+Nothing: every question closed and the plan approved (D574, D575).
+Next: `v0.7-spec` merged into `main` (G2), then wave 1 (chunks 1–3);
+waves 2 and 3 after v0.6's release and the switch to `dev` (G3, G4).

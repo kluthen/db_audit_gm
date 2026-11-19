@@ -579,3 +579,17 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   brought up to date; the drafts kept as the working record, the master
   spec winning where they differ. Now in:
   [versions/v0.7/master-spec.md](versions/v0.7/master-spec.md).
+- **D574 (2026-11-19, owner approval, relayed by the coordinator): v0.7's
+  master spec, access model and build plan v1 approved** ("approved. you
+  may merge. ok"), with the points carried for review in context: the
+  game branch's shape, where the assistant runs (master spec 6.3, solo
+  play included, reread and kept as written) and `tools/play` refusing
+  `dev` without `--dev`; `v0.7-spec` may merge into `main` after
+  `doc-ids compare`. Clears G1; G2 clears at the merge. Now in:
+  [master spec](versions/v0.7/master-spec.md),
+  [build plan](versions/v0.7/build-plan.md).
+- **D575 (2026-11-19, owner ruling, same relay): `main`'s history and
+  `dev`'s remote, as recommended:** one snapshot commit on `main` per
+  publish, its history never rewritten; `dev` kept off the public remote,
+  a private remote optional. Closes O290; clears G5. Now in:
+  [master spec](versions/v0.7/master-spec.md) 16.

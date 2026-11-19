@@ -1,7 +1,8 @@
 # v0.7 — Build plan
 
-Status: v1 (2026-11-19): written from the consolidated master spec, for
-the owner's approval with it (G1). Not approved.
+Status: v1 (2026-11-19): written from the consolidated master spec.
+**Approved by the owner on 2026-11-19** with it ("approved. you may
+merge. ok"; spec D574); G1 and G5 cleared.
 Written from: [master spec](master-spec.md) and
 [access model](access-model.md) as consolidated 2026-11-19. The model
 is `~/.local/share/dev_team/references/build-plan-model.md`; this plan
@@ -28,11 +29,11 @@ states only its deltas.
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | The master spec, the access model and this plan approved | owner | every chunk | open |
-| G2 | `v0.7-spec` merged into `main` (after `doc-ids compare main v0.7-spec`) | owner's word, driver | wave 1 | open |
+| G1 | The master spec, the access model and this plan approved | owner | every chunk | done (2026-11-19, spec D574) |
+| G2 | `v0.7-spec` merged into `main` (after `doc-ids compare main v0.7-spec`) | owner's word (given 2026-11-19, spec D574), driver | wave 1 | open; cleared at merge |
 | G3 | v0.6 released: its release gate passed, `bastion` 0.6.0 released, chunk 13 merged | v0.6's wave driver, owner | waves 2, 3 | open |
 | G4 | The switch: wave 1 merged into `main`, then `dev` created from `main` at v0.6's release commit (or the merge after it holding wave 1); every open branch's base noted in the wave log | owner's word, driver | waves 2, 3 | open |
-| G5 | `main`'s history and `dev`'s remote: one snapshot commit per publish and `dev` kept off the public remote (proposed), or another answer | owner ruling | the release gate's first publish | open |
+| G5 | `main`'s history and `dev`'s remote: one snapshot commit per publish, history never rewritten, `dev` kept off the public remote | owner ruling | the release gate's first publish | done (2026-11-19, spec D575) |
 | G6 | The empirical check (master spec 7.7) recorded in both tools, at wave 2's gate | wave 2's gate | chunk 8 (whether it runs) | open |
 
 ## Waves

@@ -1,7 +1,8 @@
 # db_audit_gm v0.7 — Access model
 
-Status: **consolidated 2026-11-19 with the [master spec](master-spec.md),
-for the owner's approval.** Revises the [v0.6 access
+Status: **approved by the owner on 2026-11-19** with the
+[master spec](master-spec.md) it accompanies ("approved. you may merge.
+ok"). Revises the [v0.6 access
 model](../v0.6/access-model.md), which stays in force for v0.7 games in
 everything this document does not change (and through it v0.5's, its
 baseline). This document states only what v0.7 adds or changes; where

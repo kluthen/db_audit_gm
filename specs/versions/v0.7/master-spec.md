@@ -1,12 +1,15 @@
 # db_audit_gm v0.7 — Master specification
 
-Status: **consolidated 2026-11-19, for the owner's approval.** Consolidated
+Status: **approved by the owner on 2026-11-19** ("approved. you may
+merge. ok"), with its access model and build plan; the game branch's
+shape, where the assistant runs (solo play included) and the
+launcher's refusal on `dev` confirmed as written, and `main`'s history
+settled (section 16). Consolidated
 on the owner's word ("you may begin working on this version") from
 v0.7's three draft documents (the game assistant, the agents, game mode)
 and the owner's rulings of 2026-11-19, after an independent review of
 the drafting whose ten findings were closed before consolidation. Every
-point is stated here as fact, except the one question left to the owner
-(section 16). **For the owner's review in context**: the game branch's
+point is stated here as fact. **Reviewed by the owner in context**: the game branch's
 shape (what `main` carries, the `dev` branch, the switch after v0.6's
 release, the `publish-main` skill; section 8) was worked out from the
 owner's ruling that `main` is the game branch, and is confirmed by
@@ -71,7 +74,7 @@ played from.
 - A way for the GM to read a report from a file the players point to on
   the GM's machine: the three ways of today stand (pasted, `~/report.md`,
   talked through).
-- Rewriting `main`'s past history (section 16).
+- Rewriting `main`'s past history: never (section 16).
 
 ## 3. Actors
 
@@ -787,7 +790,7 @@ runs after v0.7, with the assistant's stance items).
 - The four helpers are invoked by the GM "with the … skill" during
   setup; their descriptions name the answer key and the faults.
 - `main` was pushed in dev mode at v0.5's close; its past commits stay
-  as they are unless the owner decides otherwise (section 16).
+  as they are (section 16).
 - At risk: every reference to `/game-master` (specs, bricks' GM
   documentation, the scenario documents' template, the players' README
   wording), read again in the GM's chunk.
@@ -821,13 +824,13 @@ runs after v0.7, with the assistant's stance items).
 
 ## 16. Deferred items, open questions and points left to the build
 
-- **Left to the owner**: `main`'s history and `dev`'s remote. Proposed:
-  each publish is one new commit on `main`, history continuous, nothing
-  rewritten, `main`'s past commits keeping the development material
-  already public; `dev` not pushed to the public remote (only game mode
-  is pushed), a private remote if a backup is wanted. The alternative,
-  rewriting `main`'s history, needs a force-push that breaks every
-  existing clone. The first publish waits on this answer.
+- **Settled by the owner at approval**: `main`'s history and `dev`'s
+  remote. Each publish is one new commit on `main`, its history
+  continuous and never rewritten, `main`'s past commits keeping the
+  development material already public; `dev` is not pushed to the public
+  remote (only game mode is pushed), a private remote optional for a
+  backup. Rewriting `main`'s history was rejected: it needs a force-push
+  that breaks every existing clone.
 - **Left to the build**: the GM's split into named workflow skills
   (7.5); the empirical check's findings and their consequences (7.7);
   how OpenCode receives the game-mode text (7.7).
