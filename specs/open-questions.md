@@ -49,7 +49,7 @@ widened O282 into the repository's game mode (D555–D557), and raised
 O286–O288; the GM and the assistant made agents (D559–D561) raised O289,
 closed by D562, then by D563, which reversed it. The owner then closed
 O282 and O286–O288 (D564–D570) and the game branch raised O290, closed
-at v0.7's approval (D575); none of v0.7's questions remains open.
+at v0.7's approval (D575). Wave 1's chunk 3 raised O291 (D576), open.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -439,6 +439,18 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
   is wanted. The alternative, rewriting `main`'s history to strip that
   material, needs a force-push that breaks every clone. Refs:
   [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 3.
+- **O291** (soon, v0.7, before the release gate's first publish; raised
+  by plan v3, D576) — Is the clinic's trap catalogue GM material `main`
+  must carry? The carried domain notes list each trap by number with a
+  gloss and defer its witness and where it is fixed to v0.5's
+  `clinic-traps.md` and the domain specs, which stay in `specs/`. A GM
+  composing a clinic scenario on `main`, or judging a report naming a
+  trap, has the gloss only. Default (proposed): the notes suffice, as
+  the format's "GM notes" rule intends (the traps, each with its class);
+  the alternative is a chunk carrying each trap's witness into its
+  domain's `docs/gm.md`. Chunk 9 doesn't wait on it. Refs:
+  [versions/v0.7/master-spec.md](versions/v0.7/master-spec.md#82-what-main-carries)
+  8.2; [versions/v0.7/build-plan.md](versions/v0.7/build-plan.md) chunk 9.
 
 ## Beyond v1.0: the cloud provider
 

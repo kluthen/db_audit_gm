@@ -1,12 +1,16 @@
 # v0.7 — Build plan
 
-Status: v2 (2026-11-19): the agent-definition check made a headless
-`claude -p --agent` run, `claude agents` no longer listing definitions
-(v1: written from the consolidated master spec).
+Status: v3 (2026-11-19): chunk 9 inserted in wave 2, the carried GM
+docs' links into dev-only paths (spec D576); `SECURITY_TODO.md`
+dev-only, built in chunk 7 (spec D577); chunk 4's own pointers named
+(v2: the agent-definition check made a headless `claude -p --agent`
+run, `claude agents` no longer listing definitions; v1: written from
+the consolidated master spec).
 **Approved by the owner on 2026-11-19** with it ("approved. you may
 merge. ok"; spec D574); G1 and G5 cleared.
 Written from: [master spec](master-spec.md) and
-[access model](access-model.md) as consolidated 2026-11-19. The model
+[access model](access-model.md) as consolidated 2026-11-19, the master
+spec amended in wave 1 (spec D577). The model
 is `~/.local/share/dev_team/references/build-plan-model.md`; this plan
 states only its deltas.
 
@@ -43,12 +47,12 @@ states only its deltas.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3 | G1, G2 | in progress (2026-11-19) |
-| 2 | 4, 5, 6, 7 | G3, G4, wave 1 | planned |
+| 2 | 4, 5, 6, 7, 9 | G3, G4, wave 1 | planned |
 | 3 | 8 | G6 | planned; conditional: runs only for what G6 finds (a listing leaking a GM skill's description, an OpenCode answer needing a change), otherwise dropped. One chunk because what it holds can't be known before wave 2's gate. |
 
 ```
 G1, G2 ──> wave 1: 1, 2, 3
-G3, G4 ──> wave 2: 4 ──> 5 (capture W2: the GM's skill names); 6; 7
+G3, G4 ──> wave 2: 4 ──> 5 (capture W2: the GM's skill names); 6; 7; 9
 wave 2 gate (G6) ──> wave 3: 8 (conditional)
 G5 ──> release gate (first publish)
 ```
@@ -266,22 +270,27 @@ Docker: heavy (the regression smoke)
   for setup and deploy, restart, the final answer and evaluation, the
   feedback, with `gmctl.md` as a reference; the old
   `.claude/skills/game-master/` removed; the `scenario-format` skill's
-  pointers to `specs/formats.md` made self-sufficient; every
+  pointers to `specs/formats.md` made self-sufficient; the four links
+  into `specs/` that chunk 3's starting state finds in the
+  `data-register` and `network-overview` skills (wave log, chunk 3)
+  rewritten as plain provenance, as chunk 9 does; every
   `/game-master` mention outside `specs/` re-read and updated; the
   assistant's settings file gains the workflow skills' names. Out: the
-  launcher's GM half (chunk 5).
+  launcher's GM half (chunk 5); the carried GM docs' links (chunk 9).
 - Files: `.claude/agents/game-master.md`,
   `.opencode/agents/game-master.md`, `.claude/skills/game-master-*/`,
   `.claude/skills/game-master/` (removed),
   `.claude/skills/scenario-format/SKILL.md`,
+  `.claude/skills/data-register/SKILL.md`,
+  `.claude/skills/network-overview/{SKILL.md,template.md}`,
   `.claude/game-assistant.settings.json`.
 - Spec sections: [master spec 7.5](master-spec.md#75-the-gms-definition),
   [8.5](master-spec.md#85-memory); item 2.
 - Done when: every section of the old `SKILL.md`, `gmctl.md` and
   `feedback.md` is found, unchanged in substance, in the core file or a
   workflow skill (a mapping table in the commit message); both
-  definitions load; `publish-main --check-only` finds no carried pointer
-  into `specs/`; the regression smoke passes under the GM agent.
+  definitions load; `publish-main --check-only` finds no `pointer` under
+  `.claude/`; the regression smoke passes under the GM agent.
 - Verification: chunk checks; the regression smoke on
   `bookshop-new-server`, under the lock.
 - Split rule: 4a the Claude Code core file and the skills' split (the
@@ -349,17 +358,56 @@ Docker: none
   the first publish.
 - Scope: in: `game-mode/README.md` and `game-mode/CLAUDE.md` (master
   spec 8.4), `game-mode/settings.json` (`autoMemoryEnabled: false`),
-  `publish.py` taking `.claude/settings.json` from it; on `dev`, the
+  `publish.py` taking `.claude/settings.json` from it;
+  `SECURITY_TODO.md` added to `game-mode/paths` and to `publish.py`'s
+  8.2 constant (spec D577); on `dev`, the
   root `README.md` and a `CLAUDE.md` stay the developer's, the latter
   stating the two-dialect rule (7.1). Out: running the publish.
 - Files: `game-mode/README.md`, `game-mode/CLAUDE.md`,
-  `game-mode/settings.json`, `game-mode/publish.py`, `CLAUDE.md`.
+  `game-mode/settings.json`, `game-mode/publish.py`, `game-mode/paths`,
+  `tools/tests/test_publish_main.py`, `CLAUDE.md`.
 - Spec sections: [master spec 8.4](master-spec.md#84-the-game-mode-readmemd-and-claudemd),
-  [8.5](master-spec.md#85-memory); item 5.
+  [8.5](master-spec.md#85-memory),
+  [8.2](master-spec.md#82-what-main-carries); item 5.
 - Done when: `publish.py --check-only` on `dev` passes every check but
-  those chunk 4 clears, which it lists; the game `CLAUDE.md` holds no
-  word a check refuses.
+  those chunks 4 and 9 clear, which it lists; the game `CLAUDE.md` holds
+  no word a check refuses; a fixture tree carrying `SECURITY_TODO.md` is
+  refused, with and without the line in the fixture's `game-mode/paths`.
 - Verification: chunk checks.
+
+### Chunk 9 — The carried GM docs' links into dev-only paths
+
+Status: planned
+Wave: 2
+Depends on: chunk 3 (its pointer check), G4
+Architecture capture: none
+Docker: none
+
+- Goal: no GM doc `main` carries links its reader into `specs/` or
+  `tools/tests/`; where one names its source, it does so as provenance,
+  harmless when absent (master spec 8.2).
+- Scope: in: the 41 Markdown links chunk 3's starting state lists
+  (wave log, chunk 3) into `specs/versions/v0.5/` and
+  `tools/tests/fixtures/`, each rewritten as plain text naming its
+  source (a file and section, such as "v0.5's `clinic-traps.md`"), with
+  no open-verb ("read", "see", …) before it, or dropped where the
+  sentence reads whole without it; the text around each unchanged; any
+  further such link the check finds in these files when the chunk runs.
+  Out: the four pointers under `.claude/skills/` (chunk 4); carrying
+  what the links' targets hold (O291); any change to 8.3's pointer rule.
+- Files: `domains/{vet-core,vet-housing,vet-lab,vet-machinery,vet-portal,vet-scheduling}/docs/gm.md`;
+  `purposes/{cold-storage-archive,vet-antimicrobial-use,vet-bookings-sync,vet-centre-exchanges,vet-head-office-figures,vet-imaging-orders,vet-lab-centre-orders,vet-lab-critical-calls,vet-lab-practice-results,vet-lab-send-outs,vet-lab-statements,vet-medicines-registers,vet-notifiable-diseases,vet-portal-messages,vet-portal-release,vet-working-time}/gm.md`;
+  `partners/README.md`.
+- Spec sections: [master spec 8.2](master-spec.md#82-what-main-carries),
+  [8.3](master-spec.md#83-publish-main); item 5.
+- Done when: `publish.py --check-only` on the chunk's branch reports no
+  `pointer` outside `.claude/`; `git diff --word-diff` shows every
+  change inside a link's own sentence; each file still names its
+  sources.
+- Verification: chunk checks (link lint over the changed files; the unit
+  tests reading `domains/`, `purposes/` and `partners/`); at the wave
+  gate, `publish.py --check-only` on the wave branch reports no
+  `pointer` at all, chunk 4 merged.
 
 ### Chunk 8 — The empirical check's consequences (conditional)
 

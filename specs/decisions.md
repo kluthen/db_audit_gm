@@ -593,3 +593,14 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   publish, its history never rewritten; `dev` kept off the public remote,
   a private remote optional. Closes O290; clears G5. Now in:
   [master spec](versions/v0.7/master-spec.md) 16.
+- **D576 (2026-11-19, spec-writer, plan v3, from chunk 3's starting
+  state): chunk 9 inserted in wave 2, rewriting the 41 Markdown links the
+  carried GM docs make into `specs/` and `tools/tests/` as plain
+  provenance text.** No chunk owned them; 8.2 already makes such mentions
+  provenance, so 8.3's check stands. Raises O291. Now in:
+  [build plan](versions/v0.7/build-plan.md) chunk 9.
+- **D577 (2026-11-19, spec-writer, plan v3): `SECURITY_TODO.md` is
+  dev-only,** built in chunk 7. The game-mode draft listed it; the
+  consolidation dropped it. Now in:
+  [master spec](versions/v0.7/master-spec.md#82-what-main-carries) 8.2;
+  [build plan](versions/v0.7/build-plan.md) chunk 7.
