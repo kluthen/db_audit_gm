@@ -107,7 +107,7 @@ site. Your own audit report stays yours: write it where you like
   "Reports").
 - **`~/report.md`**: write your findings there. The game master can read
   it when you hand in your final answer.
-- **Tools**: `ssh`, `psql` and the other PostgreSQL 18 client tools,
+- **Tools**: `ssh`, `psql` and the other PostgreSQL 19 client tools,
   `curl` (to call the partners' services, for instance), `jq` (to read
   JSON, such as Prometheus' API when your game has Prometheus:
   `curl -s 'http://<its node>:9090/prometheus/api/v1/query?query=up' | jq .`),

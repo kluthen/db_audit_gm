@@ -7,7 +7,9 @@ to players.
 
 A PgBouncer connection pooler node (v0.3 master spec 7.2): PgBouncer
 1.26.1 from the PostgreSQL apt repository (PGDG, `trixie-pgdg`, package
-`1.26.1-1.pgdg13+1`, D177; psql 18 from there too), on `debian:13-slim`,
+`1.26.1-1.pgdg13+1`, D177; psql 19 from there too, `postgresql-client-19`
+named rather than the metapackage, the build asserting psql and libpq at
+19 and no other major's client, v0.6 spec D587), on `debian:13-slim`,
 with s6-overlay 3.2.3.2, `sshd`, the `player` account and a public
 validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.2`.
 Role `pooler`.
@@ -221,7 +223,7 @@ service (a container start, or s6 restarting PgBouncer):
     role that logs in through the pooler to its database. PgBouncer logs
     in to the server with the client's own SCRAM keys, so these lines must
     be `scram-sha-256`, never `md5` or `password`, and the roles' stored
-    passwords SCRAM verifiers (PostgreSQL 18's default);
+    passwords SCRAM verifiers (PostgreSQL's default since 14);
   - the application roles and databases themselves (the scenario's data).
 - **Who connects through it**: the bastion's players (`dba` and any
   role), the scheduler nodes whose connections target it. Each pool also

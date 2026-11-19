@@ -8,8 +8,8 @@
 set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
-PGBIN=/usr/lib/postgresql/18/bin
-PGDATA=/var/lib/postgresql/18/data
+PGBIN=/usr/lib/postgresql/19/bin
+PGDATA=/var/lib/postgresql/19/data
 
 if [ "$#" -ne 0 ]; then
     echo "usage: sudo gm-reload-db (no arguments)" >&2

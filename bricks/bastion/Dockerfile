@@ -1,7 +1,7 @@
 # Bastion node for db_audit_gm (master spec 9.2).
 #
 # The players' only entry point: sshd (password login as `player`), the
-# PostgreSQL 18 client tools and an SSH client for the inner hop, curl (the
+# PostgreSQL 19 client tools and an SSH client for the inner hop, curl (the
 # players' HTTP client), and the web front (nginx, port 8080), in every
 # game: its home the starter-pack page, rendered at start-up by cmark-gfm,
 # and the monitoring web interfaces when the scenario routes any (v0.4
@@ -24,7 +24,8 @@ RUN chmod -R u=rwX,go=rX /rootfs
 # --- the node ----------------------------------------------------------------
 FROM debian:13-slim
 
-ARG PG_MAJOR=18
+# PostgreSQL 19 (v0.6 spec D587), as the PostgreSQL brick.
+ARG PG_MAJOR=19
 ARG S6_OVERLAY_VERSION=3.2.3.2
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256
@@ -69,6 +70,11 @@ RUN set -eux; \
     rm -rf /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf.d/* \
         /var/log/nginx /var/lib/nginx /var/www/html; \
     test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/psql"; \
+    # PostgreSQL 19 only (G9.2): the client and libpq at 19, no other
+    # major's client or server left
+    case "$(dpkg-query -W -f '${Version}' "postgresql-client-${PG_MAJOR}")" in 19.*) ;; *) exit 1 ;; esac; \
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
+    if dpkg-query -W -f '${Package} ${Status}\n' 'postgresql-1[0-8]*' 'postgresql-client-1[0-8]*' 2>/dev/null | grep -q 'ok installed'; then exit 1; fi; \
     test -x /usr/sbin/nginx; \
     command -v cmark-gfm; \
     curl --version; \

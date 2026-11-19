@@ -3,7 +3,7 @@
 # item 8 seed entries (crontab, optional; the cronspool volume) (specs/versions/v0.4/wave-log.md; item 9: chunk 4's catalog
 # brick was not merged when this fixture was written).
 #
-# brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
+# brick.yaml: PostgreSQL 19 node (master spec 7 and 9.1).
 #
 # Version 0.4.0 (unreleased until the v0.4 release gate, D100). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
@@ -21,7 +21,7 @@ roles:
   - database
 technology:
   name: postgresql
-  version: "18"
+  version: "19"
 image: 127.0.0.1:5000/dbagm/fixture-postgres:0.4.0
 base: {os: Debian GNU/Linux, version: "13"}  # its Dockerfile's debian:13-slim (v0.6 master spec 6.4)
 
@@ -170,7 +170,7 @@ protected_configs:
     mode: "0444"
 volumes:
   - name: pgdata
-    path: /var/lib/postgresql/18/data
+    path: /var/lib/postgresql/19/data
   - name: pgconf
     path: /etc/postgresql
   - name: home

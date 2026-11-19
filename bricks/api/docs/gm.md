@@ -6,7 +6,7 @@ players.
 ## Purpose
 
 - **What it is**: an HTTP API node, FastAPI 0.162.0 on uvicorn 0.54.0,
-  Python 3.13 (Debian 13), psycopg 3.3.7 on Debian's libpq, image
+  Python 3.13 (Debian 13), psycopg 3.3.7 on PGDG's libpq 19, image
   `127.0.0.1:5000/dbagm/api:0.1.1`. The GM drops endpoint files into the
   node and the brick serves them; the image is generic and holds no
   scenario content (v0.5 master spec 7.2, "The `api` brick").
@@ -24,8 +24,15 @@ players.
   plain `psycopg` (never `[binary]`), no python-multipart (JSON only);
   installed with `pip install --require-hashes --only-binary=:all:
   --no-deps` in a throwaway build stage, so no pip reaches the node; plus
-  Debian's `libpq5` and `python3-yaml` (api.yaml, safe loading only;
-  cleared by security-advisor for this brick, 2026-11-03).
+  Debian's `python3-yaml` (api.yaml, safe loading only; cleared by
+  security-advisor for this brick, 2026-11-03) and PGDG's `libpq5` 19
+  (19.0 at the 0.1.1 build, v0.6 spec D587) from `trixie-pgdg main`,
+  whose signing key comes from a throwaway `pgdg-key` stage that alone
+  installs `postgresql-common`, so only the key reaches the image (with
+  `ca-certificates`, for the HTTPS source). When PostgreSQL 20 ships,
+  PGDG's `main` moves to libpq 20 and the build fails until component
+  `19` is named or 20 is ruled in (G9.2); libpq's security updates come
+  from PGDG's minor releases, reached by a `--no-cache` rebuild.
 
 ## Placement
 
@@ -36,9 +43,10 @@ players.
 - Build: `docker build -t 127.0.0.1:5000/dbagm/api:0.1.1 bricks/api`
   (x86_64: the s6-overlay archive and pydantic-core's wheel). The build
   asserts G6's pins (each package at exactly its pin, nothing else in
-  `dist-packages`), psycopg's pure-Python implementation over libpq 17 or
-  later, Python 3.13, and no pip in the node (`build/check-image.py`, the
-  Dockerfile's last checks).
+  `dist-packages`), psycopg's pure-Python implementation over libpq 19
+  (`libpq5` 19.x, `psycopg.pq.version() // 10000 == 19`), Python 3.13,
+  and no pip in the node (`build/check-image.py`, the Dockerfile's last
+  checks).
 - Stateful: its volumes hold the endpoint files (the players' edits to
   `db/`) and the request log. One network, the game's.
 
@@ -265,7 +273,8 @@ with the domains' and purposes' chunks, not with this brick.
   endpoint with its credential answers, and without it 401; the request
   log shows them.
 - **Unit tests**: `sh bricks/api/tests/run-unit-tests.sh` (the `unit-test`
-  stage, with a throwaway PostgreSQL).
+  stage, with a throwaway PostgreSQL: PGDG's `postgresql-19`, in that
+  stage only).
 - **Stack test**: `sh bricks/api/tests/run-stack-test.sh` (about 8
   minutes; needs the api image built first, `docker build -t
   127.0.0.1:5000/dbagm/api:0.1.1 bricks/api`, and `postgres` 0.5.1's

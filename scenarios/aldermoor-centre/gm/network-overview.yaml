@@ -5,13 +5,13 @@
 generated_from:
   scenario.yaml: sha256:3ff9b07883739c220c9f12466423f0bdd91e9e375510969529d9436dcb8122f6
   nodes/records/postgresql.conf: sha256:85adb31715ce9714914d20cf2c8c45b18672215f4b2219f49538ca7ce88211ef
-  nodes/records/crontab: sha256:fcf03fc4eb344d6549cd2cbd2e2b0506756ac180cb770b316995b2383788324f
+  nodes/records/crontab: sha256:fff49abac53f7a6234aab00ffd9440530f2d6ef1f904df874240ccb3ae0cc458
   data/records.sql: sha256:1479f6c2493a9caab58e5b6f5130aef927ccd7683324d8831b55d1a8532ee71e
   nodes/standby/postgresql.conf: sha256:cf34b35cebe8125f07a197a0cce71b5a82d3a33096d4ebe2f69f3b9aee08dfd1
   nodes/lab/postgresql.conf: sha256:a3ae375f31112153e7860e9611c9fddb4fcde335e31959f331d4cc415fa0511a
-  nodes/lab/crontab: sha256:504b9c1ca705ca6f86706778882d5249d4f087974bcc7039df931f541f8420e4
+  nodes/lab/crontab: sha256:e226d358dc951dbee2980c46964c88017253a034517698f2e0bf33ff45d87fe4
   nodes/machines/postgresql.conf: sha256:73cf78f457d0116d98babfb5024129b67b3976db12b9495cf3048fe6b7dda123
-  nodes/machines/crontab: sha256:04c8cb55ffb51e47e7e643f2cad145cfa7e3bf580e2f6bb736396ff9958e280a
+  nodes/machines/crontab: sha256:066e732f07b03f35b76696efe5c33f6c6bf4ee289a917ebe9d4bf12f3568b193
   data/machines.sql: sha256:0004c1cbfd36bb70e199ebe724387f51f5f495abde741f121a319441f955e25a
   nodes/pms/jobs.yaml: sha256:193e7700ed2c1ce7e106024d3bff1588664c907ab9e2f8ef4d52d9b2febfd7aa
   nodes/pms/schedule.yaml: sha256:723928b06bdf2a524217a1e38e94e3d1a866add25dea43f6ad7172824c8b789f
@@ -36,7 +36,7 @@ generated_from:
   nodes/pgwatch/sources.yaml: sha256:faa8d31ba0402e5b2c3cb6800b69a62ff3dd9e58e1b8f41baeda364b27275916
   nodes/health/crontab: sha256:613c55a3a62c5ece612b4e333a5b26369f9df944c5e7ae29f5e7a59eab77cd8e
   nodes/health/health.yaml: sha256:0e29c230544ee6c355d7b5d731e912265c04c6fac63369ec271cbfbfb268b3cc
-  catalog/bricks/postgres/brick.yaml: sha256:0ded11e54ecf0cd1f639197e696ab84b5aec60c9ee464fdd72d47af454f275ed
+  catalog/bricks/postgres/brick.yaml: sha256:f7d767cae67231d2d297c3c932fdd7f03f36f1e040983a3ee77ce4db50093f74
   catalog/bricks/scheduler/brick.yaml: sha256:fa6e7b2a434f29bcbc8348fcb3f77fea828d406038712b2d9e19af1b583c96ba
   catalog/bricks/api/brick.yaml: sha256:8f5200ff43cd95d6c210f1482481b2d6dd0a035e5f7d6e091455aa1bdf2f8574
   catalog/bricks/prometheus/brick.yaml: sha256:3a7b2403cbfa1cf37adf6a4a37dcf901039c2d49816115a0e0c554d8b0d4d934
@@ -105,7 +105,7 @@ entries:
   description: The record's database server, the medical record, the agenda and the wards, the back office's
     registers and reports, the owners' portal.
   system: Debian GNU/Linux 13
-  applications: 'PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools:
+  applications: 'PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools:
     pgbadger; cron'
   sizing: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
   databases:
@@ -279,7 +279,7 @@ entries:
     their heavy reads.
   site: the off-site room, at Lowmoor
   system: Debian GNU/Linux 13
-  applications: 'PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger'
+  applications: 'PostgreSQL 19; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger'
   sizing: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
   databases: []
   fed_and_used_by:
@@ -317,7 +317,7 @@ entries:
   description: The laboratory's database server, its orders, samples and results, the practices' accounts
     and their billing.
   system: Debian GNU/Linux 13
-  applications: 'PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; report tools: pgbadger; cron'
+  applications: 'PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; report tools: pgbadger; cron'
   sizing: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
   databases:
   - database: lab
@@ -411,7 +411,7 @@ entries:
   description: The machines' database server, the imaging worklist and reports, the monitors' readings
     and the biomedical events.
   system: Debian GNU/Linux 13
-  applications: 'PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools:
+  applications: 'PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools:
     pgbadger; cron'
   sizing: CPU 1 (0.5 reserved), memory 1G (512M reserved), disk 2.25G
   databases:

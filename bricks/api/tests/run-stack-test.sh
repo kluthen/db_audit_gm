@@ -137,7 +137,7 @@ out=$(docker run --rm --entrypoint python3 "$IMAGE" -I -c 'import fastapi, uvico
 print(fastapi.__version__, uvicorn.__version__, starlette.__version__, pydantic.__version__, psycopg.__version__,
       psycopg.pq.__impl__, psycopg.pq.version(), yaml.__version__)' 2>&1) || true
 case $out in
-    "0.162.0 0.54.0 1.10.0 2.14.2 3.3.7 python 17"[0-9][0-9][0-9][0-9]" 6.0."*) pass "the image's versions: $out" ;;
+    "0.162.0 0.54.0 1.10.0 2.14.2 3.3.7 python 19"[0-9][0-9][0-9][0-9]" 6.0."*) pass "the image's versions: $out" ;;
     *) fail "the image's versions: $out" ;;
 esac
 

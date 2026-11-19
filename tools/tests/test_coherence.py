@@ -1096,7 +1096,7 @@ class TestHelpers(unittest.TestCase):
 
 IMAGE = os.environ.get("GM_TEST_PG_IMAGE", "127.0.0.1:5000/dbagm/postgres:0.5.1")
 PG_START = r"""set -eu
-PGBIN=/usr/lib/postgresql/18/bin
+PGBIN=/usr/lib/postgresql/19/bin
 install -d -o postgres -g postgres -m 0700 /run/gmtest/pgdata
 install -d -o postgres -g postgres -m 0750 /run/gmtest/pglog
 runuser -u postgres -- "$PGBIN/initdb" -D /run/gmtest/pgdata -U postgres -A peer -E UTF8 \

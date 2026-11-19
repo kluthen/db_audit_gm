@@ -36,13 +36,34 @@ RUN python3 -I -m pip install --require-hashes --only-binary=:all: --no-deps --n
         --disable-pip-version-check --no-cache-dir --target /stage/site -r /stage/requirements.txt \
     && rm -rf /stage/site/bin
 
-# --- the program: Debian's Python 3.13, libpq5 and python3-yaml; the set -----
-FROM debian:13-slim AS program
+# --- the PGDG signing key, in a throwaway stage (v0.6 G9.2) -----------------
+# Debian ships it in postgresql-common, which alone is installed here: only
+# the key reaches the program (no perl, ucf or ssl-cert there).
+FROM debian:13-slim AS pgdg-key
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
-    apt-get install -y --no-install-recommends python3 libpq5 python3-yaml tzdata; \
+    apt-get install -y --no-install-recommends postgresql-common; \
+    test -s /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; \
     rm -rf /var/lib/apt/lists/*
+
+# --- the program: Debian's Python 3.13 and python3-yaml, PGDG's libpq5 19; the set
+# libpq 19 (v0.6 spec D587) from PGDG's trixie-pgdg main, verified by apt
+# against the key above; it sorts above Debian's 17, so no pin is needed.
+# When PostgreSQL 20 ships, main moves to libpq 20 and the assertion below
+# fails the build (G9.2): then component 19, or 20 by a ruling.
+FROM debian:13-slim AS program
+COPY --from=pgdg-key /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc /etc/apt/keyrings/apt.postgresql.org.asc
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    echo "deb [signed-by=/etc/apt/keyrings/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends python3 libpq5 python3-yaml tzdata; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac
 # /usr/local/lib/python3.13/dist-packages is on Debian's python3 path, -I included
 COPY --from=wheels /stage/site/ /usr/local/lib/python3.13/dist-packages/
 COPY --from=modes /stage/gm_api/ /usr/local/lib/python3.13/dist-packages/gm_api/
@@ -61,8 +82,9 @@ FROM program AS unit-test
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
-    apt-get install -y --no-install-recommends postgresql; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends postgresql-19; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "$(dpkg-query -W -f '${Version}' postgresql-19)" in 19.*) ;; *) exit 1 ;; esac
 COPY tests/unit/ /opt/gm-test/unit/
 CMD ["/bin/sh", "/opt/gm-test/unit/run-in-image.sh"]
 

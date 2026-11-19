@@ -23,18 +23,40 @@ RUN find /stage/gm_scheduler -type d -exec chmod 0755 {} + \
     && find /stage/gm_scheduler -type f -exec chmod 0644 {} + \
     && chmod -R u=rwX,go=rX /stage/rootfs /stage/validator
 
-# --- the program: Python 3.13, psycopg and PyYAML from Debian ---------------
-FROM debian:13-slim AS program
+# --- the PGDG signing key, in a throwaway stage (v0.6 G9.2) -----------------
+# Debian ships it in postgresql-common, which alone is installed here: only
+# the key reaches the program (no perl, ucf or ssl-cert there).
+FROM debian:13-slim AS pgdg-key
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
-    apt-get install -y --no-install-recommends python3 python3-psycopg python3-yaml tzdata; \
+    apt-get install -y --no-install-recommends postgresql-common; \
+    test -s /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; \
     rm -rf /var/lib/apt/lists/*
+
+# --- the program: Python 3.13, psycopg and PyYAML from Debian, libpq5 19 ----
+# libpq 19 (v0.6 spec D587) from PGDG's trixie-pgdg main, verified by apt
+# against the key above; it sorts above Debian's 17, so no pin is needed.
+# When PostgreSQL 20 ships, main moves to libpq 20 and the assertions below
+# fail the build (G9.2): then component 19, or 20 by a ruling.
+FROM debian:13-slim AS program
+COPY --from=pgdg-key /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc /etc/apt/keyrings/apt.postgresql.org.asc
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    echo "deb [signed-by=/etc/apt/keyrings/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends python3 python3-psycopg libpq5 python3-yaml tzdata; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac
 # /usr/local/lib/python3.13/dist-packages is on Debian's python3 path, -I included
 COPY --from=modes /stage/gm_scheduler/ /usr/local/lib/python3.13/dist-packages/gm_scheduler/
 RUN set -eux; \
     python3 -I -c 'import sys; assert sys.version_info[:2] == (3, 13), sys.version'; \
     python3 -I -c 'import gm_scheduler, gm_scheduler.__main__, psycopg, yaml, zoneinfo; zoneinfo.ZoneInfo("Etc/GMT-3")'; \
+    python3 -I -c 'import psycopg; assert psycopg.pq.version() // 10000 == 19, psycopg.pq.version()'; \
     python3 -I -m compileall -q /usr/local/lib/python3.13/dist-packages/gm_scheduler
 
 # --- the unit tests, against a throwaway PostgreSQL (never in the node) -----
@@ -42,8 +64,9 @@ FROM program AS unit-test
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
-    apt-get install -y --no-install-recommends postgresql; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends postgresql-19; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "$(dpkg-query -W -f '${Version}' postgresql-19)" in 19.*) ;; *) exit 1 ;; esac
 COPY tests/unit/ /opt/gm-test/unit/
 CMD ["/bin/sh", "/opt/gm-test/unit/run-in-image.sh"]
 

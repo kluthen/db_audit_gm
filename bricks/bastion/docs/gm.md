@@ -6,7 +6,7 @@ version 0.6.0, expected to evolve as games are played.
 
 ## Purpose
 
-An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 18
+An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 19
 client tools alongside, in the image
 `127.0.0.1:5000/dbagm/bastion:0.6.0`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
@@ -21,8 +21,10 @@ it for every scenario; nothing on it is part of the game.
 The image:
 
 - Debian 13 (`debian:13-slim`), `openssh-server` and `openssh-client`
-  (OpenSSH 10.0), PostgreSQL 18 client tools from the PGDG repository
-  (`trixie-pgdg`, `postgresql-client-18`), `openssl` (password hashing),
+  (OpenSSH 10.0), PostgreSQL 19 client tools from the PGDG repository
+  (`trixie-pgdg`, `postgresql-client-19`, 19.0 at the 0.6.0 build, v0.6
+  spec D587; the build asserts the client and libpq at 19 and no other
+  major's client), `openssl` (password hashing),
   `nano`, `vim-tiny`, `less`, `procps`. No `sudo`.
 - nginx 1.26.3 from Debian's own repository (package `nginx`), the web
   front. Its packaged site, logs and state directories are removed; its

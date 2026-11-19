@@ -125,7 +125,7 @@ wait_archived() {  # wait_archived <segment> <seconds>
 replication() { rsql postgres "select s.slot_name || '|' || s.active || '|' || r.state from pg_replication_slots s join pg_stat_replication r on r.pid = s.active_pid where r.application_name = 'standby'"; }
 planted() { rsql postgres "select slot_type || '|' || active || '|' || (restart_lsn is not null) || '|' || coalesce(wal_status, '-') from pg_replication_slots where slot_name = 'old_reports'"; }
 held_wal() { rsql postgres "select pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) from pg_replication_slots where slot_name = 'old_reports'"; }
-pg_wal_size() { cx records du -sh /var/lib/postgresql/18/data/pg_wal | cut -f1; }
+pg_wal_size() { cx records du -sh /var/lib/postgresql/19/data/pg_wal | cut -f1; }
 visits_stats() { rsql clinic "select n_tup_ins || ' inserted, ' || n_live_tup || ' live' from pg_stat_user_tables where relname = 'visits'"; }
 # The standby's server log since an instant ("YYYY-MM-DD HH:MM:SS", UTC).
 sb_log_since() {

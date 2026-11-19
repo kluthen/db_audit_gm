@@ -33,7 +33,7 @@ services:
     environment:                    # the shop's instance chooses the option, as the scenario's db
       GM_OPTIONS: monitoring        #   does (v0.5 capture W1 items 0, 1; spec D346)
     volumes:
-      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/19/data}
       - {type: volume, source: db_pgconf, target: /etc/postgresql}
       - {type: volume, source: db_home, target: /home/player}
       - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
@@ -59,7 +59,7 @@ services:
     <<: *brick
     hostname: reporting
     volumes:
-      - {type: volume, source: rp_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: rp_pgdata, target: /var/lib/postgresql/19/data}
       - {type: volume, source: rp_pgconf, target: /etc/postgresql}
       - {type: volume, source: rp_home, target: /home/player}
       - {type: volume, source: rp_gmstate, target: /var/lib/gm-state}
