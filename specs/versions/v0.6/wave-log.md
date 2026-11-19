@@ -3124,3 +3124,46 @@ Not seen in the gate: D578's case, the template's starter-pack line
 outside an "if:" block (for chunk 12 or 16), ISS-007.
 
 Next: G10.3 to `spec-writer`.
+
+### G10.3 done — 2026-11-19
+
+`spec-writer`, 06a5d21 (formats.md v38, master spec, plan v12,
+D580–D583) and b0f7840 (gate row). Every form checked against the code
+(`history.py`, `aging.py`, `state.py`, `restart.py`, `cleanrestart.py`,
+gmctl.md, SKILL.md, `tools/fake_aging/`, the twenty faults, the loader).
+None contradicts the spec.
+
+- D580 the umbrella (as D534); D581 the seam check as built (joins
+  checked on size gauges only, within the larger of 1 % and the tail's
+  largest step; `negative` for a series the system holds below zero;
+  `empty`): master spec 12.1 now reads "size gauges joining", read as a
+  gap filled (the other gauges are drawn from the tail's level); D582 a
+  fake game's restart without history (W3 item 7 as built); D583 one
+  import at a time, `ok` final even with a failed seam, a failed import
+  retried by hand.
+- Chunk 10's Record items and the exporter's reach (`postgres` database
+  only) now in 9.5 and formats.md.
+- Open, for the owner: master spec 9.9 fix 5 claims a `gauge_before` for
+  a dropped index's size, but the shop's f8 (`pg-join-index-missing`)
+  has none (only `fixture-dropped-index` has one); the shop's forged past
+  likely shows no database-size step at f8's planting (about 20 MB on
+  182 MB). Add a measured `gauge_before` to f8, or record a limit.
+- Open, for the owner: nothing enforces a fake game's instance setting a
+  signature's optional parameter (f1's `database`); unset, the selector
+  matches nothing, silently (`test_fake_aging_faults` covers the two
+  scenarios). A render refusal would be fix-sized.
+- Sent as gate fixes (driver's call, text only, the code following the
+  spec): gmctl.md (about line 389) and SKILL.md (about line 1236) advise
+  retrying "a failed seam" by hand, which D583 makes a no-op;
+  `calibrate.py`'s docstring lists the old names; from wave 2,
+  `cleanrestart.EXPLAINS`' real-clock row leaves out Grafana's alert
+  state and history and its no-log row says "the night" where 9.10 says
+  "the fill".
+- Retention measured only in part (section 18): a 13–15 h past and a
+  compaction not measured; for chunk 12's games or v1.0 gating.
+- For chunk 12's brief: its seam check reads `gmctl history`'s verdict
+  (D581) and may use `--check-seam`; its selectors meet the exporter's
+  reach; f8's gap could show in the shop's M1 comparison. Chunks 5, 14,
+  16 read nothing that changed.
+
+`doc-ids compare main v0.6-w3`: 0 collisions.
