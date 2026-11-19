@@ -1606,7 +1606,10 @@ link).
 
 ### Chunk 12a — `gauge_before` adds its value; f8's measured `gauge_before`
 
-Status: planned
+Status: merged (w4, 303697f)
+Record: c1bcaf8, merged as 303697f on 2026-11-19; no deviation from the
+spec or W4. f8's `value` 14016512 from run R's planting step (no shop
+run); `fixture-dropped-index`'s 13213696 from the history run's figure.
 Wave: 4
 Depends on: chunks 10, 11; chunk 1 (the reference, for f8's value)
 Docker: light (`fixture-fill`'s history run once, under the lock, in its

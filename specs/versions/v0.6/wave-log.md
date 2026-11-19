@@ -3812,3 +3812,33 @@ span in the script, which costs about 3 more minutes of fill, the
   header comment still says the `node` variable "comes with its
   chunk" (stale, a one-line gate fix).
 - Figures: 1 agents, 91 tool calls, 10.5M tokens in / 50k out, max context 167k, $3.91 at API prices.
+
+### Chunk 12a — merged (303697f), 2026-11-19
+
+- c1bcaf8 on `v0.6-c12a-gauge-before` (v0.6-w4 taken in first, 360e5be),
+  merged `--no-ff` as 303697f. Done when met: `history.py`'s
+  `gauge_overlays` adds `value` to the drawn level (a `None` base
+  reads `value` alone); `test_gauge_before_adds_its_value` (test_history
+  30 OK); the `scenario-format` skill and template word `value` as
+  "what is added until the planting" (D585).
+- `fixture-dropped-index`'s value **13213696** (order_lines_order_id_idx,
+  1613 pages), checked equal to the run's FIGURE; the old
+  `size_before == 202500000` check replaced by a step check: 13207587
+  for 13213696, within 1 %, PASS.
+- f8 (`pg-join-index-missing`) gains its `gauge_before` on
+  `pg_database_size_bytes{datname="{DATABASE}"}`, value **14016512**,
+  read from run R's `r-dump/r.om` (196531903 at 01:59:55Z, 182515391 at
+  02:00:10Z; neighbours move 0 to 32768 bytes): W4 item 6's choice held,
+  no shop run, no calibration file.
+- `fixture-fill`'s history run, once, in its window (17:38:03), under
+  the lock: 39 passed / 0 failed, **1326 s** with the deployment
+  (deploy + load-data + inject 31 s; fill 233 s for 466 virtual min;
+  clean-restart 26 s; `gmctl history` 69 s; restart.at 14 s after the
+  anchor; lowest timestamp 3 s after the virtual T0). Unit suite OK
+  (2 skipped), before and after taking the wave in.
+- For 12b: f8's step over the shop's own forged past (W4 item 4's
+  tolerance). f8's `fault.yaml` is an input of the shop's answer key and
+  README: 12c regenerates it after taking the wave in (its brief says so).
+- For W4-x: f8 14016512 (R), `fixture-dropped-index` 13213696 (run),
+  forged step 13207587.
+- Figures: 1 agents, 55 tool calls, 5.5M tokens in / 31k out, max context 134k, $3.35 at API prices.
