@@ -3842,3 +3842,35 @@ span in the script, which costs about 3 more minutes of fill, the
 - For W4-x: f8 14016512 (R), `fixture-dropped-index` 13213696 (run),
   forged step 13207587.
 - Figures: 1 agents, 55 tool calls, 5.5M tokens in / 31k out, max context 134k, $3.35 at API prices.
+
+### G8 — done (19c67f1, merged 3a7ac22), 2026-11-19: CLEAR WITH NOTES
+
+- `security-advisor` checked `grafana` 0.4.0 (dpkg list equal to chunk
+  5's, Grafana 13.3.1 still the newest, its SBOM findings unchanged) and
+  the ten images wave 3's gate rebuilt `--no-cache --pull` (every
+  version `.tech` records still holds; Debian 13.7). Nothing wave 3 or 4
+  changed brought a finding. `.tech` updated (`cve-watch lint` 0;
+  `cve-watch check` 75 findings, as at G9.1).
+- Notes, none reachable here:
+  1. **zlib1g** `+deb13u1` (DSA-6613-1) in all ten images: it comes from
+     the `debian:13-slim` layer (Hub digest unchanged since 2026-11-04)
+     and no Dockerfile upgrades it, so `--no-cache` does not pick it up;
+     only an `apt-get upgrade` or naming `zlib1g` would. Gzwrite is not
+     used. Batch (release gate or v0.7).
+  2. **nginx** deb13u11 (DSA-6642-1, today 14:40 UTC, 9 CVEs) in
+     `bastion` 0.6.0 and `health-check` 0.1.1: each CVE read against both
+     configs, none reachable (no mail, TLS listener, stream, HTTP/2-3,
+     SSI/mirror, regex-capture map).
+  3. **PGDG moved on 2026-11-17**: libpq5 19.0 in `trixie-pgdg main`
+     (18.x in component `18`), postgresql-18 18.7-1.pgdg13+5 (a
+     non-security rebuild), postgresql-common 297. A fresh build would
+     give `postgres` libpq5 19.0 and server/client +5; `bastion` libpq5
+     19.0, client-18 +5, nginx u11; `pgbouncer` libpq5 19.0 and
+     **postgresql-client-19** (the unpinned metapackage), make and guile
+     through postgresql-common-dev; `health-check` nginx only.
+- The gate's rebuild policy is an owner decision before the gate (see
+  below). Whatever the gate builds, each rebuilt image's `dpkg-query`
+  diff goes to `security-advisor` for a G9.2 check.
+- Context: `security-2026-11-14` (on hold) carries 29 `[[ignore]]`
+  entries `v0.6-w4` lacks; some `SECURITY_TODO.md` lines say "accepted"
+  ahead of that merge. c-ares was closed at G9.1 (3768038).
