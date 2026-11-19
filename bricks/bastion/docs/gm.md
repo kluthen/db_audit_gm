@@ -573,8 +573,8 @@ This list is every catalog fault (`faults/`) whose `applies_to` names
 
 Nothing on the bastion is part of the game (master spec 9.2), its write
 policy is `report-only`, and a fault in its configuration would cut the
-players off from the system they audit: none is written. The one kind it
-hosts, from v0.5, is a **register fault** (master spec 6.4, 13.4): a
+players off from the system they audit: none is written. It hosts two
+kinds of handout fault. From v0.5, a **register fault** (master spec 6.4, 13.4): a
 change to the starter pack's data register, the optional seed file
 `data-register.md`, planted in the handout only. The `data-register`
 skill writes the scenario's `player/data-register.md` with the change
@@ -583,17 +583,30 @@ shows it as any seed file, and nothing else on it, or in the system,
 changes. Its fault id is `governance-register-*` (family `security`),
 its resolution *propose*, judged at the final answer against
 `register_diff:`; its sealed check reads only that the change is present
-in the served handout.
+in the served handout. From v0.6, a **network-overview fault** (master
+spec 6.3, 8.5): a change to the starter pack's network overview, the
+optional seed file `network-overview.md`, planted in the handout only on
+the same model. The `network-overview` skill writes the scenario's
+`player/network-overview.md` with the change applied and the answer key's
+`overview_diff:`; the header and **Your access** never change. Its fault
+id is `docs-overview-*` (family `documentation`), its resolution
+*propose*, judged at the final answer against `overview_diff:`; its sealed
+check reads only that the change is present in the served handout.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
+| `docs-overview-backup-claimed` | seed file (`network-overview.md`) | the optional seed file `network-overview.md` mapped to `player/network-overview.md` (a scenario with a network overview), copied into `/home/player` and served at `/docs/network-overview`; parameters `node` (a customer node with an entry) and `claimed` (the Backups line it claims, trap N5); the sealed check reads `/home/player/network-overview.md` as root with `awk` |
 | `governance-register-flow-undeclared` | seed file (`data-register.md`) | the optional seed file `data-register.md` mapped to the scenario's `governance.register` (a scenario with a data register), copied into `/home/player` and shown on the page's "Data register" section; parameter `recipient` (default `Cold Storage`), the processor the handout names nowhere (dropped from every entry's recipients and, for cold storage, its copies); the sealed check reads `/home/player/data-register.md` as root with `awk` |
 
 Faults it lends itself to with no definition yet: the other register
 traps (an entry out of date, a column or a store missing, a wrong class,
 a wrong retention, the register absent, the register vague; the
-`data-register` skill's table), each a change to `data-register.md`; and,
-for the same reasons as above, none in the bastion's own configuration.
+`data-register` skill's table), each a change to `data-register.md`; the
+other overview traps (master spec 8.5's N1 to N4 and N6 to N10: a node
+missing or invented, a stale version, a wrong sizing, a background task,
+a user or a third party wrong or missing, the page vague), each a change
+to `network-overview.md`; and, for the same reasons as above, none in the
+bastion's own configuration.
 
 Known interactions: the bastion is where the players gather the evidence
 of faults elsewhere, so what it sets up shapes what they see. Its
