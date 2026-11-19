@@ -3874,3 +3874,40 @@ span in the script, which costs about 3 more minutes of fill, the
 - Context: `security-2026-11-14` (on hold) carries 29 `[[ignore]]`
   entries `v0.6-w4` lacks; some `SECURITY_TODO.md` lines say "accepted"
   ahead of that merge. c-ares was closed at G9.1 (3768038).
+
+### PostgreSQL 19 — the owner's ruling, G9.2's preflight, plan v16 (66169ba, merged 184316a); G14 — 2026-11-19
+
+- Asked how the gate should rebuild after G8 (pin 18 / accept 19
+  client-side / cached), the owner: "didn't know pg19 was out yet.
+  that's great news. Move to pg19 everywhere." zlib1g: release gate.
+- `security-advisor`, G9.2 preflight: CLEAR WITH NOTES (no advisory
+  on any candidate). Picks: postgresql-19 / client-19 / libpq5
+  19.0-1.pgdg13+1; pg_cron 1.6.8-1.pgdg13+3 (the only build `>> 19~rc2`);
+  pgaudit 19.0-1.pgdg13+1; postgresql-common 297; postgres_exporter
+  0.21.1 and pgwatch 6.2.0 (clear the accepted Go findings); libpq 19
+  for `scheduler`, `api`, `health-check` from PGDG `main` through a key
+  stage, asserted at build. Notes: exporter 0.21's flags and labels,
+  pgaudit 19's logging (four faults rerun), changed server defaults, 18
+  data directories don't start on 19. Full text kept in the driver's
+  scratchpad (`g92-preflight.md`), passed to `spec-writer`.
+- `spec-writer`, plan v16: **D587** (19 everywhere, D539's pgAudit
+  wait ended), **D588** (zlib1g at the release gate), **D589** (chunk 17
+  inserted, split 17a/17b/17c; G9.2, G14, G15), **D590** (18's figures
+  stand; `fixture-dropped-index`'s size re-measured on 19; 18-vs-19
+  ratios reported in 12b, never judged). No brick bump: master spec 6.8
+  folds a change into an unreleased version (G14 covers the reused
+  tags). **O294** (pgBadger 13.3 drops 19's checkpoint lines), **O295**
+  (autoanalyze no longer logged by `log_autovacuum_min_duration` on 19,
+  56 seeds) for the owner, G15; O296 never used.
+  - 17a (heavy): the images, paths and tests on 19, one commit; beside
+    12c, merges after it.
+  - 17b (heavy): exporter 0.21.1, pgwatch 6.2.0, the size re-measured.
+  - 17c (light): 19 in the game's text, the pgaudit faults rerun, O294
+    and O295 as ruled.
+  - Then 12b beside 16 (12b after 17b and 17c; 16 after 17c).
+- **G14** (driver's hand check, before 17a's first build): `docker stack
+  ls` empty, no service but `ollama`; the only local implementation,
+  `tarnbeck-outdoor-shop/local/fa-real`, is `torn-down` with no
+  snapshot. Cleared.
+- Inserted chunk's checks: no intent register (no `documentalist`
+  peek), no data register; G9.2's preflight done.
