@@ -43,7 +43,10 @@ proposed (D510), and v0.6 was consolidated into its
 open until built.
 
 On 2026-11-19 the game assistant's draft opened (D545–D547), outside
-v0.6, raising O274–O285.
+v0.6, raising O274–O285; the owner's rulings the same day placed it in
+v0.7 (D549) and closed O274–O281 and O283–O285 (D549–D554, D558),
+widened O282 into the repository's game mode (D555–D557), and raised
+O286–O288.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -359,99 +362,73 @@ rest of the procedure, closed by D260.
 
 ## The game assistant
 
-Raised on 2026-11-19 by the draft [game-assistant.md](game-assistant.md)
-(D545–D547), a player-side helper distinct from the GM; not in v0.6. The
-draft's proposals are labelled GA1, GA2…; each question below names the
-ones it bears on.
+Raised on 2026-11-19 by the game assistant's draft, now
+[versions/v0.7/game-assistant.md](versions/v0.7/game-assistant.md)
+(D545–D547), and its sibling
+[versions/v0.7/game-mode.md](versions/v0.7/game-mode.md). The owner
+ruled the same day: O274–O281 and O283–O285 closed (D549–D554, D558);
+the closed entries are kept here until v0.7's archive. The drafts'
+proposals are labelled GA1… and MD1….
 
-- **O274** (soon, version not set) — Which version builds it? The
-  roadmap has no v0.7, and v1.0 gating runs at the end of v0.6; a v0.7
-  would need a roadmap ruling as v0.6 did (D71). Options: v1.0, a v0.7
-  before it, or later. Recommended: v1.0, the draft kept as a standing
-  topic document meanwhile; its stance items then join v1.0 gating's
-  stance check-list, and its blind reads (D492) may run as the assistant.
-- **O275** (soon) — How it reaches the bastion (D547): (a) `gmctl exec`
-  as `player` with a fixed command list in the skill; (b) a new `gmctl`
-  verb serving only the read set; (c) a door on the bastion, a per-game
-  key whose entry is forced to one read-only command, handed over with
-  the passwords. Recommended: (c): enforced on the bastion, no
-  infrastructure plane in the assistant's session, and the only way it
-  works from a player's own machine; (a) and (b) need the GM's local
-  implementation, so a class played on a teacher's machine could not use
-  it. Costs a `bastion` version and one more handed-over key. Also: the
-  handouts read from the bastion's seed (with (c)) or from the
-  scenario's `player/` folder. Refs: [game-assistant.md](game-assistant.md)
-  4; GA5, GA8.
-- **O276** (soon) — The read set's content (GA8): home and `~/reports/`
-  listings, `~/report.md`, `~/.bash_history`, the handouts as handed
-  over. Open: whether `~/.psql_history` is in it (recommended: no, its
-  queries carry literal values), whether the partners' status pages
-  are (recommended: no, the player can say what they show), and whether
-  the bastion's profile gets `history -a` so a live session's commands
-  are seen (recommended: yes, with O275's brick change). Refs:
-  [game-assistant.md](game-assistant.md) 4.
-- **O277** (next) — How much it helps, in a teaching game where the GM
-  gives no hints (D19, D48). Options: a coach (explains, writes SQL on
-  request, offers hypotheses with their tests rather than verdicts, adds
-  no finding to the report the players haven't made); a colleague
-  (answers anything asked, within its access); a level the initiator
-  sets at setup. Recommended: the coach, GA20; an initiator-set level
-  later if wanted. Refs: [game-assistant.md](game-assistant.md) 11.
-- **O278** (soon) — Database snippets (D545): what counts, how often the
-  reminder, whether it still uses the snippet. Recommended (GA13): data
-  values only (rows, dumps, log lines with values; not schemas, plans,
-  configuration, counts); one line every time, a short paragraph the
-  first time with how to share less; matter-of-fact; it keeps helping
-  and copies no value into its files unless the player keeps it as
-  evidence; no game consequence. Refs:
-  [game-assistant.md](game-assistant.md) 7.
-- **O279** (later) — Does a game always allow it? Recommended: allowed
-  by default; the initiator may withhold it at setup, the GM then hands
-  over no door key (O275 (c)) and the README says so; beyond that, on
-  trust, since nothing stops a player using any outside help. Refs:
-  [game-assistant.md](game-assistant.md) 9.
-- **O280** (later) — Does the GM learn that the assistant helped (a line
-  in the report, a question at the final answer, a remark in the
-  teaching moment)? Recommended: no; one game, one report, and who or
-  what sits behind it is not the project's concern (D8). Refs:
-  [game-assistant.md](game-assistant.md) 9.
-- **O281** (soon) — Where its files live (GA11): `play/<game>/` at the
-  repository root, git-ignored (recommended: next to the skill, simple
-  to find, never in a scenario folder), or a folder outside the
-  repository in the player's own space. Refs:
-  [game-assistant.md](game-assistant.md) 6.
-- **O282** (soon) — Keeping its session clean. A session at the
-  repository root lists the four GM sub-skills, whose descriptions name
-  the answer key and the register and overview faults, and they can be
-  invoked by the model; on the owner's machine it also loads the
-  owner's per-path memory (v0.6, fake aging). Recommended:
-  `disable-model-invocation: true` on `scenario-format`,
-  `scenario-document`, `data-register` and `network-overview`; the
-  assistant never invokes another skill (GA5); on a machine with that
-  memory, run it from a separate checkout path; the listing itself
-  stays a known gap on the trust line (D13). Refs:
-  [game-assistant.md](game-assistant.md) 13.
-- **O283** (soon) — Does the owner's audit grid
-  (`/home/bastien/audits/grille_audit_pg.md`, outside the repository)
-  become the assistant's audit method: its process, rules, severity
-  scale and the pattern of its read-only SQL? Recommended: yes, as GA21,
-  fitted to the game (O284) and under the coach stance (O277). Refs:
-  [game-assistant.md](game-assistant.md) 12.
-- **O284** (soon) — How the method is cut to the game's scope (the
-  owner: it "exceed the scope of intervention of the players"): no
-  restore or PITR test, no extension installed, the host through
-  node-health only (no `sar`), the window the game's history, a
-  compressed sweep over the axes the game has, the workshop's scripts
-  and dashboards replaced by the game's. Recommended: the draft's table
-  and GA22, "propose, don't do" beyond each issue's resolution and each
-  node's write policy. Refs: [game-assistant.md](game-assistant.md) 12.
-- **O285** (later) — Where an adapted version lives and what else it
-  serves: an English, game-scoped rewrite (D503) as a reference file of
-  the skill (recommended), or a general document the GM side uses too
-  (answer keys, the silent tooling expectations, D65, D76; the teaching
-  moment). Recommended: the skill's reference file first; the GM side
-  a later decision, once the assistant has been played. Refs:
-  [game-assistant.md](game-assistant.md) 12.
+- **O274** (**closed**, D549) — Which version builds it? v0.7, the game
+  assistant its subject. Recommended had been v1.0.
+- **O275** (**closed**, D550, against the recommendation) — How it
+  reaches the bastion. The player's own access, on trust; no door, no
+  `gmctl` verb, no key. Recommended had been a forced-command door.
+- **O276** (**closed**, D550) — The read set's content. No read set: a
+  stance on its purview; `~/.pgpass` and `~/.psql_history` outside it.
+- **O277** (**closed**, D551, as recommended) — How much it helps: a
+  coach.
+- **O278** (**closed**, D552, beyond the recommendation) — Database
+  snippets. Reminders graded by criticality, schemas and other medium
+  items included; its own SQL minimised by design.
+- **O279** (**closed**, D553) — Does a game always allow it? Always
+  available; no initiator switch. Recommended had been an initiator
+  switch.
+- **O280** (**closed**, D554, as recommended) — Does the GM learn that
+  it helped? No; no communication between them.
+- **O281** (**closed**, D554) — Where its files live. Anywhere the
+  players like; `play/<game>/` a default only, the report reaching the GM
+  however the players hand it in.
+- **O282** (soon, v0.7; narrowed by D555–D557) — The GM sub-skills'
+  descriptions, listed in every session at the repository root, name the
+  answer key and the register and overview faults. The first
+  recommendation, `disable-model-invocation: true` on `scenario-format`,
+  `scenario-document`, `data-register` and `network-overview`, would
+  stop the game-master skill from invoking them during setup unless it
+  reads their files instead. Recommended now: neutral GM-only
+  descriptions (MD3), invocation unchanged; or user-only, with the GM
+  reading their files. Refs:
+  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 5.
+- **O283** (**closed**, D558) — The owner's audit grid as the
+  assistant's method? An example it may draw on, not its method.
+- **O284** (**closed**, D558) — Cutting the grid to the game's scope:
+  not enforced; the draft's table kept as informative notes.
+- **O285** (**closed**, D558) — Where it lives: a verbatim copy at
+  [references/grille-audit-pg.md](references/grille-audit-pg.md); a
+  game-scoped English rewrite optional and later.
+- **O286** (soon, v0.7) — How game mode is produced and checked before a
+  push (D556). Recommended (MD1): the tracked `README.md` and
+  `CLAUDE.md` are the game's, the developer's content moved to
+  `specs/README.md` and a `DEVELOPING.md`, the developer's instructions
+  in a git-ignored local file; a check script, run by a pre-push hook
+  and every release gate, refusing development matter in them.
+  Alternatives: a `game` branch or tag written by a release step, the
+  only one pushed; a pre-push hook rewriting the files. Refs:
+  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 3.
+- **O287** (soon, v0.7) — How the GM's memory stays its own (D555).
+  Recommended (MD2): its memory is the game's local implementation; no
+  game data in Claude Code's automatic memory, said in the game-mode
+  `CLAUDE.md` and the game-master skill, and automatic memory off in the
+  committed settings if Claude Code allows it (to verify). Alternatives:
+  the rule on trust only; a GM memory folder under `local/`. Refs:
+  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 4.
+- **O288** (soon, roadmap) — v1.0 gating is set "at the end of v0.6";
+  with v0.7 between them, does it run after v0.7, and does its stance
+  check-list gain the assistant's items (its purview kept, no database,
+  the graded reminder, no channel to the GM), its blind reads (D492)
+  possibly run as the assistant? Recommended: after v0.7, with those
+  items. Refs: [versions/README.md](versions/README.md#v10-gating).
 
 ## Beyond v1.0: the cloud provider
 

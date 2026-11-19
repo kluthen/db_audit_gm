@@ -401,16 +401,69 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   (tracking only when asked), DBA and basic dev knowledge, SQL written
   unverified for the players to run, a reminder of the breach when a
   player hands it database snippets. Not in v0.6 (O274). Now in:
-  [game-assistant.md](game-assistant.md) 1.
+  [game-assistant.md](versions/v0.7/game-assistant.md) 1.
 - **D546 (2026-11-19, owner ruling, same relay): the assistant is a skill
   in this repository, `/game-assistant`, on trust,** invoked at the
   repository root as `/game-master` is; its off-limits material is so by
   stance, as D13's light enforcement. Rejected: an exported player
   workspace with deny rules; Claude Code installed on the bastion. Now
-  in: [game-assistant.md](game-assistant.md) 1, 3.
+  in: [game-assistant.md](versions/v0.7/game-assistant.md) 1, 3.
 - **D547 (2026-11-19, owner ruling, same relay): the bastion link is a
   fixed, read-only set of reads, never a shell; the assistant's files are
   local,** the players copying the report to `~/report.md`, where the GM
   fetches it. A shell as `player` reaches every database (`~/.pgpass`).
   Rejected: writing into the bastion's home; paste only. The mechanism is
-  O275, the set O276. Now in: [game-assistant.md](game-assistant.md) 4, 6.
+  O275, the set O276. Now in: [game-assistant.md](versions/v0.7/game-assistant.md) 4, 6.
+  *Amended by D550 (the player's access, no fixed read set) and D554 (the
+  report's location free) (2026-11-19).*
+- **D549 (2026-11-19, owner ruling, relayed by the coordinator): v0.7,
+  the game assistant its subject** ("it'll be v0.7"), after v0.6 and
+  before v1.0; the repository's game mode (D555–D557) joins it. Closes
+  O274. Now in: [versions/README.md](versions/README.md),
+  [versions/v0.7/README.md](versions/v0.7/README.md).
+- **D550 (2026-11-19, owner ruling, same relay): the assistant has the
+  player's access, on trust,** amending D547: the bastion as `player`,
+  the web front, the handouts; no door, no `gmctl` verb, no key. Two
+  trust lines: in the assistant (no database, no write beyond its report
+  and drafts, reads only what serves its purview) and in the players
+  (they don't use it to reach what they can't). Closes O275, O276. Now
+  in: [game-assistant.md](versions/v0.7/game-assistant.md) 1, 3.
+- **D551 (2026-11-19, owner ruling, same relay): the assistant is a
+  coach** ("it's indeed a coach"), as recommended. Closes O277. Now in:
+  [game-assistant.md](versions/v0.7/game-assistant.md) 10.
+- **D552 (2026-11-19, owner ruling, same relay): reminders graded by
+  criticality, and its own SQL minimised by design.** A schema widens the
+  attack surface, "still bad"; high items draw the full reminder, medium
+  ones a lighter one naming the risk, after the owner's notes
+  (`/home/bastien/audits/bluebox-lab/docs/ADAPTATION.md` 7.5, restated,
+  not copied). Closes O278. Now in:
+  [game-assistant.md](versions/v0.7/game-assistant.md) 5, 7.
+- **D553 (2026-11-19, owner ruling, same relay): the assistant is always
+  available** ("it's just not called upon when not needed"); no
+  initiator switch, nothing in the hand-over. Closes O279. Now in:
+  [game-assistant.md](versions/v0.7/game-assistant.md) 1.
+- **D554 (2026-11-19, owner ruling, same relay): no communication
+  between the assistant and the GM, and the report's location free,**
+  amending D547: the GM isn't told; how the report reaches the GM is the
+  players' affair; `play/<game>/` a default only. Closes O280, O281. Now
+  in: [game-assistant.md](versions/v0.7/game-assistant.md) 6, 9.
+- **D555 (2026-11-19, owner ruling, same relay): the GM leaks no game
+  data through memory;** any GM memory is its own, kept to its section
+  of the repository. Mechanism O287. Now in:
+  [game-mode.md](versions/v0.7/game-mode.md) 1, 4.
+- **D556 (2026-11-19, owner ruling, same relay): dev mode and game mode;
+  only game mode is pushed,** with a `CLAUDE.md` and a `README.md`
+  curated for playing. `origin/main` (7a62c54) was pushed in dev mode;
+  the mechanism is O286. Now in: [game-mode.md](versions/v0.7/game-mode.md)
+  1, 3.
+- **D557 (2026-11-19, owner ruling, same relay): a game is played from a
+  fresh clone elsewhere,** never from the development checkout, whose
+  automatic memory holds development notes. Now in:
+  [game-mode.md](versions/v0.7/game-mode.md) 1, 2.
+- **D558 (2026-11-19, owner ruling, same relay): the owner's audit grid
+  is informative,** "not scoped for our purpose but hints as to how to
+  handle an audit"; a verbatim copy stored in the tree; the assistant may
+  draw on it, never bound to it; a game-scoped English rewrite optional
+  and later. Closes O283, O284, O285. Now in:
+  [references/grille-audit-pg.md](references/grille-audit-pg.md),
+  [game-assistant.md](versions/v0.7/game-assistant.md) 11.
