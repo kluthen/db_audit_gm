@@ -466,7 +466,7 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   handle an audit"; a verbatim copy stored in the tree; the assistant may
   draw on it, never bound to it; a game-scoped English rewrite optional
   and later. Closes O283, O284, O285. Now in:
-  [references/grille-audit-pg.md](references/grille-audit-pg.md),
+  [references/grille-audit-pg.md](../references/grille-audit-pg.md),
   [game-assistant.md](versions/v0.7/game-assistant.md) 11.
 - **D559 (2026-11-19, owner ruling, relayed by the coordinator): the game
   assistant is an agent, not a skill,** amending D546: one definition for
