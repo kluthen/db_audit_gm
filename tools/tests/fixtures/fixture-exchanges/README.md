@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-lab` (at `lab/lab`, on its own node), for provenance: the business's data loaded from `domains/vet-core/` (the other centres' state, `domains/vet-core/producers/partners/centres/data.sql`, into `partners` on `partners-db`), then `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`); their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` with the scenario layer `compose/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/partners/centres/` with the scenario layers `compose/partners-api/` and `compose/partners-backend/` (into `nodes/partners-api/` and `nodes/partners-backend/`, the partners' shared nodes every third party lists), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); left out: vet-core's `pms`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`; its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`), `vet-lab`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -47,12 +47,7 @@ for, not any one playground.
 
 A veterinary hospital of a regional franchise keeps its medical record in one PostgreSQL database, records, and its laboratory's in another, lab. It exchanges patients with the franchise's other centres through its record's API and its integration engine, and notifies listed diseases to the national veterinary authority, keeping a copy in its back office's database.
 
-The story as the players read it: `player/story.md`. The partners as the
-players read them: `player/partners.md` (Aldermoor Central,
-`aldermoor-central`, Aldermoor South, `aldermoor-south`, and Aldermoor
-abroad, `aldermoor-abroad`, round-trip; the veterinary authority,
-`authority`, outbound; each on `partners-api`, `partners-backend` and
-`partners-db`).
+The story as the players read it: `player/story.md`.
 
 ## 3. Topology
 
@@ -96,6 +91,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `records`
@@ -126,7 +123,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data, restored from `data/records.sql` (the back office's `office`, purpose 5's `office.sql`; the domain `vet-core` is loaded into the database `clinic`, see section 1):
+Data, restored from `data/records.sql`:
 
 - Database `office`, owner `office`:
 
@@ -163,9 +160,6 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data: no data file; the domain `vet-lab` is loaded into the database
-`lab` (see section 1).
-
 #### Node `clinic-api`
 
 - **Brick**: `api`, version 0.1.1 (pinned).
@@ -182,6 +176,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 128M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -202,6 +198,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `partners-api`
@@ -221,6 +219,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 128M | 64M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `partners-backend`
@@ -239,6 +239,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -270,7 +272,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 256MB | 64MB .. 512MB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data, restored from `data/partners-db.sql` (the database `partners` and the authority's stub, purpose 5's `data.sql`; the centres' and the lab's two partners' state from the domains, see section 1):
+Data, restored from `data/partners-db.sql`:
 
 - Database `partners`, owner `postgres`:
 
@@ -300,6 +302,36 @@ Data, restored from `data/partners-db.sql` (the database `partners` and the auth
 | `partners-api` | `clinic-api` | the centres' requests, answers and reports, with the credential clinic_centres | http 8000 | per tick |
 | `partners-api` | `partners-db` | the stubs' records, as centres and authority | postgresql 5432 | per request |
 
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM. `gmctl
+compose` writes the files of `clinic-api`, `interfaces`, `partners-api`, `partners-backend` (each `nodes/<node>/`): its output, never edited by
+hand.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+| `vet-lab` | — | `lab/lab` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner` |
+
+- **Load order**: `vet-core` → `vet-lab`.
+- **Derivations**: none.
+- **Scale**: checked: the core and its lab at one centre's scale: about 0.27 and 0.33 million rows, 49 and 54 MB, as fixture-lab-core measured them.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: no practice software node (eight nodes at most, D314): the test decides, reports and requests the exchanges as pms would.
+  - `vet-lab`'s `lis`: no laboratory information system node: the test records the lab's notification as lab.notify would.
+  - `vet-lab`'s `api/lab-api`: no lab order API node (eight nodes at most, D314).
+  - `vet-lab`'s `partners/xlab`: the external lab's state loaded on partners-db, its fragments composed in test_compose.py.
+  - `vet-lab`'s `partners/practices`: the practices' state loaded on partners-db, their fragments composed in test_compose.py.
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: `compose/clinic-api/`, `compose/interfaces/`, `compose/partners-api/`, `compose/partners-backend/`.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
+
 ### Purposes
 
 #### Purpose `vet-centre-exchanges`
@@ -328,6 +360,26 @@ this scenario.
 | `runner` | `interfaces` |
 | `runner_reports` | `interfaces` |
 | `receiver` | `partners-api` |
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `aldermoor-central` | Aldermoor Central | the franchise's central national centre (site ALD-C) | round-trip | partners-api, partners-backend, partners-db | `aldermoor-central` | `player/partners.md#aldermoor-central` | none | none |
+| `aldermoor-south` | Aldermoor South | the franchise's southern national centre (site ALD-S) | round-trip | partners-api, partners-backend, partners-db | `aldermoor-south` | `player/partners.md#aldermoor-south` | none | none |
+| `aldermoor-abroad` | Aldermoor abroad | the franchise's three centres abroad, reached as one (sites ALD-BE, ALD-DE, ALD-LU) | round-trip | partners-api, partners-backend, partners-db | `aldermoor-abroad` | `player/partners.md#aldermoor-abroad` | none | none |
+| `authority` | The veterinary authority | the national veterinary services, receiving the notifications of listed diseases | outbound | partners-api, partners-backend, partners-db | `authority` | `player/partners.md#the-veterinary-authority` | none | none |
+
+The partners' hidden schedule: `nodes/partners-backend/schedule.yaml`.
 
 ## 4. Host topology it was designed for
 
@@ -402,49 +454,60 @@ None.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (topology,
-  node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`; the partners' page
-  `player/partners.md`, which the third parties' `player_doc` points to.
-  It does not carry this document's warning, and nothing in it names a
-  hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, the partners `player/partners.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
   - `lab`: `nodes/lab/postgresql.conf`, `nodes/lab/pg_hba.conf`
-  - `clinic-api`: `nodes/clinic-api/api.yaml`, `nodes/clinic-api/routes/`
-    (`animals.py`, `exchanges.py`, `stays.py`), `nodes/clinic-api/db/`
-    (the same three)
-  - `interfaces`: `nodes/interfaces/queries.yaml`,
-    `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`,
-    `nodes/interfaces/scripts/` (`centre_exchanges.py`,
-    `notifiable_diseases.py`, `notifications_copy.py`)
-  - `partners-api`: `nodes/partners-api/api.yaml`,
-    `nodes/partners-api/routes/` (`authority_notifications.py`,
-    `centres_exchanges.py`, `centres_tick.py`),
-    `nodes/partners-api/db/` (the same three)
+  - `clinic-api`: `nodes/clinic-api/api.yaml`, `nodes/clinic-api/routes/`, `nodes/clinic-api/db/`
+  - `interfaces`: `nodes/interfaces/queries.yaml`, `nodes/interfaces/jobs.yaml`, `nodes/interfaces/schedule.yaml`, `nodes/interfaces/scripts/`
+  - `partners-api`: `nodes/partners-api/api.yaml`, `nodes/partners-api/routes/`, `nodes/partners-api/db/`
   - `partners-backend`: `nodes/partners-backend/queries.yaml`,
     `nodes/partners-backend/jobs.yaml`,
     `nodes/partners-backend/schedule.yaml`
   - `partners-db`: `nodes/partners-db/postgresql.conf`,
     `nodes/partners-db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
-  - `records`: `data/records.sql` (the back office's `office`);
-    `partners-db`: `data/partners-db.sql` (the database `partners`, the
-    authority's stub); first;
-  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
-    `data/load.sql`, into `records/clinic`, and the other centres'
-    `producers/partners/centres/data.sql`, into `partners` on
-    `partners-db` (the keys ahead); then the domain `vet-lab`'s
-    `data/schema.sql`, its `data/keys.sql` (after the core's) and
-    `data/load.sql`, into `lab/lab`, and its two partners'
-    `producers/partners/xlab/data.sql` and
-    `producers/partners/practices/data.sql`, into `partners` on
-    `partners-db`; in `composition.yaml`'s order;
-  - the purposes' DDL, read from the catalogue: `vet-centre-exchanges`'
-    `material/target/ddl.sql` in `records/clinic`, then
-    `vet-notifiable-diseases`' `material/source/ddl.sql` in
-    `records/clinic` and `material/source_lab/ddl.sql` in `lab/lab`; the
-    domains' coherence checks after.
+  - `records`: `data/records.sql`
+  - `partners-db`: `data/partners-db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/clinic-api/`, `compose/interfaces/`, `compose/partners-api/`, `compose/partners-backend/`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 8h, the scenario's aging: the virtual T0 at 06:00,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-exchanges-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

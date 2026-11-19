@@ -94,6 +94,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `db`
@@ -163,6 +165,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 160M | 512M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `exporter`
@@ -181,6 +185,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.05 | 48M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -204,6 +210,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 272M | 256M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -308,3 +316,7 @@ None.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

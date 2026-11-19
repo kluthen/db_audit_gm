@@ -69,8 +69,7 @@ The story as the players read it: `player/story.md`.
 - **Role**: bastion. **Stateful**: no. **Write policy**: report-only.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
-- **Published ports**: 22 (default host port 2222), 8080 (default host
-  port 8080)
+- **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
 - **Seed files**: none.
 
 Web front routes (`web_routes`):
@@ -90,6 +89,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.25 | 128M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `app`
@@ -108,6 +109,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.25 | 128M | 512M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -137,6 +140,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.25 | 128M | 512M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -183,7 +188,7 @@ Placement and the reservations it was sized with:
 > We have no idea whether our monitoring would tell us when something goes
 > wrong.
 
-Covers: t1.
+Covers: `t1`.
 
 ## 6. Answer key
 
@@ -245,7 +250,7 @@ the expected answer): none.
 
 | Expectation | Need | Expected | Acceptable | Covered by | Notes |
 |---|---|---|---|---|---|
-| `t1` | service monitoring | every node's services watched, with an alert when one stops | any of the top three tools for the need | I1 | the fixture's monitor covers it once app is back in the map |
+| `t1` | service monitoring | every node's services watched, with an alert when one stops | any of the top three tools for the need | `I1` | the fixture's monitor covers it once app is back in the map |
 
 ## 7. Starter pack, node files and data
 
@@ -260,3 +265,7 @@ the expected answer): none.
 - **Scenario-only bricks and faults**: `bricks/fixture-front/`,
   `bricks/fixture-app/`, `bricks/fixture-monitor/`,
   `faults/fixture-app-stopped/`, `faults/fixture-node-left-out/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.
