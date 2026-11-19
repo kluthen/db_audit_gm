@@ -515,7 +515,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: monitoring
 - **Description**: The PostgreSQL exporter for records.
 - **System**: Debian GNU/Linux 13
-- **Applications**: postgres_exporter 0.20.1
+- **Applications**: postgres_exporter 0.21.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-records&from=now-6h&to=now)
@@ -535,7 +535,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: monitoring
 - **Description**: The PostgreSQL exporter for the standby.
 - **System**: Debian GNU/Linux 13
-- **Applications**: postgres_exporter 0.20.1
+- **Applications**: postgres_exporter 0.21.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-standby&from=now-6h&to=now)
@@ -555,7 +555,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: monitoring
 - **Description**: The PostgreSQL exporter for lab.
 - **System**: Debian GNU/Linux 13
-- **Applications**: postgres_exporter 0.20.1
+- **Applications**: postgres_exporter 0.21.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-lab&from=now-6h&to=now)
@@ -575,7 +575,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: monitoring
 - **Description**: The PostgreSQL exporter for machines.
 - **System**: Debian GNU/Linux 13
-- **Applications**: postgres_exporter 0.20.1
+- **Applications**: postgres_exporter 0.21.1
 - **Sizing**: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
 - **Your access**: write (`/etc/postgres-exporter`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=exporter-machines&from=now-6h&to=now)
@@ -595,7 +595,7 @@ This is the centre's own documentation, kept by its IT. The **Your access** colu
 - **Role**: monitoring
 - **Description**: pgwatch, a second collector of PostgreSQL metrics.
 - **System**: Debian GNU/Linux 13
-- **Applications**: pgwatch 6.1.0
+- **Applications**: pgwatch 6.2.0
 - **Sizing**: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 64M
 - **Your access**: write (`/etc/pgwatch`)
 - **Activity**: [Node health](/grafana/d/node-health/node-health?var-node=pgwatch&from=now-6h&to=now)

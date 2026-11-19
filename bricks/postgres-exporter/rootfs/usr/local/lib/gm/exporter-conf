@@ -27,7 +27,12 @@
 # numbers and keys, never values: whatever file the path leads to, nothing
 # of its content is printed.
 # The password never comes from this file: postgres_exporter reads it from
-# the secret, DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password.
+# the secret, --datasource.pass-file=/opt/gm/secrets/monitoring_password.
+# The address goes to postgres_exporter as --datasource.uri, the user as the
+# variable DATA_SOURCE_USER (0.21 deprecates DATA_SOURCE_URI and
+# DATA_SOURCE_PASS_FILE for these flags and has no flag for the user's
+# name). One data source, no --auto-discover-databases: every collector,
+# the database-scoped ones included, reaches the database the URI names.
 set -u
 PATH=/command:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
@@ -156,10 +161,10 @@ run)
     # shellcheck disable=SC2086  # validated words, no globbing (set -f)
     exec s6-setuidgid exporter /usr/bin/env -i \
         PATH=/usr/bin:/bin \
-        DATA_SOURCE_URI="$uri" \
         DATA_SOURCE_USER="$user" \
-        DATA_SOURCE_PASS_FILE="$PASS_FILE" \
         /usr/local/bin/postgres_exporter \
+        --datasource.uri="$uri" \
+        --datasource.pass-file="$PASS_FILE" \
         --web.listen-address="$LISTEN" \
         --web.telemetry-path="$TELEMETRY" \
         --config.file=/usr/local/lib/gm/postgres_exporter.yml \

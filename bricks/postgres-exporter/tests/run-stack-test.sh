@@ -9,7 +9,15 @@
 # container on the stack's network and from the GM side (docker exec):
 #   - both containers become healthy; postgres_exporter runs as `exporter`;
 #   - pg_up 1, the pg_stat_statements metrics, and every default collector
-#     succeeding on PostgreSQL 18 (pg_scrape_collector_success 1);
+#     succeeding on PostgreSQL 19 (pg_scrape_collector_success 1);
+#   - the data source passed as flags (--datasource.uri,
+#     --datasource.pass-file), the user as DATA_SOURCE_USER, no deprecation
+#     warning in the log (postgres_exporter 0.21);
+#   - one data source: with a second database on the server and the
+#     database-scoped collectors on (statio_user_indexes added by the
+#     edit), every series they serve is the database postgres', and the
+#     server's connection log shows no session of the exporter's role in
+#     any other database, refused or authorized;
 #   - the password: in the secret only, readable by root and exporter, not
 #     by player; not in the exporter's arguments, nor in exporter.conf;
 #   - SSH as `player` works, and `player` may sudo exactly the 2 wrappers;
@@ -172,6 +180,16 @@ sleep 2
 pssh() { docker exec -i "$CLIENT" timeout 120 ssh $SSH_OPTS player@exporter "$@"; }
 gm() { docker exec -i "$C" "$@"; }
 dbsql() { docker exec -i -u postgres "$DB" psql -X -q -At -d postgres -c "$1"; }
+# A table and its index in postgres, for the database-scoped collectors to
+# serve; a second database, with its own, for them to miss: the exporter's
+# one data source names postgres.
+OTHER_DB=gmtest_shop
+dbsql "CREATE TABLE gmtest_probe (id int PRIMARY KEY); INSERT INTO gmtest_probe VALUES (1)" >/dev/null \
+&& dbsql "CREATE DATABASE $OTHER_DB" >/dev/null \
+&& docker exec -i -u postgres "$DB" psql -X -q -At -d "$OTHER_DB" \
+    -c "CREATE TABLE orders (id int PRIMARY KEY, customer_id int); CREATE INDEX ON orders (customer_id);
+        INSERT INTO orders SELECT g, g % 7 FROM generate_series(1, 100) g; SELECT count(*) FROM orders WHERE id = 3" >/dev/null \
+&& pass "a second database $OTHER_DB on the server, a table and its indexes" || fail "could not create $OTHER_DB"
 # nhttp <method> <host> <port> <path>: the raw HTTP/1.0 response, from the
 # client container (another node of the network, as Prometheus would be).
 PERL_HTTP='use IO::Socket::INET; my ($m, $h, $p, $u) = @ARGV;
@@ -209,7 +227,7 @@ for n in pg_stat_statements_calls_total pg_stat_statements_seconds_total pg_stat
     [ "$c" -gt 0 ] && pass "$n present with pg_stat_statements preloaded ($c series)" || fail "$n absent"
 done
 info "a pg_stat_statements series: $(printf '%s\n' "$m" | grep -m1 '^pg_stat_statements_calls_total{')"
-# PostgreSQL 18: every collector that ran succeeded, the default ones included
+# PostgreSQL 19: every collector that ran succeeded, the default ones included
 defaults=$(gm postgres_exporter --help 2>&1 | tr -s ' \n' ' ' \
     | grep -o 'collector\.[a-z_]* Enable the [a-z_]* collector (default: enabled)' | sed 's/^collector\.\([a-z_]*\) .*/\1/' | sort)
 succ=$(printf '%s\n' "$m" | sed -n 's/^pg_scrape_collector_success{collector="\([a-z_]*\)"} \(.*\)$/\1 \2/p' | sort)
@@ -237,11 +255,24 @@ check "the password is not in postgres_exporter's arguments" sh -c "! docker exe
 # CAP_SYS_PTRACE, which no account in the node has: the GM looks with a
 # privileged exec.
 env_=$(docker exec --privileged "$C" cat "/proc/$pid/environ" | tr '\0' '\n')
-if printf '%s\n' "$env_" | grep -qx "DATA_SOURCE_PASS_FILE=$SECRET" && ! printf '%s\n' "$env_" | grep -qF "$MONPW" \
-   && ! printf '%s\n' "$env_" | grep -q '^DATA_SOURCE_PASS='; then
-    pass "postgres_exporter's environment: DATA_SOURCE_PASS_FILE=$SECRET, no password ($(printf '%s\n' "$env_" | cut -d= -f1 | tr '\n' ' '))"
+if [ "$(printf '%s\n' "$env_" | cut -d= -f1 | sort | tr '\n' ' ')" = "DATA_SOURCE_USER PATH " ] \
+   && printf '%s\n' "$env_" | grep -qx "DATA_SOURCE_USER=monitoring" && ! printf '%s\n' "$env_" | grep -qF "$MONPW"; then
+    pass "postgres_exporter's environment: DATA_SOURCE_USER and PATH only, no password"
 else
     fail "postgres_exporter's environment: $(printf '%s\n' "$env_" | cut -d= -f1 | tr '\n' ' ')"
+fi
+args=$(docker exec "$C" cat "/proc/$pid/cmdline" | tr '\0' '\n')
+if printf '%s\n' "$args" | grep -qx -- "--datasource.uri=db:5432/postgres?sslmode=disable" \
+   && printf '%s\n' "$args" | grep -qx -- "--datasource.pass-file=$SECRET" \
+   && ! printf '%s\n' "$args" | grep -q -- '--auto-discover-databases'; then
+    pass "postgres_exporter's arguments: --datasource.uri (the database postgres), --datasource.pass-file=$SECRET, no --auto-discover-databases"
+else
+    fail "postgres_exporter's arguments: $(printf '%s\n' "$args" | grep -v -F "$MONPW" | tr '\n' ' ')"
+fi
+if docker service logs "$SERVICE" 2>&1 | grep -q 'DEPRECATED'; then
+    fail "the exporter's log warns of a deprecated setting: $(docker service logs "$SERVICE" 2>&1 | grep -m1 DEPRECATED)"
+else
+    pass "no deprecation warning in the exporter's log"
 fi
 denied "player cannot read postgres_exporter's environment" cat "/proc/$pid/environ"
 check "the password is not in exporter.conf" sh -c "! docker exec $C grep -qF '$MONPW' $CONF"
@@ -287,8 +318,8 @@ check "exporter cannot remove the marker" sh -c "! docker exec -u exporter $C rm
 [ "$(gm cat "$MARKER")" = "$marker0" ] && pass "marker unchanged after the attempts" || fail "marker changed or gone"
 
 # --- an edit: pending, then applied by the wrapper --------------------------------
-pssh "sed -i 's/^COLLECTORS=.*/COLLECTORS=--collector.stat_statements --no-collector.wal/' $CONF" \
-    && pass "player edits $CONF (no wal collector)" || fail "player cannot edit $CONF"
+pssh "sed -i 's/^COLLECTORS=.*/COLLECTORS=--collector.stat_statements --no-collector.wal --collector.statio_user_indexes/' $CONF" \
+    && pass "player edits $CONF (no wal collector, statio_user_indexes on)" || fail "player cannot edit $CONF"
 m=$(gm stat -c '%U:%G' "$CONF")
 [ "$m" = player:expconf ] && pass "sed -i left $CONF owned by player ($m)" || fail "owner after sed -i: $m"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
@@ -309,10 +340,37 @@ m=$(gm stat -c '%a %U:%G' "$CONF")
 [ "$m" = "664 exporter:expconf" ] && pass "the wrapper restored the owner sed -i changed ($m)" || fail "owner after restart: $m"
 m=$(metrics)
 if printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="stat_statements"} 1' \
+   && printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="statio_user_indexes"} 1' \
    && ! printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="wal"}'; then
-    pass "the edit is in effect (wal collector off, stat_statements on)"
+    pass "the edit is in effect (wal collector off, stat_statements and statio_user_indexes on)"
 else
     fail "collectors after the restart: $(printf '%s\n' "$m" | grep '^pg_scrape_collector_success' | tr '\n' ' ')"
+fi
+# The database-scoped collectors reach the database postgres alone: the
+# series of stat_user_tables and statio_user_tables carry the database they
+# ran in, postgres on every one; statio_user_indexes' carry a datname only
+# under --auto-discover-databases, so none here, and name postgres' tables
+# (gmtest_probe among them), never the second database's (orders).
+scoped=$(printf '%s\n' "$m" | grep -E '^pg_(stat_user_tables|statio_user_tables)_[a-z_]*\{')
+dbs=$(printf '%s\n' "$scoped" | sed -n 's/.*[{,]datname="\([^"]*\)".*/\1/p' | sort -u | tr '\n' ' ')
+nodb=$(printf '%s\n' "$scoped" | grep -vc 'datname=' || true)
+if [ "$dbs" = "postgres " ] && [ "$nodb" -eq 0 ]; then
+    pass "stat_user_tables, statio_user_tables: every series' datname is postgres ($(printf '%s\n' "$scoped" | wc -l) series)"
+else
+    fail "database-scoped series: datname [$dbs], $nodb series without one"
+fi
+idx=$(printf '%s\n' "$m" | grep -E '^pg_statio_user_indexes_[a-z_]*\{')
+irel=$(printf '%s\n' "$idx" | sed -n 's/.*[{,]relname="\([^"]*\)".*/\1/p' | sort -u | tr '\n' ' ')
+if [ -n "$idx" ] && ! printf '%s\n' "$idx" | grep -q 'datname=' \
+   && printf '%s\n' "$idx" | grep -q 'relname="gmtest_probe"' && ! printf '%s\n' "$idx" | grep -q 'relname="orders"'; then
+    pass "statio_user_indexes: no datname (no discovery), the tables of postgres alone ($irel; $(printf '%s\n' "$idx" | wc -l) series)"
+else
+    fail "statio_user_indexes series: tables [$irel]: $(printf '%s\n' "$idx" | head -n 2 | tr '\n' ' ')"
+fi
+if printf '%s\n' "$m" | grep -E '^pg_(stat_user_tables|statio_user_tables|statio_user_indexes)_' | grep -q "$OTHER_DB\|relname=\"orders\""; then
+    fail "a database-scoped series names $OTHER_DB or its table orders"
+else
+    pass "no database-scoped series of $OTHER_DB nor of its table orders"
 fi
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green after the restart (exit 0)" || fail "after restart: exit $rc: $out"
@@ -519,6 +577,22 @@ case $caps in "[ALL]"*) pass "cap_drop ALL" ;; *) fail "cap_drop: $caps" ;; esac
 mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}{{end}}{{end}}' "$C")
 [ "$mnt" = volume ] && pass "/run is a named volume" || fail "/run mount: $mnt"
 info "memory in use: $(gm cat /sys/fs/cgroup/memory.current) bytes (limit $(gm cat /sys/fs/cgroup/memory.max)); postgres_exporter RSS $(gm ps -o rss= -p "$(exporter_pid)" | tr -d ' ') kB"
+
+# --- one data source: no session of the exporter's role outside postgres -----------------
+# The server logs every connection (log_connections, log_line_prefix's
+# user=%u,db=%d): the monitoring role's lines, refused ones included, over
+# every scrape since the start.
+mlog=$(docker exec "$DB" sh -c 'cat /var/log/postgresql/*.log' 2>/dev/null | grep 'user=monitoring,db=')
+mdbs=$(printf '%s\n' "$mlog" | sed -n 's/.*user=monitoring,db=\([^,]*\),.*/\1/p' | sort | uniq -c | awk '{print $2 "=" $1}' | tr '\n' ' ')
+other=$(printf '%s\n' "$mlog" | sed -n 's/.*user=monitoring,db=\([^,]*\),.*/\1/p' | grep -vxc postgres || true)
+auth=$(printf '%s\n' "$mlog" | grep -c 'connection authorized' || true)
+if [ "$auth" -gt 0 ] && [ "$other" -eq 0 ]; then
+    pass "the exporter's sessions: $auth authorized, all in the database postgres (log lines per database: $mdbs)"
+else
+    fail "the exporter's sessions: $auth authorized, $other log lines in another database ($mdbs)"
+fi
+n=$(docker exec -u postgres "$DB" psql -X -q -At -d postgres -c "SELECT count(*) FROM pg_stat_activity WHERE usename = 'monitoring' AND datname IS DISTINCT FROM 'postgres'")
+[ "$n" = 0 ] && pass "pg_stat_activity: no monitoring session outside postgres now" || fail "pg_stat_activity: $n monitoring session(s) outside postgres"
 
 # --- the entrypoint refuses a missing, empty or multi-line password ------------------------
 printf '' > "$tmp/pw_empty"

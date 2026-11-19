@@ -156,20 +156,28 @@ QUIET_SETTINGS = tuple((m.group(1), m.group(2).strip("'"))
                        for m in (SET_RE.match(s) for s in (*NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL))
                        if m)
 
-# Fix 9: what one scrape of postgres_exporter (0.20.1, the default
+# Fix 9: what one scrape of postgres_exporter (0.21.1, the default
 # collectors, docs/gm.md of the postgres-exporter brick) asks the database,
-# on one session per scrape as the monitoring role; one statement per
-# collector, of the same catalog views. `--collector.stat_statements` adds
-# the last.
+# on one session per scrape as the monitoring role, in the one database its
+# data source names (postgres: no --auto-discover-databases, so 0.21's
+# database-scoped collectors stay there too, master spec 9.5); the
+# session's setup (the version, then the database and the Aurora probe),
+# then one statement per collector, of the same catalog views. On 17 and
+# later the slots' query reads the newer columns; `stat_replication`'s
+# reads the sender's pid, `settings`' each one's pending_restart.
+# `--collector.stat_statements` adds the last.
 EXPORTER_SQL = (
+    "SELECT pg_catalog.version()",
+    "SELECT pg_catalog.current_database(), pg_catalog.to_regproc('aurora_version') IS NOT NULL",
     "SELECT pg_catalog.pg_postmaster_start_time(), pg_catalog.version()",
     "SELECT datname, pg_catalog.pg_database_size(datname) FROM pg_catalog.pg_database",
     "SELECT datname, mode, count(*) FROM pg_catalog.pg_locks l JOIN pg_catalog.pg_database d "
     "ON d.oid = l.database GROUP BY 1, 2",
     "SELECT pg_catalog.pg_is_in_recovery()",
-    "SELECT slot_name, active FROM pg_catalog.pg_replication_slots",
+    "SELECT slot_name, slot_type, active, safe_wal_size, wal_status, conflicting, inactive_since, "
+    "failover, synced FROM pg_catalog.pg_replication_slots",
     "SELECT rolname, rolconnlimit FROM pg_catalog.pg_roles",
-    "SELECT name, setting, unit, vartype FROM pg_catalog.pg_settings",
+    "SELECT name, setting, unit, short_desc, vartype, pending_restart FROM pg_catalog.pg_settings",
     "SELECT datname, state, count(*), max(now() - xact_start) FROM pg_catalog.pg_stat_activity "
     "GROUP BY 1, 2",
     "SELECT * FROM pg_catalog.pg_stat_archiver",
@@ -177,7 +185,7 @@ EXPORTER_SQL = (
     "SELECT * FROM pg_catalog.pg_stat_checkpointer",
     "SELECT * FROM pg_catalog.pg_stat_database",
     "SELECT * FROM pg_catalog.pg_stat_progress_vacuum",
-    "SELECT * FROM pg_catalog.pg_stat_replication",
+    "SELECT pid, application_name, client_addr, state FROM pg_catalog.pg_stat_replication",
     "SELECT * FROM pg_catalog.pg_stat_user_tables",
     "SELECT * FROM pg_catalog.pg_statio_user_tables",
     "SELECT * FROM pg_catalog.pg_stat_wal",

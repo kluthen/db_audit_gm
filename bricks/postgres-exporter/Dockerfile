@@ -20,7 +20,7 @@ RUN chmod -R u=rwX,go=rX /rootfs
 FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
-ARG PG_EXPORTER_VERSION=0.20.1
+ARG PG_EXPORTER_VERSION=0.21.1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -28,7 +28,7 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 # postgres_exporter, pinned, verified against the release's sha256sums.txt.
-ADD --checksum=sha256:89d4f7e7920cad48fdc3133f789556ef5253c330a9f5fdace3bdb6344c0a8b5a \
+ADD --checksum=sha256:02f316da4e9e409749d6f3b25102d3561cb408023110f3653f6514548926ff0c \
     https://github.com/prometheus-community/postgres_exporter/releases/download/v${PG_EXPORTER_VERSION}/postgres_exporter-${PG_EXPORTER_VERSION}.linux-amd64.tar.gz /tmp/
 
 RUN set -eux; \
@@ -56,7 +56,10 @@ RUN set -eux; \
         | sed -n 's/^ *--\[no-\]collector\.\([a-z0-9_]*\) .*/\1/p' | sort -u \
         > /usr/local/lib/gm/exporter-collectors; \
     grep -qx stat_statements /usr/local/lib/gm/exporter-collectors; \
-    grep -qx database /usr/local/lib/gm/exporter-collectors
+    grep -qx database /usr/local/lib/gm/exporter-collectors; \
+    # exporter-conf passes the data source as flags (0.21 deprecates the variables)
+    /usr/local/bin/postgres_exporter --help 2>&1 | grep -q -- '--datasource.uri='; \
+    /usr/local/bin/postgres_exporter --help 2>&1 | grep -q -- '--datasource.pass-file='
 
 # Accounts: `exporter` runs the server and is the only account, with root,
 # that reads the monitoring password; `player` (SSH by key only) is in

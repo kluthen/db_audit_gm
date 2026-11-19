@@ -20,7 +20,7 @@ FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
 # pgwatch, its latest release at the build (G9; spec D368), pinned.
-ARG PGWATCH_VERSION=6.1.0
+ARG PGWATCH_VERSION=6.2.0
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -28,8 +28,8 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 # pgwatch, the release tarball (not the .deb), verified against the
-# release's checksums.txt (G9: it agrees with GitHub's digest).
-ADD --checksum=sha256:8c9bb13978e6e769b2c82f304479c2840bbcb44e9a6ba8209507cdfc24a117da \
+# release's checksums.txt (G9, G9.2 for 6.2.0: it agrees with GitHub's digest).
+ADD --checksum=sha256:8c61a80eb7a68023896029c339b83c1938c557e94ce9aba6140e86b3788c1e51 \
     https://github.com/cybertec-postgresql/pgwatch/releases/download/v${PGWATCH_VERSION}/pgwatch_Linux_x86_64.tar.gz /tmp/
 
 # Only the binary is kept (G9): the tarball's sample configuration, metric
