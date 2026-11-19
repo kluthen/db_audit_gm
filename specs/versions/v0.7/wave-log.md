@@ -190,3 +190,17 @@ it.
     as specified).
 - Figures: 1 agent, 41 tool calls, 3.6M tokens in / 38k out, max context
   112k, $1.98 at API prices.
+
+### Plan v2 — 2026-11-19
+
+- **Commit:** spec-writer's 69ce2ec.
+- **What changed:** the "agent definition touched" chunk check and the
+  wave gate's agent check are now a headless `claude -p --agent <name>
+  [--settings <file>] --max-turns 1` run, asked for its tools and visible
+  skills and compared with master spec 7.4 or 7.5. Each run costs one
+  model call.
+- **No decision taken:** it is a check-method change.
+- **Left for the owner:** master spec 10 still names `claude agents` in
+  a parenthetical. An "amended in wave 1" note with a decision would fix
+  it, as v0.6's precedent shows. Raised with the owner; it can wait for
+  the release gate.
