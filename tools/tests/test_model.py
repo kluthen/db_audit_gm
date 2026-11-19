@@ -5304,7 +5304,7 @@ class TestV06Templates(unittest.TestCase):
         self.assertEqual(set(base.child.fields), {"os", "version"})
 
     def test_domain_and_overview_templates(self):
-        self.assertTrue(model.template_schema("domain.yaml").fields["overview"].optional)
+        self.assertFalse(model.template_schema("domain.yaml").fields["overview"].optional)
         overview = model.template_schema("overview.yaml")
         self.assertEqual(set(overview.fields["roles"].child.item.fields),
                          {"role", "who", "reads", "writes"})
