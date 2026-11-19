@@ -196,12 +196,26 @@ def new_implementation(scenario, playground, old, game_id, subnet):
     return impl
 
 
-def new_timeline(scenario, old):
+# A fake game's timeline keys a restart keeps (v0.6 capture W3 item 7): from
+# the snapshot all of them, the same fake game; with no history all but the
+# virtual T0, so the rebuild runs on the real clock (no fill, no import) while
+# the refused instances stay out and the story keeps its line (the anchor's).
+FAKE_KEYS = ("virtual_t0", "anchor", "tail", "refused")
+NO_HISTORY_FAKE_KEYS = ("anchor", "tail", "refused")
+
+
+def new_timeline(scenario, old, from_snapshot=True):
     """The restart's timeline: the planned hand-over, the shift and the
-    customer's zone kept, a new seed (capture W2 item 1; D136, D163)."""
-    planned = aging.parse_instant((old.get(localimpl.TIMELINE) or {}).get("planned_handover"))
-    return render.build_timeline(scenario, planned, None, aging.iso(aging.now_utc()),
-                                 left_out=localimpl.left_out(old))
+    customer's zone kept, a new seed (capture W2 item 1; D136, D163); a
+    fake game's keys kept (FAKE_KEYS, NO_HISTORY_FAKE_KEYS)."""
+    previous = old.get(localimpl.TIMELINE) or {}
+    planned = aging.parse_instant(previous.get("planned_handover"))
+    timeline = render.build_timeline(scenario, planned, None, aging.iso(aging.now_utc()),
+                                     left_out=localimpl.left_out(old))
+    if timeline is not None and localimpl.is_fake(old):
+        keys = FAKE_KEYS if from_snapshot else NO_HISTORY_FAKE_KEYS
+        timeline.update({k: previous[k] for k in keys if k in previous})
+    return timeline
 
 
 def carry_state(st, game_id):
@@ -217,6 +231,9 @@ def carry_state(st, game_id):
     early = st.get("early_check")
     if early and early.get("timer"):
         early["timer"] = None
+    imported = st.get(aging.HISTORY_IMPORT)
+    if imported and imported.get("timer"):
+        imported["timer"] = None
     for planting in (st.get("plantings") or {}).values():
         if planting and planting.get("timer"):
             planting["timer"] = None
@@ -551,7 +568,7 @@ def restart(scenario_dir, playground, confirmation, docker=None, systemd=None,
             switch_game(ldir, new_impl, new)
             current[0] = new
             place(docker, new_impl)
-            timeline = new_timeline(scenario, impl)
+            timeline = new_timeline(scenario, impl, from_snapshot)
             render.write_rendered(scenario, playground, ldir, new_impl, timeline)
             result.seed = (timeline or {}).get("seed")
             deploy.record_images(ldir, deploy.copy_images(docker, new_impl))

@@ -157,11 +157,16 @@ class TestRecord(unittest.TestCase):
 
     def test_explains_kept_where_they_hold(self):
         plain = cleanrestart.explains({"hold": {"items": []}, "fill": {"quiet": []}})
-        self.assertEqual(len(plain), len(cleanrestart.EXPLAINS) - 2)
+        self.assertEqual(len(plain), len(cleanrestart.EXPLAINS) - 4)
         self.assertEqual(set(plain[0]), {"observation", "where", "in_world"})
+        self.assertFalse([e for e in plain if "Prometheus" in e["observation"]])
+        prom = {"nodes": {"prometheus": {"brick": {"id": "prometheus"}}}}
         full = cleanrestart.explains({"hold": {"items": [{"what": fill.ARCHIVING_WHAT}]},
-                                      "fill": {"quiet": [COVER]}})
+                                      "fill": {"quiet": [COVER]}}, prom)
         self.assertEqual(len(full), len(cleanrestart.EXPLAINS))
+        # the import's limit (master spec 9.10, spec D541), not covered by the story
+        row = next(e for e in full if "prometheus_tsdb_lowest_timestamp_seconds" in e["where"])
+        self.assertEqual(row["in_world"], "none: not covered by the story")
 
     def test_refusals(self):
         fake = {"timeline": {"virtual_t0": "2026-11-20T22:00:00Z"}}

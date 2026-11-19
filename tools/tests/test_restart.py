@@ -779,3 +779,75 @@ class TestStatusFileReRendered(StatusRendered):
         self.assertIn({"name": "fixture-status-zz9zz9_partners_status",
                        "path": "/opt/gm/secrets/partners_status.json", "uid": 0, "gid": 0,
                        "mode": "0400"}, new["nodes"]["bastion"]["secrets"])
+
+
+class FakeGameMixin:
+    """A fake game handed over (v0.6 capture W3 item 7): its timeline's fake
+    keys, f3 refused, the restart record with its restart and its history,
+    the history import's timer recorded."""
+
+    REFUSED = "f3"
+
+    def setUp(self):
+        super().setUp()
+        impl = localimpl.read_implementation(self.ldir)
+        impl["timeline"].update(virtual_t0="2026-11-20T22:00:00Z", anchor="2026-11-21T11:00:00Z",
+                                tail="3h", refused=[self.REFUSED])
+        localimpl.write_implementation(self.ldir, impl)
+        self.record = {
+            "mode": "fake", "virtual_t0": "2026-11-20T22:00:00Z",
+            "anchor": "2026-11-21T11:00:00Z", "tail": "3h",
+            "handover_planned": "2026-11-21T14:00:00Z",
+            "refused": [{"instance": self.REFUSED, "reason": "real-only: a test's"}],
+            "restart": {"at": "2026-11-21T11:00:14Z", "story_line": render.story_line(
+                "2026-11-21T11:00:00Z"), "explains": []},
+            "history": {"at": "2026-11-21T11:12:40Z", "result": "ok", "seam": "ok"}}
+        localimpl.write_restart_record(self.ldir, self.record)
+        localimpl.update_state(self.ldir, lambda st: st.update(history_import={
+            "timer": {"unit": "dbagm-x_history", "due": "2026-11-21T11:12:14Z",
+                      "created_at": "2026-11-21T11:00:20Z"}, "attempts": []}))
+        self.old_impl = self.impl_now()
+
+    def story(self):
+        found = list((self.ldir / "rendered").glob("*/story.md"))
+        self.assertEqual(len(found), 1)
+        return found[0].read_text()
+
+    def kept(self, result, keys):
+        tl, old = self.impl_now()["timeline"], self.old_impl["timeline"]
+        for key in keys:
+            self.assertEqual(tl[key], old[key], key)
+        self.assertEqual(localimpl.read_restart_record(self.ldir), self.record)
+        self.assertEqual(localimpl.left_out(self.impl_now()), [self.REFUSED])
+        self.assertNotIn(self.REFUSED, tl["instances"])
+        self.assertIn(self.record["restart"]["story_line"], self.story())
+        st = self.st()
+        self.assertIsNone(st["history_import"]["timer"])
+        self.assertFalse([u for u in self.systemd.files() if "history" in u])
+        return tl
+
+
+class TestFakeFromSnapshot(FakeGameMixin, HandedOverAged):
+
+    def test_the_same_fake_game_no_second_import(self):
+        result = self.restart()
+        tl = self.kept(result, restart.FAKE_KEYS)
+        self.assertTrue(localimpl.is_fake(self.impl_now()))
+        self.assertNotEqual(tl["seed"], self.old_impl["timeline"]["seed"])
+        # Prometheus' volume restored with the rest: the monitoring not held
+        self.assertFalse(localimpl.monitoring_held(self.impl_now(), self.record))
+
+
+class TestFakeNoHistory(FakeGameMixin, HandedOverAged):
+
+    fits = False
+
+    def test_rebuilt_on_the_real_clock_the_refused_kept_out(self):
+        result = self.restart()
+        tl = self.kept(result, restart.NO_HISTORY_FAKE_KEYS)
+        self.assertNotIn("virtual_t0", tl)
+        self.assertFalse(localimpl.is_fake(self.impl_now()))      # no fill, no import
+        st = self.st()
+        self.assertEqual(st["load"]["t0"], result.t0)            # T0 at the restart
+        self.assertNotIn(self.REFUSED, st["plantings"])
+        self.assertIn("f2", st["plantings"])
