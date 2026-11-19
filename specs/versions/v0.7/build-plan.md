@@ -180,7 +180,8 @@ Docker: none
 
 ### Chunk 2 — The launcher, `tools/play`: the assistant's half
 
-Status: planned
+Status: merged (w1, 3204b82)
+Record: 6e85d26, merged as 3204b82; no deviation.
 Wave: 1
 Depends on: G1, G2
 Architecture capture: W1: `tools/play`'s command line (`gm` |

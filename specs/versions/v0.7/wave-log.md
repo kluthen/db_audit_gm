@@ -204,3 +204,22 @@ it.
   a parenthetical. An "amended in wave 1" note with a decision would fix
   it, as v0.6's precedent shows. Raised with the owner; it can wait for
   the release gate.
+
+### Chunk 2 — merged 2026-11-19
+
+- Commit 6e85d26, merged `--no-ff` as 3204b82. No deviation.
+- `tools/test_play.py` has 13 tests. Each runs in its own fixture
+  repository, so `dev` is only ever created there. The fakes in
+  `tools/tests/fakebin/` record the exact argument lists of capture W1
+  item 3.
+- On a usage error, a line naming the problem goes to stderr before the
+  usage. This stays within the capture.
+- **Unit suite:** 1474 tests, 1 failure (the pre-existing v0.6 one), 2
+  skipped, 6m08s.
+- **Risks:**
+  - `fakebin/` now comes first on PATH for the gmctl tests too, which is
+    harmless.
+  - The repository root is found from `$0`, so a symlinked launcher
+    elsewhere would `cd` to the wrong place. The spec doesn't call for
+    that.
+- Figures: 1 agents, 15 tool calls, 822k tokens in / 13k out, max context 64k, $0.65 at API prices.
