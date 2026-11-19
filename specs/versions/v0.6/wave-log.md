@@ -2742,3 +2742,61 @@ W3 item 12) changes no file it builds, and its brief carries W3 items
 (corrections 5, 6, 7 give it the campaign's `service-times.yaml`, the
 shop's `scenario.yaml`/`README.md` and the new test); chunk 10 takes
 the next free slot after plan v9 (correction 1 gives it `restart.py`).
+
+### Plan v9 (70fc0d5); chunk 11 started, 2026-11-19
+
+- `spec-writer` applied W3's corrections 1 to 11, none declined: plan
+  v9, 70fc0d5. **D540**: the players keep their Prometheus shell; the
+  TSDB folder (`prometheus:prometheus 0750`) is what hides the blocks.
+  **D541**: Prometheus' own `prometheus_tsdb_*` series step at the
+  import, a documented limit (9.10). **D542**: an instance a handout
+  names that fake aging can't make is never left to render's refusal
+  (a variant without it and its issue, the game real, or decline;
+  the campaign's f10 and issue 6 together; v1.0 gating's campaign
+  blind read becomes that variant). **D543**: `suppressed_by` counts
+  from the hiding instance's planting (formats.md v37). **D544**: the
+  "Fake aging" section carries the setup's measured time, behind 9.2's
+  "ready in about…". G10.3 added. No owner question.
+- Relayed to chunk 13 (running): D544's duration, D542's selection
+  rule, 9.10 in its Spec sections.
+- Chunk 11 dispatched to a `coding-leader` from 70fc0d5, branch
+  `v0.6-c11-faults-assessed`, split 11a/11b, rotation at ~100 calls.
+
+### Chunk 13 — merged (0ec38b3), 2026-11-19
+
+944731e, merge 0ec38b3 (rebased onto plan v9 first). Only
+`.claude/skills/game-master/{SKILL.md,feedback.md}`.
+
+Done when: the play question asked once with the time available,
+modes offered per 9.1/9.2 (D516: "quick game"/"extended game" by
+duration to a possible player; D544's estimate; D542's selection
+rule); the never-told search over every marked player text: 0 hits
+(28 texts, a probe file with the words gives 3 hits); the fake-mode
+steps in 9.4's order, 44/44 `gmctl` invocations parse with
+`build_parser()`; the feedback in two parts with the tell rule
+("Fake aging in the teaching moment"). No `gmctl history` invocation
+(W3 item 11): the skill names the timer and reads `status`.
+
+**W3-z** (as built): player-facing texts wrapped in `<!-- player -->`
+… `<!-- /player -->` (26 in SKILL.md, 2 in feedback.md); the search
+command and word list (aging/ageing/ages/aged, fill*,
+forge/forged/forgery/forging, virtual, fake*) in SKILL.md's top
+comment; the rule holds in both modes; a picked-up game treats the
+initiator as one who may play; a failed or bad-seam import: retry by
+hand, then set up again or hand over as is.
+
+Left: fake mode is offered only once a scenario document has a
+`## Fake aging` section (chunk 12, wave 4); gmctl.md's `history` row
+(chunk 10). Risk: a solo initiator who also plays can see the GM's
+tool output during setup (`status` prints `aging: fake`); v0.5
+already accepted that risk for setup output.
+
+**For the wave gate:** the unit suite has one failure,
+`test_model.TestV06Templates.test_domain_and_overview_templates`
+(`domain.yaml`'s `overview` not optional), already failing on `main`
+at 9aac312, so not wave 3's: chunk 3's test predates chunk 7a
+(50ee241), which made the domains' overview required. To trace and fix
+at the gate.
+
+Figures: 1 agents, 99 tool calls, 15.7M tokens in / 73k out, max
+context 229k, $5.62 at API prices.

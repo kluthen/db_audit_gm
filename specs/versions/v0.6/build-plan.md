@@ -138,7 +138,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
-| 3 | 10, 11, 13 | wave 2 | planned |
+| 3 | 10, 11, 13 | wave 2 | in progress (13 merged) |
 | 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | planned |
 
 ```
@@ -1419,7 +1419,10 @@ applied.
 
 ### Chunk 13 — The `game-master` skill: the modes, the initiator who plays, the feedback in two parts
 
-Status: planned
+Status: merged (w3, 0ec38b3)
+Record: 944731e, merge 0ec38b3. As the spec and W3 (items 11, 12);
+player-facing texts marked `<!-- player -->`, the never-told search in
+SKILL.md's top comment, W3-z in the wave log. No deviation.
 Wave: 3
 Depends on: chunks 7, 9; capture W3 (`gmctl history`'s interface;
 item 12, the "Fake aging" section's heading and facts, which chunk 12
