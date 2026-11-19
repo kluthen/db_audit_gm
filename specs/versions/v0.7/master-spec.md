@@ -233,7 +233,7 @@ password is ever handed to it, the tools password included. No brick or
 
 ### 6.5 In the repository: an allow-list
 
-It reads, in the game's clone:
+It reads, in the clone it runs from (6.3):
 
 1. its own agent definition and the audit grid (`references/`);
 2. the starter pack and handouts: the scenario's `player/` folder in its
@@ -435,7 +435,7 @@ a *propose*, never into steps to carry out.
 ### 6.14 Sessions, language, time
 
 - It runs in sessions of its own, as many as the players like, from the
-  hand-over to the final answer, in the game's clone. A fresh session
+  hand-over to the final answer, on the player's side (6.3). A fresh session
   resumes from its drafts and the bastion; it keeps no other memory.
 - Everything it writes into files is in English, as all player-facing
   material; in conversation it answers in English, or in the player's

@@ -58,8 +58,8 @@ the repository's owner on `dev`.
 | The secrets in the player's home (`~/.pgpass`, `~/.ssh/`), `~/.psql_history` | `read` |
 | The web front's pages (home, `/docs/`, `/status/`, `/reports/`) | `view` |
 | A database, any node beyond the bastion | `connect`, `run SQL` |
-| The game's clone: the starter pack, the handouts, the bricks' player documentation, the audit grid | `read` |
-| The game's clone: everything else (a scenario's GM side, `faults/`, the bricks' GM documentation, `tools/`, other agents and skills) | `read` |
+| The clone the assistant runs from: the starter pack, the handouts, the bricks' player documentation, the audit grid | `read` |
+| The clone the assistant runs from: everything else (a scenario's GM side, `faults/`, the bricks' GM documentation, `tools/`, other agents and skills) | `read` |
 | The assistant's drafts folder (`play/<game>/` by default) | `write` |
 | The report | `write` (its drafts), `hand in` |
 | The web | `search`, `fetch` |
