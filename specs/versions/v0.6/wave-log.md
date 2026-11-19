@@ -3058,3 +3058,69 @@ waits.
 ### Wave 3's chunks all merged, 2026-11-19
 
 Chunks 13 (0ec38b3), 11 (5c28a1d), 10 (552259f). Next: the wave gate.
+
+### Wave 3 gate — 2026-11-19, green after one fix
+
+`coding-executor` at the wave-gate level, armenelos, 12:10–14:33 UTC,
+from 682f6cd; every docker step serialised under the lock and the
+inhibitor, κ = 1, each item under 30 minutes; the VPS unused, nothing
+pruned. Head after the gate: 3bb81c0 (ISS-007, committed by the driver
+during the gate, over the gate's fix f07f0b1).
+
+| Item | Result |
+|---|---|
+| Unit suite | 1496 OK, 2 skipped, 370 s (after the fix) |
+| Scheduler unit tests, replay guard | 113 OK (6 `TestP0`), the real mode's replay byte for byte, 209 s |
+| api unit tests | 36 OK, 30 s |
+| `sh -n`, `py_compile`, `perl -c` | 343 shell (`run-history-test.sh` new), 478 Python, 14 Perl files OK; `shellcheck` not installed |
+| Builds `--no-cache --pull` | ten OK, 163 s |
+| `check-base.sh` | 10/10 Debian 13 |
+| Ten bricks' stack tests | postgres 316, bastion 136, pgbouncer 121, scheduler 179 (824 s), api 89, prometheus 132, postgres-exporter 104, grafana 131, pgwatch 73, health-check 97; all 0 failed |
+| Smokes | smoke 61, monitoring 43, governance 121, load 73 (431 s) |
+| Scenario smokes | bookshop 19, fernway-clinics 18, tarnbeck shop 26 (831 s), tarnbeck campaign 33 (316 s) |
+| `fixture-fill` history test (chunk 10) | **38/0, 1386 s** |
+| `fixture-fill` short test | 65/0, 889 s; p50 checks hold for producer and consumer |
+| `fixture-status` | 27/0, 381 s |
+| `test_fake_aging_faults` | 6 OK |
+| `check_fault_dir`, `check_scenario`, `check_domain_dir` | 39/39 catalogue faults, 37/37 fixture faults; 5/5 scenarios, 32/32 fixtures (fixture-v04-refusals against `catalog/`); 0 problems |
+| Calibration files | 12 in `tools/fake_aging/calibration/`; the 9 that faults and the log name all exist |
+| READMEs (shop, campaign) | the parts wave 3 could change re-rendered by hand: 20 fault-instance rows, 0 mismatches; the "Knobs" intro lines follow the template |
+
+**Fix** (its own commit on `v0.6-w3`): f07f0b1,
+`test_model.TestV06Templates.test_domain_and_overview_templates` expects
+the domain template's `overview` required (D487, master spec 6.5);
+stale since wave 2's f6e14ab, failing on `main` too.
+
+**One rerun (environment)**: the bastion stack test first stopped on
+"image debian:13-slim not built", its stub image, which the 07:55 reboot
+removed and `--pull` builds don't restore; pulled, rerun 136/0.
+
+**dpkg**: the seven images 11b rebuilt from cache diffed against their
+pre-gate lists: no change. api (141 packages), health-check (151) and
+pgwatch (126) had no earlier list; recorded now. G9.1's packages as G9.1
+and the follow-up left them (libpq5 17.12 in api, scheduler,
+health-check; postgres 18.7-1.pgdg13+2 with `pg_cron` 1.6.8-1.pgdg13+3
+and `pgaudit` 18.0-3.pgdg13+2; libcares2 1.34.9-1~deb13u1 in
+pgbouncer). **No package change: no G9.2 row, no post-change check.**
+
+**Figures**:
+- History test: deploy, load and inject 29 s; fill 229 s for 466
+  virtual minutes; clean-restart 28 s; `gmctl history` 81 s (tail's 2081
+  series read 0.4 s; composed 2082 series, 3 880 181 samples, 476.6 MB
+  of OpenMetrics in 4.8 s; promtool 8.5 s, peak 610.4 MiB; blocks loaded
+  51.0 s later; seam check 4.3 s); 5 blocks, 5 566 509 bytes. Lowest
+  timestamp 12:46:23Z → 05:00:03Z (virtual T0 + 3 s), unchanged a minute
+  later and after the restart; snapshot 9 s, restart from it 31 s, the
+  imported blocks kept.
+- Short fill: 467 s for 925 virtual minutes on 2 scheduler nodes;
+  exporter sessions 3710 against 3700 expected; autovacuum 97 runs on
+  `products`, 2 on `customers`; clean-restart 26 s, WAL padding
+  1 084 484 928 bytes in 1.5 s, `pg_wal` 1 056 964 608 bytes; starts
+  +1.3 to +2.2 s from `restart.at`; `stats_reset` 9 s before it.
+- `/home` 55 GB free. Teardown clean; seven untagged pre-rebuild images
+  left (nothing pruned).
+
+Not seen in the gate: D578's case, the template's starter-pack line
+outside an "if:" block (for chunk 12 or 16), ISS-007.
+
+Next: G10.3 to `spec-writer`.
