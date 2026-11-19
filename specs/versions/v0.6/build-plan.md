@@ -1341,7 +1341,7 @@ arguments and output; the record's `history` field (`at`, `result`,
 Status: merged (w3, 5c28a1d)
 Record: 11a 816c090, 11b 822b208, merge 5c28a1d. Differs: no
 `suppressed_by` pair in either scenario (the shop's f9, spec D548; the
-campaign's f5 over f4 and f7, sent to `spec-writer`); bi and gateway
+campaign's f5 over f4 and f7, spec D578); bi and gateway
 service times measured from `rpt.etl_runs` and psql timing (report-only
 nodes); calibration file names beyond W3 item 10; f1's `per_call` and
 the WAL rates from an evening window. W3-y in the wave log.

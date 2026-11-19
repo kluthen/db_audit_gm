@@ -2958,3 +2958,25 @@ evening WAL and f1 figures).
 
 Figures: 3 agents, 214 tool calls, 31.6M tokens in / 200k out, max
 context 243k, $17.90 at API prices.
+
+### Plan v11 (7f7f170), 2026-11-19
+
+`spec-writer`: **D578** (D579 reserved, unused): no covered fault uses
+`suppressed_by` (the shop's f9 and the campaign's f5 hide in state and
+logs only); D543's rule stands, unit-tested only. Master spec 6.9,
+9.5, 9.7 (a report-only node's key timed from its runs in a fill or
+with psql), 9.8 amended; chunk 10a's and 11b's text; chunk 12 gains how
+to read the campaign's few-run, evening-window figures (`pg_wal`
+checked against `clean_restart.wal`'s padding, never a day's figure; a
+step in f1's series at the seam a finding for v1.0 gating, not a
+failure); G10.3 lists wave 3's as-built forms. No change to chunk 10b.
+
+**W3 amended** (driver, from chunks 11a and 11b and plan v10/v11):
+- item 4: the rule stands, but no covered fault uses it: the shop's f9
+  and the campaign's f5 hide in state and logs only (spec D548, D578);
+  unit-tested only.
+- item 9: as written; P0's outcome: f4 needs no 12:00 close in the
+  tail, f4 and f7 stay `supported`.
+- item 10: calibration file names as built `<scenario>-<what>-<stamp>.txt`
+  with `keys-<node>`, `run-a`, per fault, `fill`, `wal-<node>`; the
+  shop's WAL rate not measured.
