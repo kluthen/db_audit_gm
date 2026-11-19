@@ -1732,7 +1732,12 @@ Architecture capture: W4 (item 6).
 
 ### Chunk 17a — PostgreSQL 19: the images, their paths and their tests
 
-Status: planned
+Status: merged (w4, b788df5)
+Record: aff0b4d (from WIP 5428aeb, second owner), merged as b788df5 on
+2026-11-19; no deviation from the spec or W4. Data in
+`/var/lib/postgresql/19/data`, binaries in `/usr/lib/postgresql/19/bin`.
+postgres, bastion and pgbouncer keep Debian's postgresql-common 278 (to
+G9.2's post-change check); `.tech` still says 18.
 Wave: 4
 Depends on: G9.2 (its preflight, done); G14; G3, G4; chunk 12c (in
 wave 4, merge order: both regenerate the clinic's `README.md`; 17a takes

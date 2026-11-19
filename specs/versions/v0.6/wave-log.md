@@ -3953,3 +3953,27 @@ span in the script, which costs about 3 more minutes of fill, the
 - The owner's wait loops (`pgrep -f` matching itself) kept it idle
   after its suite; killed on the driver's status check.
 - Figures: 1 agents, 76 tool calls, 10.8M tokens in / 53k out, max context 207k, $5.01 at API prices.
+
+### Chunk 17a — merged (b788df5), 2026-11-19
+
+- aff0b4d (second owner, from WIP 5428aeb), merged `--no-ff` as b788df5
+  on top of dc1420b (12c in, no conflict). Done when met: six images
+  `--no-cache` on 19 (libpq5 19.0-1.pgdg13+1 everywhere, no 17/18
+  PostgreSQL package left); ten stack tests green (postgres 317,
+  bastion 136, pgbouncer 121, scheduler 179, api 89, health-check 97,
+  postgres-exporter 104, pgwatch 73, prometheus 132, grafana 139 PASS);
+  unit suite 1559 OK, 2 skipped; scheduler (113) and api unit runners
+  in their images on 19.0; eight smokes green, each under 30 minutes;
+  the clinic's README's three "overview beside it" lines now read 19,
+  12c's sections untouched.
+- Paths beside capture W4: data `/var/lib/postgresql/19/data`,
+  binaries `/usr/lib/postgresql/19/bin` (17b, 17c, 12b read them).
+- To G9.2's post-change check: postgresql-common 278 (Debian) in
+  postgres, bastion and pgbouncer (first `apt install` before the PGDG
+  source); health-check has 297.pgdg13+1. dpkg lists in the driver's
+  scratchpad `c17a/dpkg/`.
+- To 17c: `domains/vet-scheduling/data/schema.sql:31` ("postgresql-18"
+  comment, a digest input) and `scenarios/tarnbeck-outdoor-shop/README.md`
+  line ~650 ("PostgreSQL 18's wording" of the autovacuum log line, from
+  the answer key).
+- Figures: 3 agents, 160 tool calls, 17.8M tokens in / 72k out, max context 186k, $7.20 at API prices.
