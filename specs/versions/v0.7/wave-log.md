@@ -223,3 +223,108 @@ it.
     elsewhere would `cd` to the wrong place. The spec doesn't call for
     that.
 - Figures: 1 agents, 15 tool calls, 822k tokens in / 13k out, max context 64k, $0.65 at API prices.
+
+### Chunk 3 — merged 2026-11-19
+
+- Commit e7369e6, merged `--no-ff` as dc72f90. No deviation.
+- `tools/tests/test_publish_main.py` has 32 tests: every check refuses
+  its fixture and passes the clean one.
+- **Commit mode:** tested in fixture repositories only.
+  - One snapshot commit, its parent the previous `main`, its message
+    naming the dev SHA.
+  - It prints the push command and never pushes.
+  - It exits 2 while `main` is checked out in a worktree. So the first
+    real publish needs G4 first, or `main` checked out nowhere.
+- **Choices inside the chunk:**
+  - A **GM skill** is any skill `main` carries, decided by rule rather
+    than by a list, so chunk 4's `game-master-<workflow>` skills are
+    covered.
+  - A **pointer** is a Markdown link into a dev-only path, or an
+    open-verb ("read", "see", …) before one. Plain mentions of where
+    something came from pass.
+  - **8.2's list is also a constant in `publish.py`,** so a path missing
+    from `game-mode/paths` is refused.
+  - **Missing replacement files are findings,** not errors.
+  - **The format check** runs the built tree's own
+    `tools.gm.model.check_scenario`.
+- **Unit suite:** 1506 tests, 2 failures. One is the pre-existing v0.6
+  test. The other was the chunk's own stray `__pycache__` in a fixture
+  copy, fixed in the test; the gate's full run confirms it.
+- **Risks:**
+  - The pointer rule is a heuristic: "go to specs/…" would pass.
+  - The untracked root `SECURITY_TODO.md` is not in `game-mode/paths`,
+    because 8.2 doesn't list it.
+- Figures: 1 agent, 46 tool calls, 4.2M tokens in / 63k out, max
+  context 139k, $2.68 at API prices.
+
+#### Starting state: `publish.py --check-only` on `v0.7-w1` at dc72f90
+
+51 findings, exit 1, nothing written. The driver re-ran it after the
+merge and got the same findings.
+
+- `replace` (3) and `memory` (1): chunk 7's game-mode `README.md`,
+  `CLAUDE.md` and `settings.json`.
+- `agents` (2): the GM's two definitions, which chunk 4 adds.
+- `pointer` (45):
+  - **4 in `.claude/skills/` (data-register, network-overview):** chunk 4.
+  - **41 in carried GM docs:** `domains/*/docs/gm.md`, `purposes/*/gm.md`
+    and `partners/README.md`, linking into `specs/` or `tools/tests/`.
+    **No chunk owns these yet**; sent to spec-writer.
+- No `spoiler`, `dev-matter`, `skills`, `ignored`, `local` or `format`
+  finding: the assistant's definitions are clean, and the five scenarios
+  pass the loader.
+
+```
+publish.py: 51 finding(s) on HEAD (dc72f90fce05); main not updated
+replace: game-mode/CLAUDE.md: missing; main would carry no CLAUDE.md
+replace: game-mode/README.md: missing; main would carry no README.md
+replace: game-mode/settings.json: missing; main would carry no .claude/settings.json
+pointer: .claude/skills/data-register/SKILL.md:9: links to specs/versions/v0.5/data-register-handout.md
+pointer: .claude/skills/data-register/SKILL.md:11: links to specs/versions/v0.5/wave-log.md
+pointer: .claude/skills/network-overview/SKILL.md:10: links to specs/versions/v0.6/wave-log.md
+pointer: .claude/skills/network-overview/template.md:8: links to specs/versions/v0.6/wave-log.md
+pointer: domains/vet-core/docs/gm.md:5: links to specs/versions/v0.5/vet-core-domain.md
+pointer: domains/vet-core/docs/gm.md:498: links to specs/versions/v0.5/vet-lab-domain.md
+pointer: domains/vet-core/docs/gm.md:499: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: domains/vet-core/docs/gm.md:629: links to specs/versions/v0.5/vet-lab-domain.md
+pointer: domains/vet-core/docs/gm.md:630: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: domains/vet-core/docs/gm.md:848: links to specs/versions/v0.5/clinic-traps.md
+pointer: domains/vet-housing/docs/gm.md:4: links to specs/versions/v0.5/vet-housing-domain.md
+pointer: domains/vet-housing/docs/gm.md:334: links to specs/versions/v0.5/vet-housing-domain.md
+pointer: domains/vet-lab/docs/gm.md:5: links to specs/versions/v0.5/vet-lab-domain.md
+pointer: domains/vet-lab/docs/gm.md:362: links to specs/versions/v0.5/clinic-traps.md
+pointer: domains/vet-machinery/docs/gm.md:5: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: domains/vet-machinery/docs/gm.md:364: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: domains/vet-portal/docs/gm.md:5: links to specs/versions/v0.5/vet-portal-domain.md
+pointer: domains/vet-portal/docs/gm.md:386: links to specs/versions/v0.5/vet-portal-domain.md
+pointer: domains/vet-scheduling/docs/gm.md:4: links to specs/versions/v0.5/vet-scheduling-domain.md
+pointer: domains/vet-scheduling/docs/gm.md:166: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: partners/README.md:6: links to specs/versions/v0.5/wave-log.md
+pointer: partners/README.md:27: links to tools/tests/fixtures/fixture-partners/
+pointer: partners/README.md:28: links to tools/tests/fixtures/fixture-archive/
+pointer: purposes/cold-storage-archive/gm.md:3: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: purposes/cold-storage-archive/gm.md:4: links to specs/versions/v0.5/cold-storage.md
+pointer: purposes/vet-antimicrobial-use/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-bookings-sync/gm.md:3: links to specs/versions/v0.5/vet-scheduling-domain.md
+pointer: purposes/vet-centre-exchanges/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-centre-exchanges/gm.md:128: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-head-office-figures/gm.md:5: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-head-office-figures/gm.md:86: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-imaging-orders/gm.md:3: links to specs/versions/v0.5/vet-machinery-domain.md
+pointer: purposes/vet-lab-centre-orders/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-lab-critical-calls/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-lab-practice-results/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-lab-send-outs/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-lab-statements/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-lab-statements/gm.md:86: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-medicines-registers/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-medicines-registers/gm.md:89: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-notifiable-diseases/gm.md:4: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-notifiable-diseases/gm.md:128: links to specs/versions/v0.5/clinic-purposes.md
+pointer: purposes/vet-portal-messages/gm.md:3: links to specs/versions/v0.5/vet-portal-domain.md
+pointer: purposes/vet-portal-release/gm.md:3: links to specs/versions/v0.5/vet-portal-domain.md
+pointer: purposes/vet-working-time/gm.md:4: links to specs/versions/v0.5/vet-scheduling-domain.md
+agents: .claude/agents/game-master.md: missing (the GM, Claude Code)
+agents: .opencode/agents/game-master.md: missing (the GM, OpenCode)
+memory: .claude/settings.json: missing (game-mode/settings.json absent)
+```

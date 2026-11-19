@@ -208,7 +208,8 @@ Docker: none
 
 ### Chunk 3 — `publish-main`: its checks and the dev-only paths
 
-Status: planned
+Status: merged (w1, dc72f90)
+Record: e7369e6, merged as dc72f90; no deviation. Adds `game-mode/spoiler-words` by capture W1 item 2. GM skills told by rule (every skill `main` carries), not by list.
 Wave: 1
 Depends on: G1, G2
 Architecture capture: W1: `game-mode/paths`' format (one path or glob per
