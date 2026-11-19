@@ -1,6 +1,7 @@
 # The game's agents: the GM and the game assistant
 
-Status: draft v3
+Status: draft v3. Every `(proposed)` item below, AG1–AG6, accepted as
+drafted on 2026-11-19 (D571).
 
 From v0.7 the GM and the game assistant are **agent definitions**, not
 skills, for Claude Code and OpenCode both (D559–D561). This draft says

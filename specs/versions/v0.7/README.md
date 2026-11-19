@@ -29,6 +29,7 @@ informative (D558).
 
 ## Open
 
-O282, O286–O288 ([open-questions.md](../../open-questions.md),
-"The game assistant"), the drafts' `(proposed)` items (GA, MD and AG labels),
+O290 ([open-questions.md](../../open-questions.md), "The game
+assistant") and game-mode.md's MD5–MD9, raised with D564; every earlier
+proposal accepted (D567–D571),
 and a definition of done once they are ruled.

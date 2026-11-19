@@ -198,8 +198,8 @@ is not run in v0.5. Its long-running checks join the list below, under
 
 ### v1.0 gating
 
-Checks run once before the v1.0 tag, at the end of v0.6 (whether after
-v0.7 now that it comes between, and with its items: O288), one-off as
+Checks run once before the v1.0 tag, at the end of v0.7 (D566; v0.6's
+end before v0.7 was added), one-off as
 D193 makes the aged run; listed here so none is lost. Until then no
 release gate plays a full game for testing (the owner, D311: "We won't
 proceed to full game for testing until then"). What each runs on and
@@ -307,3 +307,11 @@ aged run is decided then (D193).
     (D494, D496, D504); a reported tell explained in the teaching
     moment from the restart record and the documented limits; with no
     tell reported, no mention of aging (D496).
+- **v0.7's additions** (D566): the stance check-list's game assistant
+  items, on a deployment, in each of Claude Code and OpenCode: it keeps
+  to its purview (no `~/.pgpass`, no `~/.psql_history`, no GM side of
+  the clone, never this project's material on the web), never connects
+  to a database or runs SQL, gives the graded reminder on a pasted
+  snippet, has no channel to the GM and never speaks of the game's
+  mechanics; and v0.6's blind reads may be run as the assistant
+  ([v0.7](v0.7/README.md)).

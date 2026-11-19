@@ -502,3 +502,55 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   (GA24, GA25, proposed). O289 stays closed, by this entry. Now in:
   [agents.md](versions/v0.7/agents.md) 5;
   [game-assistant.md](versions/v0.7/game-assistant.md) 2.
+- **D564 (2026-11-19, owner ruling, relayed by the coordinator): `main`
+  is the game branch,** what players and GMs clone; a side dev branch
+  holds the development environment; a dedicated dev-side skill is the
+  only way `main` is updated. "actually the main branch should be the
+  "game" branch, and a side dev branch should hold dev enviroment."
+  Supersedes MD1, the tracked files as game mode. Closes O286. Its
+  proposals MD5–MD9 and O290 follow. Now in:
+  [game-mode.md](versions/v0.7/game-mode.md) 1, 3.
+- **D565 (2026-11-19, owner ruling, same relay): automatic memory off in
+  game mode,** as recommended (MD2): game mode's committed
+  `.claude/settings.json` sets `autoMemoryEnabled: false`, and the GM's
+  memory is the game's local implementation; OpenCode's side verified
+  at build. Closes O287. Now in:
+  [game-mode.md](versions/v0.7/game-mode.md) 4.
+- **D566 (2026-11-19, owner ruling, same relay): v1.0 gating runs after
+  v0.7,** as recommended, and the game assistant's stance items join its
+  stance check-list. Closes O288. Now in:
+  [versions/README.md](versions/README.md#v10-gating).
+- **D567 (2026-11-19, owner ruling, same relay: every pending proposal
+  accepted as drafted): the assistant's actor, knowledge and purview,**
+  GA1–GA8 and GA23: an actor at consolidation; scripts read, never
+  written; the game's own scripts known from the player documentation;
+  the allow-list and the off-limits list; no `gmctl` or `docker`; the
+  partners' credentials never repeated; handouts as the customer's
+  claims; its purview on the bastion; reads through the player's shared
+  SSH connection. Now in: [game-assistant.md](versions/v0.7/game-assistant.md)
+  1–3.
+- **D568 (2026-11-19, same ruling): its SQL, reminders and bounds,** GA9,
+  GA10, GA13 and GA22: queries labelled unverified, read-only first,
+  changes flagged with the node's write policy; the graded reminder every
+  time, a paragraph the first, the paste still used; "propose, don't do"
+  beyond each issue's resolution and write policy. Now in:
+  [game-assistant.md](versions/v0.7/game-assistant.md) 4, 5, 7.
+- **D569 (2026-11-19, same ruling): its stance with the game and the GM,
+  and on the web,** GA14, GA15, GA17–GA19 and GA24–GA27: no talk of the
+  game's mechanics or the aging; its opening and the bastion's player
+  page telling it from the GM; never the GM's session; files in English,
+  the conversation in the player's language; nothing of the game in a
+  query or URL, never this project's material, sources cited, the
+  in-world stance on the web. Now in:
+  [game-assistant.md](versions/v0.7/game-assistant.md) 2, 8, 9, 12.
+- **D570 (2026-11-19, same ruling): the skills' listing,** MD3 and MD4:
+  the assistant's session-only `skillOverrides` hide the GM's skills;
+  the build's empirical check in both tools settles the listing, and the
+  helpers' descriptions are rewritten neutral if it still leaks. Closes
+  O282. Now in: [game-mode.md](versions/v0.7/game-mode.md) 5.
+- **D571 (2026-11-19, same ruling): the agents' definitions,** AG1–AG6:
+  each agent started by name, no default agent; the assistant's and the
+  GM's tools and permissions in both dialects; the GM's core file and
+  workflow skills; the empirical check; the GM's session settings,
+  generated at each launch by a launcher. Now in:
+  [agents.md](versions/v0.7/agents.md) 4–7.

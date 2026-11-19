@@ -47,7 +47,8 @@ v0.6, raising O274–O285; the owner's rulings the same day placed it in
 v0.7 (D549) and closed O274–O281 and O283–O285 (D549–D554, D558),
 widened O282 into the repository's game mode (D555–D557), and raised
 O286–O288; the GM and the assistant made agents (D559–D561) raised O289,
-closed by D562, then by D563, which reversed it.
+closed by D562, then by D563, which reversed it. The owner then closed
+O282 and O286–O288 (D564–D570) and the game branch raised O290.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -395,19 +396,12 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
 - **O281** (**closed**, D554) — Where its files live. Anywhere the
   players like; `play/<game>/` a default only, the report reaching the GM
   however the players hand it in.
-- **O282** (soon, v0.7; narrowed by D555–D557, then D559) — The GM
-  helpers' descriptions name the answer key and the register and
-  overview faults. Invocation by the assistant is closed by its agent
-  definitions (D559). Still open: whether the assistant's session is
-  still shown the skills' names and descriptions, in Claude Code
-  (undocumented) and in OpenCode with `skill: deny` (not verified).
-  Recommended: on Claude Code, the assistant's session-only settings set
-  `skillOverrides` `"off"` for `game-master` and the four helpers (MD4);
-  the build's empirical check in both tools (AG5) settles it, with MD3
-  (neutral GM-only descriptions) the fallback if a listing still leaks;
-  `disable-model-invocation: true` on the helpers ruled out (it stops
-  the GM). Refs: [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md)
-  5, [versions/v0.7/agents.md](versions/v0.7/agents.md) 3, 7.
+- **O282** (**closed**, D570, as recommended) — The GM helpers'
+  descriptions in the assistant's listing. Invocation closed by its
+  agent definitions (D559); the listing hidden on Claude Code by its
+  session-only `skillOverrides`; the build's empirical check in both
+  tools settles it, the helpers' descriptions rewritten neutral if it
+  still leaks.
 - **O283** (**closed**, D558) — The owner's audit grid as the
   assistant's method? An example it may draw on, not its method.
 - **O284** (**closed**, D558) — Cutting the grid to the game's scope:
@@ -415,30 +409,15 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
 - **O285** (**closed**, D558) — Where it lives: a verbatim copy at
   [references/grille-audit-pg.md](references/grille-audit-pg.md); a
   game-scoped English rewrite optional and later.
-- **O286** (soon, v0.7) — How game mode is produced and checked before a
-  push (D556). Recommended (MD1): the tracked `README.md` and
-  `CLAUDE.md` are the game's, the developer's content moved to
-  `specs/README.md` and a `DEVELOPING.md`, the developer's instructions
-  in a git-ignored local file; a check script, run by a pre-push hook
-  and every release gate, refusing development matter in them.
-  Alternatives: a `game` branch or tag written by a release step, the
-  only one pushed; a pre-push hook rewriting the files. Refs:
-  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 3.
-- **O287** (soon, v0.7) — How the GM's memory stays its own (D555).
-  Recommended (MD2): its memory is the game's local implementation; no
-  game data in Claude Code's automatic memory, said in the game-mode
-  `CLAUDE.md` and the GM's agent, and `autoMemoryEnabled: false` in game
-  mode's committed `.claude/settings.json` (a documented setting; it
-  turns memory off for the GM too, which D555 wants). OpenCode's memory
-  behaviour not verified. Alternatives: the rule on trust only; a GM
-  memory folder under `local/`. Refs:
-  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 4.
-- **O288** (soon, roadmap) — v1.0 gating is set "at the end of v0.6";
-  with v0.7 between them, does it run after v0.7, and does its stance
-  check-list gain the assistant's items (its purview kept, no database,
-  the graded reminder, no channel to the GM), its blind reads (D492)
-  possibly run as the assistant? Recommended: after v0.7, with those
-  items. Refs: [versions/README.md](versions/README.md#v10-gating).
+- **O286** (**closed**, D564, against the recommendation) — How game
+  mode is produced. `main` is the game branch, a side dev branch the
+  development environment, a dedicated skill the only way `main` is
+  updated. Recommended had been the tracked files as game mode (MD1).
+- **O287** (**closed**, D565, as recommended) — The GM's memory: the
+  local implementation; `autoMemoryEnabled: false` committed in game
+  mode.
+- **O288** (**closed**, D566, as recommended) — v1.0 gating runs after
+  v0.7, with the assistant's stance items.
 - **O289** (**closed**, D563: web access allowed, against the
   recommendation; D562's denial superseded) — May the
   assistant use the web (Claude Code's
@@ -449,6 +428,15 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
   the web front with `curl`, on trust. Alternative: allowed, for the
   tools' upstream documentation only. Refs:
   [versions/v0.7/agents.md](versions/v0.7/agents.md) 5.
+- **O290** (soon, v0.7) — `main`'s history and `dev`'s remote (D564).
+  `main` can't take a plain merge of `dev` (it would carry the dev-only
+  paths). Recommended (MD9): each publish one new commit on `main`
+  holding the filtered snapshot, history continuous, nothing rewritten,
+  past commits keeping the development material already public; `dev`
+  not pushed to the public `origin` (D556), a private remote if a backup
+  is wanted. The alternative, rewriting `main`'s history to strip that
+  material, needs a force-push that breaks every clone. Refs:
+  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 3.
 
 ## Beyond v1.0: the cloud provider
 

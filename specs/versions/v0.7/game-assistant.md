@@ -1,6 +1,7 @@
 # The game assistant
 
-Status: draft v4
+Status: draft v4. Every `(proposed)` item below, GA1–GA10, GA13–GA15,
+GA17–GA19 and GA22–GA27, accepted as drafted on 2026-11-19 (D567–D569).
 
 A player-side helper, distinct from the GM: a DBA colleague the players
 call on during the game, coaching them, holding none of the game's
