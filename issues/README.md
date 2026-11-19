@@ -7,6 +7,7 @@ Tracked problems in db_audit_gm. Filed and kept with the
 
 | Ref | File | Severity | Status | Summary |
 |---|---|---|---|---|
+| ISS-007 | [ISS-007_20261119_fill_queue_plan_ignores_hider_planting.md](ISS-007_20261119_fill_queue_plan_ignores_hider_planting.md) | Low | Open | the fill drops a hidden fault's `queue` entry from T0, ignoring when the hiding instance is planted (D543); no covered fault uses `suppressed_by` |
 | ISS-006 | [ISS-006_20261116_health_check_stack_test_cron_race.md](ISS-006_20261116_health_check_stack_test_cron_race.md) | Medium | In Progress | health-check stack test flaky: report-only redeploy runs gm-validate before the cron daemon starts (RED cron) |
 | ISS-005 | removed, resolved in 25c4417 | Low | Resolved | grafana 0.3.0's and prometheus 0.2.1's footprints quote only older versions' figures |
 | ISS-004 | [ISS-004_20261114_partners_pg_hba_admits_by_password.md](ISS-004_20261114_partners_pg_hba_admits_by_password.md) | Low | Resolved | partners' database admits by role and password, access model still calls it unverified |
