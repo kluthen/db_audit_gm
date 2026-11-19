@@ -1,6 +1,6 @@
 # The game's agents: the GM and the game assistant
 
-Status: draft v2
+Status: draft v3
 
 From v0.7 the GM and the game assistant are **agent definitions**, not
 skills, for Claude Code and OpenCode both (D559–D561). This draft says
@@ -127,12 +127,14 @@ them). The OpenCode definitions are `mode: primary`.
 
 Proposed (AG2):
 
-- **Claude Code**: `tools: Read, Write, Edit, Bash`. `Bash` for its reads
+- **Claude Code**: `tools: Read, Write, Edit, Bash, WebFetch,
+  WebSearch`. `Bash` for its reads
   on the bastion through the player's shared SSH connection and `curl`
   to the web front (game-assistant.md GA23); `Write` and `Edit` for its
   report and drafts; no `Skill`, no `Agent` (a subagent it spawned would
-  bring its own, wider tools), no `WebFetch` or `WebSearch` (no web
-  access, D562). The
+  bring its own, wider tools); `WebFetch` and `WebSearch` for checking
+  versions and the tools' behaviour (D563, superseding D562; its rules,
+  game-assistant.md 2, GA24–GA27). The
   session settings file `.claude/game-assistant.settings.json` sets
   `skillOverrides` to `"off"` for `game-master`, `scenario-format`,
   `scenario-document`, `data-register` and `network-overview`, and
@@ -140,7 +142,7 @@ Proposed (AG2):
   their helpers. It may also deny `Bash(psql:*)`, `Bash(docker:*)` and
   `Bash(tools/gmctl:*)` as speed bumps, the trust line unchanged.
 - **OpenCode**: `mode: primary`; `permission`: `skill: deny`,
-  `task: deny`, `webfetch: deny`, `websearch: deny` (D562); `read`,
+  `task: deny`, `webfetch: allow`, `websearch: allow` (D563); `read`,
   `glob`, `grep`, `list` allowed; `edit: {"*": ask, "play/**": allow}`,
   its default folder free and anything else asked (D554);
   `bash: {"*": allow, "psql*": deny, "docker*": deny, "*gmctl*": deny}`,

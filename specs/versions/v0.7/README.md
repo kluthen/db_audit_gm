@@ -8,7 +8,9 @@ Status: draft v1. No master spec, no build plan. Opened on 2026-11-19
 A player-side helper for the game, the **game assistant**: a DBA
 colleague who coaches the players, with the player's access and none of
 the game's background (D545, D546, D550–D554). The GM and the assistant
-both become agent definitions, for Claude Code and OpenCode (D559–D561).
+both become agent definitions, for Claude Code and OpenCode (D559–D561);
+the assistant may use the web to check versions and the tools'
+behaviour, under its stance (D563).
 And, raised with it, the
 repository played from in **game mode**, its memory kept clean of game
 data (D555–D557).

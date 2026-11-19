@@ -491,3 +491,14 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   `WebFetch` or `WebSearch` in its Claude Code tools, `webfetch: deny`
   and `websearch: deny` in OpenCode. Closes O289. Now in:
   [agents.md](versions/v0.7/agents.md) 5.
+  *Superseded by D563 (2026-11-19).*
+- **D563 (2026-11-19, owner ruling, relayed by the coordinator): the game
+  assistant has web access,** superseding D562: `WebFetch` and
+  `WebSearch` in its Claude Code tools, `webfetch` and `websearch`
+  allowed in OpenCode. "we may have to handle weird version and such,
+  and i would prefer the assistant to provide TRUE indications or the
+  ability to check should the player report something different from
+  expectations." The leak D562 guarded against is held by stance
+  (GA24, GA25, proposed). O289 stays closed, by this entry. Now in:
+  [agents.md](versions/v0.7/agents.md) 5;
+  [game-assistant.md](versions/v0.7/game-assistant.md) 2.

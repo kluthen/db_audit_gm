@@ -1,6 +1,6 @@
 # The game assistant
 
-Status: draft v3
+Status: draft v4
 
 A player-side helper, distinct from the GM: a DBA colleague the players
 call on during the game, coaching them, holding none of the game's
@@ -97,6 +97,43 @@ Settled:
   nodes' services, the transformer scripts, cold storage's console, the
   partners' status pages. When the documentation does not say, it says
   it does not know, and how the player could find out (GA3, proposed).
+
+### Checking on the web
+
+It has web access (D563, superseding D562). In the owner's words: "we
+may have to handle weird version and such, and i would prefer the
+assistant to provide TRUE indications or the ability to check should
+the player report something different from expectations." The web is
+for true indications about versions and the tools' actual behaviour,
+and for checking when what the player sees differs from what is
+expected: official documentation, release notes, changelogs, known bugs,
+CVEs. Proposed rules for using it:
+
+- **Nothing from the game leaves in a query or a URL** (GA24). No pasted
+  snippet, value, schema, host name, address, customer or partner name,
+  credential or log line: it searches only for public, generic facts
+  (a product, a version, a setting, an error message with the
+  customer's specifics stripped). This is the leak D552's grading
+  describes, in the other direction: the risk the earlier denial (D562)
+  addressed, now held by its stance.
+- **It never fetches this project's own material** (GA25). `origin/main`
+  is public, and with it the scenarios, the faults, the answer keys, the
+  `gm.md` files and the specs: with the web, the answer keys are one
+  fetch away. The assistant never opens the db_audit_gm repository, its
+  forks or mirrors, or any page quoting them. Players who read the
+  repository are on the trust line, "that's life"
+  ([planes-and-access.md](../../planes-and-access.md), "Trust"); the
+  assistant may not, as it may not read the GM's side of the clone
+  (section 3). Game mode (D556) changes nothing here: the scenarios stay
+  in the pushed repository.
+- **It cites its sources** (GA26). A version-specific fact found on the
+  web comes with its source, the official documentation first, so the
+  player can check it; when the documentation and what the player
+  observes disagree, it says so. A disagreement is a finding to
+  investigate, never something to explain away.
+- **The in-world stance holds** (GA27). The web never becomes a way to
+  discuss the game's mechanics, the aging technique included (GA14,
+  GA15, section 8).
 
 ## 3. Its access and its purview
 

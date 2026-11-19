@@ -47,7 +47,7 @@ v0.6, raising O274–O285; the owner's rulings the same day placed it in
 v0.7 (D549) and closed O274–O281 and O283–O285 (D549–D554, D558),
 widened O282 into the repository's game mode (D555–D557), and raised
 O286–O288; the GM and the assistant made agents (D559–D561) raised O289,
-closed by D562.
+closed by D562, then by D563, which reversed it.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -370,7 +370,8 @@ Raised on 2026-11-19 by the game assistant's draft, now
 [versions/v0.7/agents.md](versions/v0.7/agents.md). The owner ruled the
 same day: O274–O281 and O283–O285 closed (D549–D554, D558); the GM and
 the assistant made agents for Claude Code and OpenCode (D559–D561),
-raising O289, closed by D562. The closed entries are kept here until
+raising O289, closed by D562, then by D563 (web access allowed). The
+closed entries are kept here until
 v0.7's archive. The
 drafts' proposals are labelled GA1…, MD1… and AG1….
 
@@ -438,7 +439,8 @@ drafts' proposals are labelled GA1…, MD1… and AG1….
   the graded reminder, no channel to the GM), its blind reads (D492)
   possibly run as the assistant? Recommended: after v0.7, with those
   items. Refs: [versions/README.md](versions/README.md#v10-gating).
-- **O289** (**closed**, D562, as recommended: no web access) — May the
+- **O289** (**closed**, D563: web access allowed, against the
+  recommendation; D562's denial superseded) — May the
   assistant use the web (Claude Code's
   `WebFetch` and `WebSearch`, OpenCode's `webfetch` and `websearch`)?
   Recommended: no: its PostgreSQL and tool knowledge is the model's, a
