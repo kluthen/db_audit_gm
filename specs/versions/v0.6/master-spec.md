@@ -50,7 +50,9 @@ history (9.4; spec D582); one import at a time, a failed seam never
 imported again (9.4; spec D583); what wave 3 measured (9.4, 9.8, 12.1,
 18). Amended in wave 4, on the owner's ruling after capture W4: the
 shop's M1 comparison scales the saved real run to the game's span
-(12.1; spec D586).
+(12.1; spec D586). Amended in wave 4, on the owner's ruling after G8:
+PostgreSQL 19 everywhere, server, client tools and libpq, folded into
+the unreleased versions (6.8, 7.7, 8's N3; spec D587).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -384,19 +386,21 @@ Every brick changes in v0.6, since `base:` is a change to `brick.yaml`:
 
 | Brick | v0.5 | v0.6 | Why |
 |---|---|---|---|
-| `bastion` | 0.5.0 | 0.6.0 | the home page, documentation site, reports, status pages, `jq`, `tmux`, the seventh seed file |
+| `bastion` | 0.5.0 | 0.6.0 | the home page, documentation site, reports, status pages, `jq`, `tmux`, the seventh seed file; the PostgreSQL 19 client tools (spec D587) |
 | `grafana` | 0.3.0 | 0.4.0 | Node health's `node` variable |
-| `scheduler` | 0.3.0 | 0.4.0 | the fill mode, the queue model |
-| `postgres` | 0.5.0 | 0.5.1 | `base:`; its player documentation on the reports folder |
-| `api` | 0.1.0 | 0.1.1 | `base:` |
-| `health-check` | 0.1.0 | 0.1.1 | `base:` |
-| `pgbouncer` | 0.1.1 | 0.1.2 | `base:` |
+| `scheduler` | 0.3.0 | 0.4.0 | the fill mode, the queue model; libpq 19 (spec D587) |
+| `postgres` | 0.5.0 | 0.5.1 | `base:`; its player documentation on the reports folder; PostgreSQL 19 (spec D587) |
+| `api` | 0.1.0 | 0.1.1 | `base:`; libpq 19 (spec D587) |
+| `health-check` | 0.1.0 | 0.1.1 | `base:`; the PostgreSQL 19 client and libpq (spec D587) |
+| `pgbouncer` | 0.1.1 | 0.1.2 | `base:`; the PostgreSQL 19 client and libpq (spec D587) |
 | `pgwatch` | 0.1.0 | 0.1.1 | `base:` |
 | `postgres-exporter` | 0.2.0 | 0.2.1 | `base:` |
 | `prometheus` | 0.2.1 | 0.2.2 | `base:` |
 
 A brick whose build finds more to change folds it into the same new
-version while it is unreleased. Every scenario repins; every fault that
+version while it is unreleased. Every PostgreSQL in v0.6 is 19, the
+server and every client tool and library (spec D587, the latest
+release under spec D396): folded so, it re-pins nothing. Every scenario repins; every fault that
 still applies adds the new versions to its `applies_to`. Faults,
 scenarios, domains and purposes never bump.
 
@@ -683,7 +687,7 @@ and when without reading `scenario.yaml`.
 
 ### 7.7 General-use tooling
 
-What the bastion has today (the PostgreSQL 18 client tools, `ssh`,
+What the bastion has today (the PostgreSQL 19 client tools, `ssh`,
 `procps`, `less`, `nano`, `vim-tiny`, `curl`) plus `jq`, to read
 Prometheus' API, and `tmux`. Nothing heavier; more when a player's need
 shows.
@@ -849,7 +853,7 @@ against the system:
 |---|---|---|
 | N1 | A node missing: a server nobody documented | `ssh`, Prometheus' targets, Node health's node list, the brick's documentation page |
 | N2 | A node invented: a server decommissioned but still listed | the name does not resolve; no data in Node health |
-| N3 | A stale version: "PostgreSQL 16" on a PostgreSQL 18 server | `SELECT version()`, the tool's own page |
+| N3 | A stale version: "PostgreSQL 16" on a PostgreSQL 19 server | `SELECT version()`, the tool's own page |
 | N4 | A wrong sizing: "4 GB memory" on a node limited to 1 GB | Node health's memory limit; the node's cgroup |
 | N5 | A claimed backup that does not exist | `archive_mode`, `pg_stat_archiver`, `pg_stat_replication`; the vault's manifests |
 | N6 | A background task wrong or missing | the crontab, `cron.job`, `jobs.yaml` |

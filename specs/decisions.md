@@ -691,3 +691,33 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   value T0 + s × (R − T0), s R's share of inserted rows in the game's
   span; insert-driven measures judged within ±3 %, the rest reported; the
   shop played as it is. Now in: [master spec](versions/v0.6/master-spec.md) 12.1; [build plan](versions/v0.6/build-plan.md) v15, chunk 12b.
+- **D587 (2026-11-19, the owner, after G8's note 3: "didn't know pg19
+  was out yet. that's great news. Move to pg19 everywhere."): PostgreSQL
+  19 in every brick and scenario of v0.6,** the server and every client
+  tool and library (libpq included, so `scheduler`, `api` and
+  `health-check` leave Debian's 17), folded into the unreleased versions
+  (6.8), under D396. It brings pgAudit 19.0, which carries 18.1's changes,
+  so D539's deferral ends. Now in: [master spec](versions/v0.6/master-spec.md) 6.8, 7.7, 8; [build plan](versions/v0.6/build-plan.md) v16, chunks 17a to 17c.
+- **D588 (2026-11-19, the owner, the same answer): zlib1g's DSA-6613-1
+  (G8's note 1, the base layer, not reachable) is handled at the release
+  gate:** an `apt-get upgrade` or `zlib1g` named in the Dockerfiles, all
+  ten bricks, folded into the unreleased versions. Now in: [build plan](versions/v0.6/build-plan.md) v16, release gate item 2.
+- **D589 (2026-11-19, spec-writer, placing D587): chunk 17 inserted in
+  wave 4 before 12b, split in three:** 17a the images on 19 and every
+  path, test and generated file they bind (one commit: the data path
+  `/var/lib/postgresql/19/data` and the brick digests tie them); 17b
+  `postgres_exporter` 0.21.1 and pgwatch 6.2.0 (G9.2's picks, D396) and
+  fake aging's re-measure on 19; 17c the game's text and the faults that
+  read audit lines, re-run on 19. G9.2 (preflight done, CLEAR WITH
+  NOTES; its post-change half open), G14 (no game on the host relies on
+  the 18 image under the reused tags), G15 (O294, O295). Now in: [build plan](versions/v0.6/build-plan.md) v16.
+- **D590 (2026-11-19, spec-writer, on D587): fake aging's numbers
+  measured on 18 stand, one size re-measured:** the service times,
+  signatures, WAL rates and run R stay (9.7: one-off per fault version);
+  M1's judged measures and M3's judged traffic are counts the workload
+  drives, which the server's major doesn't move, so 12.1's comparisons
+  against R still prove the fill reproduces a real day (D586). The heap
+  and btree page formats are unchanged in 19, so `fixture-dropped-index`
+  is re-measured on 19 (17b) as the check of f8's value from R. Chunk 12b
+  reports the tail's latencies and WAL rates against the 18 files, never
+  judged. Now in: [build plan](versions/v0.6/build-plan.md) v16, chunks 17b, 12b.
