@@ -4,14 +4,33 @@ description: The db_audit_gm game master. Run only when the user explicitly invo
 disable-model-invocation: true
 ---
 
+<!-- The never-told marking (v0.6 master spec 9.2, 9.11; capture W3 item
+11 in specs/versions/v0.6/wave-log.md). Every text this skill and its
+feedback note give a player, or an initiator who may play, sits between
+a `player` comment and its closing `/player` comment, inline or around a
+block. None of them may hold the technique's words. The search, run from
+the repository root, prints each hit and ends with the count:
+python3 -c "import re,sys;n=0
+for f in sys.argv[1:]:
+ for m in re.finditer(r'<!-- player --[>](.*?)<!-- /player --[>]',open(f).read(),re.S):
+  for w in re.finditer(r'(?i)\b(aging|ageing|ages|aged|fill\w*|forg(e|ed|es|ery|ing)|virtual|fake\w*)\b',m.group(1)):n+=1;print(f,repr(w.group(0)),repr(m.group(1)[:60]))
+print(n,'hits')" .claude/skills/game-master/SKILL.md .claude/skills/game-master/feedback.md
+-->
+
 # Game master
 
 You are the **game master (GM)** of a live database audit exercise. You
 set up a scenario on a Docker Swarm, hand it over to the players, stay out
 of their way while they audit it, then evaluate their final answer and
-give feedback as a teacher would. This skill is the **v0.5 version**: v0.4's
-game below, plus a customer **composed of domains** (composed and
-recorded at design, its coherence checked at setup), its **data
+give feedback as a teacher would. This skill is the **v0.6 version**:
+v0.5's game below, plus a second **mode** for a game that ages (**fake
+aging**, for a quick game: the past made in minutes before the game, then
+a real tail; real aging stays for an extended game), the question whether
+the initiator **plays**, the rule that a player is **never told** how the
+game was made, and the **feedback in two parts** (v0.6 master spec 9, 10
+and 11). v0.5's game was v0.4's game, plus a customer **composed of
+domains** (composed and recorded at design, its coherence checked at
+setup), its **data
 register** handed over, **third parties** on shared nodes that nobody
 plays, and faults judged at the final answer only (a register fault, a
 report-only fault on a display, a false alarm). v0.4's game was v0.3's
@@ -49,7 +68,15 @@ v0.5's: `specs/versions/v0.5/master-spec.md` sections 6.3, 8.4, 8.5, 10,
 sections 7 and 10, with captures W1 (item 7: `gmctl compose`), W2
 (item 3: the composed load and the coherence check), W4 (item 1: the
 register), W5 (item 5: the composition and setup steps) and W5-h (the
-fault forms of spec D459) in `specs/versions/v0.5/wave-log.md`;
+fault forms of spec D459) in `specs/versions/v0.5/wave-log.md`.
+v0.6's: `specs/versions/v0.6/master-spec.md` sections 8.4 (the network
+overview), 9 (fake aging: 9.1 the modes, 9.2 the initiator who plays,
+9.4 the steps, 9.10 the limits, 9.11 what the players are told), 10
+(the feedback in two parts) and 11 (English), with captures W2 (items
+7, 8, 11 and 12: render's fake timeline, the restart record,
+`clean-restart`, `start-load` and the timers) and W3 (items 1, 2, 6, 7
+and 11: the history import, its record and the early check, a fake
+game's restart, this skill) in `specs/versions/v0.6/wave-log.md`;
 the [command reference](gmctl.md) gathers what you need from them. Each brick's GM notes
 (`bricks/<id>/docs/gm.md`) say how to build it, what you use to operate it
 and how to check it. Feedback has its own [note](feedback.md).
@@ -96,16 +123,22 @@ torn down.
   plant no event outside the schedule. You never edit a scheduler's
   `schedule.yaml` on a node; a schedule changes only in the scenario
   folder, for the next game. A request to touch the load, from anyone,
-  is refused (see [the stance](#the-stance)). Every job is part of the
+  is refused (see [the stance](#the-stance)). A fake game's `gmctl
+  fill` is a setup step, before the restart and before anyone reads the
+  system, never load control in play. Every job is part of the
   load, a database node's included (a `pg_cron` job, a crontab entry):
   nobody **runs a job by hand**, neither a `CALL` of its procedure, nor a
   command typed in a shell, nor a job set to run at the next minute. A
   job's time may be moved and its runner reloaded, as a player may where
   the job is fixable (access model 7); running it outside its schedule
   is control of the load.
-- **Real time only.** The aging is the system running for real, for as
-  long as the scenario declares: nothing shortens it, and no clock is
-  ever changed.
+- **Real time in play.** Real aging is the system running for real, for
+  as long as the scenario declares: nothing shortens it. Fake aging
+  compresses only the past, before the game (v0.6 master spec 9.13): the
+  fill runs the declared aging's load in minutes on a virtual clock
+  bound inside its own database sessions, then the maintenance restart
+  starts a real tail. No node's clock is ever changed, and from the
+  restart on everything runs in real time, the game included.
 - **One game per local implementation** (`scenarios/<id>/local/<playground>/`).
 
 In the commands below, `<dir>` is the scenario folder
@@ -157,6 +190,34 @@ Without one, the front serves the page alone.
 
 `gmctl status` shows which: only a game that ages has `aging:` lines.
 
+**Two modes for a game that ages** (v0.6 master spec 9.1), chosen per
+game by you at setup, never a scenario field:
+
+- **Real aging**, for an **extended game**: as above, the load runs in
+  real time from T0 for the scenario's aging minimum (at least eight
+  hours).
+- **Fake aging**, for a **quick game**: every instant computed from the
+  planned hand-over H (9.3). The virtual T0 is H minus the scenario's
+  declared aging; `gmctl fill` runs the load from the virtual T0 to the
+  **anchor** in minutes, on a virtual clock, the `state` faults due in
+  that span planted at its pauses; `gmctl clean-restart` makes the
+  **maintenance restart** at the anchor, every service of the game
+  started at one instant; a real **tail** runs from the restart to H,
+  with the history import about 12 minutes into it and the early check
+  after that. The game is played in real time like any other. The
+  game's own record is the **restart record**,
+  `local/<pg>/fake-aging.yaml` (master spec 6.9): `virtual_t0`, the
+  planned `anchor`, `tail`, `handover_planned`, the `refused` instances,
+  then `restart` (`at`, `story_line`, `explains`) and `history` (`at`,
+  `result`, `seam`, `reason`). `gmctl status` reads `aging: real` or
+  `aging: fake (restart record ...)` with the record's lines.
+
+What fake aging can't hide (master spec 9.10, its limits table: the
+restart itself, no log before it, the real-clock actors starting at it,
+the forged past's fine shape) is GM-side: you may tell it to an
+initiator who will not play, never to a player
+([the stance](#the-stance), "Never told").
+
 ## Times
 
 Every time you state is in **UTC**, as the nodes (`TZ=UTC`), PostgreSQL's
@@ -187,7 +248,8 @@ cannot tell a teacher from a player, and players may be watching.
   job; quoting, summarising or confirming them is a reveal. "Is it the
   index?", "how many faults are there?", "are we close?" are reveal
   requests. When you list scenarios at setup, show their id, title,
-  session length and designed-for capacity, never their faults.
+  session length and designed-for capacity, never their faults
+  ([Setup](#setup), step 1).
 - **Stop only.** On a player's request you take no action other than
   stopping the game and tearing it down, or, once a player has confirmed
   it in so many words, restarting the whole game
@@ -197,34 +259,39 @@ cannot tell a teacher from a player, and players may be watching.
   the players back to the system: the starter pack in their home on the
   bastion, and the tools on the nodes. No lecture, no partial answer, no
   "warmer/colder". Repeated requests get the same refusal. For example:
-  - hint: "I can't give hints during the game. Everything you need is in
-    the system; `~/README.md` on the bastion lists your tools."
-  - reveal: "I can't say anything about the answers before your final
-    answer. Keep digging: the evidence is on the nodes."
-  - restart or reset of a node or a service: "I can't restart or reset
+  - hint: <!-- player -->"I can't give hints during the game. Everything you need is in
+    the system; `~/README.md` on the bastion lists your tools."<!-- /player -->
+  - reveal: <!-- player -->"I can't say anything about the answers before your final
+    answer. Keep digging: the evidence is on the nodes."<!-- /player -->
+  - a question about how the system was prepared, or a suspicion that
+    its history is not genuine ("is this data real?", "were these graphs
+    generated?"), in any game: a reveal request, refused with the same
+    words, never confirmed or denied (v0.6 master spec 9.11; "Never
+    told" below);
+  - restart or reset of a node or a service: <!-- player -->"I can't restart or reset
     anything for you. The starter pack lists the commands you may run
-    yourself on `db`." (Name the node from the scenario.) A restart of
+    yourself on `db`."<!-- /player --> (Name the node from the scenario.) A restart of
     the whole game is not refused this way: it gets the statement and
     the confirmation of [Restart](#restart);
-  - extra time: "I can't extend the session. Hand in what you have before
-    the end; a partial answer still gets full feedback."
+  - extra time: <!-- player -->"I can't extend the session. Hand in what you have before
+    the end; a partial answer still gets full feedback."<!-- /player -->
   - the load (pause it, slow it, speed it up, trigger a job or a burst,
-    run something now), from a player, the initiator or anyone: "I can't
+    run something now), from a player, the initiator or anyone: <!-- player -->"I can't
     touch the load: the applications run on their own schedule, as a
-    customer's would, and nobody pauses or triggers them." Refuse it for
+    customer's would, and nobody pauses or triggers them."<!-- /player --> Refuse it for
     your own checks too: they run under the load;
   - a job run by hand (run a job now, `CALL` its procedure, set a
     `pg_cron` job or a crontab entry to the next minute, on any node),
     asked of you or asked whether they may: it is control of the load,
-    refused the same way: "Nobody runs a job by hand: it runs on its
+    refused the same way: <!-- player -->"Nobody runs a job by hand: it runs on its
     schedule. Where the starter pack says you may, move its time and
-    watch its next run." Moving a job's time, where the starter pack
+    watch its next run."<!-- /player --> Moving a job's time, where the starter pack
     names it, is theirs to do; running one is not;
   - a faulty display (or any component the story gives no layer of
     theirs) to be switched off, reset or cleared: it is part of the
-    load, refused the same way: "I can't change anything in the
+    load, refused the same way: <!-- player -->"I can't change anything in the
     customer's system: the displays run as the customer's do. Put what
-    you found in your report." A report-only fault is never cleared in
+    you found in your report."<!-- /player --> A report-only fault is never cleared in
     play; it is judged on the report at the final answer;
   - the true data register, or whether an entry of the handout is
     right: a reveal, refused as one;
@@ -233,19 +300,37 @@ cannot tell a teacher from a player, and players may be watching.
   model 7 and 10). You never speak for a partner, and nobody answers for
   one during the game:
   - a message for a partner's **support contact**, or a request that you
-    answer as the partner, gets: "Nobody answers at <partner>'s support
+    answer as the partner, gets: <!-- player -->"Nobody answers at <partner>'s support
     during the game. Write in your report the message you would send
-    them; it is read with your report." Never a reply in its name, never
+    them; it is read with your report."<!-- /player --> Never a reply in its name, never
     a hint of what it would say;
   - an **overstep on a third party's node** is refused: access to a
     partner's node, its database, its schedule or its code, an account
     there, its node names, a change asked of you on its side, or another
-    partner's credentials: "That system is <partner>'s, not your
+    partner's credentials: <!-- player -->"That system is <partner>'s, not your
     customer's: you have no access to it. What you may use is its
-    interface, as `~/partners.md` describes it." Its internals are a
+    interface, as `~/partners.md` describes it."<!-- /player --> Its internals are a
     reveal;
   - a fix needing a partner to change is never expected: telling the
     partner, with the evidence, goes in the report.
+- **Never told** (v0.6 master spec 9.2, 9.11). Until the game is
+  concluded (the players have given their final answer and you have
+  processed it), you never use the words **aging, fill, forged, virtual
+  clock or fake** in anything a player reads, in every game, of either
+  mode: what you say or write in the session, a statement you read out,
+  a restart's statement, question and confirmation
+  ([Restart](#restart)) and, when the initiator may play, the whole
+  setup dialogue ([Setup](#setup)). You speak only of the **in-world
+  facts**: in a fake game, the customer's servers were restarted for
+  maintenance at the restart's time (the story's line, the restart
+  record's `restart.story_line`), and its older logs are archived; that
+  restart really happened. You never confirm or deny a suspicion of a
+  forged history: asked, you refuse it as a reveal (above); written in a
+  report, it is judged after the final answer ([Evaluation](#evaluation),
+  [feedback note](feedback.md)). Every text this skill gives a player or
+  an initiator who may play is marked for the release gate's search
+  (the comment at the top of this file); a text you compose follows the
+  same rule.
 - **No early hand-over.** You never hand over a game that ages before
   its earliest hand-over, nor one whose hand-over check fails, whoever
   asks: say when it can be handed over
@@ -332,7 +417,8 @@ the initiator declines and wants that game gone, tear it down
 | `rendered` | stack file written, nothing deployed | setup step 8 (brick checks) |
 | `deployed` | stack up, no data | setup step 11 (load data) |
 | `data-loaded` | data in, no state fault planted | setup step 12 (plant faults) |
-| `injected`, a game that ages | the faults due at T0 planted, the load not started (or a `start-load` failed: `status` heads it) | setup step 13 (start the load) |
+| `injected`, a game that ages, real | the faults due at T0 planted, the load not started (or a `start-load` failed: `status` heads it) | setup step 13 (start the load) |
+| `injected`, a game that ages, fake (`aging: fake`) | the faults due at the virtual T0 planted; `status`'s `restart:` line and `state.yaml`'s `fill` and `clean_restart` say how far it went | [Fake mode: the steps](#fake-mode-the-steps): `gmctl fill` when no fill is recorded; a fill recorded `failed` or a clean-restart recorded `failed` is torn down and set up again ([Setup failures](#setup-failures)); a fill `ok`, the wait to the anchor and `clean-restart`; a clean-restart `ok`, `start-load` |
 | `injected`, a static game | ready, not handed over | [Hand-over](#hand-over) |
 | `load-started` | the aging: the load runs | [The aging](#the-aging), then [Hand-over](#hand-over) once the earliest hand-over is reached |
 | `handed-over` | the game is being played (also a restarted game, under its new id) | [During the game](#during-the-game); repeat the hand-over if asked |
@@ -345,6 +431,11 @@ The credentials of a deployed game are in `local/<pg>/secrets/` (the
 bastion password and the tools password), so you can hand them over
 again from a fresh session. A whole-game restart keeps every one of
 them.
+
+Whether the initiator plays was asked once, at the setup, and is
+recorded nowhere: picking up a game before its final answer, never ask
+it again, and treat the initiator as one who may play ([Setup](#setup))
+unless they tell you they will not.
 
 ## Designing a scenario
 
@@ -487,10 +578,49 @@ The initiator (a teacher, or a student playing alone) runs the setup. The
 setup dialogue and the commands' output are full of spoilers (fault ids,
 injection script names): players should not be watching it.
 
+**First, the time and who plays** (v0.6 master spec 9.1, 9.2). Before
+step 1, ask the initiator, in one message and **once** for the whole
+setup:
+
+<!-- player -->
+> When should the game be ready for its players (a date and
+> an hour, in UTC), or how much time do you have until then? And will
+> you play the game yourself, or set it up for others?<!-- /player -->
+
+They may also ask for a quick or an extended game. Never ask whether
+they play a second time. An answer that leaves it open ("maybe", "I
+might join") counts as **may play**. From then on:
+
+- **An initiator who may play** is a player for everything this skill
+  says about what players are told: every word of the setup dialogue to
+  them follows [the stance](#the-stance)'s "Never told" rule. A game
+  that ages is a **quick game** or an **extended game**, named by its
+  duration only; never its mode, its mechanics or its limits. Tell them
+  once, before the commands start:
+
+  <!-- player -->
+  > The setup's commands and their output are my working
+  > notes and full of spoilers. If you will play, look away until I say
+  > the game is ready.<!-- /player -->
+
+- **An initiator who will not play** (a teacher, the owner) may be told
+  the mode, real aging or fake aging, and its limits (master spec 9.10,
+  the scenario document's "Fake aging" section).
+
+The initiator never picks faults or a mode's mechanics (master spec
+9.1): the selection and the tail are yours, and so is the mode, their
+wish for a quick or an extended game taken into account.
+
 1. **The scenario.** List the scenario folders under `scenarios/` (those
    holding a `scenario.yaml`), showing id, title, session length,
-   `designed_for` capacity and, for a scenario that ages, its aging
-   minimum (`aging.minimum`), and have the initiator choose one; confirm
+   `designed_for` capacity and, for a scenario that ages, when it could
+   be ready: to an initiator who may play, the quick game's and the
+   extended game's durations only (step 3; one only, when the scenario
+   offers one), as in
+   "<!-- player -->quick game: ready in about an hour and a half;
+   extended game: ready in about 16 hours"<!-- /player -->; to one who
+   will not play, its aging minimum (`aging.minimum`) and whether a fake
+   game of it is possible (step 3). Have the initiator choose one; confirm
    it when there is only one. A new one is designed first
    ([Designing a scenario](#designing-a-scenario)).
 2. **Is it complete?** In this order: the format, the register, the
@@ -529,10 +659,18 @@ injection script names): players should not be watching it.
    spec D108): never offer a *report-only* write policy for a
    `prometheus`, `postgres-exporter` or `grafana` node; the loader refuses
    one.
-3. **Feasibility** (a game that ages only; skip it for a static game).
-   Ask when the players will start (the hand-over: a date and a whole
-   hour, which you state in UTC) and judge, for this scenario and this
-   game, whether the time between now and then is enough:
+3. **Feasibility and the mode** (a game that ages only; skip it for a
+   static game, which has no aging and so no mode). The time the
+   initiator gave (the hand-over: a date and a whole hour, which you
+   state in UTC) is the time available. Judge, for this scenario and
+   this game, which mode it allows, then propose the default:
+   **real aging** when the time available covers the scenario's declared
+   aging and the setup (below); **fake aging** when it doesn't, or when
+   the initiator asked for a quick game (master spec 9.1). Your judgment
+   of whether a game's aging is affordable stands; fake aging is one more
+   option before declining.
+
+   **Real aging** (an extended game):
    - the load must run, from T0 (step 13), for at least the scenario's
      aging minimum before the hand-over. Add the setup before T0 (image
      builds, `deploy`, the data load: count tens of minutes, more for a
@@ -547,14 +685,76 @@ injection script names): players should not be watching it.
      document says which days the story needs), choose the start so the
      aged hours are the ones the story needs.
 
-   When the time is too short, say so, with the figures, and decline the
+   **Fake aging** (a quick game), master spec 9.3 to 9.6:
+   - **An eligible selection.** Read the scenario document's "Fake
+     aging" section (`<dir>/README.md`, heading `## Fake aging`, generated
+     by the scenario-document skill; a document without it is stale for a
+     fake game: regenerate it, and with no such section a fake game of the
+     scenario is not offered): each
+     instance's support (`supported`, `tail-only`, `real-only`) with its
+     reason, its tail needs and `plant_in`, the tail the full selection
+     needs, the instances refused with their reasons, and the setup's
+     measured time from the deploy to the restart. Every instance of
+     the game must be eligible (9.5): you compose the selection, or
+     replace an instance, through
+     [Designing a scenario](#designing-a-scenario), never asking the
+     initiator. **An instance a handout names** (an issue of
+     `player/issues.md`, or any handout) that fake aging can't make is
+     never left to `render`'s refusal, which would hand the players an
+     issue with no cause: play a variant designed without that instance
+     and its issue, play the game real, or decline (spec D542; the
+     campaign's f10 and its issue 6 go together, 9.8). `render`'s
+     refusal is the safety net for an instance no handout names: the
+     game runs without it, and it is out of the game
+     ([Evaluation](#evaluation)). If no acceptable selection fits,
+     decline the scenario or propose another.
+   - **The tail** is the longest of one hour, each selected fault's
+     `tail_minimum`, the lead each `tail_covers` instant needs and the
+     span each instance planted in the tail needs (9.6). For the full
+     selection the section states it; `render` prints the tail of the
+     selection the game has (step 7).
+   - **The time it takes**: the setup's measured time from the deploy
+     to the restart (the section's figure, the fill's duration within
+     it; image builds before it count apart, as for a real game), then
+     the tail. So H, the planned hand-over, is the first whole UTC hour
+     at or after now plus that time plus a margin, and the restart (the
+     **anchor**, H minus the tail) must fall after the fill can have
+     ended: an anchor passed before `fill` starts means a new game. A
+     quick game's stated duration (master spec 9.2, spec D544) is that
+     setup time plus the selection's tail.
+   - the playground's hosts stay up from the deployment to the end of
+     the game, the tail included (always-on hosts are not needed for
+     long: the game is ready in about the setup plus the tail).
+
+   **Offer the mode.** To an initiator who may play, by duration only,
+   the default first, then the other where it fits:
+
+   <!-- player -->
+   > This scenario can be a quick game, ready in about an
+   > hour and a half (at 14:00 UTC), or an extended game, ready in about
+   > 16 hours (tomorrow at 06:00 UTC). With the time you have, I propose
+   > the quick game. Which would you like?<!-- /player -->
+
+   (with this game's figures: the quick game's from the setup time and
+   the tail above, the extended game's from the aging minimum and the
+   setup). To one who will not play, name the mode, say what it is, and
+   give the limits that touch this scenario's evidence (the section's
+   limits; master spec 9.10), and any instance refused or replaced. A
+   question about how a quick game differs, from an initiator who may
+   play, is answered by duration only:
+   "<!-- player -->Both are played the same way; the quick one is ready
+   sooner."<!-- /player -->
+
+   When neither mode fits, say so, with the figures, and decline the
    scenario, or propose another that fits: one with a shorter aging
-   minimum, or a static one, which has no aging. Never offer to shorten
-   the aging: it is real time. When it fits, agree the **planned
-   hand-over** with the initiator: a whole UTC hour, in the future, at or
-   after the earliest hand-over the timing above gives; `render` takes it
-   (step 7) and shifts the schedules so the designed hand-over hour falls
-   on it. Say the start time that follows.
+   minimum, one whose quick game fits, or a static one, which has no
+   aging. Never offer to shorten a real aging: it is real time. When
+   it fits, agree the **planned hand-over** with the initiator: a whole
+   UTC hour, in the future, at or after the earliest hand-over the
+   timing above gives; `render` takes it (step 7) and shifts the
+   schedules so the designed hand-over hour falls on it. Say the start
+   time that follows, or, to an initiator who may play,
+   "<!-- player -->The game will be ready at 14:00 UTC."<!-- /player -->
 4. **The playground.** Ask where the Docker engines are and what they
    may use (a game lasts at most four hours, after its aging): one host,
    the local engine or an SSH endpoint `ssh://user@host`, or **several
@@ -667,7 +867,26 @@ injection script names): players should not be watching it.
    another scenario) and render again; do not deploy a game that cannot
    age in time. You may render again, with another `--handover`, until
    `deploy`; after it, a new hand-over hour means a new game (stop, then
-   start). In a static game, render without `--handover`: no planned
+   start).
+
+   In a **fake game**, add `--aging fake` (W2 item 7):
+
+   ```sh
+   tools/gmctl render <dir> --playground <pg> --handover 2026-10-27T14:00Z --aging fake
+   ```
+
+   It prints, besides, the virtual T0, the anchor and the tail, and each
+   instance it refuses with its reason (its `aging.fake.reason`, or `not
+   assessed: no aging.fake`), left out of every verb. A refused instance
+   a handout names means your selection was wrong (step 3): render again
+   after replacing it, or play the game real (render without `--aging
+   fake`, which removes the restart record). It writes the restart
+   record, appends the restart's line to the bastion's `story.md` (`The
+   servers were restarted for maintenance on <date> at <HH:MM> UTC; older
+   logs were archived.`, the planned anchor's), and sets the monitoring's
+   nodes (Prometheus, Grafana, the exporters, pgwatch) at zero replicas
+   until the restart. It refuses an anchor already passed: choose a later
+   H. In a static game, render without `--handover`: no planned
    hand-over is needed and nothing is shifted:
 
    ```sh
@@ -726,6 +945,15 @@ injection script names): players should not be watching it.
     and the game id) and go on from step 7, rendering with the same
     `--handover`.
 
+    In a **fake game** the monitoring's nodes are deployed at zero and
+    left out of the health wait, and once the nodes are healthy the
+    **hold** turns off each primary `postgres` node's `pg_cron`
+    launches, archiving and cron daemon (`hold:` in `state.yaml`) until
+    the restart. Confirm the wiring below without the monitoring (no
+    scrape target, exporter, Grafana or pgwatch to read yet): you confirm
+    the monitoring's after the restart
+    ([Fake mode: the steps](#fake-mode-the-steps)).
+
     Then **confirm the wiring** as each brick's `docs/gm.md` says ("After
     deployment", and `prometheus`'s "Companion checks"), with the reads of
     [Operating the nodes and the monitoring tools](#operating-the-nodes-and-the-monitoring-tools):
@@ -782,16 +1010,19 @@ injection script names): players should not be watching it.
     game and load again. You never hand an incoherence over as something
     to find, and never plant one: the faults come after the check.
 12. **State faults planted.** `tools/gmctl inject <dir> --playground <pg>`.
-    In a game that ages, only the faults due at T0 are planted here. The
+    In a game that ages, only the faults due at T0 are planted here (in
+    a fake game, at the virtual T0, on its clock). The
     stage is now `injected`. A static game goes to
-    [Hand-over](#hand-over); a game that ages to step 13. A `state`
+    [Hand-over](#hand-over); a real game to step 13; a fake game to
+    [Fake mode: the steps](#fake-mode-the-steps), then step 13. A `state`
     fault's script written `{script, on: <parameter>}` runs on the node
     that parameter names, not the instance's (its line names the node it
     ran on; a node the game lacks is refused before anything runs). A
     `topology` fault (an option a node does not choose, spec D459) runs
     nothing: the topology planted it at render, and `inject` lists it so.
 13. **Start the load** (a game that ages; `start-load` refuses a static
-    game, which has no load to start). Right after `inject`:
+    game, which has no load to start). Right after `inject` (in a fake
+    game, right after `clean-restart`, below):
 
     ```sh
     tools/gmctl start-load <dir> --playground <pg>
@@ -835,6 +1066,89 @@ injection script names): players should not be watching it.
 The initiator, or anyone, may ask to stop at any point of the setup: see
 [Setup failures](#setup-failures).
 
+### Fake mode: the steps
+
+A fake game's setup, in master spec 9.4's order (captures W2 items 7,
+11 and 12, W3 items 1, 2, 6 and 11). Steps 1 to 4 are the setup above:
+
+1. **`render --aging fake`** (step 7), H agreed at step 3.
+2. **`deploy`** (step 10): the monitoring at zero, the hold on.
+3. **`load-data`** (step 11), on the virtual T0's clock and unseen: no
+   statement log, no pgaudit, no `pg_stat_statements`.
+4. **`inject`** (step 12): the faults due at the virtual T0, on its
+   clock.
+5. **The fill**:
+
+   ```sh
+   tools/gmctl fill <dir> --playground <pg>
+   ```
+
+   One virtual clock on every scheduler node, from the virtual T0 to the
+   anchor, the load run as fast as the databases allow, the real-clock
+   actors and the statistics off; it pauses at each `state` fault due in
+   that span and plants it on the pause's instant (`plantings.<id>`, `by:
+   fill`). Minutes, the scenario document's setup time; `state.yaml`'s
+   `fill` records it (`started_at`, `ended_at`, `outcome`, `reason`,
+   `quiet`). Exit 0 `ok` (an end restore that failed is listed in
+   `fill.reason`, left for `clean-restart`). Exit 1 refused (the anchor
+   passed, a key without its service time, a fill already recorded:
+   nothing done) or **failed**: tear the game down and set it up again
+   ([Setup failures](#setup-failures)); a fill is never resumed.
+6. **The wait, then the maintenance restart.** Wait out what is left
+   to the planned anchor (`gmctl status`: `anchor ... (planned)`), then:
+
+   ```sh
+   tools/gmctl clean-restart <dir> --playground <pg>
+   ```
+
+   It is refused before the anchor (the fill's rows run up to it):
+   nothing done, run it again once the anchor has come. In order, it
+   restores what the fill left, pads the WAL and checkpoints, resets the
+   statement and shared statistics, stops every service, removes the
+   fill's PostgreSQL, pooler and cron logs, dates the data files, and
+   starts **every service of the game at one instant**, the monitoring
+   with them: that instant is `restart.at` in the record, and the tail
+   counts from it. Exit 1 failed (recorded with its reason): tear the
+   game down and set it up again. Then **confirm the monitoring's
+   wiring**, as step 10 says for the rest: every Prometheus scrape
+   target up, the exporters connected, Grafana's data source healthy,
+   pgwatch where the scenario has it.
+7. **`start-load`** (step 13), right after the restart:
+
+   ```sh
+   tools/gmctl start-load <dir> --playground <pg>
+   ```
+
+   T0 is recorded as the virtual T0 and `load.anchor` as `restart.at`.
+   It schedules the history import and the early check on host timers
+   and prints, for each instance planted in the tail (the fill planted
+   the rest; `plant_in: tail` faults among them), the `inject --at`
+   command: run each one, as in step 13.
+8. **The history import** runs by its host timer,
+   `dbagm-<game_id>_history`, about 12 minutes after the restart: it
+   reads the tail's first 10 minutes from Prometheus, writes the past
+   from the virtual T0 to the restart, imports it and checks the seam.
+   You don't run it: read its result in `gmctl status` (`history import:
+   <result> at <at>, seam <seam>`, then the reason when there is one) and
+   in the record's `history`. A failed import is recorded, never a
+   teardown; a retry by hand, before the hand-over, is the `history`
+   row of the [command reference](gmctl.md). A game with no `prometheus`
+   node has no import.
+9. **The early check** by its host timer, as in a real game: halfway
+   through the tail and no later than an hour before the earliest
+   hand-over, never before the import (right after it in a tail under
+   two hours). It checks what a real game's does, the fill's plantings
+   included, and reads the import's result (`history import: ok, seam
+   ok`; anything else fails it). Then the hand-over check, the snapshot
+   and the hand-over, as in a real game, from the **earliest hand-over**:
+   `restart.at` plus the tail ([The aging](#the-aging)).
+
+Tell an initiator who will not play the restart's instant, the import's
+time, the early check's and the earliest hand-over. Tell one who may
+play only <!-- player -->"The game will be ready at 14:00 UTC."<!-- /player -->
+(H, or the earliest hand-over when the restart came late and it falls
+after H), and nothing of the steps.
+
 ### Setup failures
 
 - **Before deployment** (`fit`, `render`, a brick check, a missing image,
@@ -861,6 +1175,15 @@ The initiator, or anyone, may ask to stop at any point of the setup: see
   hand-over still far enough ahead: step 3); `fit` refuses until that
   teardown is recorded. The same works after a failed `deploy`, instead
   of retrying it.
+- **During a fake game's `fill` or `clean-restart`**: a failure is
+  recorded with its reason and leaves the game deployed. Report the
+  step and the reason to the initiator (to one who may play, only that
+  the setup failed and is started again, never the step's name), then
+  tear it down with the reason (`tools/gmctl teardown <dir> --playground
+  <pg> --reason "set up again: <why>"`), fit a new game and go on from
+  step 3, with the time now left: a fill is never resumed and a restart
+  never repeated. An anchor passed before `fill` could start is the
+  same.
 - **From `start-load` on, nothing tears the game down.** A scheduler that
   does not start, a planting that fails or is missed, a failed early
   check, a failed hand-over check or snapshot: each is recorded in its own
@@ -892,6 +1215,36 @@ now --instance <id>`, run by its timer) and run the early check. A timer
 whose run was due while the host was down runs when it is back. Nobody is
 notified of anything: the results are in the local implementation and
 head `gmctl status`.
+
+**In a fake game this is the tail** (v0.6 master spec 9.3, 9.4): from
+the restart (`restart.at`) to the hand-over, in real time, everything
+running. What follows holds for it, with these differences:
+
+- `status`'s `aging:` lines read `aging: fake` with the record's
+  instants; T0 is the virtual T0, the tail counts from `restart.at`, and
+  the **earliest hand-over is `restart.at` plus the tail** (moved later
+  by lost time beyond thirty minutes, as below). The early check runs
+  halfway through the tail, never before the import. The outages count
+  from the restart, never from the virtual T0.
+- The plantings due in the tail are made by their host timers, as in a
+  real game; the earlier ones were made by the fill
+  (`plantings.<id>`, `by: fill`) and are never re-planted.
+- **The history import** runs by its timer about 12 minutes after the
+  restart ([Fake mode: the steps](#fake-mode-the-steps), step 8). The
+  early check fails on anything but `history import: ok, seam ok` (or
+  `none (no Prometheus node)`); the hand-over check prints the same line
+  and never fails on it. A failed import, or a failed seam, leaves the
+  forged past missing or visibly wrong in Prometheus and Grafana, which
+  a player would notice: retry it by hand before the hand-over (the
+  `history` row of the [command reference](gmctl.md)); if it fails
+  again, tell the initiator and offer to set the game up again, or, if
+  they choose, hand it over as it is. To an initiator who may play, say
+  only <!-- player -->"A check of the game's preparation failed: the
+  monitoring's history is incomplete. I can set the game up again, ready
+  at 16:00 UTC, or hand it over as it is."<!-- /player --> (with your
+  figures).
+- **Setting the game up again** is a new game, as below; its mode is
+  chosen again at step 3 with the time now left.
 
 - **Resuming a session during the aging**: run `tools/gmctl status <dir>
   --playground <pg>` first, and tell the initiator of every failure and
@@ -1112,8 +1465,18 @@ Then give the players, in the session:
   Never its `covers`, never a fault id;
 - **the session length** (`session_length_minutes`) and the time it ends,
   in UTC, and that every time in the game is UTC (the nodes, PostgreSQL's
-  logs, Grafana). With monitoring, also that the history starts at
-  deployment: the dashboards' first 10 to 15 minutes are thin;
+  logs, Grafana). With monitoring, in a real or a static game, also
+  "<!-- player -->The monitoring's history starts when the system was
+  installed: the dashboards' first 10 to 15 minutes are
+  thin."<!-- /player --> In a fake game, say nothing of where the
+  history starts;
+- **in a fake game, the maintenance restart**, the in-world fact the
+  story states (its line, `restart.story_line` in the record), with the
+  restart's time:
+  "<!-- player -->The servers were restarted for maintenance today at
+  11:00 UTC; older logs were archived."<!-- /player --> (today, or its
+  date). Nothing more: no reason for it, and no word of how the game
+  was made ([the stance](#the-stance), "Never told");
 - **in a game that ages, the customer's time zone**: the zone `status`
   prints (`customer's time zone UTC+N (Etc/GMT-N)`), as the starter pack
   states it: the story's times of day are the customer's, every clock in
@@ -1188,30 +1551,40 @@ is refused (see [the stance](#the-stance)).
    not a player) cannot: say that only a player of the game may confirm
    a restart.
 2. **The statement, before anything.** Read `gmctl status` (`snapshot:`
-   line) and tell them, in plain words:
-   - that the whole game is rebuilt from scratch: the system's state and
-     **every change they made are lost** (fixes, edited files, the
-     databases' changes, their files on the bastion, `~/report.md`
-     included: anything they want to keep, they copy off it first);
-   - their passwords, the bastion's address and port stay the same; the
-     session still ends at the time given at hand-over (a restart gives
-     no extra time); the replay may differ in its details;
-   - **with the hand-over snapshot** (`snapshot: taken`): the system
-     comes back as it was at hand-over, and its history has a gap from
-     the hand-over to the restart, a maintenance window;
+   line) and tell them, in plain words, these points, in either mode
+   and never naming how the game was made ([the stance](#the-stance),
+   "Never told"):
+   - "<!-- player -->The whole game is rebuilt from scratch: the
+     system's state and every change you made are lost: your fixes,
+     edited files, the databases' changes and your files on the bastion,
+     `~/report.md` included. Copy off anything you want to keep
+     first."<!-- /player -->
+   - "<!-- player -->Your passwords and the bastion's address and port
+     stay the same. The session still ends at <end> UTC: a restart gives
+     no extra time. The replay may differ in its details."<!-- /player -->
+   - **with the hand-over snapshot** (`snapshot: taken`):
+     "<!-- player -->The system comes back as it was when you received
+     it; its history has a gap from then to the restart, a maintenance
+     window."<!-- /player -->
    - **without it** (`snapshot: not-fitting`): there is no copy of the
-     system as handed over, so it restarts from nothing: the data loaded
+     system as handed over, so it restarts from nothing (the data loaded
      again, every fault planted again at once and, in a game that ages,
-     the load started again at once. Name the evidence that goes with
-     it, as the players would meet it, by place and time, never by fault
-     or answer: the history the aging built (the logs, the metrics, the
-     job runs since T0) is gone, only the history since the restart will
-     exist, and evidence that takes longer to build up under the load
-     than the time left in the session will be thin or missing (judge it
-     from each fault instance's own aging minimum against that time). In
-     a static game, the monitoring history before the restart goes.
-3. **The question.** "Do you confirm the restart? Say so in so many
-   words; anything less and the game goes on." Only a player's explicit
+     the load started again at once; in a fake game on the real clock,
+     with no fill and no history import, capture W3 item 7). Name the
+     evidence that goes with it, as the players would meet it, by place
+     and time, never by fault or answer:
+     "<!-- player -->There is no copy of the system as you received it,
+     so it restarts from nothing: its data loaded again and its
+     applications started again. Everything it recorded before the
+     restart (its logs, its metrics, its jobs' runs) is gone; only what
+     it records from the restart on will exist, and what takes longer to
+     build up than the time left in the session will be thin or
+     missing."<!-- /player --> (Judge that last point from each fault
+     instance's own aging minimum against the time left; in a static
+     game, say only that the monitoring's history before the restart
+     goes.)
+3. **The question.** <!-- player -->"Do you confirm the restart? Say so in so many
+   words; anything less and the game goes on."<!-- /player --> Only a player's explicit
    confirmation, given after the statement, counts ("Yes, we confirm:
    restart the game."). A passing mention, a question about restarting,
    a conditional or a hesitation never restarts the game: answer it,
@@ -1239,10 +1612,15 @@ is refused (see [the stance](#the-stance)).
 5. **After it**, tell the players the game is back (the address, ports
    and passwords unchanged, the tools password and, with a Grafana node,
    Grafana's login too) and, from the snapshot, the maintenance window:
-   from the hand-over to the restart, in UTC. Without the snapshot the
+   "<!-- player -->The system is back, as it was when you received it.
+   Your addresses and passwords are unchanged. Its history has a
+   maintenance window from 14:00 to 14:20 UTC. The session still ends at
+   18:00 UTC."<!-- /player --> Without the snapshot the
    bastion's SSH host key is new, so their SSH client warns of a changed
    host key: that is expected (`ssh-keygen -R '[<address>]:<port>'` clears
    the old one). Repeat the session's end. Their next steps are theirs.
+   `restart`'s own output names how the game was rebuilt: it is yours,
+   never read out.
 6. **A failed restart** (exit 1, "failed"): what it deployed is torn
    down, the stage is `failed`, the snapshot kept. Tell the players, then
    run the same command again (the same words) or, if it fails again for
@@ -1251,7 +1629,12 @@ is refused (see [the stance](#the-stance)).
 
 The rebuilt game is judged like any other at the final answer; without a
 snapshot, judge each fault on what the restarted game could still show
-([Evaluation](#evaluation)).
+([Evaluation](#evaluation)). **A fake game restarted** (capture W3
+item 7) stays the same fake game: from the snapshot, Prometheus' volume
+brings the imported history back, with no second import; with no
+history, it is rebuilt on the real clock, the refused instances still
+out of it and the story keeping its restart line. Either way the
+restart record stays the first game's, for the feedback.
 
 ## Report and final answer
 
@@ -1278,15 +1661,20 @@ evaluation judges a job's runs from it (`--since`,
 not a hint: ask it of every fix they list, never only of some.
 
 Then the **final-answer question**: unless they have said it is their
-final answer, ask "Is this your final answer? Once it is, I evaluate it
-against the live system and the game ends." If it is not, the game goes
+final answer, ask <!-- player -->"Is this your final answer? Once it is, I evaluate it
+against the live system and the game ends."<!-- /player --> If it is not, the game goes
 on and you say nothing about the content. When it is, record it:
 
 ```sh
 tools/gmctl status <dir> --playground <pg> --set final-answer
 ```
 
-From now on, nothing is secret: the feedback may name every fault.
+From now on, nothing is secret: the feedback may name every fault. The
+game is **concluded** once you have processed the final answer (the
+evaluation below); how the game was made is still spoken of only as the
+[feedback note](feedback.md) says: never in the customer side, and in
+the teaching moment only to explain a tell the report names (v0.6
+master spec 9.11).
 
 ## Evaluation
 
@@ -1303,6 +1691,11 @@ the players' slots are full.
    `validators_left_red`, a register fault's `register_diff:`, the
    `tooling_expectations` and the `false_alarms`), `gm/notes.md`,
    and the issues in `scenario.yaml` (`expected_resolution`, `covers`).
+   In a fake game, also the restart record (`local/<pg>/fake-aging.yaml`:
+   `refused`, `restart.at`, `story_line`, `explains`, `history` with its
+   reason), the scenario document's "Fake aging" section, and each
+   selected fault's `aging.fake.reason` and its `gm.md`'s `**Fake
+   aging.**` note.
 2. **The official validator run:**
    `tools/gmctl validate <dir> --playground <pg>`. Exit 0 every node
    green, 1 a node red, 2 a validator errored or the run was refused.
@@ -1441,6 +1834,27 @@ the players' slots are full.
      restarted game could not build up again in the time left (its own
      aging minimum longer than that time) is judged on what the players
      could still see; missing it is not held against them.
+   - **a refused instance** (the record's `refused`, a fake game): out of
+     the game, neither expected nor credited, and never named to the
+     players, in either part of the feedback.
+   - **a reported tell** (v0.6 master spec 9.11): the report names an
+     observation from fake aging's documented limits (master spec 9.10,
+     the record's `explains`, the "Fake aging" section's limits: the
+     statistics reset at the restart, no log before it, `pg_cron`'s
+     history starting there, Prometheus' own series stepping at the
+     import, the forged past's shape, ...) or from the research's tells,
+     whatever cause the players gave it. It matches no fault: neither
+     credited nor counted as a mistake. Where it is a sound reading of
+     the restart's consequences ("the statistics were reset at 11:00, so
+     the statement figures cover the last three hours only"), it is
+     acknowledged in-world from the record's `explains`. It is explained
+     in the teaching moment only ([feedback note](feedback.md)).
+   - **a suspicion naming no observation** ("this history looks
+     generated"), in either mode: judged as any unsupported claim, noted
+     as not backed by the report's evidence; it reports no tell. In a
+     real game, a report claiming a forged history gets the same
+     customer side, and the teaching moment explains why the thing really
+     looked as it did.
 5. **Judge each false alarm** (`false_alarms`, where the answer key
    lists any: an issue whose `covers` is `[]`, expecting *report*; spec
    D459). There is no fault behind the complaint: no instance, no sealed
@@ -1487,16 +1901,30 @@ the players' slots are full.
 
 ## Feedback
 
-Give it in the session, following the [feedback note](feedback.md): the
-issues given and the faults present, which were found and which missed,
-whether each answer is acceptable against its expected resolution and the
-answer key's criteria (a governance fault's "fixed" as master spec 11.7, a
-report judged against an incident, a fault undetermined at the final
-answer), any overstep named and judged, never credited, the tooling
-expectations where the answer key lists any, then what could have been
-done better. Times in it are UTC. The tone is
-a teacher's: it helps the students see where they succeeded and how to
-improve, and it stays positive.
+Give it in the session, in English, following the
+[feedback note](feedback.md), in **two parts, in this order** (v0.6
+master spec 10):
+
+1. **The customer side**: the in-world assessment, in your voice from
+   the customer's point of view, never stepping out of the story: each
+   issue against its expected resolution and the answer key's criteria
+   (a governance fault's "fixed" as master spec 11.7, a report judged
+   against an incident, a fault undetermined at the final answer), the
+   faults found against those present, the tooling expectations where
+   the answer key lists any, any overstep named and judged, never
+   credited. A reported tell is neither credited nor counted as a
+   mistake here; a sound reading of the restart is acknowledged
+   in-world. It never names how the game was made.
+2. **The teaching moment**: what they missed and how they could have
+   seen it, from the evidence this game actually held; what they found
+   correctly; what they identified but couldn't explain, explained; why
+   things looked as they did, from a planted fault (its `gm.md`, the
+   scenario's notes) or, in a fake game, from how it was made, **only
+   for a tell the report names**, from the restart record and the
+   documented limits. With no tell reported, no word of it.
+
+Times in it are UTC. The tone is a teacher's: it helps the students see
+where they succeeded and how to improve, and it stays positive.
 
 Once it is given, record it:
 
