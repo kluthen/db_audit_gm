@@ -27,7 +27,10 @@ runs.
 Every subcommand takes `--record WHAT`: the output is also written to
 `tools/fake_aging/calibration/<scenario id>-<WHAT>-<YYYYMMDDTHHMMZ>.txt`,
 opening with the command, the commit, the start and the wall time (W3
-item 10); WHAT is the instance, `fill` or `wal-<node>`.
+item 10). WHAT is free text, named as formats.md's calibration files
+are: `keys-<node>` (a node's service times), `run-<letter>` (the run
+itself, `run-a`), the instance (`f1`: a fault's figures), `fill` (a
+short fill) or `wal-<node>` (a WAL rate).
 
 - `keys`: from the scheduler's per-minute key lines (`key minute=...
   key=... calls= errors= p50_ms= p95_ms=`), each key's calls, errors and
