@@ -3977,3 +3977,40 @@ span in the script, which costs about 3 more minutes of fill, the
   line ~650 ("PostgreSQL 18's wording" of the autovacuum log line, from
   the answer key).
 - Figures: 3 agents, 160 tool calls, 17.8M tokens in / 72k out, max context 186k, $7.20 at API prices.
+
+### Chunk 17c — merged (270d883), 2026-11-20
+
+- Commits d9a7b86 (the game's text on 19, D591) and e1c2e3b (D592:
+  `log_autoanalyze_min_duration = 0` in all 56 seeds); merged --no-ff,
+  no conflicts. Branch deleted.
+- Evidence: fixture runs on 19, all green: `fixture-lab` /
+  pg-monitoring-option-absent 19/0 (22 s); `fixture-portal-scope` /
+  security-policy-ownership-end-dropped 20/0 (374 s); `fixture-reports`
+  planted / governance-statement-log-personal 24/0 (685 s);
+  `fixture-reports` planted / purpose-herd-use-dropped 32/0 (739 s from
+  deployment; 3016 s lock-to-end includes the test's own 2276 s idle wait
+  for T0 at :10 local). Postgres stack test 317/0 (484 s). Unit suite 1559
+  OK, 2 skipped. Loader passes on all 39 scenarios and fixtures.
+- VACUUM (VERBOSE) and autovacuum wording read on 19.0: unchanged from
+  15-18; `scheduler-transaction-held-open`'s gm.md and the shop's answer
+  key say so; shop README regenerated.
+- D591 named in postgres' `docs/gm.md` ("Logging"), quoting 19's
+  checkpoint line. For the release notes: pgBadger 13.3's Checkpoints
+  section is empty on PostgreSQL 19; the next pgBadger that reads 19's
+  lines is taken under D396.
+- Generated files: clinic's and `fixture-clinic-front`'s overview digests
+  re-recorded (entries unchanged); only the shop's scenario document
+  regenerated. 17b merges second, so it regenerates the clinic's overview
+  and README on the merged inputs.
+- **Open, for spec-writer at G10.4 (predates this chunk, not about 19):**
+  no played scenario or fixture loads pgaudit in its seed
+  `shared_preload_libraries` (only postgres' stack-test seeds and
+  `fixture-composed` do). vet-lab's and vet-portal's `policy.md` and the
+  domain notes describe pgaudit as on (`write, ddl, role`; traps T2,
+  T251), so those traps can't bite in the clinic as built. The four
+  pgaudit-reading faults reach it only through the `SET pgaudit.log =
+  'none'` guard, which 19.0 accepts as a placeholder. No content changed.
+- Also noted: the grid's sampling block's `CREATE TEMP TABLE` fails in
+  the read-only session the grid itself prescribes (predates the chunk).
+- For the wave gate: existing scenarios' smokes with the D592 seeds.
+- Figures: 1 agents, 166 tool calls, 26.5M tokens in / 76k out, max context 227k, $7.81 at API prices.
