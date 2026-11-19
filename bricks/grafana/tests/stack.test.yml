@@ -1,7 +1,9 @@
 # Stack test fixture for the Grafana brick (v0.2 build plan, chunk 10): the
 # grafana node, its six seed files (the optional pgwatch.json included)
 # copied from companion/ as a scenario would, and a prometheus 0.2.1 node
-# for its data source to reach.
+# for its data source to reach; both receive prometheus' node-health script
+# as configs, as the GM mounts it, so Node health has two nodes to filter
+# (v0.6 build plan, chunk 5).
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
 # removed by run-stack-test.sh (mirroring gmctl deploy).
@@ -35,6 +37,13 @@ services:
       - {source: seed_postgresql_json, target: /opt/gm/seed/postgresql.json, uid: "0", gid: "0", mode: 0444}
       - {source: seed_pgwatch_json, target: /opt/gm/seed/pgwatch.json, uid: "0", gid: "0", mode: 0444}
       - {source: seed_alert_rules_yaml, target: /opt/gm/seed/alert-rules.yaml, uid: "0", gid: "0", mode: 0444}
+      # node-health script, mounted as the GM would (prometheus' companion.mounted)
+      - {source: nh_script, target: /usr/local/lib/gm/node-health/node-health.pl, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, uid: "0", gid: "0", mode: 0555}
+      - {source: nh_dep_base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_bundle, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_conf_grafana, target: /opt/gm/node-health/node.conf, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: tools_password, target: /opt/gm/secrets/tools_password, uid: "0", gid: "472", mode: 0440}
@@ -64,6 +73,12 @@ services:
       - {type: volume, source: prom_run, target: /run}
     configs:
       - {source: seed_prometheus_yml, target: /opt/gm/seed/prometheus.yml, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_script, target: /usr/local/lib/gm/node-health/node-health.pl, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, uid: "0", gid: "0", mode: 0555}
+      - {source: nh_dep_base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_bundle, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_conf_prometheus, target: /opt/gm/node-health/node.conf, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
     networks: [net]
@@ -97,6 +112,13 @@ configs:
   seed_pgwatch_json: {external: true, name: gmtest-grafana_seed_pgwatch_json}
   seed_alert_rules_yaml: {external: true, name: gmtest-grafana_seed_alert_rules_yaml}
   seed_prometheus_yml: {external: true, name: gmtest-grafana_seed_prometheus_yml}
+  nh_script: {external: true, name: gmtest-grafana_nh_script}
+  nh_type: {external: true, name: gmtest-grafana_nh_type}
+  nh_run: {external: true, name: gmtest-grafana_nh_run}
+  nh_dep_base: {external: true, name: gmtest-grafana_nh_dep_base}
+  nh_bundle: {external: true, name: gmtest-grafana_nh_bundle}
+  nh_conf_grafana: {external: true, name: gmtest-grafana_nh_conf_grafana}
+  nh_conf_prometheus: {external: true, name: gmtest-grafana_nh_conf_prometheus}
 
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-grafana_player_ssh_pubkey}

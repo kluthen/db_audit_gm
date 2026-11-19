@@ -1,11 +1,13 @@
 #!/bin/sh
 # Stack test of the Grafana brick (v0.2 build plan, chunk 10, Done when;
-# v0.3 build plan, chunk 5b: the write policies and the snapshot's stop).
+# v0.3 build plan, chunk 5b: the write policies and the snapshot's stop;
+# v0.6 build plan, chunk 5: Node health's `node` variable).
 #
 # Deploys the brick as a Swarm stack (stack.test.yml), its six seed files
 # (the optional pgwatch.json included) copied from companion/ as a scenario
 # would, with a prometheus 0.2.1 node
-# for the data source; seed files and secrets are external configs and
+# for the data source; both nodes receive prometheus' node-health script, as
+# the GM mounts it; seed files and secrets are external configs and
 # secrets created here. Checks, from a client container on the stack's
 # network and from the GM side (docker exec, the API helper):
 #   - the container becomes healthy; Grafana runs as grafana (472:472);
@@ -13,6 +15,12 @@
 #     rules are present through the API; no contact point is provisioned;
 #     the rules are evaluated and a firing one is readable; every query of
 #     the pgwatch dashboard is accepted by Prometheus;
+#   - Node health's `node` variable (v0.6 master spec 8.6): its definition,
+#     its values through the data source (both nodes); every panel's query
+#     carries the filter; the page opens at
+#     /grafana/d/node-health/node-health?var-node=<name>, and every query,
+#     sent as the page sends it, returns that node's series only, "All"
+#     every node's, a node that does not exist nothing;
 #   - the administrator logs in with the secret's password (API and the
 #     login form); the default time zone is UTC;
 #   - the UI answers under /grafana/, from another container;
@@ -56,10 +64,11 @@ PROM_SERVICE=${STACK}_prometheus
 NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk10-grafana
-CONFIGS="seed_datasources_yaml seed_dashboards_yaml seed_node_health_json seed_postgresql_json seed_pgwatch_json seed_alert_rules_yaml seed_prometheus_yml"
+CONFIGS="seed_datasources_yaml seed_dashboards_yaml seed_node_health_json seed_postgresql_json seed_pgwatch_json seed_alert_rules_yaml seed_prometheus_yml nh_script nh_type nh_run nh_dep_base nh_bundle nh_conf_grafana nh_conf_prometheus"
 SECRETS="player_ssh_pubkey tools_password"
 VOLUMES="graf_data graf_conf graf_home graf_gmstate graf_run prom_data prom_conf prom_home prom_gmstate prom_run"
 COMPANION=$HERE/../companion
+NH=$HERE/../../prometheus/companion/node-health
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 PROV=/etc/grafana/provisioning
 API=/usr/local/lib/gm/grafana-api
@@ -134,9 +143,26 @@ cfg seed_node_health_json "$COMPANION/node-health.json"
 cfg seed_postgresql_json "$COMPANION/postgresql.json"
 cfg seed_pgwatch_json "$COMPANION/pgwatch.json"
 cfg seed_alert_rules_yaml "$COMPANION/alert-rules.yaml"
-# prometheus: its own stack test's seed (it also lists targets that do not
-# exist here, so a target-down alert fires)
-cfg seed_prometheus_yml "$HERE/../../prometheus/tests/fixtures/prometheus.yml"
+# prometheus: its own stack test's seed, with grafana:9110 added to the
+# node-health job (it also lists db:9110, which does not exist here, so a
+# target-down alert fires)
+sed "s/\['db:9110', 'prometheus:9110'\]/['db:9110', 'prometheus:9110', 'grafana:9110']/" \
+    "$HERE/../../prometheus/tests/fixtures/prometheus.yml" > "$tmp/prometheus.yml"
+grep -qF "['db:9110', 'prometheus:9110', 'grafana:9110']" "$tmp/prometheus.yml" \
+    || { echo "could not add grafana:9110 to prometheus' fixture" >&2; exit 2; }
+cfg seed_prometheus_yml "$tmp/prometheus.yml"
+# the node-health script and its s6 service, and each node's own config, as
+# the GM mounts them (prometheus' companion.mounted): two nodes for Node
+# health's `node` variable to choose from
+cfg nh_script "$NH/node-health.pl"
+cfg nh_type "$NH/s6-rc.d/gm-node-health/type"
+cfg nh_run "$NH/s6-rc.d/gm-node-health/run"
+cfg nh_dep_base "$NH/s6-rc.d/gm-node-health/dependencies.d/base"
+cfg nh_bundle "$NH/user-bundles.d/user/contents.d/gm-node-health"
+printf 'node=grafana\nservices=grafana sshd\ndisk_reservation=268435456\nvolumes=/var/lib/grafana /etc/grafana/provisioning /home/player /var/lib/gm-state /run\n' > "$tmp/nh-grafana.conf"
+printf 'node=prometheus\nservices=prometheus sshd\ndisk_reservation=536870912\nvolumes=/var/lib/prometheus /etc/prometheus /home/player /var/lib/gm-state /run\n' > "$tmp/nh-prometheus.conf"
+cfg nh_conf_grafana "$tmp/nh-grafana.conf"
+cfg nh_conf_prometheus "$tmp/nh-prometheus.conf"
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_tools_password" "$tmp/tools_password" >/dev/null
 
@@ -260,7 +286,7 @@ case $r in
     *) fail "alertmanager receivers: $r" ;;
 esac
 # the rules are evaluated; the target-down one fires (the prometheus fixture
-# lists db:9110 and prometheus:9110, neither of which answers here)
+# lists db:9110, which does not answer here)
 i=0; ok=
 while [ "$i" -lt 240 ]; do
     rules=$(api GET /api/prometheus/grafana/api/v1/rules)
@@ -272,6 +298,83 @@ done
 r=$(printf '%s' "$rules" | jq -r '[.data.groups[].rules[] | .health] | unique | join(",")')
 [ "$r" = ok ] && pass "every rule evaluates without error (health: $r)" || fail "rule health: $r"
 info "rule states: $(printf '%s' "$rules" | jq -r '[.data.groups[].rules[] | .name + "=" + .state] | join("; ")')"
+
+# --- Node health's `node` variable (v0.6 master spec 8.6) -------------------------------
+dash=$(api GET /api/dashboards/uid/node-health)
+r=$(printf '%s' "$dash" | jq -c '[.dashboard.templating.list[] | {name, type, ds: .datasource.uid, definition, query: .query.query, multi, includeAll, allValue, current: .current.value}]')
+[ "$r" = '[{"name":"node","type":"query","ds":"prometheus","definition":"label_values(node_health_cpu_limit_cores, node)","query":"label_values(node_health_cpu_limit_cores, node)","multi":true,"includeAll":true,"allValue":".*","current":["$__all"]}]' ] \
+    && pass "Node health has one variable, node: label_values(node_health_cpu_limit_cores, node), multi-value, All by default ($r)" \
+    || fail "Node health's variables: $r"
+# every target of the served dashboard; each metric it names carries the filter
+targets=$(printf '%s' "$dash" | jq -c '[.dashboard.panels[] | select(.targets) | .id as $p | .targets[] | {p: $p, refId, expr}]')
+r=$(printf '%s' "$targets" | jq -r '[.[] | select((.expr | [scan("node_health_[a-z_]+")] | length) as $m
+        | $m == 0 or ($m != (.expr | [scan("node_health_[a-z_]+\\{node=~\"\\$node\"\\}")] | length))) | "\(.p)/\(.refId)"] | join(" ")')
+n=$(printf '%s' "$targets" | jq 'length')
+[ "$n" -gt 0 ] && [ -z "$r" ] && pass "every query of Node health ($n) filters each metric by {node=~\"\$node\"}" \
+    || fail "queries without the filter on every metric: [$r] of $n"
+# the variable's values, read through Grafana's data source as the page reads
+# them: both nodes, once Prometheus has scraped them (the rate needs two samples)
+i=0; vals=
+while [ "$i" -lt 120 ]; do
+    vals=$(api GET '/api/datasources/uid/prometheus/resources/api/v1/label/node/values?match%5B%5D=node_health_cpu_limit_cores' 2>/dev/null | jq -r '.data | sort | join(" ")' 2>/dev/null)
+    [ "$vals" = "grafana prometheus" ] && break
+    sleep 5; i=$((i + 5))
+done
+[ "$vals" = "grafana prometheus" ] && pass "the variable's values through the data source: $vals (after ${i}s)" \
+    || fail "the variable's values: [$vals]"
+# the page, as the overview's link opens it, with a logged-in session
+login_config | sed '$a cookie-jar = "/root/nh-cookies"' | ccurl -o /dev/null
+r=$(printf 'url = "http://grafana:3000/grafana/d/node-health/node-health?var-node=grafana&from=now-6h&to=now"\ncookie = "/root/nh-cookies"\n' | ccurl -w ' %{http_code}')
+if [ "${r##* }" = 200 ] && printf '%s' "$r" | grep -q '<title>Grafana</title>'; then
+    pass "the page opens: GET /grafana/d/node-health/node-health?var-node=grafana&from=now-6h&to=now, logged in: 200, Grafana's page"
+else
+    fail "GET /grafana/d/node-health/node-health?var-node=grafana: $(printf '%s' "$r" | tail -c 200)"
+fi
+# nh_query <value>: every target's expression with $node replaced as the page
+# does it (one node: its name; All: the variable's allValue), sent through
+# Grafana's data source by the logged-in client, as the page sends it (POST
+# /grafana/api/ds/query); one line per target: "<panel>/<refId>:" then the
+# node labels of the series it returns, each once ("-" for a series without
+# one), or ERROR
+nh_query() {
+    printf '%s' "$targets" | jq -c --arg v "$1" '.[] | {p, refId, expr: (.expr | gsub("\\$node"; $v))}' |
+    while read -r t; do
+        printf '%s' "$t" | jq -c '{from: "now-5m", to: "now", queries: [{refId, datasource: {type: "prometheus", uid: "prometheus"}, expr, instant: true, range: false}]}' \
+            | docker exec -i "$CLIENT" sh -c 'cat > /root/nh-query.json'
+        q=$(printf 'url = "http://grafana:3000/grafana/api/ds/query"\nheader = "Content-Type: application/json"\ncookie = "/root/nh-cookies"\ndata = "@/root/nh-query.json"\n' | ccurl)
+        s=$(printf '%s' "$q" | jq -r 'if ([.results[] | .error // empty] | length) > 0 then "ERROR"
+            else [.results[].frames[]? | select((.data.values // []) | length > 1 and (.[1] | length) > 0)
+                  | (.schema.fields[1].labels.node // "-")] | unique | join(" ") end' 2>/dev/null) || s=ERROR
+        printf '%s' "$q" | jq -e '.results' >/dev/null 2>&1 || s=ERROR
+        printf '%s: %s\n' "$(printf '%s' "$t" | jq -r '"\(.p)/\(.refId)"')" "$s"
+    done
+}
+# wait for the CPU rate (two samples of each node) before judging
+i=0
+while [ "$i" -lt 90 ]; do
+    nh_query '.*' | grep -q '^2/A: grafana prometheus$' && break
+    sleep 5; i=$((i + 5))
+done
+for node in grafana prometheus; do
+    out=$(nh_query "$node")
+    bad=$(printf '%s\n' "$out" | awk -v n="$node" '{ if (NF < 2) { print; next } for (k = 2; k <= NF; k++) if ($k != n && $k != "-") { print; next } }')
+    m=$(printf '%s\n' "$out" | grep -c " $node\$\| $node ")
+    if [ -z "$bad" ] && [ "$(printf '%s\n' "$out" | wc -l)" -eq "$n" ] && [ "$m" -gt 0 ]; then
+        pass "var-node=$node: every query returns $node's series only ($(printf '%s' "$out" | tr '\n' ';'))"
+    else
+        fail "var-node=$node: [$(printf '%s' "$bad" | tr '\n' ';')] of [$(printf '%s' "$out" | tr '\n' ';')]"
+    fi
+done
+out=$(nh_query '.*')
+bad=$(printf '%s\n' "$out" | grep -v -e ': grafana prometheus$' -e '^9/A: -$')
+[ -z "$bad" ] && [ "$(printf '%s\n' "$out" | wc -l)" -eq "$n" ] \
+    && pass "All: every query returns every node's series ($(printf '%s' "$out" | tr '\n' ';'))" \
+    || fail "All: [$(printf '%s' "$bad" | tr '\n' ';')] of [$(printf '%s' "$out" | tr '\n' ';')]"
+out=$(nh_query 'no-such-node')
+bad=$(printf '%s\n' "$out" | grep -v ': $')
+[ -z "$bad" ] && [ "$(printf '%s\n' "$out" | wc -l)" -eq "$n" ] \
+    && pass "var-node=no-such-node: every query returns nothing (the filter applies to each, the aggregate included)" \
+    || fail "var-node=no-such-node: [$(printf '%s' "$bad" | tr '\n' ';')]"
 
 # --- time zone and settings ------------------------------------------------------------
 r=$(api GET /api/frontend/settings | jq -r '.dateFormats.defaultTimezone')

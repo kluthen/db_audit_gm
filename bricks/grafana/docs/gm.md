@@ -116,7 +116,17 @@ metric name and the `node` label, never by `job`.
   disk, the node's volumes against its reservation (bar per node) and the
   bytes used and reserved (table); every service of every node's list as
   UP or DOWN (`node_health_service_up`); the host's free space once
-  (`max(node_health_host_free_bytes)`).
+  (`max(node_health_host_free_bytes)`). Since 0.4.0 (v0.6 master spec
+  8.6) it has a variable `node`
+  (`label_values(node_health_cpu_limit_cores, node)`, refreshed with the
+  time range, multi-value, "All" by default, whose value is `.*`, so "All"
+  shows every node reporting, as before 0.4.0), and every metric of every
+  panel's query is filtered by `{node=~"$node"}`, the host's free space
+  included (the largest among the nodes shown). The network overview's
+  entries link `/grafana/d/node-health/node-health?var-node=<name>&from=now-6h&to=now`,
+  its header the dashboard with every node. A node missing from
+  Prometheus' targets or from the node-health map is missing from the
+  variable's values: its link opens empty graphs, a witness by design.
 - **`postgresql.json`**: whether the exporter is connected (`pg_up`,
   CONNECTED or DISCONNECTED); statement calls per second; execution time
   per second, mean time per call and calls per second for the ten heaviest
@@ -681,7 +691,16 @@ point replaced), and SSHes in as `player`; every credential goes to `curl`
 on stdin. It never sends a wrong administrator's password, so the
 validator's `ERROR` on a refused login is not exercised there. Every
 query of `pgwatch.json` is sent to Prometheus' query API and must come back
-`success` (empty, with no pgwatch node there); `pgwatch.json` is removed
+`success` (empty, with no pgwatch node there). Both nodes receive
+prometheus' node-health script, as the GM mounts it, and the test's
+`prometheus.yml` (that brick's fixture with `grafana:9110` added) scrapes
+`grafana` and `prometheus`, so Node health's `node` variable has two nodes:
+its definition, its values through the data source, the filter on every
+metric of every query, the page opened at
+`/grafana/d/node-health/node-health?var-node=grafana` with a logged-in
+session, and every query sent as the page sends it (`POST /api/ds/query`,
+`$node` replaced): one node's series only for each node, every node's for
+"All", nothing for a node that does not exist. `pgwatch.json` is removed
 (reload and validator green), then put back (the wrapper restores its
 owner and mode). Then the
 snapshot's brief stop, the node redeployed `report-only` (`docker service
