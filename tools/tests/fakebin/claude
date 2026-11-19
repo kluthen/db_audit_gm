@@ -1,0 +1,6 @@
+#!/bin/sh
+# A `claude` stand-in for the unit tests of tools/play, put first on PATH: it
+# writes its working directory, its name and each of its arguments, one per
+# line, to $DBAGM_FAKE_RECORD, then exits with $DBAGM_FAKE_EXIT (default 0).
+{ pwd -P; echo claude; printf '%s\n' "$@"; } > "${DBAGM_FAKE_RECORD:?}"
+exit "${DBAGM_FAKE_EXIT:-0}"

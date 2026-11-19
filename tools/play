@@ -1,0 +1,61 @@
+#!/bin/sh
+# tools/play: starts the game master or the game assistant, each by name
+# (v0.7 master spec 7.3, 7.6). Usage: tools/play <gm|assistant> [--opencode] [--dev]
+
+usage() {
+    cat <<'USAGE'
+usage: tools/play <gm|assistant> [--opencode] [--dev]
+
+  gm           start the game master
+  assistant    start the game assistant
+  --opencode   run OpenCode instead of Claude Code
+  --dev        run even on branch dev (the build's tests and gates)
+  -h, --help   print this help and exit
+USAGE
+}
+
+bad_usage() {
+    echo "tools/play: $1" >&2
+    usage >&2
+    exit 2
+}
+
+case ${1-} in
+    -h | --help) usage; exit 0 ;;
+    gm | assistant) verb=$1; shift ;;
+    '') bad_usage "no verb given" ;;
+    *) bad_usage "unknown verb: $1" ;;
+esac
+
+opencode=
+dev=
+for arg do
+    case $arg in
+        --opencode) opencode=1 ;;
+        --dev) dev=1 ;;
+        -h | --help) usage; exit 0 ;;
+        *) bad_usage "unknown option: $arg" ;;
+    esac
+done
+
+# The relative .claude/... paths below resolve from the repository root.
+cd "$(dirname -- "$0")/.." || exit 1
+
+branch=$(git symbolic-ref --short -q HEAD 2>/dev/null)
+if [ "$branch" = dev ] && [ -z "$dev" ]; then
+    echo "tools/play: this checkout is on branch dev; a game is played from a fresh clone of main (--dev overrides, for the build's tests)" >&2
+    exit 1
+fi
+
+case $verb in
+    gm)
+        echo "tools/play gm: not yet available" >&2
+        exit 1
+        ;;
+    assistant)
+        if [ -n "$opencode" ]; then
+            exec opencode --agent game-assistant
+        fi
+        exec claude --agent game-assistant --settings .claude/game-assistant.settings.json
+        ;;
+esac
