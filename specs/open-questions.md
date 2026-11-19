@@ -348,7 +348,7 @@ O292 raised by the build (D584), open.
   `real-only`); the clinic later.
 - **O292** (v0.6, soon; D584; gate G13 of the
   [build plan](versions/v0.6/build-plan.md)) — The form of f8's
-  `gauge_before`. As built (`tools/gm/history.py`, formats.md v38) it
+  `gauge_before`. As built (`tools/gm/history.py`, formats.md v39) it
   holds one absolute `value` flat over the forged past until the
   planting: the shop's database size would read flat from 22:00 to
   08:00 (fix 5 also says "growing with the load's shape"), the step at

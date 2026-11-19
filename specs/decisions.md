@@ -419,7 +419,7 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   onward,** not over the whole span: the campaign's f5, planted in the
   tail, hides f4's and f7's trails only from then. Now in:
   [master spec](versions/v0.6/master-spec.md#95-fault-eligibility) 6.3,
-  9.5; [formats.md](formats.md) v37.
+  9.5; [formats.md](formats.md) v38.
 - **D544 (2026-11-19, spec-writer, capture W3's preflight correction 10):
   the scenario document's "Fake aging" section carries the setup's
   measured time, deploy to restart,** and a quick game's stated duration
@@ -653,26 +653,26 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   wave 3's forms written as built,** each checked against the code on
   `v0.6-w3`; none contradicts the spec, which they complete (reported,
   not settled: 9.9 fix 5's `gauge_before`, which no covered fault carries).
-  Now in: [formats.md](formats.md) v38 "Scenario", "Local implementation",
+  Now in: [formats.md](formats.md) v39 "Scenario", "Local implementation",
   "Fault definition"; [master spec](versions/v0.6/master-spec.md) 6.3, 6.7, 6.9, 9.5, 9.7, 9.8, 12.1, 18.
 - **D581 (2026-11-19, spec-writer, chunk 10's choice routed to G10.3):
   the seam's join is checked on size gauges only,** within the larger of
   1 % and the tail's own largest step; `negative` holds a series the
   system keeps below zero to its own value; `empty` added. Other gauges
   are drawn from the tail's level, so no join to check. Now in:
-  [formats.md](formats.md) v38; [master spec](versions/v0.6/master-spec.md#121-short-tests-only) 9.4 step 8, 12.1.
+  [formats.md](formats.md) v39; [master spec](versions/v0.6/master-spec.md#121-short-tests-only) 9.4 step 8, 12.1.
 - **D582 (2026-11-19, spec-writer, capture W3 item 7 as built): a fake
   game's restart with no history rebuilds on the real clock,** refused
   instances still out, the story line and the record kept; the spec said
   only "as in a real game". From the snapshot it stays the same fake game.
   Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode) 9.4;
-  [formats.md](formats.md) v38.
+  [formats.md](formats.md) v39.
 - **D583 (2026-11-19, spec-writer, chunk 10's choice routed to G10.3):
   one history import at a time (a run lock), and once one is recorded
   `ok` no run imports again, a failed seam included;** a failed import is
   retried by hand, its blocks removed first. So the timer's run after a
   hand run, or a second hand run, is harmless. Now in: [master spec](versions/v0.6/master-spec.md#94-the-gms-steps-in-fake-mode)
-  9.4 step 8; [formats.md](formats.md) v38.
+  9.4 step 8; [formats.md](formats.md) v39.
 - **D584 (2026-11-19, the owner, after G10.3: "Fix in wave 4"): the
   shop's f8 (`pg-join-index-missing`) gains a measured `gauge_before` on
   `pg_database_size_bytes`, with its `# measured:` comment,** so master

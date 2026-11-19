@@ -43,7 +43,7 @@ D548). Amended after chunk 11b: the campaign's f5 hides f4 and f7 in
 state and logs only, so no covered fault carries a `suppressed_by`, the
 rule unit-tested only; a report-only node's keys timed from a fill or
 with psql (6.9, 9.5, 9.7, 9.8; spec D578). Amended after wave 3's gate
-(gate G10.3): the forms as built, stated in formats.md v38 (6.3, 6.7,
+(gate G10.3): the forms as built, stated in formats.md v39 (6.3, 6.7,
 6.9, 9.5, 9.7; spec D580); the seam check's findings, its join checked
 on size gauges (9.4, 12.1; spec D581); a fake game's restart with no
 history (9.4; spec D582); one import at a time, a failed seam never
@@ -374,7 +374,7 @@ its `history`, `state.yaml`'s `hold`, `fill`, `clean_restart` and
 import's unit, run lock and working files, the seam check's findings,
 a fake game's restart, the status file's JSON and its `rendered`
 secret, the `brick-doc` configs) are in [formats.md](../../formats.md)
-"Local implementation" (v38).
+"Local implementation" (v39).
 
 ### 6.8 Versions and pins
 

@@ -4,7 +4,7 @@ Status: v13 (2026-11-19): the owner's ruling after G10.3 (spec D584):
 chunk 12 gives the shop's f8 a measured `gauge_before`, its form
 waiting on O292 (G13).
 v12 (2026-11-19): after wave 3's gate, G10.3 done (formats.md
-v38, spec D580): wave 3's forms as built, with chunk 10's record (the
+v39, spec D580): wave 3's forms as built, with chunk 10's record (the
 run lock, the seam's refined `negative` and `jump` and its `empty`
 (spec D581), `none` unit-tested only, `gauge_before` on
 `pg_database_size_bytes`, the history run's hh:38 to hh:41 start, the
@@ -39,7 +39,7 @@ Approval: **approved 2026-11-16 by the owner** (G1, spec D518).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-16 (spec D515 to
 D517), its sections 12 to 15 the main inputs;
-[formats.md](../../formats.md) v38. No design set (no interface to
+[formats.md](../../formats.md) v39. No design set (no interface to
 design, spec D2). Where this plan and those documents disagree, they win
 and the plan is corrected.
 
@@ -1625,7 +1625,7 @@ calls.
     shop's f8 (`faults/pg-join-index-missing/fault.yaml`) gains in its
     `history:` a `gauge_before` on
     `pg_database_size_bytes{datname="{DATABASE}"}`, its number measured,
-    with its `# measured:` comment on the number's line (formats.md v38,
+    with its `# measured:` comment on the number's line (formats.md v39,
     "Fault definition"). The measurement (master spec 9.7): the size of
     the index f8 drops (`order_lines_order_id_idx` on the shop's
     `order_lines.order_id`) on the shop's database at its scale, read

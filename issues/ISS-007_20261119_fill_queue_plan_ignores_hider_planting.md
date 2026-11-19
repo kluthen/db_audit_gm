@@ -34,7 +34,7 @@ game meets it today.
 
 ### Expected
 
-Master spec 9.5 and formats.md v37 (spec D543): an entry with
+Master spec 9.5 and formats.md v38 (spec D543): an entry with
 `suppressed_by` applies from its instance's planting until the planting of
 the first selected instance of a hiding fault; a hiding instance planted in
 the tail hides nothing in the past.
@@ -82,7 +82,7 @@ only the fill's queue items differ.
 ## Spec and intent
 
 - Specs and decisions: master spec 9.5 (fault eligibility,
-  `suppressed_by`), 6.3 and 6.9; formats.md v37; spec D543 (from the
+  `suppressed_by`), 6.3 and 6.9; formats.md v38; spec D543 (from the
   hiding instance's planting), D548 and D578 (no covered fault uses it).
 - Intent records: none recorded (no intent register).
 - Verdict: **code bug** (the fill breaks D543).
@@ -132,7 +132,7 @@ Found while building chunk 10 (wave log "Chunk 10 — merged (552259f),
 
 - `tools/gm/fill.py:487-514` (`queue_plan`)
 - `tools/gm/history.py` (the composer's `suppressed_by` handling)
-- `specs/versions/v0.6/master-spec.md` 9.5; `specs/formats.md` v37;
+- `specs/versions/v0.6/master-spec.md` 9.5; `specs/formats.md` v38;
   `specs/decisions.md` D543, D548, D578
 - `specs/versions/v0.6/wave-log.md`, wave 3
 

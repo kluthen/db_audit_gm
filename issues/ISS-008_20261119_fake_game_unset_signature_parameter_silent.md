@@ -30,7 +30,7 @@ campaign).
 
 ### Expected
 
-formats.md v38 ("Fault definition", wave 3's optional parameters) and the
+formats.md v39 ("Fault definition", wave 3's optional parameters) and the
 faults' own descriptions: every instance in a scenario played fake sets
 the parameter its history signature needs. A scenario that doesn't should
 be refused before deploying, as other incomplete definitions are
@@ -91,7 +91,7 @@ documented.
 ## Spec and intent
 
 - Specs and decisions: master spec 9.5 (the history signature, the
-  exporter's reach), 9.7; formats.md v38 ("Fault definition"); spec D580
+  exporter's reach), 9.7; formats.md v39 ("Fault definition"); spec D580
   (G10.3's forms as built, which names this gap).
 - Intent records: none recorded (no intent register).
 - Verdict: **code bug** (the spec says every fake instance sets it; no
@@ -106,7 +106,7 @@ documented.
 | Likelihood | Low today (both covered scenarios set it, unit-tested); higher for any new scenario played fake with one of these faults |
 | Impact | Medium when met: a fault's forged Prometheus trail is missing, a gap a player comparing the past with the logs could see |
 | Detectability | Low: no error; the seam check sees nothing to join |
-| Current mitigation | `test_fake_aging_faults.py` for the two covered scenarios; formats.md v38 states the rule |
+| Current mitigation | `test_fake_aging_faults.py` for the two covered scenarios; formats.md v39 states the rule |
 
 ---
 
@@ -139,7 +139,7 @@ Reported in G10.3's hand-back (wave log "G10.3 done — 2026-11-19").
 - `tools/gm/model.py:8316-8341` (`_resolved`, `instance_history`)
 - `faults/{pg-join-index-missing,purpose-mail-overlapping-window,scheduler-insert-retry-duplicates,scheduler-query-error,scheduler-report-unbounded}/fault.yaml`
 - `tools/tests/test_fake_aging_faults.py`
-- `specs/formats.md` v38; `specs/versions/v0.6/master-spec.md` 9.5;
+- `specs/formats.md` v39; `specs/versions/v0.6/master-spec.md` 9.5;
   `specs/decisions.md` D580
 - `specs/versions/v0.6/wave-log.md`, wave 3
 

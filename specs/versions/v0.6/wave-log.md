@@ -2754,7 +2754,8 @@ the next free slot after plan v9 (correction 1 gives it `restart.py`).
   (a variant without it and its issue, the game real, or decline;
   the campaign's f10 and issue 6 together; v1.0 gating's campaign
   blind read becomes that variant). **D543**: `suppressed_by` counts
-  from the hiding instance's planting (formats.md v37). **D544**: the
+  from the hiding instance's planting (formats.md v37 [renumbered v38 at
+  the merge with main]). **D544**: the
   "Fake aging" section carries the setup's measured time, behind 9.2's
   "ready in about…". G10.3 added. No owner question.
 - Relayed to chunk 13 (running): D544's duration, D542's selection
@@ -3127,7 +3128,8 @@ Next: G10.3 to `spec-writer`.
 
 ### G10.3 done — 2026-11-19
 
-`spec-writer`, 06a5d21 (formats.md v38, master spec, plan v12,
+`spec-writer`, 06a5d21 (formats.md v38 [renumbered v39 at the merge with
+main], master spec, plan v12,
 D580–D583) and b0f7840 (gate row). Every form checked against the code
 (`history.py`, `aging.py`, `state.py`, `restart.py`, `cleanrestart.py`,
 gmctl.md, SKILL.md, `tools/fake_aging/`, the twenty faults, the loader).
@@ -3173,7 +3175,8 @@ None contradicts the spec.
 - Gate fixes (`coding-executor`, unit suite 1496 OK after them): 6334690,
   gmctl.md and SKILL.md's retry advice follows D583 (a failed import is
   retried by hand; a failed seam with the import `ok` is never rerun);
-  cd3d37e, `calibrate.py`'s docstring names as formats.md v38;
+  cd3d37e, `calibrate.py`'s docstring names as formats.md v38 [renumbered
+  v39 at the merge with main];
   8669bd8, `cleanrestart.EXPLAINS`' real-clock row gains Grafana's alert
   state and history, its no-log row "covers the fill" (9.10). The
   real-clock row's "where it shows" still lists no Grafana view (9.10
