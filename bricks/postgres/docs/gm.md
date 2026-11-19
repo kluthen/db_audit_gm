@@ -324,6 +324,7 @@ log_disconnections = on
 log_lock_waits = on
 log_temp_files = 0
 log_autovacuum_min_duration = 0
+log_autoanalyze_min_duration = 0
 lc_messages = 'C.UTF-8'
 shared_preload_libraries = 'pg_stat_statements'
 ```
@@ -339,6 +340,11 @@ shared_preload_libraries = 'pg_stat_statements'
 - `log_line_prefix` is the stderr prefix pgBadger's documentation
   recommends: pgBadger reads it with no `--prefix` option. Timestamps
   (`%t`) are in `log_timezone`, UTC like the node (`TZ=UTC`).
+- `log_autoanalyze_min_duration` (new in PostgreSQL 19) governs
+  autovacuum's `automatic analyze` lines, which
+  `log_autovacuum_min_duration` governed before 19; every seed setting the one to 0 sets the
+  other beside it (v0.6 spec D592), so the logs keep their autoanalyze
+  lines as designed.
 - `log_min_duration_statement` sets which queries pgBadger can report
   (`-1` logs none, `0` logs all); `lc_messages` must be English (`C`,
   `C.UTF-8` or `en_*`) for pgBadger to classify the messages.
@@ -1454,7 +1460,8 @@ catalog faults apply to `scheduler` 0.3.0, 0.2.0 and 0.1.0 (`scheduler-query-err
 `postgres`, so none is listed above, but much of their evidence is read
 here. A scenario using them gives this node a seed `postgresql.conf` with
 the logging block above (`log_min_duration_statement`, `log_lock_waits =
-on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0`) and
+on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0` and
+`log_autoanalyze_min_duration = 0`) and
 `pg_stat_statements` in `shared_preload_libraries` (players read it from
 the bastion: rows per call, temporary blocks, mean time); the PostgreSQL
 log and pgBadger readings are the scenario's, in its answer key.
