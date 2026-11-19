@@ -2854,3 +2854,45 @@ Figures (owner 1): see the chunk's total line at its merge.
   Relayed: confirm in its own run that the campaign's f5 hides f4's and
   f7's trail in a Prometheus series before writing that pair (D543),
   else report it as D548's case.
+
+### Chunk 10a — committed (18c85f0), 10b WIP (a2469a1), owner rotated, 2026-11-19
+
+Rotated on the driver's word at ~85 calls, context past 300k. On
+`v0.6-c10-history`, not merged; worktree kept. No Docker run.
+`test_aging`, `test_restart`, `test_cleanrestart`, `test_history`: 156
+OK on a2469a1.
+
+- **10a** (18c85f0): `tools/gm/history.py`'s composer (span from the
+  virtual T0 to `restart.at` on each target's scrape grid; one baseline
+  per series by class, fixes 1, 5, 6; the load shape from the fill's
+  metrics records, bounded 0.25 to 4; the kinds per W3 item 4,
+  `suppressed_by` from the hiding instance's planting, D543;
+  OpenMetrics out) and the seam check (findings `{check, series,
+  detail}`, `check` ∈ `negative`, `reset`, `jump` (size gauges, 1 %
+  tolerance), `empty` (added: no sample before the restart)).
+- **10b WIP** (a2469a1): `gmctl history <dir> --playground <pg>
+  [--check-seam]` per W3 item 1 (refusals; no-op once ok; a failed
+  import's blocks removed before a retry; promtool in a `--rm`,
+  `--pull never`, network-less helper of the node's image; blocks moved
+  in whole, folder untouched, D540; load wait ≤180 s, no Prometheus
+  restart); the record's `history: {at, result, seam, reason}` written
+  last; `state.yaml`'s `history_import: {timer, attempts[]}` with each
+  attempt's figures; the start-load timer `dbagm-<gid>_history` at
+  `restart.at` + 12 min; the checks' line (early ≤600 s and fails, the
+  hand-over never fails); status's line; `restart.new_timeline` keeping
+  the fake keys (W3 item 7); the D541 `EXPLAINS` row, the existing
+  Prometheus rows made conditional on a Prometheus node; the verb
+  registered; `gmctl.md`'s rows (parse with `build_parser()`).
+- W3-x so far: the interface, records and verdicts above; `empty`; the
+  1 % jump tolerance; a no-op rerun after "ok but seam failed" exits 1.
+- Left for 10b's owner: `fixture-dropped-index`'s `history:` (a kind
+  each but `none`, unit-tested only: a deviation to report),
+  `run-history-test.sh`, the fixture run (~25 min estimated), the
+  retention figures, then commit and merge.
+- Finding relayed to chunk 11b: an `instance="{INSTANCE_NODE}"`
+  selector on a `pg_*` series matches nothing (the exporter's target is
+  the `instance`); every selector to be checked against the real label
+  sets.
+
+Figures (owner 1): 1 agent, ~85 tool calls, max context >300k; the
+chunk's total line at its merge.
