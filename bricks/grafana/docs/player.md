@@ -39,7 +39,7 @@ in a row also lock the `admin` account for a few minutes.
   |---|---|
   | `datasources/datasources.yaml` | the data source `Prometheus`: its address and settings |
   | `dashboards/dashboards.yaml` | where Grafana looks for dashboard files |
-  | `dashboards/node-health.json` | the node-health dashboard (every node's CPU, memory, disk and services) |
+  | `dashboards/node-health.json` | the node-health dashboard (every node's CPU, memory, disk and services); its **Node** menu, at the top, picks the nodes shown (all by default), and a link to `/grafana/d/node-health/node-health?var-node=<node>` opens it on one node |
   | `dashboards/postgresql.json` | the PostgreSQL dashboard |
   | `dashboards/pgwatch.json` | the pgwatch dashboard (each database as pgwatch sees it); only on games with a pgwatch node |
   | `alerting/alert-rules.yaml` | the alert rules |
