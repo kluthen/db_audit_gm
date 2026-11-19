@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v15
+Status: draft v16
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -8,11 +8,23 @@ stages it acts in are in [scenario-lifecycle.md](scenario-lifecycle.md);
 why its session matters for access is in
 [planes-and-access.md](planes-and-access.md), "The GM session".
 
-The GM is the agent, in a Claude Code or opencode session (D6), running
-the GM skill. The skill lives in `.claude/skills/` and is invoked
-explicitly (e.g. `/game-master`), so that developer sessions in this
-repository are not GM sessions (D33). It speaks with the initiator at
-setup, and then with the players.
+The GM is the agent, in a Claude Code or opencode session (D6). Until
+v0.6 it ran the GM skill, invoked explicitly (`/game-master`); from v0.7
+it is an agent definition for each tool, started by name (`tools/play
+gm`, or the tool's own agent selection), its workflows skills of its own
+(D560, D561; [v0.7 master spec](versions/v0.7/master-spec.md) 7). Either
+way, developer sessions in this repository are not GM sessions (D33). It
+speaks with the initiator at setup, and then with the players. From v0.7
+a game is played from a fresh clone of `main`, the game branch (D557,
+D564), and the GM keeps its memory in the game's local implementation
+only, writing nothing of a game to an agent's automatic memory (D555,
+D565).
+
+The players may also call on the **game assistant**, a player-side
+helper agent with their own access and none of the game's background
+(from v0.7; [v0.7 master spec](versions/v0.7/master-spec.md) 6). It and
+the GM never share a session and never communicate; the GM is not told
+it helped, and judges the report as the players' (D554, D8).
 
 What the GM may do on the infrastructure side: read and write scenario
 folders, use the Docker CLI, and reach hosts over SSH with the keys given
