@@ -213,7 +213,7 @@ NO_LOG_SQL = ("SET log_statement = 'none';", "SET log_min_duration_statement = -
 NO_STATS_SQL = ("SET pg_stat_statements.track = 'none';",)
 # pgaudit off for a session writing a secret (v0.5 G5), beside statement
 # logging: its `role` class logs the statement's text into the log the
-# players' group reads (pgaudit 18.0 redacts a password there; the
+# players' group reads (pgaudit 19.0 redacts a password there; the
 # session's other statements stay out too). Accepted whether pgaudit is
 # loaded or not (a placeholder setting then).
 NO_AUDIT_SQL = ("SET pgaudit.log = 'none';",)

@@ -1,9 +1,9 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (the shop's PostgreSQL 18 server,
+Nodes: `bastion` (you are here), `db` (the shop's PostgreSQL 19 server,
 database `shop`), `pooler` (PgBouncer), `producer` (the web shop),
 `consumer` (the back office's dashboards), `reporting` (Lumen Analytics'
-PostgreSQL 18 server, database `reporting`), `bi` (Lumen's roll-ups),
+PostgreSQL 19 server, database `reporting`), `bi` (Lumen's roll-ups),
 `crm` (the marketing team's and the shipping manager's jobs), `gateway`
 (the customs gateway's callback), `prometheus`, `exporter` (the
 PostgreSQL exporter) and `grafana`. Reach each with `ssh <node>`; reach

@@ -22,7 +22,8 @@ The image:
   19.0 at the 0.5.1 build, v0.6 spec D587; the build asserts the server,
   the client and libpq at 19 and no other major's server or client;
   `pg_stat_statements` ships with the server), pgBadger from the same
-  repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
+  repository (13.2 at the 0.2.0 build, 13.3 at the 0.5.1 build, its
+  checkpoint section empty on 19: see "Logging" below), `openssh-server`, `sudo`, `nano`,
   `vim-tiny`, `less`, `procps`. About 265MB (pgCluu included, 0.5.0).
 - From 0.5.0, pgCluu 5.0 from the same repository (G9: `pgcluu=5.0-1.pgdg13+1`,
   build argument `PG_CLUU_PACKAGE`, pinned exactly and checked at build;
@@ -323,6 +324,7 @@ log_disconnections = on
 log_lock_waits = on
 log_temp_files = 0
 log_autovacuum_min_duration = 0
+log_autoanalyze_min_duration = 0
 lc_messages = 'C.UTF-8'
 shared_preload_libraries = 'pg_stat_statements'
 ```
@@ -338,9 +340,26 @@ shared_preload_libraries = 'pg_stat_statements'
 - `log_line_prefix` is the stderr prefix pgBadger's documentation
   recommends: pgBadger reads it with no `--prefix` option. Timestamps
   (`%t`) are in `log_timezone`, UTC like the node (`TZ=UTC`).
+- `log_autoanalyze_min_duration` (new in PostgreSQL 19) governs
+  autovacuum's `automatic analyze` lines, which
+  `log_autovacuum_min_duration` governed before 19; every seed setting the one to 0 sets the
+  other beside it (v0.6 spec D592), so the logs keep their autoanalyze
+  lines as designed.
 - `log_min_duration_statement` sets which queries pgBadger can report
   (`-1` logs none, `0` logs all); `lc_messages` must be English (`C`,
   `C.UTF-8` or `en_*`) for pgBadger to classify the messages.
+- **Known limit on PostgreSQL 19: pgBadger's checkpoint section is
+  empty** (v0.6 spec D591). PostgreSQL 19 writes its `checkpoint
+  complete:` line in a new form (the checkpoint's reasons and the SLRU
+  buffers in it: `checkpoint complete: fast force wait: wrote 162 buffers
+  (1.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, ...`, read on 19.0,
+  v0.6 chunk 17c), which pgBadger 13.3 no longer reads: its *Checkpoints*
+  report stays empty however many checkpoints ran. No fault's witness
+  reads that section; the lines themselves are in the log
+  (`log_checkpoints = on`) and the counters in `pg_stat_checkpointer`,
+  which is where a player or the GM reads checkpoints on 19. The next
+  pgBadger release that reads 19's lines is taken under D396; until then
+  this is a limit for the release notes, not a fault.
 - `shared_preload_libraries = 'pg_stat_statements'` loads the library
   (restart only). The extension already exists in the database `postgres`
   (start-up step 6), so the view `pg_stat_statements` answers as soon as
@@ -425,8 +444,16 @@ build asserting its version and `/usr/lib/postgresql/19/lib/pgaudit.so`.
     relation (no longer 0 rows and none).
   19.0's own changes are PostgreSQL 19's foreign-key fast path (its
   checks no longer logged against the statement, `CALL` or `DO`) and
-  internal ones that log the same lines. The faults reading audit lines
-  are re-run on 19 by their own chunk (v0.6 chunk 17c).
+  internal ones that log the same lines. The four faults whose planting
+  or evidence passes through pgaudit (`governance-statement-log-personal`,
+  `purpose-herd-use-dropped`, `pg-monitoring-option-absent`,
+  `security-policy-ownership-end-dropped`) were re-run on 19 (v0.6 chunk
+  17c): no played scenario's or fixture's seed preloads pgaudit (only
+  this brick's stack test and `fixture-composed` do), so each meets it
+  only through the guard of a session kept out of the log (`SET
+  pgaudit.log = 'none'`, a placeholder setting where the library is not
+  loaded), which 19.0 accepts as 18.0 did; their logs hold no `AUDIT:`
+  line, and no witness of theirs changed.
 
 - **The seed**: `shared_preload_libraries` naming it beside
   `pg_stat_statements` (a restart), and its classes. The stack test's
@@ -1433,7 +1460,8 @@ catalog faults apply to `scheduler` 0.3.0, 0.2.0 and 0.1.0 (`scheduler-query-err
 `postgres`, so none is listed above, but much of their evidence is read
 here. A scenario using them gives this node a seed `postgresql.conf` with
 the logging block above (`log_min_duration_statement`, `log_lock_waits =
-on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0`) and
+on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0` and
+`log_autoanalyze_min_duration = 0`) and
 `pg_stat_statements` in `shared_preload_libraries` (players read it from
 the bastion: rows per call, temporary blocks, mean time); the PostgreSQL
 log and pgBadger readings are the scenario's, in its answer key.

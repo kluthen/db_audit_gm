@@ -20,20 +20,20 @@ the night's integration jobs and reports keep the systems busy all night.
 
 ## The system
 
-- **The record** (`records`, PostgreSQL 18): the medical record, the
+- **The record** (`records`, PostgreSQL 19): the medical record, the
   agenda and the wards in the database `clinic`; the back office's
   registers and reports in `office`; the owners' portal's accounts and
   copies in `portal`. Its write-ahead log is archived to Cold Storage,
   the franchise's off-site archive, and a base backup is sent there every
   night.
-- **The standby** (`standby`, PostgreSQL 18), a streaming replica of
+- **The standby** (`standby`, PostgreSQL 19), a streaming replica of
   `records` in the centre's **off-site room**, a rented rack in a second
   building at Lowmoor. It is readable: the back office's reports run
   their heavy reads there.
-- **The laboratory's server** (`lab`, PostgreSQL 18, database `lab`):
+- **The laboratory's server** (`lab`, PostgreSQL 19, database `lab`):
   orders, samples, results, the practices' accounts and their billing.
   It archives to Cold Storage as `records` does.
-- **The machines' server** (`machines`, PostgreSQL 18): the imaging
+- **The machines' server** (`machines`, PostgreSQL 19): the imaging
   archive's worklist and reports (`pacs`), the monitors' readings
   (`vitals`) and the biomedical events (`biomed`). It sends a base
   backup to Cold Storage every night, and its old days are shipped there

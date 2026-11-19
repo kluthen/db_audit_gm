@@ -1938,7 +1938,11 @@ noted by the driver in the wave log beside capture W4.
 
 ### Chunk 17c — PostgreSQL 19 in the game's text; the faults read through pgaudit, rerun
 
-Status: planned
+Status: merged (w4, 270d883)
+Record: d9a7b86 (text, D591) and e1c2e3b (D592's 56 seeds), merged as
+270d883 on 2026-11-20; no deviation from the spec or the captures.
+VACUUM (VERBOSE) wording on 19 unchanged from 15-18. No played seed loads
+pgaudit, so the four faults' witnesses didn't change on 19.
 Wave: 4
 Depends on: chunk 17a (in wave 4: starts once it has merged); G15 done
 (spec D591, D592)

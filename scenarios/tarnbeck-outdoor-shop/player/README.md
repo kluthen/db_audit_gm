@@ -9,8 +9,8 @@ last night and keeps running while you work.
 
 | Node | What it is | Your access | Write policy |
 |---|---|---|---|
-| `bastion` | this machine: SSH, PostgreSQL 18 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
-| `db` | the shop's PostgreSQL 18 server, database `shop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
+| `bastion` | this machine: SSH, PostgreSQL 19 client tools, the web front, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
+| `db` | the shop's PostgreSQL 19 server, database `shop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable** |
 | `pooler` | PgBouncer, between the web shop and the database | `ssh pooler`; `psql -h pooler -p 6432` | **fixable** |
 | `producer` | the web shop's application | `ssh producer` | **report-only**, except its code (`/srv/scheduler/repository`) and its jobs (`/srv/scheduler/jobs`), which are **fixable** |
 | `consumer` | the back office's application | `ssh consumer` | **report-only**, except its jobs (`/srv/scheduler/jobs`), which are **fixable** |
