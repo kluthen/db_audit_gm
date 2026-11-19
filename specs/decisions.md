@@ -685,3 +685,9 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   index's size, so the shop's size keeps the load's shape (9.9 fix 5 as
   written). Closes O292. Now in: [formats.md](formats.md) v40 "Fault
   definition"; [build plan](versions/v0.6/build-plan.md) v14, chunk 12, G13.
+- **D586 (2026-11-19, the owner, on capture W4 item 2: "Scale R to
+  span"): the shop's M1 comparison scales run R to the short game's
+  span,** M1 dumped at the virtual T0 and at the read, each expected
+  value T0 + s × (R − T0), s R's share of inserted rows in the game's
+  span; insert-driven measures judged within ±3 %, the rest reported; the
+  shop played as it is. Now in: [master spec](versions/v0.6/master-spec.md) 12.1; [build plan](versions/v0.6/build-plan.md) v15, chunk 12b.
