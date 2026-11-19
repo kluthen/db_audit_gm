@@ -1,6 +1,9 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v14 (2026-11-19): O292 ruled (spec D585), G13 cleared: a
+Status: v15 (2026-11-19): capture W4's preflight corrections and the
+owner's M1 ruling (spec D586) written in: chunk 12 split into 12a, 12b
+and 12c; G10.4 added; release gate item 3 and its estimate.
+v14 (2026-11-19): O292 ruled (spec D585), G13 cleared: a
 `gauge_before` adds its value to the level drawn before the planting,
 f8's the dropped index's size; chunk 12a carries it (`history.py`, the
 skill's wording, `fixture-dropped-index`'s value and its history run's
@@ -143,6 +146,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G10.1 | Wave 1's forms as built, from capture W1 and the chunk records in the wave log: the fill's interface (`gm_scheduler fill`'s FillConfig, PAUSE/GO/DONE/FAILED), the `<node>.metrics.jsonl` record, `service-times.yaml`'s place and shape, the restart record's fields (`local/<pg>/fake-aging.yaml`), `fill.quiet`, the `fill-sql` command | `spec-writer` | Release gate item 2 | done (2026-11-17, b2578a0, spec D534; with G10.2) |
 | G10.2 | Wave 2's forms as built, from capture W2 (its preflight correction 8) and the chunk records in the wave log: the status file's form and its secret (the `rendered` kind), the `brick-doc` configs; the true overview's keys; the restart record as written, with `state.yaml`'s `hold` and `clean_restart`; `timeline`'s fake keys (`virtual_t0`, `anchor`, `tail`, `refused`); `wal-rate.yaml`; the cover's `fill.quiet` item (`routine`, `restore.database`); `--test-tail-floor` | `spec-writer`, after wave 2's gate | Release gate item 2 | done (2026-11-17, b2578a0, spec D534) |
 | G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | done (2026-11-19, 06a5d21, spec D580) |
+| G10.4 | Wave 4's forms as built, from capture W4 (its preflight correction 7) and the chunk records in the wave log: the short-game record's name in "Fake aging's measured figures"; 9.10's per-scenario section's sources (the limits as `explains` holds them, the setup time from the newest record, the wait for the anchor not counted); the M3 comparison's judged set and bounds if the spec is to name them (the M1 comparison's is in master spec 12.1, spec D586) | `spec-writer`, after wave 4's gate | Release gate item 2 | open |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 | G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
@@ -164,7 +168,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
 | 3 | 10, 11, 13 | wave 2 | merged into `main` (2026-11-19) |
-| 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | in progress (started 2026-11-19) |
+| 4 | 5, 12a, 12b, 12c, 14, 16 | wave 3; G8 before its gate | in progress (started 2026-11-19) |
 
 ```
 2 ──> 3, 4, 8           (in wave 1, merge order: each merges after chunk 2 and takes
@@ -176,7 +180,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 3 ──> 8                 (in wave 1, merge order: 8b reads instance_history,
                          fixed by capture W1; 8 merges after 3 and takes
                          v0.6-w1 in first)
-1 ──> G12;  1 ──> 11, 12   (the archive verified; the reference extracted)
+1 ──> G12;  1 ──> 11, 12a, 12b   (the archive verified; the reference extracted)
 2, 3 ──> 6              (bastion 0.6.0's version line; admitted:, reserved routes)
 G6 ──> 6
 2, 3, 4 ──> 7           (the seventh seed file; model.py after chunk 3; the fragments,
@@ -189,22 +193,27 @@ G6 ──> 6
                          restore.database, which clean-restart restores; the checked
                          drop 9's drops use; the hold the fill reads; fixed by
                          capture W2)
-15 ──> 11, 12           (f4's and f7's support through the cover)
+15 ──> 11, 12b          (f4's and f7's support through the cover)
 3, 9 ──> 10             (history: read; the restart record and the host timers)
 3, 8, 15 ──> 11         (the fault format; P0's result, the cover and the queue model's form)
 7, 9 ──> 13             (game-master's setup step 2; the fake-mode verbs, W2, W3)
 2 ──> 5                 (grafana 0.4.0's version line)
-7, 8, 9, 10, 11, 15 ──> 12  (the scenario-document skill; the fill and its cover, the
-                         restart, the history, the faults' assessment)
+10, 11 ──> 12a          (history.py and gauge_before; f8 as assessed)
+7, 9, 11 ──> 12c        (the scenario-document skill; EXPLAINS and the fake
+                         timeline; the faults' aging.fake and notes)
+8, 9, 10, 11, 15 ──> 12b  (the fill and its cover, the restart, the history,
+                         the faults' assessment)
+12a, 12c ──> 12b        (in wave 4, start order: f8's value its game checks; the
+                         section its records fill; fixed by capture W4)
 6, 7 ──> 14             (bastion 0.6.0's front and seventh seed file; the overview
                          and overview_diff:)
-12, 14 ──> 16           (in wave 4, start order: the template as chunk 12 merged
+12c, 14 ──> 16          (in wave 4, start order: the template as chunk 12c merged
                          it; chunk 14's new fixtures)
 ```
 
-The fake-aging chain (8, 9, 10, 12) and the overview chain (4, 7, 14)
+The fake-aging chain (8, 9, 10, 12b) and the overview chain (4, 7, 14)
 set the four waves: 9 needs the fill's interface and the loader's
-`aging.fake`, 10 the restart record and timers 9 writes, 12 the whole
+`aging.fake`, 10 the restart record and timers 9 writes, 12b the whole
 chain. Chunks with slack fill the short layers: 11 (needs only 3 and 8)
 joins wave 3, 13 joins wave 3 beside it, and 5 (needs only 2) and 14
 join wave 4, so no wave runs under three chunks.
@@ -239,14 +248,21 @@ no Docker); 10 takes chunk 13's slot. The three share no file and merge
 in any order (capture W3 item 13); 10's and 11's Docker runs queue on
 the lock.
 
-**Wave 4's order**: chunks 12 and 14 start first, then 5; 16 starts
-once 12 and 14 have merged, taking `v0.6-w4` in first. The first three
-share no file: chunk 12 regenerates every scenario's `README.md` and
-changes f8's `fault.yaml`, 14
-writes only its new fixtures' and the root `README.md`'s fault table,
-and 5 changes the seeded dashboards, which no `README.md` reads. Chunk
-16 then owns every fixture's scenario document, 12's two and 14's new
-ones included.
+**Wave 4's order**: chunk 14 started first (merged), then 5. Chunk 12
+is split in three (capture W4's preflight correction 1): 12a and 12c
+share no file and may run side by side, one beside chunk 5 now and the
+other once 5 has merged (12a first: its history run waits for a start
+window); the one merging second takes `v0.6-w4` in first. 12b starts
+once 12a and 12c have merged, taking `v0.6-w4` in first; 16 starts once
+12c and 14 have merged, so it may take the slot beside 12b (a heavy
+chunk with a none one). Chunk 5 changes the seeded dashboards, which no
+`README.md` reads; 12a changes `history.py`, the `scenario-format`
+skill, `fixture-fill`'s fault and f8's `fault.yaml`, and no
+`README.md`; 12c owns the `scenario-document` skill and regenerates
+every scenario's `README.md` and two fixtures'; 12b regenerates only
+the shop's and the campaign's `README.md`, after 12c, with its
+records; 16 owns every fixture's scenario document, 12c's two and 14's
+new ones included.
 
 ## Workflow deltas
 
@@ -344,7 +360,7 @@ ones included.
 | 1 | G5 cleared; every brick built at its v0.6 version, its `base:` checked against the image's `/etc/os-release`; the loader's new refusals (chunk 3's unit tests, every scenario and fixture loading); `check_domain_dir` clean on the seven domains with their overview fragments; the scheduler's replay guard and P0's result recorded in the wave log; chunk 8's short fill on its fixture |
 | 2 | G7 cleared; `bastion` 0.6.0's stack test (the home page, the documentation site, the reports folder with its sandbox header, `jq` and `tmux`) and chunk 6's status fixture (an incident started, one not yet, "Operational", the status file unreadable by `player`); the network overview's unit tests on the clinic (each crafted break refused); the clinic's format check with its overview, every scenario's `README.md` matching a fresh regeneration; chunk 9's clean-restart fixture (one restart instant, the monitoring started in it, the statistics reset once, `pg_wal`'s size, the restart record, no seeded or T0-planted time after the virtual T0); chunk 15's cover in `TestP0` (the scheduler's unit runner), the replay guard green |
 | 3 | chunk 10's history fixture (the import, the seam check, the restart from the hand-over snapshot keeping the imported blocks); every fault of the shop and the campaign passing the format check with `aging.fake` and `history:`; the calibration figures recorded in the wave log |
-| 4 | G8 cleared; `grafana` 0.4.0's stack test (the `node` variable filtering one node); the two short fake games (chunk 12: shop and campaign, each under 30 minutes, the checks reading every selected fault present, the seam check, the tells script, the shop's M1 and M3 comparisons against the reference); the `docs-overview-*` fault's short test and the clinic's front fixture (chunk 14) |
+| 4 | G8 cleared; `grafana` 0.4.0's stack test (the `node` variable filtering one node); `fixture-fill`'s history run (chunk 12a); the two short fake games (chunk 12b: shop and campaign, each under 30 minutes in its start window, the checks reading every selected fault present, the seam check, the tells script, the shop's M1 comparison against run R scaled to its span (spec D586) and its M3 comparison within its bounds, f8's step); the `docs-overview-*` fault's short test and the clinic's front fixture (chunk 14) |
 
 ## Settled with the owner
 
@@ -355,7 +371,7 @@ build plan"); the chunks named are written on these answers.
 |---|---|---|
 | Every brick takes a new version for `base:`, every scenario repinned | D515 | 2 |
 | An initiator who may play hears only "quick game" or "extended game" | D516 | 13 |
-| The master spec and access model approved, the review's defaults standing (the restart record, the monitoring started in the restart, the early check after the import, N9 dropped, the campaign's P0 fallback, the reports folder, the README node table kept without an overview) | D517 | 6, 7, 9, 10, 12, 13 |
+| The master spec and access model approved, the review's defaults standing (the restart record, the monitoring started in the restart, the early check after the import, N9 dropped, the campaign's P0 fallback, the reports folder, the README node table kept without an overview) | D517 | 6, 7, 9, 10, 12b, 13 |
 
 Ruled on 2026-11-16 ("i don't want to keep the archive in the git, but
 it can go there. you may stop the real aging game once its usefullness
@@ -364,7 +380,7 @@ is spent. i aprove the plan."):
 | Ruling | Spec | Chunks it touches |
 |---|---|---|
 | The plan approved, κ = 2; `v0.6-spec` merged into `main` | D518 | G1; every wave |
-| No reference data in git, small files included: the whole `results/` archived outside git at the proposed path, git keeping its pointer; a test needing it skips when it is absent | D519 | 1, 8, 11, 12 |
+| No reference data in git, small files included: the whole `results/` archived outside git at the proposed path, git keeping its pointer; a test needing it skips when it is absent | D519 | 1, 8, 11, 12a, 12b |
 | `fa-real` torn down once its usefulness is spent: after chunk 1 merges and the archive verifies | D520 | G12 |
 
 Ruled on 2026-11-18, after wave 2's gate:
@@ -379,20 +395,27 @@ Ruled on 2026-11-16, after chunk 8 (wave log, "Owner ruling: the
 
 | Ruling | Spec | Chunks it touches |
 |---|---|---|
-| A routine pinning its own `search_path` covered for the fill's span and restored exactly, the catalog row-version tell a documented limit; the campaign's f4 and f7 back to `supported`, subject to their calibration | D523 | 15, 9, 11, 12 |
+| A routine pinning its own `search_path` covered for the fill's span and restored exactly, the catalog row-version tell a documented limit; the campaign's f4 and f7 back to `supported`, subject to their calibration | D523 | 15, 9, 11, 12b |
 
 Ruled on 2026-11-19, after wave 3's gate (G10.3's open item), "Fix in
 wave 4":
 
 | Ruling | Spec | Chunks it touches |
 |---|---|---|
-| The shop's f8 gains a measured `gauge_before` on `pg_database_size_bytes`, so master spec 9.9 fix 5 holds as written; its form ruled by D585 | D584 | 12 |
+| The shop's f8 gains a measured `gauge_before` on `pg_database_size_bytes`, so master spec 9.9 fix 5 holds as written; its form ruled by D585 | D584 | 12a, 12b |
 
 Ruled on 2026-11-19, O292 (G13), "go with the recommended option":
 
 | Ruling | Spec | Chunks it touches |
 |---|---|---|
-| A `gauge_before` adds its `value` to the level drawn on its series before the planting, instead of holding one level; f8's `value` is the dropped index's size | D585 | 12 |
+| A `gauge_before` adds its `value` to the level drawn on its series before the planting, instead of holding one level; f8's `value` is the dropped index's size | D585 | 12a |
+
+Ruled on 2026-11-19, on capture W4's M1 comparison (wave log, wave 4,
+"W4 reviewed by the driver; owner ruling on M1"), "Scale R to span":
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| The shop's M1 comparison scales run R to the short game's span: M1 dumped at the virtual T0, insert-driven measures judged within ±3 %, the rest reported; the shop played as it is | D586 | 12b |
 
 Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 2026-11-17"), all three as recommended:
@@ -414,7 +437,7 @@ Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
   `search_path` is out of reach, so the cover (chunk 15, spec D523);
   f4's and f7's support confirmed in a short campaign fill (chunk 11).
   Its result sets the campaign's supports (chunk 11) and the campaign's
-  short selection (chunk 12): the fallback for a fault it doesn't reach
+  short selection (chunk 12b): the fallback for a fault it doesn't reach
   is settled (master spec 9.8).
 - **Each key's service time** for the queue model: the shop's from the
   research's real run (chunk 8); the campaign's by a short real run,
@@ -424,7 +447,7 @@ Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
   short real run each, under 30 minutes, the fault planted at once and
   its job moved into the window (chunk 11).
 - **The fill's duration** on the shop's fixture (chunk 8) and on the
-  shop and the campaign (chunk 12), with the time from the deploy to
+  shop and the campaign (chunk 12b), with the time from the deploy to
   the restart, for the scenario document (spec D544); the autovacuum
   counts in range with
   the lowered naptime (chunk 8).
@@ -436,13 +459,13 @@ Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 - **`daily_spike` and `gauge_before`**, never exercised by the research
   (chunk 10).
 - **The size of the index f8 drops** on the shop's database, for f8's
-  `gauge_before` (chunk 12, spec D584).
+  `gauge_before` (chunk 12a, spec D584).
 - **A restart from the hand-over snapshot keeps the imported blocks**,
   and **Prometheus' retention against imported blocks older than the
   head, after a compaction** (chunk 10).
 - **The players' shell can't read the Prometheus node's TSDB folder**
   (spec D540): its owner and mode kept by the import (chunk 10), the
-  `player` account unable to list `/var/lib/prometheus` in chunk 12's
+  `player` account unable to list `/var/lib/prometheus` in chunk 12b's
   games.
 - **Whether the campaign's f4 check needs the 12:00 close in the tail**
   (chunk 11).
@@ -463,7 +486,7 @@ each is recorded.
 | A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 |
 | `daily_spike` and `gauge_before` | 10 |
 | The imported blocks after a hand-over snapshot's restart; retention after a compaction | 10 |
-| The players' shell can't read the TSDB folder | 10, 12 |
+| The players' shell can't read the TSDB folder | 10, 12b |
 | The campaign's f4 and the 12:00 close | 11 |
 | A brick's exact version if a build finds more to change (folded into the unreleased version) | any brick chunk; G5, G7, G8 |
 
@@ -1578,78 +1601,20 @@ link).
 - Verification: chunk checks; the grafana stack test.
 - Split rule: none.
 
-### Chunk 12 — Fake aging verified, and the scenario document's "Fake aging" section
+### Chunk 12a — `gauge_before` adds its value; f8's measured `gauge_before`
 
 Status: planned
 Wave: 4
-Depends on: chunks 7, 8, 9, 10, 11, 15; chunk 1 (the reference)
-Docker: heavy (one short fake game of the shop and one of the campaign;
-f8's index measured from a short run of the shop's database, if not
-from the reference; `fixture-fill`'s history run once; one at a time
-under the lock)
-Architecture capture: W4: the verification tools' arguments and
-verdicts, and the short-game script's name, which the release gate
-calls.
+Depends on: chunks 10, 11; chunk 1 (the reference, for f8's value)
+Docker: light (`fixture-fill`'s history run once, under the lock, in its
+hh:38 to hh:41 start window; a short run of the shop only if run R's
+reference can't isolate f8's step, capture W4 item 6)
+Architecture capture: W4 (item 6).
 
-- Goal: fake aging run end to end on the shop and the campaign, each
-  under 30 minutes, checked by the tools that found the research's
-  tells; the scenario document showing each scenario's fake-aging
-  facts, as master spec 9.10 and 12.1 state.
+- Goal: a `gauge_before` adding its value to the level drawn before
+  the planting (spec D585), and the shop's f8 carrying its measured one
+  (spec D584), so master spec 9.9 fix 5 holds as written.
 - Scope: in:
-  - **the verification tools** in `tools/fake_aging/`: the tells
-    script (no negative or moving start time, no fill statement in
-    `pg_stat_statements`, one `stats_reset` instant, `pg_wal`'s size,
-    autovacuum counts in range, no routine's `search_path` naming
-    `gm_vclock`), the M1 dump and comparison, the M3
-    profile and comparison; from the research's `m4_tells.sh`,
-    `m1_dump.sh`, `m1_compare.py` and `m3_profile.py`, **copied and
-    generalised** (scenario, nodes and keys as arguments), their origin
-    named; the comparisons reading run R's M1 dump and M3 profile,
-    extracted from chunk 1's archive with `extract.sh` into its
-    untracked working directory, never a new real run, and skipping
-    with their message when the archive is absent;
-  - **the short fake games**, one script (`tools/tests/smoke-fake-aging.sh`,
-    new) run on `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign`:
-    a selection whose tail fits a floor capped at 15 minutes (the shop:
-    f1, f2, f3, f6, f8, f9, f10; the campaign: f1 to f4 and f7 to f9,
-    f4 and f7 through the cover (spec D523), less either one chunk 11
-    left `tail-only`, master spec 9.8's fallback); render, deploy, load,
-    inject, fill,
-    clean-restart, a 15-minute tail, the history import at about 12
-    minutes and the early check right after it; the checks reading
-    every selected fault present; the seam check; the tells script; for
-    the shop, the M1 and M3 comparisons against the reference; for the
-    campaign, P0's jobs' outputs against their invariants; a start-time
-    check showing the monitoring started with the rest; the `player`
-    account unable to list `/var/lib/prometheus` on the Prometheus node
-    (spec D540);
-  - **the campaign's figures read as measured** (chunk 11b, spec D578):
-    low-sample and from an evening window, not a day's average like the
-    shop's 43 881 262: f1's `per_call` (three calls), the WAL rates of
-    `db` and `reporting` (7.2 minutes at the producer's shape 0.6),
-    `rollup.close` (one run, `sigma: 0`). The tells read `pg_wal`'s
-    size against the padding `state.yaml`'s `clean_restart.wal`
-    records, never against a day's figure the campaign has none of; a
-    step in f1's series at the seam is recorded in the chunk's record
-    as a finding for a day-long measurement (v1.0 gating), not a
-    failure of the game;
-  - **f8's `gauge_before`** (spec D584, master spec 9.9 fix 5): the
-    shop's f8 (`faults/pg-join-index-missing/fault.yaml`) gains in its
-    `history:` a `gauge_before` on
-    `pg_database_size_bytes{datname="{DATABASE}"}`, its number measured,
-    with its `# measured:` comment on the number's line (formats.md v39,
-    "Fault definition"). The measurement (master spec 9.7): the size of
-    the index f8 drops (`order_lines_order_id_idx` on the shop's
-    `order_lines.order_id`) on the shop's database at its scale, read
-    either from run R's reference (`r-dump/r.om`, the database's size
-    either side of R's planting, 2026-11-15T02:00Z, with
-    `calibrate.py gauge`; the comment names the member) or in a short
-    run of the shop (`--record f8`, the file
-    `tools/fake_aging/calibration/tarnbeck-outdoor-shop-f8-<YYYYMMDDTHHMMZ>.txt`,
-    which the comment names). Its `value` is the index's size, added
-    to the drawn size up to the planting (spec D585).
-    `test_fake_aging_faults.py` already checks every `value:` line's
-    comment and source, unchanged;
   - **`gauge_before` adds its value** (spec D585, formats.md v40,
     "Fault definition"): in `tools/gm/history.py`, a `gauge_before`
     adds its `value` to the level drawn on its series up to the
@@ -1668,63 +1633,204 @@ calls.
     `run-history-test.sh`'s `gauge_before` check follows the new form
     (the size steps down by `value` at the planting) and the run
     passes once, under the lock;
+  - **f8's `gauge_before`** (spec D584, master spec 9.9 fix 5): the
+    shop's f8 (`faults/pg-join-index-missing/fault.yaml`) gains in its
+    `history:` a `gauge_before` on
+    `pg_database_size_bytes{datname="{DATABASE}"}`, its number measured,
+    with its `# measured:` comment on the number's line (formats.md v39,
+    "Fault definition"). The measurement (master spec 9.7): the size of
+    the index f8 drops (`order_lines_order_id_idx` on the shop's
+    `order_lines.order_id`) on the shop's database at its scale, read
+    from run R's reference first (`r-dump/r.om`, the database's size
+    either side of R's planting, 2026-11-15T02:00Z, with
+    `calibrate.py gauge`; the comment names the member), and only if
+    that read can't isolate the step in a short run of the shop
+    (`--record f8`, the file
+    `tools/fake_aging/calibration/tarnbeck-outdoor-shop-f8-<YYYYMMDDTHHMMZ>.txt`,
+    which the comment names; capture W4 item 6). Its `value` is the
+    index's size, added to the drawn size up to the planting (spec
+    D585). `test_fake_aging_faults.py` already checks every `value:`
+    line's comment and source, unchanged.
+  - Out: the shop's game and the check of f8's step over its forged
+    past (chunk 12b); any scenario document (chunks 12b, 12c, 16).
+- Files: `tools/gm/history.py`, `tools/tests/test_history.py`;
+  `.claude/skills/scenario-format/{SKILL.md,templates/fault.yaml}`;
+  `tools/tests/fixtures/fixture-fill/{faults/fixture-dropped-index/fault.yaml,run-history-test.sh}`;
+  `faults/pg-join-index-missing/fault.yaml` (f8's `gauge_before`);
+  `tools/fake_aging/calibration/` (f8's file, only if measured in a
+  run). No file shared with chunk 12c.
+- Spec sections: [9.9](master-spec.md#99-the-fix-list),
+  [9.7](master-spec.md#97-every-number-is-measured),
+  [12.1](master-spec.md#121-short-tests-only); items 5.
+- Done when: `gauge_before` adding its value, `test_history.py` green
+  with the sum's case; `fixture-fill`'s history run passing with
+  `fixture-dropped-index`'s value its index's size; f8's `history:`
+  carrying its measured `gauge_before`, `test_fake_aging_faults.py`
+  passing.
+- Verification: chunk checks; `fixture-fill`'s history run once, under
+  the lock (spec D585).
+- Split rule: none.
+
+### Chunk 12b — Fake aging verified: the tools and the two short games
+
+Status: planned
+Wave: 4
+Depends on: chunks 8, 9, 10, 11, 15; chunk 1 (the reference); chunks 12a
+and 12c (in wave 4: starts once both have merged: f8's value its game
+checks, the section its records fill; capture W4)
+Docker: heavy (one short fake game of the shop and one of the campaign,
+each in its start window, one at a time under the lock)
+Architecture capture: W4 (items 1 to 5): the verification tools'
+arguments and verdicts, and the short-game script's name, arguments,
+window and exit status, which the release gate calls.
+
+- Goal: fake aging run end to end on the shop and the campaign, each
+  under 30 minutes, checked by the tools that found the research's
+  tells, each game's record committed and shown in its scenario
+  document, as master spec 9.10 and 12.1 state.
+- Scope: in:
+  - **the verification tools** in `tools/fake_aging/`: the tells
+    script (no negative or moving start time, no fill statement in
+    `pg_stat_statements`, one `stats_reset` instant, `pg_wal`'s size,
+    autovacuum counts in range, no routine's `search_path` naming
+    `gm_vclock`), the M1 dump and comparison, the M3
+    profile and comparison; from the research's `m4_tells.sh`,
+    `m1_dump.sh`, `m1_compare.py` and `m3_profile.py`, **copied and
+    generalised** (scenario, nodes and keys as arguments), their origin
+    named; the comparisons reading run R's M1 dump and M3 profile,
+    extracted from chunk 1's archive with `extract.sh` into its
+    untracked working directory, never a new real run, and skipping
+    with their message when the archive is absent;
+  - **the short fake games**, one script (`tools/tests/smoke-fake-aging.sh`,
+    new) run on `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign`,
+    each as it is (never a copy at another span) and only in its start
+    window (capture W4 item 5): a selection whose tail fits a floor
+    capped at 15 minutes (the shop: f1, f2, f3, f6, f8, f9, f10; the
+    campaign: f1 to f4 and f7 to f9, f4 and f7 through the cover (spec
+    D523), less either one chunk 11 left `tail-only`, master spec 9.8's
+    fallback); render, deploy, load, inject, for the shop M1 dumped at
+    the virtual T0, fill,
+    clean-restart, a 15-minute tail, the history import at about 12
+    minutes and the early check right after it; the checks reading
+    every selected fault present; the seam check; the tells script; for
+    the shop, the M1 comparison against run R scaled to the game's span
+    (spec D586) and the M3 comparison over the hours the game's past
+    holds (capture W4 items 2, 3), and f8's step over its forged past
+    (capture W4 item 4); for the
+    campaign, P0's jobs' outputs against their invariants; a start-time
+    check showing the monitoring started with the rest; the `player`
+    account unable to list `/var/lib/prometheus` on the Prometheus node
+    (spec D540);
+  - **the campaign's figures read as measured** (chunk 11b, spec D578):
+    low-sample and from an evening window, not a day's average like the
+    shop's 43 881 262: f1's `per_call` (three calls), the WAL rates of
+    `db` and `reporting` (7.2 minutes at the producer's shape 0.6),
+    `rollup.close` (one run, `sigma: 0`). The tells read `pg_wal`'s
+    size against the padding `state.yaml`'s `clean_restart.wal`
+    records, never against a day's figure the campaign has none of; a
+    step in f1's series at the seam is recorded in the chunk's record
+    as a finding for a day-long measurement (v1.0 gating), not a
+    failure of the game;
+  - **the games' records**: each game run once with `--record`, its
+    output committed as
+    `tools/fake_aging/calibration/<scenario id>-short-game-<YYYYMMDDTHHMMZ>.txt`
+    (capture W4 item 5), and the shop's and the campaign's `README.md`
+    regenerated with the `scenario-document` skill as chunk 12c leaves
+    it, their "Fake aging" section showing the setup's measured time
+    from that record.
+  - Out: the full selections with their real tails, the blind reads
+    (v1.0 gating); the recorded baseline and the research's run scripts
+    (stay research); the `scenario-document` skill and template (chunk
+    12c).
+- Files: `tools/fake_aging/{tells.sh,m1_dump.sh,m1_compare.py,m3_profile.py}`
+  (new), `tools/fake_aging/README.md` (new); `tools/tests/smoke-fake-aging.sh`
+  (new); `tools/fake_aging/calibration/` (the two short games'
+  records, new);
+  `scenarios/{tarnbeck-outdoor-shop,tarnbeck-outdoor-campaign}/README.md`.
+- Spec sections: [12.1](master-spec.md#121-short-tests-only),
+  [9.10](master-spec.md#910-documented-limits),
+  [9.9](master-spec.md#99-the-fix-list),
+  [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates),
+  [9.12](master-spec.md#912-where-it-belongs-in-the-product); items 5.
+- Done when: each short fake game passes every check above in under 30
+  minutes, its wall time, the fill's duration, the time from the
+  deploy to the restart and the import's time recorded in its
+  committed record; the shop's M1 comparison's judged measures within
+  ±3 % of run R scaled to the game's span (spec D586), and its M3
+  comparison's traffic expressions within its bounds (capture W4 items
+  2 and 3); the shop's forged past stepping down at f8's planting by
+  f8's `value`, within capture W4 item 4's tolerance; the shop's and
+  the campaign's "Fake aging" sections showing the measured setup time
+  and naming their record; both `README.md` fresh.
+- Verification: chunk checks; the two short games, one at a time,
+  under the lock, each in its start window; in the shop's,
+  `pg_database_size_bytes` for `shop` over the forged past read at f8's
+  planting (08:00), its step against the measured size (spec D584).
+- Split rule: none (a third of chunk 12; the shop's game and the
+  campaign's share the script and the tools).
+
+### Chunk 12c — The scenario document: "Fake aging", `admitted:`, the starter-pack line
+
+Status: planned
+Wave: 4
+Depends on: chunks 7, 9, 11 (the `scenario-document` skill;
+`cleanrestart.EXPLAINS` and `render.fake_timeline`; the faults'
+`aging.fake` and `**Fake aging.**` notes)
+Docker: none
+Architecture capture: W4 (items 7 to 9).
+
+- Goal: the scenario document showing each scenario's fake-aging facts
+  and its partners' admitted incidents, as master spec 9.10 and 7.6
+  state, from a template chunk 16 then applies to every fixture.
+- Scope: in:
   - **the scenario document's "Fake aging" section** (the
     `scenario-document` skill and its template): each instance's
     support, the tail the full selection needs, the instances refused
     with their reasons, the limits touching its evidence, the setup's
     measured time from the deploy to the restart (spec D544), under the
-    heading and with the facts capture W3 item 12 fixes; every
-    scenario's `README.md` regenerated;
+    heading and with the facts capture W3 item 12 and capture W4 item 7
+    fix, its inputs joining the skill's "When to generate or
+    regenerate"; the setup's time reads "not measured" until chunk
+    12b's records land;
   - **an instance's `admitted:` in the scenario document** (master
-    spec 7.6, spec D537), in the same skill and template: beside the
-    instances' planting moments, a table of the instances a partner
-    admits (instance, partner, title, `from`, `until` as written) and
-    each one's text, as `fixture-v06-refusals`' hand-rendered
-    `README.md` shows it; that fixture's and `fixture-status`'s
-    `README.md` regenerated.
-  - Out: the full selections with their real tails, the blind reads
-    (v1.0 gating); the recorded baseline and the research's run scripts
-    (stay research).
-- Files: `tools/fake_aging/{tells.sh,m1_dump.sh,m1_compare.py,m3_profile.py}`
-  (new), `tools/fake_aging/README.md` (new); `tools/tests/smoke-fake-aging.sh`
-  (new); `.claude/skills/scenario-document/{SKILL.md,template.md}`;
+    spec 7.6, spec D537, capture W4 item 8), in the same skill and
+    template: beside the instances' planting moments, a table of the
+    instances a partner admits (instance, partner, title, `from`,
+    `until` as written) and each one's text, as `fixture-v06-refusals`'
+    hand-rendered `README.md` shows it;
+  - **the starter-pack line** (capture W4 item 9): the true register,
+    `gm/data-register.yaml`, named only when the bastion maps
+    `data-register.md`;
+  - **a true overview with no entries** (chunk 14's record): the
+    template's "Network overview" subsection gains a case for a true
+    overview whose `entries` is empty (chunk 14's bastion-only
+    fixtures, read today as "0 entries" beside a copied 21-node
+    handout, with "the handout is the true overview rendered as is"):
+    it says the true overview describes no node of the scenario's
+    topology and makes no claim that the handout renders it, from the
+    authoritative files;
+  - every scenario's `README.md` regenerated, and `fixture-status`'s
+    and `fixture-v06-refusals`' (the admitted incidents shown).
+  - Out: every other fixture's document (chunk 16); the measured setup
+    times (chunk 12b's records); any Docker run.
+- Files: `.claude/skills/scenario-document/{SKILL.md,template.md}`;
   `scenarios/*/README.md`;
-  `tools/tests/fixtures/{fixture-status,fixture-v06-refusals}/README.md`;
-  `faults/pg-join-index-missing/fault.yaml` (f8's `gauge_before`);
-  `tools/fake_aging/calibration/` (f8's file, if measured in a run);
-  `tools/gm/history.py`, `tools/tests/test_history.py`;
-  `.claude/skills/scenario-format/{SKILL.md,templates/fault.yaml}`;
-  `tools/tests/fixtures/fixture-fill/{faults/fixture-dropped-index/fault.yaml,run-history-test.sh}`.
-- Spec sections: [12.1](master-spec.md#121-short-tests-only),
-  [9.10](master-spec.md#910-documented-limits),
-  [9.9](master-spec.md#99-the-fix-list),
-  [9.7](master-spec.md#97-every-number-is-measured),
+  `tools/tests/fixtures/{fixture-status,fixture-v06-refusals}/README.md`.
+  No file shared with chunk 12a.
+- Spec sections: [9.10](master-spec.md#910-documented-limits),
+  [9.5](master-spec.md#95-fault-eligibility),
   [9.12](master-spec.md#912-where-it-belongs-in-the-product),
-  [9.8](master-spec.md#98-the-scenarios-covered-and-the-starting-estimates),
   [7.6](master-spec.md#76-the-partners-status-pages); items 5.
-- Done when: each short fake game passes every check above in under 30
-  minutes, its wall time, the fill's duration, the time from the
-  deploy to the restart and the import's time recorded; the shop's M1 and M3 comparisons within the reference's
-  tolerances; f8's `history:` carrying its measured `gauge_before`,
-  `test_fake_aging_faults.py` passing, and the shop's forged past
-  stepping down at f8's planting by the index's size; `gauge_before`
-  adding its value, `test_history.py` green, `fixture-fill`'s history
-  run passing with `fixture-dropped-index`'s value its index's size;
-  the scenario
-  document's section present for the shop and
-  the campaign, and stating "not assessed" where a scenario's faults
-  are; `fixture-status`'s and `fixture-v06-refusals`' scenario
-  documents generated with the admitted incidents shown; every
-  `README.md` fresh.
-- Verification: chunk checks; the two short games, one at a time,
-  under the lock; in the shop's, `pg_database_size_bytes` for `shop`
-  over the forged past read at f8's planting (08:00), its step against
-  the measured size (spec D584); `fixture-fill`'s history run once,
-  under the lock (spec D585).
-- Split rule: 12a the tools, the script, `gauge_before`'s sum (spec
-  D585), f8's `gauge_before`, `fixture-dropped-index`'s value and the
-  shop's game; 12b the campaign's game and the scenario document's
-  section.
+- Done when: the section present in every scenario's document, stating
+  "not assessed" where a scenario's faults are and "none" where a
+  scenario does not age, the shop's and the campaign's setup time "not
+  measured"; `fixture-status`'s and `fixture-v06-refusals`' scenario
+  documents generated with the admitted incidents shown; the
+  starter-pack line naming the true register only beside a register;
+  the template's case for a true overview with no entries; every
+  `README.md` fresh, a second run of the skill changing none.
+- Verification: chunk checks.
+- Split rule: none.
 
 ### Chunk 14 — A `docs-overview-*` fault and the clinic's front
 
@@ -1780,9 +1886,10 @@ Architecture capture: none beyond W2.
 
 Status: planned
 Wave: 4
-Depends on: chunks 12, 14 (in wave 4: starts once both have merged)
+Depends on: chunks 12c, 14 (in wave 4: starts once both have merged)
 Docker: none
-Architecture capture: none (the template is chunk 12's).
+Architecture capture: none (the template is chunk 12c's, capture W4
+items 7 to 10).
 
 - Goal: every fixture's scenario document generated from the current
   template, as every scenario's is (spec D538); wave 2's gate found the
@@ -1800,16 +1907,23 @@ Architecture capture: none (the template is chunk 12's).
     `-core`, `-exchanges`, `-housing`, `-imaging`, `-lab-core`,
     `-orders`, `-portal`, `-portal-scope`, `-reports`, `-vault`), and
     the wording the template has changed since each was written; chunk
-    12's two and chunk 14's come out unchanged when already fresh.
+    12c's two and chunk 14's come out unchanged when already fresh;
+  - in each, the sections chunk 12c's template adds (capture W4 item
+    10): the "Fake aging" section in every one, beside "Third parties"
+    and "Composition" ("not assessed" for most fixture faults, "none"
+    for a fixture without `aging:`), so each document grows by one
+    table; the `admitted:` table where an instance has one; the
+    corrected starter-pack line; the case for a true overview with no
+    entries (chunk 14's bastion-only fixtures).
   - Out: `fixture-compose`'s and `fixture-composed`'s `README.md`,
     which describe a test, not a scenario; any change to a fixture's
     `scenario.yaml`, answer key or the template (a defect the
     regeneration finds goes to the driver, not fixed here);
-    `scenarios/*/README.md` (chunk 12).
+    `scenarios/*/README.md` (chunks 12b, 12c).
 - Files: `tools/tests/fixtures/*/README.md` (the scenario documents
   only).
 - Spec sections: none of its own (a regeneration); what the documents
-  show is the template's, as chunk 12 leaves it for
+  show is the template's, as chunk 12c leaves it for
   [7.6](master-spec.md#76-the-partners-status-pages) and
   [9.10](master-spec.md#910-documented-limits).
 - Done when: every fixture's scenario document opens with the warning
@@ -1841,9 +1955,12 @@ is committed on `v0.6-rg` and merged into `main` on the owner's word.
    at its v0.6 version, `base:` matching its image; G10's rows done;
    G5, G7 and G8 cleared, `.tech` current (items 2, 3, 7).
 3. **One short fake game of the shop and one of the campaign**,
-   `smoke-fake-aging.sh` as 12.1 says, one after the other on one host;
-   every fault of both scenarios carrying `aging.fake` and its measured
-   `history:`; the restart record and `gmctl status` read (item 5).
+   `smoke-fake-aging.sh` as 12.1 says, without `--record`, one after
+   the other on one host, each in its start window (capture W4 item 5:
+   the script refuses outside it, exit 3, so the second waits for its
+   next window); every fault of both scenarios carrying `aging.fake`
+   and its measured `history:`; the restart record and `gmctl status`
+   read in the script's output (item 5).
 4. **The clinic's front**: `fixture-clinic-front` read as `player`,
    every page and status page, a report in `~/reports/`; no whole-clinic
    deployment (item 3).
@@ -1861,10 +1978,12 @@ is committed on `v0.6-rg` and merged into `main` on the owner's word.
    pointing to v1.0 gating; the access model's known gaps.
 8. G11: the owner's judgement.
 
-**Estimated wall-clock**: about 3½ hours on armenelos, nearly all of it
+**Estimated wall-clock**: about 4 hours on armenelos, nearly all of it
 under the Docker lock: the ten brick builds and stack tests about 55
 minutes (wave 1 of v0.5 took about 40 for eight), the two short fake
-games about 60, the existing scenarios' smokes and the smoke scripts
+games about 1½ hours (each in its start window, the second waiting for
+the next one), the existing
+scenarios' smokes and the smoke scripts
 about 35, the bastion fixtures (status, overview fault, clinic front)
 about 20, the unit suite, format checks and lints about 10; then the
 reading items and the release notes, about 30 minutes.

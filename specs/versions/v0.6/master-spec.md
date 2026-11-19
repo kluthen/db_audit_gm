@@ -48,7 +48,9 @@ with psql (6.9, 9.5, 9.7, 9.8; spec D578). Amended after wave 3's gate
 on size gauges (9.4, 12.1; spec D581); a fake game's restart with no
 history (9.4; spec D582); one import at a time, a failed seam never
 imported again (9.4; spec D583); what wave 3 measured (9.4, 9.8, 12.1,
-18).
+18). Amended in wave 4, on the owner's ruling after capture W4: the
+shop's M1 comparison scales the saved real run to the game's span
+(12.1; spec D586).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -1438,7 +1440,17 @@ No aged run.
   moving start time, no fill statement in `pg_stat_statements`, one
   `stats_reset` instant, `pg_wal`'s size, autovacuum counts in range);
   for the shop, the M1 and M3 comparisons against the saved real run as
-  the reference, not a new real run; for the campaign, the checks
+  the reference, not a new real run. The saved run aged a different
+  span with a different selection, so M1 scales it to the game's span:
+  the game's M1 dumped at its virtual T0 (the same data and T0
+  plantings the saved run started from) and at the read, each measure
+  expected at T0 + `s` × (R − T0), T0 the game's value at its virtual T0,
+  R the saved run's, `s` the share of the saved run's inserted rows that
+  fell in the game's span (from its M3 profile); the measures inserts
+  drive (each table's `n_tup_ins` and `n_live_tup`, the sequences'
+  `last_value`, the database's `tup_inserted`) judged within ±3 % of
+  that, the rest reported, never judged; the shop played as it is, never
+  a copy at the saved run's span. For the campaign, the checks
   reading present, P0's jobs' outputs against their invariants, the
   seam and the tells. A start-time check confirms the monitoring
   started with the rest.
