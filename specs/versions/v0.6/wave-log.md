@@ -3235,8 +3235,7 @@ rotation bound, to finish its 23-minute fixture run.
   `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`.
 - Wave 4: chunks 5, 12, 14, 16 (plan v13). Chunks 5 and 14 have no
   wave 4 dependency; 12 and 16 need wave 3's merge.
-- Open gate: **G13 (O292)**, the owner's; blocks chunk 12's f8 item
-  only.
+- G13 cleared (O292 ruled, D585): see the entry below.
 - For chunk 12's brief: f8's `gauge_before` (D584, O292's form); its
   seam reads `gmctl history`'s verdict (D581), `--check-seam` available;
   its selectors meet the exporter's reach (the `postgres` database only,
@@ -3249,3 +3248,31 @@ rotation bound, to finish its 23-minute fixture run.
 - Environment: armenelos rebooted 07:55 UTC; `debian:13-slim` pulled
   again; seven untagged pre-rebuild images left (no prune); `/home` 55 GB
   free; `shellcheck` not installed; the VPS untouched.
+
+### Main merged in; O292 ruled; wave 3 merged — 2026-11-19
+
+- `spec-writer` merged `main` into `v0.6-w3` (8a8ecf3): main had moved
+  28 commits (the v0.7 spec, 03429d9; v0.7 wave 1, ac17153 and e47df6a,
+  with `tools/play`, `game-mode/publish.py`, the game-assistant agent,
+  D576 and D577). Conflicts only in `specs/formats.md`, `specs/README.md`
+  and `specs/decisions.md`. Both sides had taken formats.md **v37**:
+  main's (v0.7's consolidation) keeps it; the wave's v37 (D543) became
+  **v38** and its v38 (G10.3) **v39**; 22 references renumbered
+  (067e6f7), older log entries annotated. decisions.md kept in number
+  order (interleaved). Unit suite after the merge: 1546 OK, 2 skipped;
+  `doc-ids compare`: 0 collisions; `merge-tree` into main clean.
+- **Since the merge, `doc-get` defaults to v0.7's plan**: a v0.6 driver
+  passes `doc-get --plan specs/versions/v0.6/build-plan.md …`.
+- Owner, on O292: "go with the recommended option". Spec D585 (02beec5,
+  plan v14, formats.md v40, G13 cleared): a `gauge_before` adds its
+  `value` to the level drawn before the planting; f8's `value` is the
+  dropped index's size. Chunk 12a carries it: `history.py`'s sum and a
+  `test_history` case, the `scenario-format` skill's and template's
+  wording, `fixture-dropped-index`'s value measured in `fixture-fill`'s
+  history run (its `run-history-test.sh` check, now asserting
+  `size_before == 202500000`, follows the new form), f8's measured
+  `gauge_before`.
+- Owner: "then merge". Wave 3 merged `--no-ff` into `main`, branch
+  head at this entry's commit; the worktree and the chunk branches
+  `v0.6-c10-history`, `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`
+  removed after.
