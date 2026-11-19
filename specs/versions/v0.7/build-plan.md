@@ -1,6 +1,8 @@
 # v0.7 — Build plan
 
-Status: v1 (2026-11-19): written from the consolidated master spec.
+Status: v2 (2026-11-19): the agent-definition check made a headless
+`claude -p --agent` run, `claude agents` no longer listing definitions
+(v1: written from the consolidated master spec).
 **Approved by the owner on 2026-11-19** with it ("approved. you may
 merge. ok"; spec D574); G1 and G5 cleared.
 Written from: [master spec](master-spec.md) and
@@ -83,15 +85,22 @@ at the wave preflight (chain of two).
   - JSON: every settings file touched parses (`python3 -m json.tool`);
   - **an agent definition touched**: it loads in its tool:
     `opencode agent list` names it and `opencode debug agent <name>`
-    shows the permissions the master spec sets (7.4, 7.5); `claude
-    agents` lists the Claude Code one; the other dialect's file changed
-    in the same commit, or the chunk says why not (the two-dialect rule,
-    master spec 7.1);
+    shows the permissions the master spec sets (7.4, 7.5); the Claude
+    Code one answers a headless run, `claude -p --agent <name>
+    [--settings <file>] --max-turns 1` from the clone (the settings file
+    the launcher gives that agent, when it has one), asked to list its
+    tools and the skills it can see, and the answer matches master spec
+    7.4 (the assistant) or 7.5 (the GM); one model call per run (Claude
+    Code 2.1.328's `claude agents` lists background sessions, not
+    definitions); the other dialect's file changed in the same commit,
+    or the chunk says why not (the two-dialect rule, master spec 7.1);
   - a brick touched: its image build and stack test under the lock.
 - **Wave gate (full quality command)**, under the lock and on armenelos
   alone, each item under 30 minutes: the full unit suite; `sh -n` and
   `py_compile` over every file of their kind; every agent definition
-  loading in its tool; the wave's brick builds and stack tests; from
+  loading in its tool, by the chunk check above (OpenCode's two
+  commands, the headless `claude -p --agent` run, one model call per
+  Claude Code definition); the wave's brick builds and stack tests; from
   wave 2, the GM agent's regression smoke (`sh tools/tests/smoke-scenario.sh`
   on `bookshop-new-server`, set up and judged by the GM agent started
   through `tools/play gm --dev`); at wave 2's gate, the empirical check
