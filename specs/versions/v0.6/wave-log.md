@@ -2800,3 +2800,39 @@ at the gate.
 
 Figures: 1 agents, 99 tool calls, 15.7M tokens in / 73k out, max
 context 229k, $5.62 at API prices.
+
+### Chunk 11a — committed (816c090), owner rotated, 2026-11-19
+
+11a on `v0.6-c11-faults-assessed`, not merged (11b, then one merge);
+the worktree kept for 11b, with an ignored reference cache in
+`tools/fake_aging/reference/extracted/` (1.4 GB, deletable). No Docker
+run. The shop's ten faults carry `aging.fake` and `history:`, every
+number `# measured:` against an archive member; f4, f5, f7 `gm.md`
+notes; optional parameters (`database` on scheduler-query-error and
+scheduler-report-unbounded, `key` on scheduler-insert-retry-duplicates
+and pg-join-index-missing, `key`/`blocked-key` on
+scheduler-batch-at-peak) set by the shop's instances;
+`tools/fake_aging/calibrate.py` copied from `10d1bc6` and generalised;
+`test_fake_aging_faults.py` (6 tests, shop only).
+
+**W3-y, the shop's part**: f4 `tail-only` (`tail_minimum: 2h`), f5 and
+f7 `tail-only` (`tail_covers: ["12:00"]`), the other seven `supported`;
+all `plant_in: any`; the full selection's tail stays 3h, anchor 11:00
+(W3 item 9). Signatures from run R: f1 `xact_rollback` 0.100/call; f2
+service {0.198, 0.03}, `temp_bytes` 20 450 000 and `temp_files` 1 per
+call; f3 `tup_inserted` 0.228/call; f4 sawtooth 300 s × 300; f5 lock
+{21.25, 0}; f6, f7, f9 `none`; f8 service {0.024, 0.35},
+`tup_returned` 963 700 and `blks_hit` 12 410 per call; f10 two
+`remove` selectors. No calibration run for the shop (archive reads).
+
+Deviations: (1) **f9's `suppressed_by` over f4 not written**: the
+exporter has no per-table series and R shows f4's sawtooth throughout,
+so f9 hides f4 only in state and logs; the chunk's scope line and W3
+item 4's "the shop's f9 hides f4 over the whole span" are wrong, sent
+to `spec-writer`. (2) f5 has no `daily_spike` (R holds no noon-run
+sample; the shop's span holds no noon before the tail). (3) f1, f2, f3,
+f5 also gained optional parameters (W3 item 8's pattern). The shop's
+`README.md` instance rows were edited by hand: 11b regenerates it with
+the `scenario-document` skill.
+
+Figures (owner 1): see the chunk's total line at its merge.
