@@ -721,3 +721,15 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   is re-measured on 19 (17b) as the check of f8's value from R. Chunk 12b
   reports the tail's latencies and WAL rates against the 18 files, never
   judged. Now in: [build plan](versions/v0.6/build-plan.md) v16, chunks 17b, 12b.
+- **D591 (2026-11-19, the owner, on O294: the recommendation, "Known
+  limit"): pgBadger 13.3's empty checkpoint section on PostgreSQL 19 is
+  a known limit,** named in `postgres`' `docs/gm.md` and v0.6's release
+  notes; the next pgBadger release that reads 19's lines is taken under
+  D396. No fault's witness reads that section, and no fix exists
+  upstream. Closes O294. Now in: [build plan](versions/v0.6/build-plan.md) v17, chunk 17c, G15.
+- **D592 (2026-11-19, the owner, on O295: the recommendation, "Add the
+  new setting"): every seed setting `log_autovacuum_min_duration = 0`
+  sets `log_autoanalyze_min_duration = 0` beside it** (56
+  `postgresql.conf` files), what those seeds feed regenerated, so the
+  customers' logs keep their autoanalyze lines on 19 as designed.
+  Closes O295. Now in: [build plan](versions/v0.6/build-plan.md) v17, chunk 17c, G15.
