@@ -1,6 +1,7 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
+Status: v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
+v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
 everywhere (spec D587), zlib1g at the release gate (spec D588), placed
 by spec D589 and D590: chunk 17 inserted in wave 4 before 12b, split
 into 17a, 17b and 17c; G9.2, G14, G15 added; chunks 12b and 16 and the
@@ -157,7 +158,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 | G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
 | G14 | **No game relies on the 18 images under the reused tags** (spec D589): chunks 17a and 17b rebuild `postgres:0.5.1` and the others at their unreleased tags in the host's registry, so a game deployed from `main` (still on 18's paths) or restarted from a snapshot taken on 18 would get 19 binaries over an 18 data directory, which 19 refuses or misplaces. Before 17a's first build: no live game on armenelos using these tags, or its owner told it can't be restarted or restored until v0.6 merges | Hand check by the wave driver | Chunk 17a's first build | done (2026-11-19: no stack deployed, no service, `fa-real` torn down with no snapshot; wave log, wave 4 "G14") |
-| G15 | **O294 and O295 ruled** (spec D589): pgBadger's checkpoint section on 19; the seeds' autoanalyze logging on 19 | The owner | Chunk 17c's documentation item (O294) and seed item (O295), not the chunk's start | open |
+| G15 | **O294 and O295 ruled** (spec D589): pgBadger's checkpoint section on 19; the seeds' autoanalyze logging on 19 | The owner | Chunk 17c's documentation item (O294) and seed item (O295), not the chunk's start | done (2026-11-19, spec D591, D592) |
 
 G5, G7 and G8 are post-change checks on resolved versions, G6 a
 preflight on candidates, G9.2 both (skill `dependency-gating-protocol`).
@@ -455,6 +456,13 @@ great news. Move to pg19 everywhere."), placed by spec D589 and D590:
 |---|---|---|
 | PostgreSQL 19 everywhere: the server and every client tool and library, folded into the unreleased versions; pgAudit 19.0 | D587 | 17a, 17b, 17c; 12b, 16 |
 | zlib1g's DSA-6613-1 at the release gate, all ten bricks | D588 | release gate item 2 |
+
+Ruled on 2026-11-19, O294 and O295 (G15), each "as recommended":
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| pgBadger 13.3's empty checkpoint section on 19 a known limit, named in `postgres`' `docs/gm.md` and the release notes; the next pgBadger that reads 19's lines taken under D396 | D591 | 17c; release gate item 7 |
+| `log_autoanalyze_min_duration = 0` beside `log_autovacuum_min_duration = 0` in every seed setting it, what those seeds feed regenerated | D592 | 17c |
 
 Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 2026-11-17"), all three as recommended:
@@ -1927,8 +1935,8 @@ noted by the driver in the wave log beside capture W4.
 
 Status: planned
 Wave: 4
-Depends on: chunk 17a (in wave 4: starts once it has merged); G15 for
-its O294 and O295 items only
+Depends on: chunk 17a (in wave 4: starts once it has merged); G15 done
+(spec D591, D592)
 Docker: light (three fixtures' short tests and a throwaway 19
 container, one at a time under the lock)
 Architecture capture: none.
@@ -1966,13 +1974,16 @@ Architecture capture: none.
   - the GM's and the assistant's material: `references/grille-audit-pg.md`,
     `.claude/agents/game-assistant.md` and
     `.opencode/agents/game-assistant.md`;
-  - **O294's item**, once ruled: pgBadger's checkpoint section on 19 as
-    ruled (by default a known limit named in `postgres`' `docs/gm.md`,
-    for the release notes);
-  - **O295's item**, once ruled: the seeds setting
-    `log_autovacuum_min_duration = 0` as ruled (by default
-    `log_autoanalyze_min_duration = 0` beside it, 56 files), with the
-    overviews, registers and documents they feed regenerated;
+  - **pgBadger's checkpoint section on 19** (spec D591): a known limit,
+    pgBadger 13.3 no longer reading 19's `checkpoint complete:` lines,
+    named in `postgres`' `docs/gm.md` and for the release notes; the
+    next pgBadger release that reads them is taken under D396;
+  - **autoanalyze logged on 19** (spec D592):
+    `log_autoanalyze_min_duration = 0` beside
+    `log_autovacuum_min_duration = 0` in every seed setting it (56
+    `postgresql.conf` files: 13 in the scenarios and bricks, 43 in the
+    test fixtures), with the overviews, registers and documents they
+    feed regenerated;
   - the scenarios' `README.md` regenerated where an input changed, with
     the `scenario-document` skill as chunk 12c leaves it.
   - Out: the fixtures' scenario documents (`tools/tests/fixtures/*/README.md`,
@@ -1991,7 +2002,8 @@ Architecture capture: none.
   `domains/vet-scheduling/data/schema.sql`, `tools/gm/inject.py`
   (comment); `references/grille-audit-pg.md`,
   `{.claude,.opencode}/agents/game-assistant.md`;
-  `bricks/postgres/docs/gm.md` (O294); the seeds O295 names; the
+  `bricks/postgres/docs/gm.md` (D591); the 56 seeds setting
+  `log_autovacuum_min_duration = 0` (D592); the
   scenarios' generated files (`gm/network-overview.yaml`,
   `player/network-overview.md`, data registers, `README.md`) whose
   inputs change.
@@ -2001,13 +2013,14 @@ Architecture capture: none.
   reference or agent file names PostgreSQL 18 as the game's version (a
   `git grep` lists only records of released versions and history);
   `VACUUM (VERBOSE)`'s wording as 19 writes it; the three fixture runs
-  pass on 19, each fault's `gm.md` matching what 19.0 logs; O294's and
-  O295's items as ruled; every regenerated file fresh; the unit suite
-  green.
+  pass on 19, each fault's `gm.md` matching what 19.0 logs; pgBadger's
+  checkpoint limit named in `postgres`' `docs/gm.md`; every seed setting
+  `log_autovacuum_min_duration = 0` setting
+  `log_autoanalyze_min_duration = 0` beside it; every regenerated file
+  fresh; the unit suite green.
 - Verification: chunk checks; the three fixture runs, one at a time,
   under the lock.
-- Split rule: none (O295's seeds, if ruled as proposed, a second
-  commit of the chunk).
+- Split rule: none (D592's seeds a second commit of the chunk).
 
 ### Chunk 12b — Fake aging verified: the tools and the two short games
 

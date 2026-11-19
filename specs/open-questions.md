@@ -364,10 +364,12 @@ O292 raised by the build (D584), closed by D585.
 
 Raised by D587's placement (D589); each gates one item of chunk 17c
 (gate G15 of the [build plan](versions/v0.6/build-plan.md)), never the
-images. O296 was reserved during that drafting and never used.
+images. O296 was reserved during that drafting and never used. Both
+closed by the owner on 2026-11-19 (D591, D592); the closed entries are
+kept here until v0.6's archive moves them.
 
-- **O294** (v0.6, before chunk 17c's documentation item; raised by
-  D589) — pgBadger 13.3, the latest release and PGDG's, no longer reads
+- **O294** (v0.6; **closed**, D591, as recommended; before chunk 17c's
+  documentation item; raised by D589) — pgBadger 13.3, the latest release and PGDG's, no longer reads
   PostgreSQL 19's `checkpoint complete:` lines (19 writes the
   checkpoint's flags before `wrote`; its regex wants `complete: wrote`),
   so a player's report on 19 has an empty checkpoint section: buffers
@@ -377,8 +379,10 @@ images. O296 was reserved during that drafting and never used.
   limit, named in `postgres`' `docs/gm.md` and the release notes, the
   next pgBadger taken under D396 when it fixes it; the alternatives are
   a local patch of the packaged script (a fork to keep) or keeping
-  `postgres` on 18 (against D587). Refs: build plan chunk 17c.
-- **O295** (v0.6, before chunk 17c's seed item; raised by D589) — On
+  `postgres` on 18 (against D587). Refs: build plan chunk 17c. Ruled
+  so: a known limit.
+- **O295** (v0.6; **closed**, D592, as recommended; before chunk 17c's
+  seed item; raised by D589) — On
   PostgreSQL 19, `log_autovacuum_min_duration` covers vacuum only and
   the new `log_autoanalyze_min_duration` (default 10 minutes) gates the
   autoanalyze lines, so every seed setting `log_autovacuum_min_duration
@@ -390,7 +394,7 @@ images. O296 was reserved during that drafting and never used.
   such seed, keeping what the customers' logs show as designed, with
   the overviews and documents those seeds feed regenerated; the
   alternative is leaving the seeds as written, the lines gone. Refs:
-  build plan chunk 17c.
+  build plan chunk 17c. Ruled so: the new setting added.
 
 ## v0.5: scope, the domain procedure, post-mortems
 
