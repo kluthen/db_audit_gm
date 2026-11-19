@@ -2204,3 +2204,22 @@ On `v0.6-w2-follow` (from e955dd3):
 
 Next: merge `v0.6-w2-follow` into `main` on the owner's word, then
 wave 3 (chunks 10, 11, 13) in a fresh session, from plan v8.
+
+## Wave 3 — started 2026-11-19
+
+Chunks 10, 11, 13 (κ = 2). Branch `v0.6-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.6-w3`, cut from `main` at 9aac312
+(wave 2 and its follow-up merged; plan v8).
+
+### Gates checked at the start
+
+- G3 (network at image build time), hand check 2026-11-19: Debian's
+  trixie `Release`, `trixie-pgdg` `Release`, GitHub's s6-overlay,
+  Prometheus, `postgres_exporter` and pgwatch releases, and the
+  Dockerfile's Grafana download answer 200. Cleared for wave 3.
+- G4 (swarm), hand check 2026-11-19: armenelos `Ready`, `Active`,
+  Leader; the VPS `vps-5718ad52` `Ready`, `Drain`. No stack deployed.
+  Cleared for wave 3.
+- Host: `/home` 66 % used, 55G free. The Docker lock is free.
+- No dependency gate is planned for wave 3 (G9 standing: a chunk adding
+  a dependency gets a `G9.<n>` row).
