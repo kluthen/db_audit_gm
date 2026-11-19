@@ -18,7 +18,7 @@ How the scenario format and brick model express this topology is in
 ## How it is reached
 
 The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
-(D47); v0.6 has since been added (D71):
+(D47); v0.6 has since been added (D71), and v0.7 (D549):
 
 | Pipeline part | Arrives in |
 |---|---|
@@ -28,6 +28,7 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Transformation, second database; the shop domain, data governance's first cut | [v0.4](../v0.4/README.md) |
 | Domain definition, the veterinary clinic's domains, and the faults, topology, monitoring and brick options it needs (D233) | [v0.5](../v0.5/README.md) |
 | The bastion as the players' main activity point; the game's home page (D233, D480) | [v0.6](../v0.6/README.md) |
+| The game assistant, a player-side helper; the repository in game mode (D549) | [v0.7](../v0.7/README.md) |
 
 Which technology fills each role is decided version by version (O11).
 

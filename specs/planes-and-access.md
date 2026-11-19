@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v19
+Status: draft v20
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -48,13 +48,29 @@ third party's node (D273;
 | Infrastructure | The GM, in its agent session | Swarm managers or host access given at setup, Docker API, stack files, images, the scenario folder including the answer key |
 | Scenario | The scenario folder and its local implementation | Topology, host topology and resources, fault instances, issues, aging plan, answer key |
 | Player | Student(s) | Bastion, SSH to nodes with restricted rights, monitoring UIs published by the bastion (D68) |
+| Player, through the game assistant (from v0.7) | The assistant agent a player starts, on the player's side | The player's own access, limited by its stance to a purview: no database, no secret, no GM side (D550, D572; below) |
 
 The teacher acts only at setup, through the GM session (D6).
+
+### The game assistant (from v0.7)
+
+The game assistant (D545, D559) is a door from the player plane only: it
+holds the player's access and the credentials a player gives it, never
+the infrastructure plane. It reads what serves the players' audit, never
+`~/.pgpass`, `~/.ssh/` or `~/.psql_history`, never connects to a
+database, never reads the GM's side of the clone, never runs `gmctl` or
+`docker`, and never fetches this project's public material on the web.
+None of this is enforced by the system beyond its agent definitions
+(no skill; a few denied commands as speed bumps): it rests on two trust
+lines beside D13's, trust in the assistant and trust in the players not
+to use it to reach what they can't (D550;
+[v0.7 access model](versions/v0.7/access-model.md)).
 
 ## The GM session
 
 The player also talks to the GM: they hand in their report there, and
-anyone in the session may ask the GM to stop the game (D6). The GM session
+anyone in the session may ask the GM to stop the game (D6). From v0.7
+the GM session is a session started as the GM agent (D560). The GM session
 is therefore a door from the player side into the infrastructure plane, and
 the GM holds the answer key. Two rules close that door (D13), stated in
 [gm-stance.md](gm-stance.md), "During the game": the GM reveals no answers

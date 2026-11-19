@@ -42,6 +42,15 @@ proposed (D510), and v0.6 was consolidated into its
 [master spec](versions/v0.6/master-spec.md) (D514); O251 and O269 stay
 open until built.
 
+On 2026-11-19 the game assistant's draft opened (D545–D547), outside
+v0.6, raising O274–O285; the owner's rulings the same day placed it in
+v0.7 (D549) and closed O274–O281 and O283–O285 (D549–D554, D558),
+widened O282 into the repository's game mode (D555–D557), and raised
+O286–O288; the GM and the assistant made agents (D559–D561) raised O289,
+closed by D562, then by D563, which reversed it. The owner then closed
+O282 and O286–O288 (D564–D570) and the game branch raised O290, closed
+at v0.7's approval (D575); none of v0.7's questions remains open.
+
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
 **later** = can wait for v1.0 or beyond.
@@ -353,6 +362,83 @@ rest of the procedure, closed by D260.
   key); the handout's form; how close a replication must stay to the
   real failure when the stack differs. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-post-mortem-collection-d234).
+
+## The game assistant
+
+Raised on 2026-11-19 by the game assistant's draft, now
+[versions/v0.7/game-assistant.md](versions/v0.7/game-assistant.md)
+(D545–D547), and its sibling
+[versions/v0.7/game-mode.md](versions/v0.7/game-mode.md), then
+[versions/v0.7/agents.md](versions/v0.7/agents.md). The owner ruled the
+same day: O274–O281 and O283–O285 closed (D549–D554, D558); the GM and
+the assistant made agents for Claude Code and OpenCode (D559–D561),
+raising O289, closed by D562, then by D563 (web access allowed). The
+closed entries are kept here until
+v0.7's archive. The
+drafts' proposals are labelled GA1…, MD1… and AG1….
+
+- **O274** (**closed**, D549) — Which version builds it? v0.7, the game
+  assistant its subject. Recommended had been v1.0.
+- **O275** (**closed**, D550, against the recommendation) — How it
+  reaches the bastion. The player's own access, on trust; no door, no
+  `gmctl` verb, no key. Recommended had been a forced-command door.
+- **O276** (**closed**, D550) — The read set's content. No read set: a
+  stance on its purview; `~/.pgpass` and `~/.psql_history` outside it.
+- **O277** (**closed**, D551, as recommended) — How much it helps: a
+  coach.
+- **O278** (**closed**, D552, beyond the recommendation) — Database
+  snippets. Reminders graded by criticality, schemas and other medium
+  items included; its own SQL minimised by design.
+- **O279** (**closed**, D553) — Does a game always allow it? Always
+  available; no initiator switch. Recommended had been an initiator
+  switch.
+- **O280** (**closed**, D554, as recommended) — Does the GM learn that
+  it helped? No; no communication between them.
+- **O281** (**closed**, D554) — Where its files live. Anywhere the
+  players like; `play/<game>/` a default only, the report reaching the GM
+  however the players hand it in.
+- **O282** (**closed**, D570, as recommended) — The GM helpers'
+  descriptions in the assistant's listing. Invocation closed by its
+  agent definitions (D559); the listing hidden on Claude Code by its
+  session-only `skillOverrides`; the build's empirical check in both
+  tools settles it, the helpers' descriptions rewritten neutral if it
+  still leaks.
+- **O283** (**closed**, D558) — The owner's audit grid as the
+  assistant's method? An example it may draw on, not its method.
+- **O284** (**closed**, D558) — Cutting the grid to the game's scope:
+  not enforced; the draft's table kept as informative notes.
+- **O285** (**closed**, D558) — Where it lives: a verbatim copy at
+  [references/grille-audit-pg.md](references/grille-audit-pg.md); a
+  game-scoped English rewrite optional and later.
+- **O286** (**closed**, D564, against the recommendation) — How game
+  mode is produced. `main` is the game branch, a side dev branch the
+  development environment, a dedicated skill the only way `main` is
+  updated. Recommended had been the tracked files as game mode (MD1).
+- **O287** (**closed**, D565, as recommended) — The GM's memory: the
+  local implementation; `autoMemoryEnabled: false` committed in game
+  mode.
+- **O288** (**closed**, D566, as recommended) — v1.0 gating runs after
+  v0.7, with the assistant's stance items.
+- **O289** (**closed**, D563: web access allowed, against the
+  recommendation; D562's denial superseded) — May the
+  assistant use the web (Claude Code's
+  `WebFetch` and `WebSearch`, OpenCode's `webfetch` and `websearch`)?
+  Recommended: no: its PostgreSQL and tool knowledge is the model's, a
+  web tool is one more way for what the players paste to leave, and
+  looking things up is the players' own work; its `Bash` can still reach
+  the web front with `curl`, on trust. Alternative: allowed, for the
+  tools' upstream documentation only. Refs:
+  [versions/v0.7/agents.md](versions/v0.7/agents.md) 5.
+- **O290** (**closed**, D575, as recommended) — `main`'s history and
+  `dev`'s remote (D564).
+  `main` can't take a plain merge of `dev` (it would carry the dev-only
+  paths). Recommended (MD9): each publish one new commit on `main`
+  holding the filtered snapshot, history continuous, nothing rewritten,
+  past commits keeping the development material already public; `dev`
+  not pushed to the public `origin` (D556), a private remote if a backup
+  is wanted. The alternative, rewriting `main`'s history to strip that
+  material, needs a force-push that breaks every clone. Refs:
+  [versions/v0.7/game-mode.md](versions/v0.7/game-mode.md) 3.
 
 ## Beyond v1.0: the cloud provider
 

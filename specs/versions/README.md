@@ -1,7 +1,7 @@
 # Roadmap
 
 The versions from the first milestone to the first release and beyond, as
-set out by the owner (D47), with v0.6 added on 2026-10-21 (D71). Each version has its own page; a version's
+set out by the owner (D47), with v0.6 added on 2026-10-21 (D71) and v0.7 on 2026-11-19 (D549). Each version has its own page; a version's
 master spec lands in its folder when it is consolidated, and its page
 says when the owner approves it. Everything after
 v0.1 is draft.
@@ -14,7 +14,8 @@ v0.1 is draft.
 | [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | released 2026-11-03: release gate passed, G11 cleared, its long runs moved to [v1.0 gating](#v10-gating) (D311–D313); merged into `main` (56b7471); [master spec](v0.4/master-spec.md) and [access model](v0.4/access-model.md); [release notes](v0.4/README.md#release-notes); working record archived in [archive/v0.4/](../archive/v0.4/README.md) |
 | [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them, for `postgres` only (D236, D262); a post-mortem collection begun beside it (D234) | released 2026-11-14: release gate passed on 2026-11-13, G15 cleared (D475); merged into `main` (`a56e5ac`); its long-running checks [v1.0 gating](#v10-gating) (D314); [master spec](v0.5/master-spec.md) and [access model](v0.5/access-model.md); [release notes](v0.5/README.md#release-notes); working record archived in [archive/v0.5/](../archive/v0.5/README.md) |
 | [v0.6](v0.6/README.md) | The bastion as the players' main activity point: one game's web front with a home page linking every site (D480), a documentation website, the network overview handout (D483), general-use tooling; moved in from v0.5 (D233); no front above several games, no reporting tool (D480, D481). Fake aging, a second aging mode for quick games beside real aging (D489–D493; [draft](v0.6/fake-aging.md)) | [master spec](v0.6/master-spec.md) and [access model](v0.6/access-model.md) consolidated 2026-11-16 (D514) and approved the same day (D515–D517); [build plan](v0.6/build-plan.md) approved 2026-11-16 (D518–D520); drafting opened 2026-11-13 |
-| [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.6 | draft |
+| [v0.7](v0.7/README.md) | The game assistant, a player-side helper with the player's access and no background, a coach (D545–D554); the GM and the assistant as agents for Claude Code and OpenCode (D559–D561); the repository played from in game mode, the GM's memory kept clean (D555–D557) | [master spec](v0.7/master-spec.md) and [access model](v0.7/access-model.md) consolidated (D573) and approved 2026-11-19 with the [build plan](v0.7/build-plan.md) v1 (D574); `main`'s history settled (D575); drafting opened 2026-11-19 (D549) |
+| [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.7 | draft |
 
 **Beyond v1.0**:
 
@@ -197,7 +198,8 @@ is not run in v0.5. Its long-running checks join the list below, under
 
 ### v1.0 gating
 
-Checks run once before the v1.0 tag, at the end of v0.6, one-off as
+Checks run once before the v1.0 tag, at the end of v0.7 (D566; v0.6's
+end before v0.7 was added), one-off as
 D193 makes the aged run; listed here so none is lost. Until then no
 release gate plays a full game for testing (the owner, D311: "We won't
 proceed to full game for testing until then"). What each runs on and
@@ -305,3 +307,11 @@ aged run is decided then (D193).
     (D494, D496, D504); a reported tell explained in the teaching
     moment from the restart record and the documented limits; with no
     tell reported, no mention of aging (D496).
+- **v0.7's additions** (D566): the stance check-list's game assistant
+  items, on a deployment, in each of Claude Code and OpenCode: it keeps
+  to its purview (no `~/.pgpass`, no `~/.psql_history`, no GM side of
+  the clone, never this project's material on the web), never connects
+  to a database or runs SQL, gives the graded reminder on a pasted
+  snippet, has no channel to the GM and never speaks of the game's
+  mechanics; and v0.6's blind reads may be run as the assistant
+  ([v0.7](v0.7/README.md)).
