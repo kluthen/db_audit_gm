@@ -3726,3 +3726,48 @@ the game's span, not R as is); if the driver prefers the comparison to
 stay span for span, the alternative is a copy of the shop with R's 24 h
 span in the script, which costs about 3 more minutes of fill, the
 30-minute margin and the setup time the scenario document shows.
+
+### W4 reviewed by the driver; owner ruling on M1 — 2026-11-19
+
+- Capture W4 drafted by a `coding-leader` (688b5c1, 57 tool calls),
+  merged into the wave as e78e3f9. Its (choice) points are accepted as
+  drafted. The extracted M1 files sit in the git-ignored
+  `tools/fake_aging/reference/extracted/` of the removed capture
+  worktree (gone with it).
+- **Owner, on the M1 comparison** (W4 item 2, correction 2): "Scale R to
+  span": the shop's M1 dumped at the virtual T0, expected T0 +
+  s × (R − T0), insert-driven measures judged within ±3 %, the rest
+  reported; the shop played as it is. For `spec-writer` to record as a
+  decision with plan v15.
+- Corrections 1 to 7 go to `spec-writer` for plan v15 (chunk 12 split
+  in three: 12a, 12b, 12c).
+
+### Chunk 14 — merged (edb11e8), 2026-11-19
+
+- b659382 on `v0.6-c14-docs-overview-fault`, merged `--no-ff` as
+  edb11e8. Done when met: `docs-overview-backup-claimed` (trap N5) passes
+  `check_fault_dir`; `fixture-overview-fault` 16 passed / 0 failed in
+  16 s (deploy 6 s), the instance planted, `overview_diff` in the answer
+  key, `gmctl check --instance n5` reads present; `fixture-clinic-front`
+  38 passed / 0 failed in 20 s (deploy 6 s): 7 documents, 76 internal
+  links, nine status pages "Operational", a copied report listed with
+  its sandbox header. Unit suite 1558 OK, 2 skipped (new
+  `test_clinic_front.py`, 12 tests). No image rebuilt.
+- Inside the chunk, no deviation: the bastion-only fixtures' true
+  overviews have `entries: []` (the loader refuses entries for nodes
+  outside the topology); `fixture-clinic-front`'s handouts are the
+  clinic's with `{{customer_timezone}}` and credentials filled, kept
+  equal by `test_clinic_front.py` (a regenerated clinic handout fails it
+  until the copies are refreshed, deliberately); classes set to
+  `locations: any`; no `aging:`; one bastion→bastion flow.
+- For `spec-writer` (plan v15): the fault has no `aging.fake` (refused
+  in a fake game, like the register fault), a one-line assessment if
+  overview faults should be playable in fake games; the
+  `scenario-document` template has no case for a true overview with
+  zero entries (both fixtures' READMEs say "0 entries" beside a handout
+  of 21 nodes), cosmetic, for 12c's template work.
+- For the wave gate: `tools/tests/fixtures/fixture-clinic-front/run-short-test.sh`
+  and `tools/tests/fixtures/fixture-overview-fault/run-short-test.sh`
+  (release gate item 4), `bastion:0.6.0` only.
+- Figures: 2 agents, 142 tool calls, 22.2M tokens in / 116k out, max
+  context 289k, $8.69 at API prices.
