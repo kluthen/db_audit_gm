@@ -146,7 +146,7 @@ game-content decision, not taken in v0.6 unless the owner says so.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
-| 3 | 10, 11, 13 | wave 2 | in progress (11, 13 merged) |
+| 3 | 10, 11, 13 | wave 2 | chunks merged; gate next |
 | 4 | 5, 12, 14, 16 | wave 3; G8 before its gate | planned |
 
 ```
@@ -1259,7 +1259,15 @@ exclusions); the look after each planting.
 
 ### Chunk 10 — The history: `gmctl history`
 
-Status: planned
+Status: merged (w3, 552259f)
+Record: 10a 18c85f0, 10b 34a151c, merge 552259f. Differs: an import
+holds a run lock (`local/<pg>/.history.lock`); the seam's `negative`
+and `jump` rules refined (a series held below zero by the system, a
+size gauge's own step) and an `empty` verdict added; `none` unit-tested
+only; `gauge_before` on `pg_database_size_bytes` (no per-index series);
+`run-history-test.sh` starts only between hh:38 and hh:41; the fixture's
+`README.md` unchanged (the fault is not its input). W3-x in the wave
+log; for G10.3.
 Wave: 3
 Depends on: chunks 3, 9
 Docker: heavy (a Prometheus fed, imported into, snapshotted and

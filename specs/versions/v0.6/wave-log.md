@@ -2980,3 +2980,81 @@ failure); G10.3 lists wave 3's as-built forms. No change to chunk 10b.
 - item 10: calibration file names as built `<scenario>-<what>-<stamp>.txt`
   with `keys-<node>`, `run-a`, per fault, `fill`, `wal-<node>`; the
   shop's WAL rate not measured.
+
+### Chunk 10 — merged (552259f), 2026-11-19
+
+10a 18c85f0; 10b 34a151c (the second owner's three WIPs squashed),
+`v0.6-w3` taken in as c18f23b, merge 552259f. Worktree removed.
+
+Done when: `test_history` composes every kind and a `suppressed_by`
+pair, the seam refuses a negative value, a stray reset, a gauge jump
+(28 OK); `test_restart` restarts a fake game both ways, `refused`,
+`left_out` and the story line kept. **`fixture-fill`'s history run**
+(`run-history-test.sh`, run 5, 2026-11-19 12:39, armenelos): **38/0,
+1348 s** with the deployment: the import lands (exit 0, seam ok, 0
+findings), the record's `history {at, result: ok, seam: ok}` written
+last, the TSDB folder `prometheus:prometheus 750` (D540), every kind
+read back over the past; the timer's run at +12 min a no-op; the early
+and hand-over checks read `ok, seam ok`; refused once handed over; the
+snapshot's restart keeps the record and the imported blocks, no history
+timer, `--check-seam` ok; nothing left after teardown.
+
+**W3-x** (as built): W3 item 1's interface plus **one import at a time**
+(`local/<pg>/.history.lock` held for the import; the timer's run waits
+and finds the result); working files `local/<pg>/history/{tail.json,
+history.om,report.json}` removed after a success; the record's
+`history {at, result, seam, reason}`; `state.yaml`'s `history_import
+{timer, scheduling_failed, attempts[{began, ended, outcome, reason,
+seam, figures}]}`, `figures` = `tail_series`, `tail_read_s`, `series`,
+`samples`, `openmetrics_bytes`, `compose_s`, `import_s`, `blocks`,
+`promtool_memory_peak_bytes`, `loaded_after_s`, `seam_s`, `report`,
+`tsdb` (read once the self-scrape shows the blocks, ≤60 s, else
+`stale`); timer `dbagm-<gid>_history` at `restart.at` + 12 min. Seam
+verdicts `negative` (a series the system holds below zero, a `-1`
+setting, held to its own value), `reset`, `jump` (a size gauge's step
+up to the larger of 1 % and the tail's own largest step), `empty`.
+
+Run 5's figures: deploy + load + inject 31 s; fill 227 s (466 virtual
+min); clean-restart 26 s; tail before the import 10 min; `gmctl history`
+68 s (tail read 2081 series 0.4 s; compose 2082 series, 3 879 946
+samples, 476.5 MB OpenMetrics, 4.5 s; promtool 7.9 s, peak 587.6 MiB;
+blocks loaded 50.9 s; seam 4.0 s; 4 blocks ~1.3 MB each); snapshot
+10 s; restart from it 33 s. Retention: the lowest timestamp moved from
+the restart (11:46:21Z) to the virtual T0 + 3 s (04:00:03Z), 4 blocks,
+5 359 865 bytes, unchanged a minute later and after the restart
+(retention 1d / 384MB; a 13 to 15 h past not measured). Verified live:
+promtool `-q` (Prometheus 3.16.0), `memory.peak` in the helper.
+
+Runs: (1) refused at fit, `aging.minimum` ≥ 8h (D150); (2) 24/14,
+1349 s: the helper's `/tmp` dangling link, the two seam refinements;
+(3) 35/3: `prometheus_tsdb_*` read before the self-scrape; (4) the lock
+held by 11b, the script refused its window, nothing deployed; (5) 38/0.
+
+Deviations, for G10.3 via `spec-writer`: `none` unit-tested only (a
+signature's only entry); `run-history-test.sh` starts only between
+hh:38 and hh:41 (exit 3 otherwise: H a whole hour, aging ≥ 8h, the run
+under 30 min); the fixture's `README.md` not regenerated (the fault is
+not its input); `gauge_before` on `pg_database_size_bytes` (no
+per-index series); the run lock.
+
+Findings outside the chunk: (a) **the exporter connects to the
+`postgres` database only**: scenario databases have no
+`pg_stat_user_tables_*`/`pg_stat_user_indexes_*` series, so a signature
+or tell on them matches nothing (11b checked its twenty: none does);
+chunk 12 checks its selectors (for its brief). (b) **`fill.queue_plan`
+drops a `queue` entry outright when any selected fault suppresses it**,
+ignoring the hiding instance's planting (D543); no covered fault uses
+`suppressed_by` (D578), so nothing breaks today: fix-sized, for the
+owner (issue or inserted chunk). (c) `shellcheck` is not installed on
+armenelos. Risks: the GM host's memory (732 MB peak for an 8 h past in
+run 2, about double for 16 h); promtool's ~590 MiB peak in an unlimited
+helper; the run's 30-minute budget has ~7 min of margin.
+
+Figures: 2 agents, 227 tool calls, 44.4M tokens in / 228k out, max
+context 310k (owner 1, marked: rotated at 10a), $24.61 at API prices;
+owner 2 ran ~140 calls, past the bound, on timing windows and lock
+waits.
+
+### Wave 3's chunks all merged, 2026-11-19
+
+Chunks 13 (0ec38b3), 11 (5c28a1d), 10 (552259f). Next: the wave gate.
