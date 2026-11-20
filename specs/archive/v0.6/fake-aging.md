@@ -1,3 +1,5 @@
+> **Archived 2026-11-20.** v0.6 was released on 2026-11-20 (spec D599); this draft was consolidated into the master spec, section 9 (spec D514), which won where they differed, and fake aging was built as the master spec states it. Live summary: [v0.6 master spec](../../versions/v0.6/master-spec.md#9-fake-aging) 9, 10, 12. Relative links were written from `specs/versions/v0.6/`: `README.md` and `master-spec.md` are in `../../versions/v0.6/`, `../README.md` is `../../versions/README.md`; the links starting `../../` still resolve.
+
 # Fake aging: a second aging mode
 
 Status: draft v5, 2026-11-16, **consolidated** the same day into the

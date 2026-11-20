@@ -153,7 +153,7 @@ regenerated, 2 unchanged); a second run reproduces all 34 byte for byte.
 - `.claude/skills/scenario-document/template.md:211-215`, `:639-645`
 - `scenarios/aldermoor-centre/README.md:152`, `:223`, `:228`, `:295`
 - `specs/versions/v0.6/wave-log.md`, "Chunk 16 — merged (d24715c)"
-- `specs/versions/v0.6/build-plan.md`, chunk 16; spec D538, D597
+- `specs/archive/v0.6/build-plan.md`, chunk 16; spec D538, D597
 
 ---
 

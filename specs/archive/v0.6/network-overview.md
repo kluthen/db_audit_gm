@@ -1,3 +1,5 @@
+> **Archived 2026-11-20.** v0.6 was released on 2026-11-20 (spec D599); this draft was consolidated into the master spec, section 8 (spec D514), which won where they differed, and the network overview was built as the master spec states it. Live summary: [v0.6 master spec](../../versions/v0.6/master-spec.md#8-the-network-overview) 8. Relative links were written from `specs/versions/v0.6/`: `master-spec.md` is in `../../versions/v0.6/`, `../v0.5/` is `../../versions/v0.5/`; `data-register.md` and `partners.md` name a scenario's handouts, never files beside this one.
+
 # v0.6 — the network overview, a player handout
 
 Status: draft v4, **consolidated** on 2026-11-16 into the

@@ -1,3 +1,5 @@
+> **Archived 2026-11-20.** v0.6 was released: its release gate passed on 2026-11-20 and G11 was cleared by the owner the same day ("Release v0.6"; spec D599); every chunk of this plan is built and `v0.6-rg` merged into `main` (`fceda75`), and what it leaves is v1.0 gating's (v21). Live summary: [v0.6 README](../../versions/v0.6/README.md), "Release notes". Relative links were written from `specs/versions/v0.6/`: `README.md`, `master-spec.md`, `access-model.md` and `wave-log.md` are in `../../versions/v0.6/`, `../README.md` is `../../versions/README.md`; the links starting `../../` still resolve.
+
 # db_audit_gm v0.6 — Build plan
 
 Status: v21 (2026-11-20): the release gate passed; G11 cleared by the owner (spec D599): v0.6 released with the OpenSSL CVEs open and nginx's matches ignored (spec D600), wave 4's items ruled as proposed (spec D601). The merge into `main` next.

@@ -187,7 +187,7 @@ redeploy's `gm-validate` step green each time.
 - `bricks/health-check/rootfs/usr/local/lib/gm/healthcheck` lines 11 to 18
 - `bricks/health-check/brick.yaml` lines 84 to 90 (`healthcheck:`)
 - `bricks/health-check/docs/gm.md` lines 147 to 151
-- `specs/versions/v0.6/build-plan.md`, wave gate (every brick's stack test)
+- `specs/archive/v0.6/build-plan.md`, wave gate (every brick's stack test)
 - v0.4 spec D305, v0.5 spec D356
 
 ---

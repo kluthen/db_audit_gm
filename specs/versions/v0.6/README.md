@@ -1,19 +1,22 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v12. **Release gate passed** on `v0.6-rg` on 2026-11-20,
-its [release notes](#release-notes) written (item 7), G11 cleared by
-the owner (D599–D601); the merge into `main` next.
+Status: v13. **Released** on 2026-11-20: release gate passed on
+`v0.6-rg`, its [release notes](#release-notes) written (item 7), G11
+cleared by the owner (D599–D601), merged into `main` (`fceda75`).
 **Consolidated** on 2026-11-16 into the
 [master spec](master-spec.md) and its [access model](access-model.md)
 (D514), **approved** the same day, the review's defaults standing,
 every brick bumped and D504 confirmed (D515–D517); the
-[build plan](build-plan.md) **approved** the same day (D518), as v2:
+[build plan](../../archive/v0.6/build-plan.md) **approved** the same day (D518), as v2:
 no reference data in git (D519), `fa-real` torn down after chunk 1
 (D520). Every drafting point ruled on 2026-11-16 (D498–D503); the
 review's findings closed the same day (D504–D512); the partners' status
-pages designed at consolidation (D513). This page and its two drafts
-stay as the working record until v0.6's archive; where they and the
-master spec differ, the master spec wins. Bastion-related items moved in from
+pages designed at consolidation (D513). At the close (2026-11-20) the
+build plan, the two drafts (network overview, fake aging), the
+decisions and the resolved questions were archived in
+[archive/v0.6/](../../archive/v0.6/README.md); this page, the master
+spec, the access model and the wave log stay here. Where this page and
+the master spec differ, the master spec wins. Bastion-related items moved in from
 v0.5 on 2026-10-31 (D233); drafting opened on 2026-11-13 with the
 owner's rulings of that day (D480–D486); fake aging joined on
 2026-11-15 (D489–D495); the GM's feedback in two parts on 2026-11-16
@@ -43,14 +46,15 @@ players (D480).
 - **The network overview** (D483–D485), a player handout: one entry per
   node of the customer's estate, generated from the authoritative
   files, customer documentation that may be incomplete or wrong, each
-  node linked to Grafana's Node health dashboard. Its design is
-  [network-overview.md](network-overview.md) (draft v4; O260–O268
-  closed as recommended, D487, D488; the page always present, D505).
+  node linked to Grafana's Node health dashboard. Its design is the
+  [master spec](master-spec.md#8-the-network-overview)'s section 8,
+  consolidated from its draft v4 (O260–O268 closed as recommended,
+  D487, D488; the page always present, D505).
 - **Handouts are static snapshots** (D488): what the customer gave the
   DBA at the mission's start, generated once at setup and never
   re-rendered in play; only the live tools they link to follow the
   system. A fix that leaves one out of date is expected, never a fault
-  ([network-overview.md](network-overview.md#2-one-entry-its-fields-and-their-sources)).
+  ([master spec](master-spec.md#74-handouts-static-snapshots-and-which-may-be-wrong) 7.4).
 - **General-use tooling** on the bastion (D501): what it has today,
   the PostgreSQL 18 client tools (`psql`, `pg_dump` and the rest),
   `ssh`, `procps`, `less`, `nano`, `vim-tiny` and `curl`, plus `jq`
@@ -94,7 +98,8 @@ players (D480).
   a quick game filled in minutes on a virtual clock, a maintenance
   restart, a real tail, forged Prometheus history; its faults curated
   to what it can fake, its fixable caveats fixed, the rest documented.
-  Its design is [fake-aging.md](fake-aging.md) (draft v5): the players
+  Its design is the [master spec](master-spec.md#9-fake-aging)'s
+  section 9, consolidated from its draft v5: the players
   never told about the aging process during the game, a tell their
   report names explained after it (D494, D496); the setup dialogue
   naming no technique when the initiator may play (D504); the shop and
@@ -128,7 +133,7 @@ parts:
    - what they identified but couldn't explain, explained;
    - why things looked as they did, whether from a planted fault
      (its `gm.md`, the scenario's notes) or from the aging (a reported
-     tell only, [fake-aging.md](fake-aging.md#41-what-the-players-are-told-and-when-d494-d496)).
+     tell only, [master spec](master-spec.md#911-what-the-players-are-told-and-when) 9.11).
 
 What it refines (D499, no conflict found):
 - **D9 and [gm-stance.md](../../gm-stance.md) "Feedback"**: the
@@ -174,9 +179,8 @@ v0.5's gates have them; the long ones are in
   the started one only, the other once its start passes; a partner with
   none admitted shows no incident; no route to a third party's node.
 - **The network overview**, the dashboard's `node` variable, a
-  `docs-overview-*` fault, fake aging's short checks: as their drafts
-  say ([network-overview.md](network-overview.md#5-deviations-as-faults),
-  [fake-aging.md](fake-aging.md#7-verification)).
+  `docs-overview-*` fault, fake aging's short checks: as the master
+  spec says ([12.1](master-spec.md#121-short-tests-only)).
 - **The loader's refusals**: O251's and O269's, each with a unit test.
 
 ## The game's home page (D480)
@@ -229,7 +233,7 @@ heading stays for the links to it.
   third parties aside. A map becomes mandatory with the fictional
   provider ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
 - **D483–D485**: the network overview, a player handout that may be
-  wrong, its fields per node ([network-overview.md](network-overview.md)).
+  wrong, its fields per node ([master spec](master-spec.md#8-the-network-overview) 8).
 - **D486**: O251 placed in v0.6's first chunk touching
   `tools/gm/model.py`.
 - **D487, D488**: the network overview's questions O260–O268 accepted
@@ -269,12 +273,13 @@ heading stays for the links to it.
   D488).
 - O271, O272, fake aging's: closed (D494, players never told; D495,
   the shop and the campaign)
-  ([fake-aging.md](fake-aging.md#questions-for-the-owner)).
+  ([archived draft](../../archive/v0.6/fake-aging.md#questions-for-the-owner)).
 - O251, the loader's `partners.md` refusal: placed (D486), built in
-  v0.6, open until built.
+  v0.6, closed at its archive (D602).
 - O269, the loader's check of a `seed-file` instance's lines in the
   scenario's copy: placed in v0.6 at v0.5's close (D476), settled as
-  the loader refusal (D510), built beside O251's, open until built.
+  the loader refusal (D510), built beside O251's, closed at v0.6's
+  archive (D602).
 
 ## Pending owner rulings before consolidation
 
