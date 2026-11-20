@@ -4378,3 +4378,38 @@ span in the script, which costs about 3 more minutes of fill, the
   behaviour (D594): a `coding-executor` fixes it on the wave branch,
   then a fresh 12b owner reruns both games.
 - Risk: game wall times 1660–1683 s against 1800 s, about 2 min margin.
+
+### Gate fix: chunk 18's transaction shape — 1e341dc, merged df27325, 2026-11-20
+
+- `coding-executor`, own branch from 237cef9 (branch deleted after).
+- Cause: R's commits before f8's planting are 0.9425 per call + a flat
+  0.095/s (likely autovacuum, inferred). From f8's planting, +3.995
+  commits per `orders.detail` call: without the index, the query runs a
+  Parallel Seq Scan with 2 workers, and each worker counts 2 commits at
+  start-up (tested on 19: 50 queries gave +200 with workers on, +4 off).
+  Session set-up, pooler checks, the reports and real mode ruled out.
+- Fix: `Composer.transaction_shape`'s denominator is the tail's
+  fill-equivalent transactions: the fill's counted transactions per call
+  over its last 60 min (`TX_PER_CALL_SPAN`, `fill_per_call()`, whole fill
+  as fallback) × the tail's calls; the report notes it. D594 unchanged
+  (shape still the fill's transactions; only the level was wrong).
+  `tup_inserted` and the other `pg_stat_database_*` counters stay on the
+  transaction shape (R's rows per call rise at night with
+  `deliveries.ingest`; predicted ×1.001 vs ×0.987 on calls).
+- **Game content touched:** f8's history signature gains a measured
+  `counter_per_call` on `pg_stat_database_xact_commit`, key `{KEY}`,
+  `per_call 4` (`faults/pg-join-index-missing/fault.yaml`, beside its
+  measured `tup_returned`/`blks_hit`, and the fixture's mirror
+  `fixture-dropped-index`); without it the fix would spread f8's commits
+  over the whole past (predicted ×1.08, FAIL). Faults don't bump
+  versions.
+- Known limit: the flat ~0.09/s floor scales with the load, so the
+  forged night stays 6–12 % under R.
+- Checks: `test_history` 40 OK (3 new, two fail on the old code); unit
+  suite 1570 OK (378 s); `fixture-fill` history 39/0 (1396 s, in window;
+  per-call 1.010; forged rows inserted per call within ±2.2 % of the tail
+  every hour; commits +3.9/+5.3 % in f8-active hours from the detail
+  mix, +0.5 % without f8's share). No image change.
+- Predicted for 12b's shop rerun (inferred): commits ×0.97 (night
+  ×0.88–0.94, day ×0.98–1.00), rows inserted ×1.00, statements ×0.986.
+  Scratch: `fix18/`.

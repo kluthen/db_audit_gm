@@ -2145,7 +2145,7 @@ G10.4 carries into formats.md ("The fill's metrics record").
 
 ### Chunk 12b — Fake aging verified: the tools and the two short games
 
-Status: blocked (on a fix to chunk 18's transaction shape; WIP 713fbcf)
+Status: ready (resumes from WIP 713fbcf; gate fix df27325 merged)
 Wave: 4
 Depends on: chunks 8, 9, 10, 11, 15; chunk 1 (the reference); chunks 12a
 and 12c (in wave 4: starts once both have merged: f8's value its game
