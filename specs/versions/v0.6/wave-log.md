@@ -4448,8 +4448,9 @@ span in the script, which costs about 3 more minutes of fill, the
   `reports.best-days` ×35, `deliveries.ingest` ×2.27, `orders.place`
   ×1.96, `orders.status` ×1.61, `reports.dashboard` ×0.44; campaign 10 of
   22, among them `dashboard.today` ×68, `dashboard.freshness` ×63,
-  `dashboard.revenue` ×17, `declare.exports` ×4.25); WAL rates shop `db`
-  ×1.18, campaign `db` ×2.43, `reporting` ×0.14.
+  `dashboard.revenue` ×17, `declare.exports` ×4.25); WAL rates outside
+  the band: campaign `db` ×2.43, `reporting` ×0.14 (shop `db` ×1.18 is
+  inside it; corrected by G10.4).
 - Risks: both games about 2.5 min under 1800 s; history import peaks at
   1.0–1.2 GiB.
 - Figures: 5 agents, 348 tool calls, 51.1M tokens in / 315k out, max
@@ -4462,3 +4463,42 @@ span in the script, which costs about 3 more minutes of fill, the
   stack test, `fixture-fill` short test and history run), the full unit
   suite on the merged tree, and the two short games. Next: G10.4
   (spec-writer), the wave report, the merge into main.
+
+## 2026-11-20: G10.4 done; wave 4 report; merged into main
+
+- G10.4 (spec-writer): 0c2e91a, status 3c5c82b, spec D597, formats.md
+  v41, plan v19.
+  - The forms: `short-game` records named in "Fake aging's measured
+    figures"; the scenario document's `## Fake aging` section and its
+    sources (9.10); M3's judged set and bounds in master spec 12.1 (five
+    measures, correlation ≥ 0.95, ratio of means 0.95–1.05); the
+    `fill_transactions` key in "The fill's metrics record"; 9.9 fix 12
+    gains the gate fix's denominator, f8's `counter_per_call` and
+    `SHAPE_RATIO`.
+  - Capture W4 item 1 names `tells.sh --start`. Chunk 17b's scope line
+    corrected for `statio_user_indexes`' `datname`.
+  - Chunk 16's template gaps filed as ISS-009 (Medium), not a form.
+  - Chunk 17c's content findings are open questions for the owner: O298
+    (the clinic's policy says pgaudit is on, but no seed loads it) and
+    O299 (the grid's TEMP TABLE in a read-only session), both with
+    proposed defaults.
+  - The 19 recalibration figures are under v1.0 gating's "v0.6's
+    additions" (D597 extends D590): 16 service times, 2 WAL rates.
+- Wave 4 merged: chunks 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c, 18
+  (18 inserted mid-wave, D594/D595). Rulings in the wave: D586–D597.
+  Gate fixes: 1e341dc (chunk 18's transaction shape).
+- Figures: 31 agents, 2,231 tool calls, 304.6M tokens in / 1.6M out, max
+  context 333k (12b's first owner, the only one over 300k; see 12b's
+  entry), $145.30 at API prices, before G10.4 (+1 agent, 217k context).
+  By chunk: 12b $30.91 (21 %), 17b $12.26, 14 $8.69, 18 $8.68, 17c $7.81,
+  17a $7.20, 16 $5.39, 12c $5.01, 5 $3.91, 12a $3.35; outside chunks
+  $52.08 (driver $15.11, security-advisor $7.75, spec-writer, research).
+- For the owner's nod (report): D595's two readings (`user` before
+  `datname`; a series with neither follows the load); f8's
+  `counter_per_call` content change; the games' ~2.5 min wall-time
+  margin; O298, O299; ISS-009's timing; D597's placing of the 19
+  recalibration in v1.0 gating.
+- Next: v0.6's release gate on main (no push): zlib1g (D588) and
+  CVE-2026-76844; recheck the 10 OpenSSL CVEs in trixie; pgBadger's
+  limit (D591) in the release notes. Then the milestone archive, v0.7's
+  G3/G4 (`dev` from main at v0.6's release commit) and v0.7 wave 2.

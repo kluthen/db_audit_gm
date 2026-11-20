@@ -181,7 +181,7 @@ owner did (spec D587): pgAudit 19.0, which carries 18.1's changes
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
 | 3 | 10, 11, 13 | wave 2 | merged into `main` (2026-11-19) |
-| 4 | 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c, 18 | wave 3; G8 before its gate; G9.2 and G14 (17a); G15 (17c's two items); G9.2's post-change half before its gate. 17 was inserted mid-wave by an owner ruling (spec D589), so its chain 17a, 17b, 12b runs three deep: each link is a version and a path this plan fixes, not an interface a capture would. 18 was inserted mid-wave by an owner ruling (spec D594, D595) after 12b stopped: 12b reads its effect in the shop's game, not an interface | in progress (started 2026-11-19) |
+| 4 | 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c, 18 | wave 3; G8 before its gate; G9.2 and G14 (17a); G15 (17c's two items); G9.2's post-change half before its gate. 17 was inserted mid-wave by an owner ruling (spec D589), so its chain 17a, 17b, 12b runs three deep: each link is a version and a path this plan fixes, not an interface a capture would. 18 was inserted mid-wave by an owner ruling (spec D594, D595) after 12b stopped: 12b reads its effect in the shop's game, not an interface | merged into `main` (2026-11-20) |
 
 ```
 2 ──> 3, 4, 8           (in wave 1, merge order: each merges after chunk 2 and takes
