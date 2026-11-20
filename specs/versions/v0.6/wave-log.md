@@ -4143,3 +4143,50 @@ span in the script, which costs about 3 more minutes of fill, the
     DANE, Suite B); NVD hasn't matched them, so the sweep hasn't raised
     them; at first sight none on a path a brick serves. A vuln-triage
     pass when they surface; recheck at the release gate.
+
+### Chunk 12b — stopped for rulings (WIP c14d445), 2026-11-20
+
+- Built on `v0.6-c12b-fake-aging-games` (worktree kept): the four tools
+  in `tools/fake_aging/` (from research 10d1bc6, generalised, W4's
+  PASS/FAIL/SKIP/FIGURE form, exit 0/1/2/77) and their README;
+  `tools/tests/smoke-fake-aging.sh <scenario-dir> [--record]` (playground
+  `fake-smoke`, exit 0/1/2/3, refuses outside its window: shop
+  hh:31:00–hh:35:00, campaign hh:31:00–hh:39:30); two records; both
+  READMEs' setup-time line (campaign 4 min 6 s; shop 8 min 43 s).
+- Runs (each under the lock, in its window): campaign 1 61/1 (1558 s; an
+  extra check of the owner's on a left-out instance's masking, since
+  reported not judged); **shop 55/5 (1546 s)**; **campaign 2 64/0 (1674
+  s), the committed record**. Unit suite 1559 OK. No campaign instance
+  dropped (f1–f4, f7–f9 all `supported`).
+- Shop: f8's step met (14008827 for 14016512, tolerance 161808); every
+  `n_tup_ins`, `last_value`, `tup_inserted` within ±3 % of R scaled
+  (s = 0.5604). The five failures:
+  1. M1 `daily_sales.n_live_tup` 15 vs 23.4 (R's 30 for 15 inserts) and
+     `delivery_events.n_live_tup` ×1.040: an ANALYZE estimate, the owner
+     proposes dropping it from W4 item 2's judged set;
+  2. M3 `commits/s` mean ×1.18 (night 1.07/s vs R 0.60); M1
+     `shop.xact_commit` ×1.95 (reported only): suspected `fill.py`
+     `run_steps`'s `set_clock` committing once per call (scheduler brick,
+     outside 12b's Files);
+  3. M3 `statements calls/s` mean ×0.851 (night 1.44 vs 2.3), cause not
+     found;
+  4. tells: `autovacuum public.customers` 1 run for 57018 updates vs 4.9
+     expected (1.45–10.8).
+- FIGURE findings (never judged, for v1.0 gating): tail service times
+  outside ×0.8–×1.25 for many keys (cold caches after the restart, plus
+  19 vs 18 files); tail WAL shop ×1.07, campaign `db` ×2.13–2.57
+  (full-page writes after the restart's checkpoint), `reporting` ×0.14;
+  campaign f1 at the seam ×1.00–1.03 (no step); retention holds; history
+  import memory peak 1.0–1.2 GiB.
+- As-built deviations to fold into W4 when it's revised: M1 "or one row
+  either way for a count under 34"; the tells' autovacuum upper bound
+  counts all dirtied rows; `stats-reset` within 120 s before
+  `restart.at`; service times as medians (`calibrate.py keys`) not
+  means; `--reference` refused for scenarios other than the shop; setup
+  time excludes the wait for the anchor; an early-check failure caused
+  by a left-out instance's masking reported, not judged.
+- Risk: each game's wall time is 26–28 min; a slower host could cross 30.
+- Next: a read-only diagnosis of failures 1–4 (dispatched), then
+  rulings (spec-writer, the owner where a judged set changes), then a
+  fresh owner resumes from c14d445: shop rerun with `--record`, the
+  0133Z record replaced, squash, merge.

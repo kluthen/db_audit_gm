@@ -2037,7 +2037,7 @@ Architecture capture: none.
 
 ### Chunk 12b — Fake aging verified: the tools and the two short games
 
-Status: planned
+Status: blocked (on rulings: the shop's M1/M3 judged sets and three fill deviations; WIP c14d445)
 Wave: 4
 Depends on: chunks 8, 9, 10, 11, 15; chunk 1 (the reference); chunks 12a
 and 12c (in wave 4: starts once both have merged: f8's value its game
