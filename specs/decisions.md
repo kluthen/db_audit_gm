@@ -702,6 +702,11 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   (G8's note 1, the base layer, not reachable) is handled at the release
   gate:** an `apt-get upgrade` or `zlib1g` named in the Dockerfiles, all
   ten bricks, folded into the unreleased versions. Now in: [build plan](versions/v0.6/build-plan.md) v16, release gate item 2.
+  Corrected 2026-11-20 (G9.3): DSA-6613-1's zlib findings are
+  CVE-2026-85091 and CVE-2026-27171 only. CVE-2026-76844, counted with
+  them since G9.2, is not zlib's: Debian's tracker marks it NOT-FOR-US,
+  a webpack-dev-middleware path traversal that OSV's Debian import
+  misattributes to zlib.
 - **D589 (2026-11-19, spec-writer, placing D587): chunk 17 inserted in
   wave 4 before 12b, split in three:** 17a the images on 19 and every
   path, test and generated file they bind (one commit: the data path

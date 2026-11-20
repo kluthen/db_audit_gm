@@ -4173,7 +4173,9 @@ span in the script, which costs about 3 more minutes of fill, the
   preflight's wording was wrong).
 - Pre-existing, not from this change, for the release gate:
   - zlib1g still +b1 everywhere: D588's two CVEs plus CVE-2026-76844
-    (7.4), all fixed by +deb13u1; stays under D588.
+    (7.4), all fixed by +deb13u1; stays under D588. *Corrected
+    2026-11-20 (G9.3, D588): CVE-2026-76844 is not zlib's (Debian:
+    NOT-FOR-US, a webpack-dev-middleware flaw OSV misattributes).*
   - OpenSSL 3.5.7-1~deb13u3: 10 CVEs open in trixie (published
     2026-11-10 to 11-18, no DSA yet; QUIC, DTLS, AES-GCM-SIV, CMS, PEM,
     DANE, Suite B); NVD hasn't matched them, so the sweep hasn't raised
