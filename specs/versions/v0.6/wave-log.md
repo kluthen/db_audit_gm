@@ -4346,3 +4346,35 @@ span in the script, which costs about 3 more minutes of fill, the
 - Not measured here: the M3 predictions (statements ×1.0, commits
   ×1.0); 12b's reruns judge them.
 - Figures: 1 agents, 90 tool calls, 18.0M tokens in / 71k out, max context 259k, $8.68 at API prices.
+
+### Chunk 12b (resume 2) — stopped on a judged failure (WIP 713fbcf), 2026-11-20
+
+- Branch rebased as 56c3f3b (as-built tools on e04b5b3, research origin
+  10d1bc6 named; 0133Z/0231Z records removed) + WIP 713fbcf (records
+  0931Z shop (failing), 1031Z campaign; campaign README setup line).
+- Resume work: `m1_compare.py` judges `n_tup_ins`, `last_value`,
+  `tup_inserted` only (`n_live_tup` FIGURE, D593); `tells.sh`'s
+  autovacuum rule per D596 with a new `--start <game T0 M1 dir>`
+  argument (goes with `--reference`; W4 item 1's usage line lacks it:
+  for W4-x / G10.4); offline check on the old run: 3.74, 0.87–8.5.
+- Unit suite 1567 OK on the merged tree.
+- **Shop 09:31Z: 52/2, 1660 s.** Fill 476 s; setup 519 s (832 s with
+  the anchor wait); history 77 s, promtool 1027.5 MiB; M1 10/0; tells
+  10/0 (customers 2 runs vs 3.8, band 0.90–8.6); f8's step 14008635 for
+  14016512 passes. M3: calls ×0.985, errors ×1.01, **statements ×0.986
+  (chunk 18's prediction met)**, **commits ×0.787 FAIL**, **rows
+  inserted ×0.703 FAIL** (passed before 18).
+- **Campaign 10:31Z: 64/0, 1683 s.** Fill 197 s; setup 248 s; P0 holds;
+  tells 35/0; f1 at the seam ×1.03; WAL `db` ×2.54, `reporting` ×0.14
+  (FIGURE).
+- Cause (owner's diagnosis): `Composer.transaction_shape`
+  (`tools/gm/history.py:503-525`) divides the fill's own counted
+  transactions (`fill.py:230-235`: no session set-up, `set_clock` or
+  visits) by the tail's **every** commit + rollback on the database: R
+  reads 1.34 commits per call at 13:00, the forged past 0.97; rows
+  inserted ride the same shape (×0.70–0.74 every hour). Chunk 18's own
+  risk line, at −21 % / −30 %.
+- Driver's call: a defect in chunk 18's code, not a change to stated
+  behaviour (D594): a `coding-executor` fixes it on the wave branch,
+  then a fresh 12b owner reruns both games.
+- Risk: game wall times 1660–1683 s against 1800 s, about 2 min margin.
