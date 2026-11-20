@@ -4532,3 +4532,29 @@ span in the script, which costs about 3 more minutes of fill, the
   v20: "Recorded in" column); merged e91fb5a. The archive's checksum
   verified. Gap: the bastion's footprint with the status service up was
   never measured; (C) takes it.
+
+### Release gate (B) G9.3 and (C) items 1, 4, 5 done, 2026-11-20
+
+- (B) G9.3 CLEAR WITH NOTES (81b6ffb, `.tech` only; merged). zlib1g
+  +deb13u1 read in all ten built images, `dpkg -V` clean; CVE-2026-85091
+  and -27171 fixed by DSA-6613-1. CVE-2026-76844 is not zlib's (Debian:
+  NOT-FOR-US, a webpack-dev-middleware flaw; OSV misattributes it): D588
+  wants a one-line correction. Nothing pending in trixie-security; PGDG
+  only `postgresql-common` 297 (kept at 278 by G9.2) and a no-change
+  `check-postgres` rebuild. OpenSSL 3.5.7-1~deb13u3: the 10 CVEs still
+  have no Debian fix (8 Low upstream, fixed in 3.5.10); none reachable
+  on a served path; no rebuild would change anything.
+  - **For the owner (G11):** (1) release with the 10 OpenSSL CVEs open,
+    review at a trixie openssl DSA or 2027-02-01; (2) 14 nginx NVD
+    matches on deb13u11 (backport false positives): accept as
+    `[[ignore]]` until 2027-05-01, or let tomorrow's sweep file them.
+- (C) all twelve runs 0 failed, no fix needed: `fixture-status` 27/0
+  (381 s); `docs-overview-backup-claimed` 16/0; `fixture-clinic-front`
+  38/0 as `player`; scenario smokes bookshop 19/0, fernway 18/0, shop
+  26/0 (844 s), campaign 33/0 (317 s); `smoke.sh` 61/0,
+  `smoke-monitoring.sh` 43/0, `smoke-governance.sh` 121/0,
+  `smoke-load.sh` 73/0. The bastion's footprint with `status-pages` up
+  (8674f10, in its `docs/gm.md`): 5.2 MiB container (256 MiB limit),
+  nginx 11.2 MiB, the status service 1.7 MiB between renders, cgroup
+  peak 21.7 MB at start-up. Logs: scratchpad `rg/c/`.
+- Next: (D) item 3, the two short fake games.
