@@ -40,7 +40,7 @@ generated_from:
   catalog/bricks/scheduler/brick.yaml: sha256:fa6e7b2a434f29bcbc8348fcb3f77fea828d406038712b2d9e19af1b583c96ba
   catalog/bricks/api/brick.yaml: sha256:8f5200ff43cd95d6c210f1482481b2d6dd0a035e5f7d6e091455aa1bdf2f8574
   catalog/bricks/prometheus/brick.yaml: sha256:3a7b2403cbfa1cf37adf6a4a37dcf901039c2d49816115a0e0c554d8b0d4d934
-  catalog/bricks/grafana/brick.yaml: sha256:d3e524bcf5a7d1c1bd35519c6a743e0b9c0cbce014c2e9cb5652305eaea003e1
+  catalog/bricks/grafana/brick.yaml: sha256:1e5cb9c40e40913ac8c303a0e72b79f19c18b7fb239038c0ad48eeb3687898c5
   catalog/bricks/postgres-exporter/brick.yaml: sha256:b6ef93072feba37397d214f00fa91b65daa61b6b1b21548c3659ad89a10df081
   catalog/bricks/pgwatch/brick.yaml: sha256:c0203b013749da86f9bc8496f77300ac19679abc9194c0fff5c64534b31d2639
   catalog/bricks/health-check/brick.yaml: sha256:d480ab1a6a9b29eeea488d92c90ce57f363df00460cb1879d5d97b9aa6376b0f

@@ -3,8 +3,8 @@
 #
 # Version 0.4.0 (unreleased until the v0.6 release gate, D100): 0.3.0,
 # released with v0.5, plus `base:` (v0.6 master spec 6.4 and 6.8; capture
-# W1 item 1 of specs/versions/v0.6/wave-log.md); 6.8's other change, Node
-# health's `node` variable, comes with its chunk. Roles, growth
+# W1 item 1 of specs/versions/v0.6/wave-log.md) and 6.8's other change, Node
+# health's `node` variable (v0.6 chunk 5). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
