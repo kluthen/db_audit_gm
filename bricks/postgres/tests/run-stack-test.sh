@@ -805,7 +805,8 @@ wait_rows() {
 }
 w=$(j /command/s6-svstat -o up,wantedup /run/service/cron 2>&1)
 [ "$w" = "true true" ] && pass "db2, seeding a crontab: the service cron is up ($w)" || fail "service cron on db2: $w"
-cpid=$(j pgrep -x cron 2>&1)
+# -o, the daemon: each minute's job runs in a forked child also named cron
+cpid=$(j pgrep -o -x cron 2>&1)
 w=$(j ps -o user=,args= -p "$cpid" 2>&1 | tr -s ' ')
 [ "$w" = "root /usr/sbin/cron -f" ] && pass "db2: the daemon runs as root, in the foreground ($w)" || fail "db2: cron process: [$cpid] $w"
 w=$(j /command/s6-rc-db -l /run/s6-rc dependencies cron 2>&1 | sort | tr '\n' ' ')
@@ -1345,7 +1346,7 @@ n=$(vault cat /srv/vault/shipments.ndjson | grep -c '"type":"basebackup"')
 [ "$n" = 1 ] && pass "posted once: one base backup in the vault after its minute" || fail "base backups in the vault: $n"
 
 # --- v0.4: footprint at rest of the jobs (chunk 4b) ----------------------------------------
-cpid=$(j pgrep -x cron)
+cpid=$(j pgrep -o -x cron)
 lpid=$(jsql "select pid from pg_stat_activity where backend_type = 'pg_cron launcher'")
 info "db2 at rest: cron RSS $(j ps -o rss= -p "$cpid" | tr -d ' ')K, pg_cron launcher RSS $(j ps -o rss= -p "$lpid" | tr -d ' ')K"
 
