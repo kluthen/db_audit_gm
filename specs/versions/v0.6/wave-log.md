@@ -4584,3 +4584,17 @@ span in the script, which costs about 3 more minutes of fill, the
 - Items 1 to 7 done. Left: item 8, G11, the owner's judgement, with the
   OpenSSL and nginx calls (G9.3) and wave 4's nods; then the merge into
   main on the owner's word.
+
+### G11: the owner's rulings, 2026-11-20
+
+Asked with AskUserQuestion; all four answered "(Recommended)":
+1. **Release v0.6**: merge `v0.6-rg` into main (no push), archive the
+   milestone, then v0.7's G3/G4 and wave 2.
+2. **OpenSSL**: release with the 10 CVEs open; review at a trixie
+   openssl DSA or 2027-02-01 at the latest.
+3. **nginx**: the 14 NVD matches on deb13u11 accepted as `[[ignore]]`
+   until 2027-05-01 (security-advisor writes them).
+4. **Wave 4's items, all as proposed**: D595's two readings; f8's
+   `counter_per_call` (per_call 4); O298 (load pgaudit in `lab` and
+   `portal` in a later build); O299 (the owner amends the grid, the
+   copy is refreshed); ISS-009 fixed in v0.7.
