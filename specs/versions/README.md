@@ -295,7 +295,10 @@ aged run is decided then (D193).
     issue 6 (a handout never names a refused instance, D542), f5 planted
     in its 5 h tail; P0 held, f4 and f7 through the cover (D523,
     confirmed by chunk 11), so D508's fallback (f2, f3, f4 and f7 as
-    `tail-only`) is not needed;
+    `tail-only`) is not needed; in those runs, **Prometheus' retention
+    after a compaction** (D598): the lowest timestamp still at the
+    virtual T0 once `prometheus_tsdb_compactions_total` has stepped
+    after the import, which the build never reached (master spec 18);
   - **the blind reads**: on a fake game of each full selection, kept
     up for the read, a fresh agent with player access only, told
     nothing about aging, audits the scenario, then is asked whether
