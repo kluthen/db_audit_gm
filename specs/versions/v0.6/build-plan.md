@@ -1,6 +1,7 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
+Status: v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
+v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
 v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
 v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
 everywhere (spec D587), zlib1g at the release gate (spec D588), placed
@@ -1904,8 +1905,9 @@ noted by the driver in the wave log beside capture W4.
     every default collector's `pg_scrape_collector_success` 1 on 19 and
     no exporter session in any database but `postgres`; its SBOM
     (`tools/go-sbom generate postgres-exporter`); docs (0.21.1 on 19;
-    `stat_replication`'s new `pid` label, `statio_user_indexes`'
-    `datname`);
+    `stat_replication`'s new `pid` label; `statio_user_indexes`
+    carrying `datname` only under database discovery, so not here, as
+    built);
   - **`pgwatch`**: `PGWATCH_VERSION=6.2.0` and its checksum; the
     `basic` preset on 19 in its stack test; SBOM; docs;
   - both `brick.yaml` (`technology.version`), folded into

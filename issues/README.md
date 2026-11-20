@@ -7,6 +7,7 @@ Tracked problems in db_audit_gm. Filed and kept with the
 
 | Ref | File | Severity | Status | Summary |
 |---|---|---|---|---|
+| ISS-009 | [ISS-009_20261120_scenario_document_template_gaps.md](ISS-009_20261120_scenario_document_template_gaps.md) | Medium | Open | the scenario-document template has no case for node `options:`/`standby_of:`, a `domains:` scenario's classification and databases, an empty `pg_cron` table; regenerated documents drop them |
 | ISS-008 | [ISS-008_20261119_fake_game_unset_signature_parameter_silent.md](ISS-008_20261119_fake_game_unset_signature_parameter_silent.md) | Medium | Open | a fake game's instance leaving a history signature's optional `database` unset loses that series from the forged past, silently; nothing refuses it |
 | ISS-007 | [ISS-007_20261119_fill_queue_plan_ignores_hider_planting.md](ISS-007_20261119_fill_queue_plan_ignores_hider_planting.md) | Low | Open | the fill drops a hidden fault's `queue` entry from T0, ignoring when the hiding instance is planted (D543); no covered fault uses `suppressed_by` |
 | ISS-006 | [ISS-006_20261116_health_check_stack_test_cron_race.md](ISS-006_20261116_health_check_stack_test_cron_race.md) | Medium | In Progress | health-check stack test flaky: report-only redeploy runs gm-validate before the cron daemon starts (RED cron) |

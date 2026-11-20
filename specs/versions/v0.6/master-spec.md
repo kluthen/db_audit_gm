@@ -56,7 +56,9 @@ the unreleased versions (6.8, 7.7, 8's N3; spec D587). Amended in wave
 4, on the owner's rulings after chunk 12b's shop game: `n_live_tup`
 reported, not judged, and one row's leeway for a small count (12.1;
 spec D593, D596); the forged past's counters follow what drives them
-(9.9 fix 12; spec D594, D595).
+(9.9 fix 12; spec D594, D595). Amended after wave 4's gate (gate
+G10.4): the forms as built, stated in formats.md v41 (9.7, 9.9 fix
+12, 9.10, 12.1; spec D597); what wave 4 measured (18).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -1168,7 +1170,9 @@ key measured on a single run carries no spread (`sigma: 0`). Each
 measurement is kept as one file in the repository's calibration folder,
 named by the scenario, what it measured and its instant, opening with
 the command, the commit, the start and the wall time; a `source:` or a
-`# measured:` comment names it (formats.md).
+`# measured:` comment names it (formats.md). A short fake game's whole
+output is kept the same way (12.1's script, `short-game`), and the
+scenario document's setup time is read from the newest one (9.10).
 
 ### 9.8 The scenarios covered, and the starting estimates
 
@@ -1248,7 +1252,7 @@ Every fixable caveat is fixed.
 | 9 | Monitoring's footprint in the database | the fill opens the exporter's and pgwatch's sessions at the scrape rate in virtual time |
 | 10 | Fault parameters, not constants | the queue model and the overlays read the instance's parameters and the keys' measured service times |
 | 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means: every session given `gm.vclock` at the virtual T0 and the path `"$user", public, gm_vclock, pg_catalog` (the default path, `gm_vclock` placed by 9.4's rule), so the time-of-day functions it calls read that instant and what it creates unqualified lands where a real load puts it; in the SQL `load-data` sends, the time-of-day keywords bound to it outside DDL, and in DDL every unqualified `now()` and its kin written `pg_catalog.`, so a stored default or view binds the real function, as a real load leaves it, and the shim's drop reaches no customer object; inject's scripts run unchanged, with the session means only. So the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The fill's plantings at its pauses take the same session means at the pause's virtual instant (9.4 step 5). The real mode is unchanged |
-| 12 | The forged past's counters follow what drives them | a series of the scheduler's roles (its `user` label) or, without a `user` label, of its databases (`datname`) follows the fill's load, with no floor at night; one of another role or database (the monitoring's own queries, the `postgres` database) stays flat at the tail's rate; a series with neither label follows the load; each database's `pg_stat_database_*` series follow the transactions the fill ran on it each virtual minute, the fill's clock setting excluded |
+| 12 | The forged past's counters follow what drives them | a series of the scheduler's roles (its `user` label) or, without a `user` label, of its databases (`datname`) follows the fill's load, with no floor at night; one of another role or database (the monitoring's own queries, the `postgres` database) stays flat at the tail's rate; a series with neither label follows the load; each database's `pg_stat_database_*` series follow the transactions the fill ran on it each virtual minute, the fill's clock setting excluded, at the tail's rate per call: their level is the fill's transactions per call there over its last hour times the tail's calls, so what the fill doesn't run (a session's set-up, autovacuum) keeps the tail's share, and a fault's own commits come from its signature (the shop's f8: 4 a call of its key, its scan's parallel workers starting). Every shape is a 15-minute moving mean, bounded at 2 % to 4 times the tail's, a floor far under any night the games draw |
 
 **Not done, on purpose**: resetting the table and index statistics at
 the clean-up. It would hide the last-use times, but it zeroes the dead
@@ -1288,7 +1292,12 @@ instance's support, the tail the full selection needs, the instances
 refused, the limits that touch its evidence, and the setup's measured
 time from the deploy to the restart, the fill's duration within it);
 per game, the restart
-record. Nothing reaches the bastion, the starter pack or a handout.
+record. The section's limits are the rows the restart record's
+`explains` would hold for the scenario, read at design time, so the two
+never disagree; its setup time comes from the scenario's newest short
+fake game record (12.1), the wait for the anchor not counted, since it
+depends on when the setup starts, not on the scenario (formats.md, "The
+scenario document"). Nothing reaches the bastion, the starter pack or a handout.
 
 ### 9.11 What the players are told, and when
 
@@ -1461,7 +1470,17 @@ No aged run.
   either way for a count under 34, the rest reported, never judged,
   `n_live_tup` among them (an estimate VACUUM and ANALYZE overwrite,
   not a count inserts drive); the shop played as it is, never
-  a copy at the saved run's span. For the campaign, the checks
+  a copy at the saved run's span. M3 compares the hourly profiles over
+  the hours the game's past holds (from its virtual T0 plus one hour to
+  the last whole hour before the restart, the shop's 15), both handing
+  over at the same scenario hour: the traffic (the scheduler's calls and
+  errors a second, the database's commits and rows inserted a second,
+  the statements' calls a second) judged, each at least 0.95 correlated
+  with the saved run and its mean within 0.95 to 1.05 of the saved
+  run's; the call p95, the size and resource gauges and the series
+  count and the transactions' age reported, never judged (the saved
+  run's span and selection move them).
+  The script's record of each game is kept (9.7). For the campaign, the checks
   reading present, P0's jobs' outputs against their invariants, the
   seam and the tells. A start-time check confirms the monitoring
   started with the rest.
@@ -1703,12 +1722,18 @@ spec:
   path, so the cover (9.4) reaches it, f4's and f7's calibration
   confirming it; a fault P0 doesn't reach drops to `tail-only` and
   leaves the campaign's short check (9.8).
-- The WAL padding: its time and the WAL left after the checkpoints.
+- The WAL padding: its time and the WAL left after the checkpoints:
+  measured in wave 4's short games, 0.5 to 2.5 s a node, `pg_wal` at
+  98 to 100 % of the padding's figure at the read.
 - A short autovacuum naptime: the autovacuum counts in range without
-  slowing the fill.
+  slowing the fill: measured in wave 4, the tells' autovacuum counts in
+  range on both scenarios (the shop's `customers` against the saved
+  run, D596), the fills 7 min 53 s (shop) and 3 min 16 s (campaign).
 - A restart of every service keeps everything the fill wrote (the
   scheduler logs on their volume) and gives fresh process namespaces;
-  the monitoring scaled up in the same restart.
+  the monitoring scaled up in the same restart: measured in wave 4,
+  every service of both games, the monitoring's included, started
+  within 10 s after `restart.at`.
 - `daily_spike` and `gauge_before`: measured in wave 3, `fixture-fill`'s
   history run reading every kind back over the past (`gauge_before` on
   `pg_database_size_bytes`).
@@ -1717,13 +1742,14 @@ spec:
 - Prometheus' retention against imported blocks older than the head,
   after a compaction: measured partial in wave 3, the lowest timestamp
   at the virtual T0 a minute after the import and after the snapshot's
-  restart (a past of under eight hours); a 13 to 15 hour past and a compaction
-  not measured.
+  restart (a past of under eight hours); in wave 4, the shop's and the
+  campaign's 16-hour pasts kept to within 3 s of the virtual T0 at the
+  read, about 15 minutes after the import; a compaction not measured.
 - The players' shell on the Prometheus node can't read the TSDB folder,
   whose owner and mode the import keeps (the shell itself stays: f10's
   fix edits `prometheus.yml` there): the folder measured
   `prometheus:prometheus 0750` after the import in wave 3; the `player`
-  account's listing is chunk 12's check.
+  account's listing refused in both of wave 4's short games.
 - Whether the campaign's f4 check needs the 12:00 close in the tail:
   measured in wave 3, it doesn't (9.8).
 - The bricks' exact versions if a build finds more to change (folded

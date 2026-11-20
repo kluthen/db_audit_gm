@@ -758,3 +758,12 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   per bulk statement (the shop's `customers`: 3.7 expected, observed 1
   passes), the residual reported. Now in: wave log, capture W4 (revised
   2026-11-20); [build plan](versions/v0.6/build-plan.md) v18, chunk 12b; [master spec](versions/v0.6/master-spec.md) 12.1.
+- **D597 (2026-11-20, spec-writer, gate G10.4 after wave 4's gate):
+  wave 4's forms written as built,** each checked against the code on
+  `v0.6-w4`; none contradicts the spec, which they complete: the short
+  fake game's record and the "Fake aging" section's sources; the fill's
+  `fill_transactions` and fix 12's level per call; M3's judged set and
+  bounds; the exporter 0.21.1's reach. The tails' figures on 19 go to v1.0
+  gating; chunk 17c's two content findings to O298, O299. Now in:
+  [formats.md](formats.md) v41; [master spec](versions/v0.6/master-spec.md) 9.7, 9.9, 9.10, 12.1, 18;
+  [v1.0 gating](versions/README.md#v10-gating); [build plan](versions/v0.6/build-plan.md) v19.

@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v40; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v41; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
 catalogue folder, the owners' traffic folder (D364, D369, D383), and
@@ -55,7 +55,12 @@ seam check's findings, a fake game's restart; a history signature's
 the `**Fake aging.**` note; the calibration files, a report-only node's
 service times and a one-run key's `sigma: 0`. Draft v40, the owner's
 ruling on O292 (D585): a `gauge_before` adds its `value` to the level
-drawn before the planting, a dropped index's the index's size.
+drawn before the planting, a dropped index's the index's size. Draft
+v41, after v0.6's wave 4 gate (gate G10.4), with wave 4's forms as
+built (D597): the short fake game's record, which the scenario
+document's "Fake aging" section reads, and that section's sources; the
+fill's transactions per database in its metrics record; the exporter's
+reach on `postgres_exporter` 0.21.1.
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -490,7 +495,13 @@ The owner's requirements (D23), with the earlier rulings that apply:
   `<what>` as built in wave 3: `keys-<node>` (a node's service times),
   `run-<letter>` (the run itself: its steps and windows, `run-a`), the
   instance (`f1`, `f5`: a fault's figures), `fill` (a short fill), and
-  `wal-<node>` (a WAL rate). A `source:` here, and a `# measured:`
+  `wal-<node>` (a WAL rate); in wave 4, `short-game`: a short fake
+  game's whole output, written by `tools/tests/smoke-fake-aging.sh
+  --record`, one a run (the shop's and the campaign's,
+  `tarnbeck-outdoor-shop-short-game-20261120T1231Z.txt` and
+  `tarnbeck-outdoor-campaign-short-game-20261120T1332Z.txt`); the
+  newest one is the setup time the scenario document shows. A
+  `source:` here, and a `# measured:`
   comment in a fault's history ("Fault definition"), names that file;
   the shop's figures name a member of the reference instead (master
   spec 12.3), never a copy of it.
@@ -509,7 +520,24 @@ The owner's requirements (D23), with the earlier rulings that apply:
   files is (proposed). From v0.5 it renders every answer-key item a
   fault instance carries, a cascade's `backlog:` included (D472), and
   the false alarms; it never shows the coherence result, setup state
-  ("Composing domains" below, D468).
+  ("Composing domains" below, D468). From v0.6 every document ends
+  with an unnumbered `## Fake aging` section (v0.6 master spec 9.10;
+  D544, D597), one line, "None: the scenario does not age, so it has
+  no fake game.", for a scenario without `aging:`; otherwise from these
+  sources only: the virtual span from `aging.minimum` and
+  `aging.handover_at`; each instance's support, tail needs, `plant_in`
+  and reason from its fault's `aging.fake` ("not assessed" without
+  one) and whether its `gm.md` has a `**Fake aging.**` note; the full
+  selection's tail, anchor and refused instances as
+  `render.fake_timeline` computes them at the designed hand-over; the
+  limits as the restart record's `explains` would hold them (the rows
+  of `cleanrestart.EXPLAINS` under the same conditions, read at design
+  time from the seeds and schema files), each with the instances whose
+  answer-key evidence reads where it shows; and the setup's measured
+  time from the newest `<id>-short-game-*.txt`: the deploy to
+  `restart.at` less the wait for the anchor, the fill's duration within
+  it, the file named, or "not measured" without one. The skill's
+  template holds the wording and the evidence-to-limit table.
 
 A scenario is complete whatever the initiator sketched or left out at
 setup: the GM fills the blanks (D16). Recording which items came from the
@@ -828,7 +856,20 @@ would have served at that minute's end counting from the virtual T0,
 n}`), `scheduler_call_duration_seconds` (`{<key>: {buckets: {<le>: n},
 sum, count}}`), `scheduler_job_runs_total` (`[{key, job, value}]`),
 `scheduler_job_skips_total` (`[{key, job, reason, value}]`); read by
-`gmctl history`. The program's fill interface (`gm_scheduler fill`: one
+`gmctl history`. From `scheduler` 0.4.0's chunk 18 (D594, D597) each
+object also holds `fill_transactions`, never served by `/metrics`:
+`{"<host>:<port>/<database>": n}`, the transactions the fill has run
+on that database so far, cumulative, keyed by the host and port the
+fill's session went to (a connection the game makes through a pooler
+under the server behind it, where the fill sends it); one a transaction
+plan, else one a step, a failed one included; a script's by the
+commits and rollbacks it ends, plus one for a transaction it leaves
+open; never the clock's setting (`set_clock`), a session's set-up or
+the exporter's replayed scrape. `gmctl history` maps an exporter's
+`instance` to that key through the node's `exporter.conf` and shapes
+each database's `pg_stat_database_*` series from it (master spec 9.9
+fix 12); a record without the key (a fill from an earlier image)
+leaves those series on the load's shape. The program's fill interface (`gm_scheduler fill`: one
 JSON line in, its `FillConfig`, then `PAUSE <instant>` and `GO` at each
 pause, `DONE <json>` or `FAILED <reason>`) and `gm_scheduler fill-sql`
 (the shim's SQL; `--drop`, the checked drop; `--cover`, the routines
@@ -1238,7 +1279,14 @@ faults/<fault-id>/
     `pg_stat_user_indexes_*` series, and a `pg_*` series' `instance`
     label is the exporter's target, never the database node: an
     `instance=` or per-table selector on a `pg_*` series matches
-    nothing. A dropped index's size is drawn with a `gauge_before` on
+    nothing. On `postgres_exporter` 0.21.1 (`postgres-exporter` 0.2.1,
+    D587, D597) this holds as before: one data source on `postgres`
+    and no `--auto-discover-databases`, so the database-scoped
+    collectors, which since 0.21 run on every configured database,
+    still read `postgres` alone, and `statio_user_indexes` (off by
+    default) carries no `datname`, which it gains only under discovery;
+    the flags, the collectors and 0.21's label changes are in the
+    brick's `docs/gm.md`. A dropped index's size is drawn with a `gauge_before` on
     `pg_database_size_bytes{datname=...}`, its `value` the index's size.
     `- kind: none` is a signature's only entry.
   - A `gauge_before` adds its `value` to the level drawn on its series

@@ -3374,7 +3374,10 @@ one form. Each tool names its origin in its header (`research/fake-aging`
 restart and the release gate read)
 
 - **(choice)** `sh tools/fake_aging/tells.sh <scenario-dir> --playground
-  <pg> --node <db node> [--node <db node> ...]`: every primary
+  <pg> --node <db node> [--node <db node> ...] [--reference --start
+  <game T0 dir>]` (`--start` as built, rev. 2026-11-20, G10.4: the
+  game's M1 dump at its virtual T0, item 2's, which the autovacuum
+  check counts the updates from; only with `--reference`): every primary
   `postgres` node the game reads (the shop `db`; the campaign `db` and
   `reporting`), named by the caller. Refused, exit 2: no restart record
   or `mode` not `fake`, no `restart.at` (the tells are a fake game's);
@@ -3428,9 +3431,9 @@ restart and the release gate read)
   `prometheus_tsdb_blocks_loaded` and `prometheus_tsdb_storage_blocks_bytes`
   at the read.
 - `--reference`: run R's tells (`m4-r-20261115.txt`) and M1 table
-  statistics read through `extract.sh`; with the archive absent the
-  autovacuum check takes the campaign's rule and says so in a `SKIP`
-  line for R's.
+  statistics read through `extract.sh`; with the archive absent, or
+  without `--start` (rev. 2026-11-20, G10.4), the autovacuum check
+  takes the campaign's rule and says so in a `SKIP` line for R's.
 
 **2. The M1 dump and comparison** (chunk 12 writes; the script reads)
 

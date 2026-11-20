@@ -396,6 +396,43 @@ kept here until v0.6's archive moves them.
   alternative is leaving the seeds as written, the lines gone. Refs:
   build plan chunk 17c. Ruled so: the new setting added.
 
+## v0.6: game content found in wave 4
+
+Findings of chunk 17c about game content that predates v0.6, routed at
+G10.4 (D597); no content changed. Both the owner's.
+
+- **O298** (v0.6 or later, before the clinic is next played; raised at
+  G10.4 from chunk 17c) — The clinic's pgaudit is described but never
+  loaded. `vet-lab`'s and `vet-portal`'s `policy.md` (and their domain
+  notes) tell the players pgaudit logs `write, ddl, role` with its
+  parameters off on `lab` and `portal`, but no played scenario's or
+  fixture's seed `shared_preload_libraries` loads pgaudit (only
+  `postgres`' stack-test seeds and `fixture-composed` do): the
+  aldermoor-centre seeds preload `pg_stat_statements,pg_cron`. So the
+  traps T2 and T251 (pgaudit's parameters turned on) can't bite as
+  built (neither is in the clinic's selection today), and a player who
+  checks the policy against the server finds an unlisted breach no
+  answer-key item explains. Default (proposed): load pgaudit in `lab`'s
+  and `portal`'s seeds with the policy's settings, the overview, the
+  register and the scenario document regenerated, in a build that
+  touches the clinic (v0.7 or the clinic's fake aging); the alternative
+  is rewording both policies to pgaudit off and dropping T2 and T251.
+  Refs: [build plan](versions/v0.6/build-plan.md) chunk 17c; wave log
+  "Chunk 17c — merged"; [vet-portal domain](versions/v0.5/vet-portal-domain.md) T251.
+- **O299** (v0.7, the audit grid; raised at G10.4 from chunk 17c) — The
+  owner's audit grid ([references/grille-audit-pg.md](../references/grille-audit-pg.md),
+  a verbatim copy, D558) says every query is read-only and to run them
+  in a `SET default_transaction_read_only = on;` session, but its
+  sampling block ("Qui émet une requête") starts with `CREATE TEMP TABLE
+  echantillons`, which PostgreSQL refuses in a read-only transaction
+  (every `CREATE` is; only writes to a temporary table are allowed). A
+  player or the game assistant following the grid as written gets an
+  error. Default (proposed): the owner amends the grid (the sampling
+  run in its own session without the read-only setting, or the note
+  naming the exception), the copy refreshed; the alternative is the
+  copy left verbatim and the game assistant's notes pointing it out.
+  Refs: [v0.7 master spec](versions/v0.7/master-spec.md#615-the-audit-grid) 6.15.
+
 ## v0.5: scope, the domain procedure, post-mortems
 
 Raised on 2026-10-31, when the owner centred v0.5 on domain definition
