@@ -4283,3 +4283,27 @@ span in the script, which costs about 3 more minutes of fill, the
   into W4 with 12b's other as-built deviations; the residual reported.
 - Sent to `spec-writer`: the rulings, master spec 12.1, the inserted
   chunk, W4's revision, 12b's dependency.
+
+### Plan v18 (bd194b6): chunk 18 inserted — 2026-11-20
+
+- `spec-writer` recorded D593 (owner: `n_live_tup` reported only; 12.1
+  reworded, one row either way under 34), D594 (owner: the forged past's
+  counters follow what drives them; `set_clock` report-only), D595
+  (chunk 18 placed in wave 4; two readings below), D596 (W4 items 1, 2, 5
+  revised as 12b built them, the corrected autovacuum rule; all seven
+  as-built deviations accepted). 9.9 gains fix 12; 9.10 unchanged.
+  O297 reserved by `doc-ids next`, unused.
+- **Chunk 18** ("The forged past's counters follow what drives them"):
+  (a) per-series drivers in `history.py`, (b) the floor removed, (c) the
+  fill's per-database transactions per virtual minute as the shape of
+  `pg_stat_database_*`; scheduler 0.4.0 rebuilt; depends on 8, 10, 12a,
+  17b; 12b depends on it. Runs alone (Docker heavy).
+- D595's readings, for the owner's nod in the wave report: the `user`
+  label decides before `datname` (else the monitoring's queries in a
+  scheduler database would keep the night tell); a series with neither
+  label (host, WAL, checkpointer) keeps following the load (flattening
+  it would be a new tell).
+- Driver's call: 12b's resume reruns **both** games with `--record` on
+  the post-18 tree (the campaign's 0231Z record predates 18's fill),
+  and those runs stand as the gate's two-games item if nothing else
+  changes after.
