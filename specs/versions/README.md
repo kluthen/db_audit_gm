@@ -291,8 +291,11 @@ aged run is decided then (D193).
   [fake aging](v0.6/fake-aging.md#7-verification)):
   - **fake aging's full selections** with their real tails, on the
     shop and the campaign (D495): the shop's 3 h tail with f4, f5 and
-    f7 among them; the campaign's with f5 planted in the tail, f10
-    refused, and, if P0 failed, f2, f3, f4 and f7 as `tail-only` (D508);
+    f7 among them; the campaign's variant designed without f10 and its
+    issue 6 (a handout never names a refused instance, D542), f5 planted
+    in its 5 h tail; P0 held, f4 and f7 through the cover (D523,
+    confirmed by chunk 11), so D508's fallback (f2, f3, f4 and f7 as
+    `tail-only`) is not needed;
   - **the blind reads**: on a fake game of each full selection, kept
     up for the read, a fresh agent with player access only, told
     nothing about aging, audits the scenario, then is asked whether
