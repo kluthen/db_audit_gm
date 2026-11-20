@@ -310,16 +310,17 @@ DRIVERS = history.Drivers(frozenset({"shop_app"}), frozenset({"shop"}), {"export
 SHOP_DB = "db:5432/shop"
 
 
-def night_metrics(transactions=True):
+def night_metrics(transactions=True, day=120):
     """The producer's fill records: 10 calls a minute (the tail's), 1 at
-    night; 120 transactions a minute on the shop's database (the tail's
-    commits), 60 at night (each night call ran more of them)."""
+    night; `day` transactions a minute on the shop's database (120: the
+    tail's commits), half of them at night (each night call ran more of
+    them)."""
     out, m, calls, xacts = [], VT0 - VT0 % 60, 0, 0
     while m < R:
         night = NIGHT[0] <= m < NIGHT[1]
         m += 60
         calls += 1 if night else 10
-        xacts += 60 if night else 120
+        xacts += day // 2 if night else day
         rec = {"at": history.iso(m), "scheduler_calls_total": {"orders.detail": calls},
                "scheduler_errors_total": {"orders.detail": 0}, "scheduler_call_duration_seconds": {},
                "scheduler_job_runs_total": [], "scheduler_job_skips_total": []}
@@ -346,21 +347,24 @@ def driven_tail():
     return t
 
 
+def increase(points, lo, span=2400):
+    """A counter's increase over `span` seconds from `lo`."""
+    vals = [v for t, v in points if lo <= t < lo + span]
+    return vals[-1] - vals[0]
+
+
 def night_over_day(points):
     """A counter's increase over 40 minutes of the night, over the same at
     day (margins for the shape's moving mean)."""
-    def increase(lo):
-        vals = [v for t, v in points if lo <= t < lo + 2400]
-        return vals[-1] - vals[0]
-    return increase(NIGHT[0] + 600) / increase(NIGHT[1] + 600)
+    return increase(points, NIGHT[0] + 600) / increase(points, NIGHT[1] + 600)
 
 
 class TestDrivers(unittest.TestCase):
 
-    def compose(self, metrics, drivers=DRIVERS):
+    def compose(self, metrics, drivers=DRIVERS, selection=()):
         c = history.Composer(VT0, R, driven_tail(), metrics=metrics,
-                             scheduler_instances={"producer": "producer:9120"}, selection=[],
-                             shift=SHIFT, seed=7, drivers=drivers)
+                             scheduler_instances={"producer": "producer:9120"},
+                             selection=list(selection), shift=SHIFT, seed=7, drivers=drivers)
         return c, {history.series_key(lb): points for lb, points in c.compose()}
 
     def test_the_monitorings_series_flat_the_schedulers_following_the_load(self):
@@ -402,6 +406,54 @@ class TestDrivers(unittest.TestCase):
         # joined to the tail, never past it
         self.assertLessEqual(commits[-1][1], 900_000)
         self.assertGreater(commits[-1][1], 900_000 - 300)
+
+    def test_commits_the_fill_never_counts_keep_the_tails_rate_per_call(self):
+        """The fill counts 9 transactions a call by day, the tail commits
+        12 a call (a session's set-up, a parallel worker's start-up, never
+        counted by the fill): by day the forged commits keep the tail's 12
+        a call (120 a minute), not the fill's 9; at night they follow the
+        fill's transactions, half the day's."""
+        c, out = self.compose(night_metrics(day=90))
+        commits = out[key("pg_stat_database_xact_commit", **PG, datname="shop")]
+        day = increase(commits, NIGHT[1] + 600) / 40          # a minute; 10 calls a minute
+        self.assertAlmostEqual(day / 10, 12.0, delta=0.4)
+        self.assertAlmostEqual(night_over_day(commits), 0.5, delta=0.03)
+        self.assertIn(f"{SHOP_DB}: the fill's 9.000 transactions a call", " ".join(c.report.notes))
+
+    def test_the_fills_transactions_per_call_over_its_last_hour(self):
+        """Read where the fill's mix of keys is the tail's: its last hour
+        (the night ran 45 a call, the day 9); the whole fill when the last
+        hour holds no call."""
+        metrics = night_metrics(day=90)
+        self.assertAlmostEqual(history.fill_per_call(metrics, SHOP_DB), 9.0)
+        # the fill ending with the night: its last hour is the night's
+        to_night = {"producer": [r for r in metrics["producer"] if r["t"] <= NIGHT[1]]}
+        self.assertAlmostEqual(history.fill_per_call(to_night, SHOP_DB), 45.0)
+        # no call in the last hour: the whole fill
+        recs = metrics["producer"]
+        frozen = [r for r in recs if r["t"] <= R - 3600][-1]["scheduler_calls_total"]
+        for r in recs:
+            if r["t"] > R - 3600:
+                r["scheduler_calls_total"] = dict(frozen)
+        whole = recs[-1][history.FILL_TRANSACTIONS][SHOP_DB] / frozen["orders.detail"]
+        self.assertAlmostEqual(history.fill_per_call(metrics, SHOP_DB), whole)
+        self.assertGreater(whole, 10.0)
+        self.assertIsNone(history.fill_per_call({}, SHOP_DB))
+
+    def test_a_signatures_commits_per_call_from_its_planting(self):
+        """A counter_per_call on the commits (pg-join-index-missing: each
+        scan's parallel workers commit at their start-up): its share of the
+        tail's rate is taken out before the shape scales the rest, then
+        added from its planting; the tail's 12 a call by day after it, 8
+        before (4 a call of orders.detail, the tail's only key)."""
+        sig = (entry("counter_per_call", key="orders.detail", per_call=4,
+                     series='pg_stat_database_xact_commit{datname="shop"}'),)
+        _, out = self.compose(night_metrics(day=80), selection=[("f8", "dropped", PLANT, sig)])
+        commits = out[key("pg_stat_database_xact_commit", **PG, datname="shop")]
+        before = increase(commits, VT0 + 600) / 40
+        after = increase(commits, PLANT + 1200) / 40
+        self.assertAlmostEqual(before / 10, 8.0, delta=0.3)
+        self.assertAlmostEqual(after / 10, 12.0, delta=0.4)
 
     def test_without_the_record_the_database_keeps_its_driver(self):
         """A fill from an earlier image: no `fill_transactions`; the shop's

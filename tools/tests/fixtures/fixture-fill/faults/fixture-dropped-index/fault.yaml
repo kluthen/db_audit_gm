@@ -38,6 +38,10 @@ history:                            # the signature, its placeholders resolved p
     series: 'pg_stat_database_tup_returned{datname="{DATABASE}"}'
     key: orders.detail
     per_call: 963700
+  - kind: counter_per_call          # each scan's parallel workers' commits: the catalogue's pg-join-index-missing's measured figure
+    series: 'pg_stat_database_xact_commit{datname="{DATABASE}"}'
+    key: orders.detail
+    per_call: 4
   - kind: gauge_sawtooth            # the scans' transactions, longer in a five-minute cycle
     series: 'pg_stat_activity_max_tx_duration{datname="{DATABASE}",state="active"}'
     period: 300s

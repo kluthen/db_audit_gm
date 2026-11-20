@@ -28,7 +28,9 @@ The composer (pure, unit-tested):
   (`local/<pg>/fill/<node>.metrics.jsonl`, W1 item 9) against the tail's;
 - each series' driver (fix 12, spec D594, D595; `Composer.driver`): a
   database's `pg_stat_database_*` series follow the transactions the fill
-  ran there (the record's `fill_transactions`) against the tail's; else a
+  ran there (the record's `fill_transactions`) against the tail's
+  equivalent, the fill's transactions per call there times the tail's
+  calls (`Composer.transaction_shape`); else a
   series whose `user` names a scheduler connection's role, or, without a
   `user`, whose `datname` names one of their databases, follows the load;
   any other series with either label (the monitoring's own queries, the
@@ -74,6 +76,9 @@ SHAPE_SMOOTH = 15                   # minutes: the load's shape, a moving mean
 # so the forged night follows the load down (fix 12); it only keeps a series
 # moving through a minute the fill ran nothing in.
 SHAPE_RATIO = (0.02, 4.0)
+# The fill's transactions per call on a database, read over its last minutes:
+# the hour before the restart, whose mix of keys is the tail's.
+TX_PER_CALL_SPAN = 60
 JUMP_TOLERANCE = 0.01               # a size gauge's step at the join, relative
 
 # Counters a clean shutdown keeps (9.9, "Not done, on purpose"; W3 item 3):
@@ -99,7 +104,6 @@ SCHEDULER_COUNTERS = ("scheduler_calls_total", "scheduler_errors_total")
 # input only, never a series
 FILL_TRANSACTIONS = "fill_transactions"
 DATABASE_PREFIX = "pg_stat_database_"
-XACT_NAMES = ("pg_stat_database_xact_commit", "pg_stat_database_xact_rollback")
 DRIVEN = ("counter_join", "counter_reset", "size", "activity")     # the classes a driver scales
 FINDING_CHECKS = ("negative", "reset", "jump", "empty")
 
@@ -351,13 +355,31 @@ class Drivers:
     targets: dict = field(default_factory=dict)
 
 
-def tail_calls_per_minute(tail_series):
-    """The tail's calls a minute, every scheduler node together."""
+def tail_calls_per_minute(tail_series, instances=None):
+    """The tail's calls a minute, every scheduler node together (only the
+    targets in `instances` when given)."""
     total = 0.0
     for s in tail_series:
-        if s["labels"]["__name__"] == "scheduler_calls_total" and len(s["samples"]) > 1:
+        if s["labels"]["__name__"] == "scheduler_calls_total" and len(s["samples"]) > 1 \
+                and (instances is None or s["labels"].get("instance") in instances):
             total += tail_rate(s["samples"]) * 60
     return total
+
+
+def fill_per_call(metrics, entry, span=TX_PER_CALL_SPAN):
+    """The fill's transactions on the database `entry` per call, over its
+    last `span` minutes (the whole fill when they hold no call); None
+    without a call."""
+    xacts = per_minute(metrics, FILL_TRANSACTIONS, entry)
+    calls = per_minute(metrics, "scheduler_calls_total")
+    if not calls:
+        return None
+    last = max(list(xacts) + list(calls))
+    window = [m for m in calls if m > last - span]
+    if not sum(calls[m] for m in window):
+        window = list(calls)
+    n = sum(calls[m] for m in window)
+    return sum(xacts.get(m, 0) for m in window) / n if n else None
 
 
 # --- The selection's entries (W3 item 4) ---------------------------------------------
@@ -502,23 +524,31 @@ class Composer:
 
     def transaction_shape(self, instance, datname):
         """The transactions the fill ran on the database a series reads, a
-        minute, against the tail's commits and rollbacks there; None
-        without a record of them (a fill from an earlier image) or a tail
-        rate."""
+        minute, against the tail's equivalent: the fill's transactions per
+        call there (its last TX_PER_CALL_SPAN minutes, `fill_per_call`)
+        times the tail's calls from the same scheduler nodes. Both sides
+        count the fill's transactions, never the tail's commits, which hold
+        more (a session's set-up, a parallel worker's start-up, autovacuum's
+        visits): the forged series keep the tail's rate per call, their
+        shape the fill's transactions. None without a record of them (a
+        fill from an earlier image) or a call in the fill or the tail."""
         key = (instance, datname)
         if key not in self.db_shapes:
             self.db_shapes[key] = None
             target = self.drivers.targets.get(instance)
             entry = f"{target}/{datname}"
-            if target and datname and any(entry in (rec.get(FILL_TRANSACTIONS) or {})
-                                          for recs in self.metrics.values() for rec in recs):
-                tail = 60 * sum(tail_rate(s["samples"]) for s in self.tail
-                                if s["labels"]["__name__"] in XACT_NAMES and len(s["samples"]) > 1
-                                and s["labels"].get("instance") == instance
-                                and s["labels"].get("datname") == datname)
-                if tail > 0:
-                    self.db_shapes[key] = Shape(per_minute(self.metrics, FILL_TRANSACTIONS, entry),
-                                                tail)
+            nodes = {n: recs for n, recs in self.metrics.items()
+                     if any(entry in (rec.get(FILL_TRANSACTIONS) or {}) for rec in recs)}
+            if target and datname and nodes:
+                per_call = fill_per_call(nodes, entry)
+                insts = {self.sched[n] for n in nodes if n in self.sched} or None
+                calls = tail_calls_per_minute(self.tail, insts)
+                if per_call and calls > 0:
+                    self.db_shapes[key] = Shape(per_minute(nodes, FILL_TRANSACTIONS, entry),
+                                                per_call * calls)
+                    self.report.notes.append(
+                        f"{entry}: the fill's {per_call:.3f} transactions a call (its last "
+                        f"{TX_PER_CALL_SPAN} min) times the tail's {calls:.1f} calls a minute")
         return self.db_shapes[key]
 
     def rng(self, labels):
