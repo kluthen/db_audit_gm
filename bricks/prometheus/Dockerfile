@@ -21,6 +21,10 @@ FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG PROMETHEUS_VERSION=3.16.0
+# zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
+# +b1, and DSA-6613-1's fix is in trixie-security
+# only, so naming it upgrades it; the build fails below this floor.
+ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -35,7 +39,7 @@ RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        xz-utils openssh-server sudo curl procps less nano vim-tiny; \
+        xz-utils openssh-server sudo curl procps less nano vim-tiny zlib1g; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     tar -C /tmp -xzf "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"; \
@@ -50,6 +54,8 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     # host keys are generated per container start (gm-entrypoint), never baked
     rm -f /etc/ssh/ssh_host_*; \
+    # zlib1g at or above DSA-6613-1's fix (D588)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' zlib1g)" ge "${ZLIB_FLOOR}"; \
     /usr/local/bin/prometheus --version | grep -q "version ${PROMETHEUS_VERSION} "
 
 # Accounts: `prometheus` runs the server and owns its data; `player` (SSH by

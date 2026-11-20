@@ -4173,7 +4173,9 @@ span in the script, which costs about 3 more minutes of fill, the
   preflight's wording was wrong).
 - Pre-existing, not from this change, for the release gate:
   - zlib1g still +b1 everywhere: D588's two CVEs plus CVE-2026-76844
-    (7.4), all fixed by +deb13u1; stays under D588.
+    (7.4), all fixed by +deb13u1; stays under D588. *Corrected
+    2026-11-20 (G9.3, D588): CVE-2026-76844 is not zlib's (Debian:
+    NOT-FOR-US, a webpack-dev-middleware flaw OSV misattributes).*
   - OpenSSL 3.5.7-1~deb13u3: 10 CVEs open in trixie (published
     2026-11-10 to 11-18, no DSA yet; QUIC, DTLS, AES-GCM-SIV, CMS, PEM,
     DANE, Suite B); NVD hasn't matched them, so the sweep hasn't raised
@@ -4502,3 +4504,110 @@ span in the script, which costs about 3 more minutes of fill, the
   CVE-2026-76844; recheck the 10 OpenSSL CVEs in trixie; pgBadger's
   limit (D591) in the release notes. Then the milestone archive, v0.7's
   G3/G4 (`dev` from main at v0.6's release commit) and v0.7 wave 2.
+
+## 2026-11-20: v0.6 release gate started
+
+- Branch `v0.6-rg` (worktree `~/work/db_audit_gm-wt/v0.6-rg`) cut from
+  main 1db4044. G3 (PGDG and Debian reachable) and G4 (swarm active,
+  armenelos the only active node, the VPS drained and untouched) checked
+  by hand; the host lock is free.
+- Order: (A) zlib1g (D588) in the ten bricks' install steps, the ten
+  builds `--no-cache`, dpkg lists, stack tests, the unit suite and the
+  format checks (item 2); (B) security-advisor's post-change check, row
+  G9.3, with the OpenSSL recheck; (C) items 1, 4, 5; (D) item 3, the two
+  short games; (E) spec-writer's items 6 and 7; (F) G11, the owner.
+
+### Release gate (A) item 2 and (E1) item 6 done, 2026-11-20
+
+- (A) 7476d7b: `zlib1g` named in each of the ten installs plus a
+  `ZLIB_FLOOR` assertion (naming it rather than `apt-get upgrade` keeps
+  `postgresql-common` at 278 where G9.2 left it). All ten built
+  `--no-cache --pull`; the only dpkg difference in each is zlib1g +b1 →
+  +deb13u1. Stack tests all green at wave 4's counts (postgres 317/0
+  after 3179aff, a test-only fix: `pgrep -o -x cron`, cron's per-job
+  child raced the check). Scheduler unit 117 OK, api 36 OK; unit suite
+  1570 OK, 2 skipped (397 s); format check 0 missing on the 5 scenarios
+  and 38 fixtures. G5, G7, G8, G9.2, G10.1–G10.4 done. Row G9.3 added
+  for the post-change check. Logs and dpkg lists: scratchpad `rg/`.
+- (E1) item 6 met: 94bb1b5 (v1.0 gating's campaign per D542), 925734d
+  (D598: retention after a compaction to v1.0 gating), a8b9edb (plan
+  v20: "Recorded in" column); merged e91fb5a. The archive's checksum
+  verified. Gap: the bastion's footprint with the status service up was
+  never measured; (C) takes it.
+
+### Release gate (B) G9.3 and (C) items 1, 4, 5 done, 2026-11-20
+
+- (B) G9.3 CLEAR WITH NOTES (81b6ffb, `.tech` only; merged). zlib1g
+  +deb13u1 read in all ten built images, `dpkg -V` clean; CVE-2026-85091
+  and -27171 fixed by DSA-6613-1. CVE-2026-76844 is not zlib's (Debian:
+  NOT-FOR-US, a webpack-dev-middleware flaw; OSV misattributes it): D588
+  wants a one-line correction. Nothing pending in trixie-security; PGDG
+  only `postgresql-common` 297 (kept at 278 by G9.2) and a no-change
+  `check-postgres` rebuild. OpenSSL 3.5.7-1~deb13u3: the 10 CVEs still
+  have no Debian fix (8 Low upstream, fixed in 3.5.10); none reachable
+  on a served path; no rebuild would change anything.
+  - **For the owner (G11):** (1) release with the 10 OpenSSL CVEs open,
+    review at a trixie openssl DSA or 2027-02-01; (2) 14 nginx NVD
+    matches on deb13u11 (backport false positives): accept as
+    `[[ignore]]` until 2027-05-01, or let tomorrow's sweep file them.
+- (C) all twelve runs 0 failed, no fix needed: `fixture-status` 27/0
+  (381 s); `docs-overview-backup-claimed` 16/0; `fixture-clinic-front`
+  38/0 as `player`; scenario smokes bookshop 19/0, fernway 18/0, shop
+  26/0 (844 s), campaign 33/0 (317 s); `smoke.sh` 61/0,
+  `smoke-monitoring.sh` 43/0, `smoke-governance.sh` 121/0,
+  `smoke-load.sh` 73/0. The bastion's footprint with `status-pages` up
+  (8674f10, in its `docs/gm.md`): 5.2 MiB container (256 MiB limit),
+  nginx 11.2 MiB, the status service 1.7 MiB between renders, cgroup
+  peak 21.7 MB at start-up. Logs: scratchpad `rg/c/`.
+- Next: (D) item 3, the two short fake games.
+
+### Release gate (D) item 3 and (E2) item 7 done, 2026-11-20
+
+- (D) both short fake games PASS on 19, without `--record`, each in its
+  window, nothing committed: shop 16:31Z 54/0 in 1675 s (fill 476 s;
+  deploy to `restart.at` 520 s without the 328 s anchor wait; import 78
+  s, peak 1063.5 MiB; M1 10/10; M3 5/5: calls ×0.983, errors ×1.00,
+  commits ×1.00, rows ×0.977, statements ×0.998; tells 10/0, customers 2
+  runs; f8's step 14008804); campaign 17:31Z 64/0 in 1705 s (fill 192 s;
+  241 s without the 609 s wait; import 90 s, peak 1224.9 MiB; tells
+  35/0; P0 held; f1 at the seam ×1.05). The restart record and `gmctl
+  status` in each output; all 20 faults carry `aging.fake`, 19
+  `history:` (f10 `real-only`); `test_fake_aging_faults` 6 OK. Nothing
+  left deployed. **Margin narrowing:** 125 s and 95 s under 30 min (12b:
+  about 150 s). Logs: scratchpad `rg/d/`.
+- (E2) release notes ff7f19a (`## Release notes` in the v0.6 README; the
+  driver filled in item 3's placeholders); D588 corrected (CVE-2026-76844
+  is not zlib's; Debian NOT-FOR-US); merged. The ten Dockerfiles' zlib
+  comment corrected the same way (comment only, no image change).
+- O251 and O269 still read "open until built" though the refusals are
+  built: for the milestone archive.
+- Items 1 to 7 done. Left: item 8, G11, the owner's judgement, with the
+  OpenSSL and nginx calls (G9.3) and wave 4's nods; then the merge into
+  main on the owner's word.
+
+### G11: the owner's rulings, 2026-11-20
+
+Asked with AskUserQuestion; all four answered "(Recommended)":
+1. **Release v0.6**: merge `v0.6-rg` into main (no push), archive the
+   milestone, then v0.7's G3/G4 and wave 2.
+2. **OpenSSL**: release with the 10 CVEs open; review at a trixie
+   openssl DSA or 2027-02-01 at the latest.
+3. **nginx**: the 14 NVD matches on deb13u11 accepted as `[[ignore]]`
+   until 2027-05-01 (security-advisor writes them).
+4. **Wave 4's items, all as proposed**: D595's two readings; f8's
+   `counter_per_call` (per_call 4); O298 (load pgaudit in `lab` and
+   `portal` in a later build); O299 (the owner amends the grid, the
+   copy is refreshed); ISS-009 fixed in v0.7.
+
+### Release gate passed; v0.6 merged into main, 2026-11-20
+
+- G11 recorded e18b222 (D599 release; D600 OpenSSL open until a trixie
+  DSA or 2027-02-01, nginx's 14 matches ignored until 2027-05-01; D601
+  wave 4's items; plan v21; release notes draft v12; O298, O299 ruled,
+  open until done; ISS-009 targets v0.7). `.tech` fb4cc2c merged
+  (findings ≥ medium 31 → 17, accepted 110 → 124). D599's acceptance of
+  the gate as run covers the games' margin and D597's recalibration
+  placing as known limits.
+- `v0.6-rg` merged into main `--no-ff` (no push). Next: the milestone
+  archive (spec-writer, on main; keep O251, O269, O298, O299 live), then
+  v0.7's G3/G4: `dev` from main at v0.6's release commit, and v0.7 wave 2.

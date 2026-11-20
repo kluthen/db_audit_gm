@@ -5,6 +5,7 @@
 **Date:** 2026-11-20
 **Severity:** Medium
 **Status:** Open
+**Target:** v0.7 (the owner, at v0.6's G11; spec D601)
 **Component:** `.claude/skills/scenario-document/template.md`
 **Affects:** `.claude/skills/scenario-document/SKILL.md`; every scenario's `README.md` (the scenario document) generated from the template: the 34 fixture documents chunk 16 regenerated (`tools/tests/fixtures/*/README.md`), `scenarios/aldermoor-centre/README.md` on its next regeneration
 **Seen on:** v0.6 wave 4, `v0.6-w4` after chunk 16's merge (d24715c); fixtures `fixture-monitoring-v05`, `fixture-reports`, `fixture-register`, `fixture-clinic-load`, `fixture-archive`
@@ -124,7 +125,8 @@ for a `domains:` scenario (each domain's classification file named);
 `pg_cron` row as chunk 16 kept it; chunk 16's four calls written as the
 template's rules. Then regenerate the affected fixtures' documents and
 the clinic's, checking only these lines change. No Docker. Fits the
-release gate's fix list or the next chunk touching the skill.
+release gate's fix list or the next chunk touching the skill; the
+owner placed it in v0.7 (spec D601).
 
 **Medium term:** commit a generator for the scenario document (chunk
 16 used an uncommitted script), so regeneration is mechanical and
@@ -158,3 +160,5 @@ regenerated, 2 unchanged); a second run reproduces all 34 byte for byte.
 ## Change log
 
 - **2026-11-20**: filed at v0.6's G10.4 from chunk 16's record.
+- **2026-11-20**: target set to v0.7 by the owner at v0.6's G11 (spec
+  D601).

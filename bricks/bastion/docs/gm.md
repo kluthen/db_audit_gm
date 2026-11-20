@@ -536,6 +536,24 @@ from 195). What grows: `~/reports/`, the reports the players bring there
 the `home` volume; covered by `disk_growth_per_hour`. The figures in
 `brick.yaml` are unchanged.
 
+These v0.6 figures come from the stack test, which runs without a status
+file, so with `status-pages` down. With it up: measured in the v0.6
+release gate (item 4; armenelos, Docker 29.10.0, 2026-11-20) on
+`fixture-clinic-front` deployed alone (the bastion, no routes, the
+clinic's nine partners' status pages), read after 150 s at rest
+(`status-pages` restarted twice by then): `docker stats --no-stream`
+three times 20 s apart, `ps` inside the container. The bastion's
+container uses 5.2 MiB of memory (5.20 to 5.21 MiB, CPU 0.00 %, 13
+PIDs), against 5.0 MiB with the service down; nginx's master and worker
+show 11.2 MiB resident (8872 and 2552 KiB); the status service adds its
+`s6-supervise`, 80 KiB, and the `sleep 60` it waits in between renders,
+1.7 MiB resident, most of it the C library's shared pages.
+`render-status` (`sh` and `jq`, one page per partner) runs a moment each
+minute and holds nothing after. The cgroup's `memory.peak`, start-up
+included, read 21 MiB. The status pages take 76 KiB under
+`/run/web-front/www/status/` for nine partners (280 KiB for the whole of
+`/run/web-front/www/`). The figures in `brick.yaml` are unchanged.
+
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
 8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest

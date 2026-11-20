@@ -27,6 +27,10 @@ FROM debian:13-slim
 # PostgreSQL 19 (v0.6 spec D587), as the PostgreSQL brick.
 ARG PG_MAJOR=19
 ARG S6_OVERLAY_VERSION=3.2.3.2
+# zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
+# +b1, and DSA-6613-1's fix is in trixie-security
+# only, so naming it upgrades it; the build fails below this floor.
+ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256
 # (same version and checksums as the PostgreSQL brick).
@@ -58,7 +62,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         "postgresql-client-${PG_MAJOR}" \
         openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm curl \
-        jq tmux; \
+        jq tmux zlib1g; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -75,6 +79,8 @@ RUN set -eux; \
     case "$(dpkg-query -W -f '${Version}' "postgresql-client-${PG_MAJOR}")" in 19.*) ;; *) exit 1 ;; esac; \
     case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
     if dpkg-query -W -f '${Package} ${Status}\n' 'postgresql-1[0-8]*' 'postgresql-client-1[0-8]*' 2>/dev/null | grep -q 'ok installed'; then exit 1; fi; \
+    # zlib1g at or above DSA-6613-1's fix (D588)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' zlib1g)" ge "${ZLIB_FLOOR}"; \
     test -x /usr/sbin/nginx; \
     command -v cmark-gfm; \
     curl --version; \

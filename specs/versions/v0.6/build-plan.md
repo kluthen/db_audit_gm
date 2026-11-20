@@ -1,6 +1,8 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
+Status: v21 (2026-11-20): the release gate passed; G11 cleared by the owner (spec D599): v0.6 released with the OpenSSL CVEs open and nginx's matches ignored (spec D600), wave 4's items ruled as proposed (spec D601). The merge into `main` next.
+v20 (2026-11-20): release gate item 6: "Left for the build" names where each row's outcome is recorded; a compaction over the imported blocks, never reached, goes to v1.0 gating (spec D598).
+v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
 v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
 v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
 v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
@@ -151,12 +153,13 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G8 | **Dependency post-change check** on `grafana` 0.4.0 (chunk 5) and any image a wave 3 or 4 chunk rebuilt; `.tech` updated on `v0.6-w4` | `security-advisor`, once chunk 5 has merged | Wave 4's gate | done (2026-11-19, 19c67f1: CLEAR WITH NOTES; wave log, wave 4 "G8") |
 | G9 | **Any other dependency** a chunk adds or upgrades (a Python package for the history generator or the calibration tool, say; the standard library is preferred): a preflight before its branch, a post-change check before its wave's gate. The driver adds a row `G9.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G9.2 | **PostgreSQL 19 everywhere** (spec D587): the preflight on the candidates (PGDG's `postgresql-19`, `postgresql-client-19`, `libpq5` 19.0-1.pgdg13+1, `postgresql-19-cron` 1.6.8-1.pgdg13+3, `postgresql-19-pgaudit` 19.0-1.pgdg13+1, `postgresql-common` 297; `postgres_exporter` 0.21.1, pgwatch 6.2.0, with their checksums; pgBouncer 1.26.1, check_postgres 2.26.0, pgBadger 13.3, pgCluu 5.0 unchanged; the PGDG key stage for `scheduler`, `api`, `health-check`); then the post-change check on every image chunks 17a and 17b rebuilt, `.tech` updated on `v0.6-w4` | `security-advisor` | Chunks 17a and 17b's branches (preflight); wave 4's gate (post-change) | preflight done (2026-11-19, CLEAR WITH NOTES: the driver's scratch `g92-preflight.md`, folded into chunks 17a to 17c); post-change done (2026-11-20, cf059a3 merged as ec352a1: CLEAR; `postgresql-common` 278 acceptable, no move) |
+| G9.3 | **zlib1g at DSA-6613-1's fix** (spec D588), release gate item 2: `zlib1g` named in each brick's install with a `ZLIB_FLOOR` assertion (7476d7b), all ten images rebuilt `--no-cache` at their unreleased v0.6 versions, zlib1g 1:1.3.dfsg+really1.3.1-1+deb13u1 their only dpkg difference; the post-change check, with the OpenSSL CVEs open in trixie rechecked | `security-advisor` | The release gate | done (2026-11-20, 81b6ffb, CLEAR WITH NOTES) |
 | G10 | [formats.md](../../formats.md) and the master spec carry a wave's format items as built (a form a chunk had to settle: where the per-key service times sit, the restart record's fields as written, the status file's form). The driver adds a row `G10.<n>` after each wave whose gate records any | `spec-writer`, after that wave's gate | Release gate item 2 | standing |
 | G10.1 | Wave 1's forms as built, from capture W1 and the chunk records in the wave log: the fill's interface (`gm_scheduler fill`'s FillConfig, PAUSE/GO/DONE/FAILED), the `<node>.metrics.jsonl` record, `service-times.yaml`'s place and shape, the restart record's fields (`local/<pg>/fake-aging.yaml`), `fill.quiet`, the `fill-sql` command | `spec-writer` | Release gate item 2 | done (2026-11-17, b2578a0, spec D534; with G10.2) |
 | G10.2 | Wave 2's forms as built, from capture W2 (its preflight correction 8) and the chunk records in the wave log: the status file's form and its secret (the `rendered` kind), the `brick-doc` configs; the true overview's keys; the restart record as written, with `state.yaml`'s `hold` and `clean_restart`; `timeline`'s fake keys (`virtual_t0`, `anchor`, `tail`, `refused`); `wal-rate.yaml`; the cover's `fill.quiet` item (`routine`, `restore.database`); `--test-tail-floor` | `spec-writer`, after wave 2's gate | Release gate item 2 | done (2026-11-17, b2578a0, spec D534) |
 | G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | done (2026-11-19, 06a5d21, spec D580) |
 | G10.4 | Wave 4's forms as built, from capture W4 (its preflight correction 7) and the chunk records in the wave log: the short-game record's name in "Fake aging's measured figures"; 9.10's per-scenario section's sources (the limits as `explains` holds them, the setup time from the newest record, the wait for the anchor not counted); the M3 comparison's judged set and bounds if the spec is to name them (the M1 comparison's is in master spec 12.1, spec D586, D593); the fill's per-database transactions in its metrics record (chunk 18, spec D594) | `spec-writer`, after wave 4's gate | Release gate item 2 | done (2026-11-20, 0c2e91a, spec D597) |
-| G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
+| G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | cleared (2026-11-20, spec D599; D600, D601) |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 | G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
 | G14 | **No game relies on the 18 images under the reused tags** (spec D589): chunks 17a and 17b rebuild `postgres:0.5.1` and the others at their unreleased tags in the host's registry, so a game deployed from `main` (still on 18's paths) or restarted from a snapshot taken on 18 would get 19 binaries over an 18 data directory, which 19 refuses or misplaces. Before 17a's first build: no live game on armenelos using these tags, or its owner told it can't be restarted or restored until v0.6 merges | Hand check by the wave driver | Chunk 17a's first build | done (2026-11-19: no stack deployed, no service, `fa-real` torn down with no snapshot; wave log, wave 4 "G14") |
@@ -547,21 +550,23 @@ Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 
 ## Left for the build (master spec 18)
 
-Each item is settled by the chunk named and recorded in its **Record**
-line and, for a brick, in its `docs/gm.md`; the release gate checks
-each is recorded.
+Each item is settled by the chunk named. Its outcome is recorded where
+the last column says: the chunk's merge entry in the wave log, the short
+games' records (`tools/fake_aging/calibration/tarnbeck-outdoor-*-short-game-20261120T*.txt`,
+chunk 12b), a brick's `docs/gm.md`, and master spec 18, which states
+each as measured; release gate item 6 checks each.
 
-| Item | Chunk |
-|---|---|
-| P0 | 8; the cover 15; f4 and f7 confirmed 11 |
-| The WAL padding's time and what it leaves | 9 |
-| A short autovacuum naptime against the fill's speed | 8 |
-| A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 |
-| `daily_spike` and `gauge_before` | 10 |
-| The imported blocks after a hand-over snapshot's restart; retention after a compaction | 10 |
-| The players' shell can't read the TSDB folder | 10, 12b |
-| The campaign's f4 and the 12:00 close | 11 |
-| A brick's exact version if a build finds more to change (folded into the unreleased version) | any brick chunk; G5, G7, G8 |
+| Item | Chunk | Recorded in |
+|---|---|---|
+| P0 | 8; the cover 15; f4 and f7 confirmed 11 | chunk 8's Record (partial); spec D523 (the cover); the wave log's chunk 11 merge ("P0 as applied"); `scheduler`'s `docs/gm.md` "The fill mode (0.4.0)"; master spec 9.8, 18 |
+| The WAL padding's time and what it leaves | 9 | the wave log's chunk 9 merge (the fixture: 1.6 s, `pg_wal` 1 GiB after the checkpoints); the short games' records (0.5 to 2.5 s a node, `pg_wal` at 98 to 100 %); master spec 18 |
+| A short autovacuum naptime against the fill's speed | 8 | the wave log's chunk 8 merge (1 s, the fixture's counts); the short games' records (the tells' autovacuum counts, spec D596); master spec 18 |
+| A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 | the wave log's chunk 9 merge (the fixture: 0.7 to 1.7 s after `restart.at`); the short games' records (every service within 10 s, the monitoring's included); master spec 18 |
+| `daily_spike` and `gauge_before` | 10 | chunk 10's Record; the wave log's chunk 10 merge (`fixture-fill`'s history run reading every kind back); master spec 18 |
+| The imported blocks after a hand-over snapshot's restart; retention after a compaction | 10 | the wave log's chunk 10 merge (the blocks kept after the snapshot's restart, the lowest timestamp at the virtual T0); the short games' records (the 16-hour pasts within 3 s of it); a compaction never reached: v1.0 gating (spec D598); master spec 18 |
+| The players' shell can't read the TSDB folder | 10, 12b | the wave log's chunk 10 merge (`prometheus:prometheus 750`); the short games' records (the `player` listing refused); `prometheus`' `docs/gm.md` (the TSDB's owner and mode); master spec 18 |
+| The campaign's f4 and the 12:00 close | 11 | the wave log's chunk 11 merge and capture W3 item 9 as amended (no 12:00 close needed); master spec 9.8, 18 |
+| A brick's exact version if a build finds more to change (folded into the unreleased version) | any brick chunk; G5, G7, G8 | chunks 2, 17a and 17b's Records; gates G5, G7, G8, G9.1, G9.2; `.tech` |
 
 ## Chunks
 
@@ -2464,6 +2469,10 @@ sleep inhibitor, the VPS untouched. **No aged run, no long run**: every
 item runs under 30 minutes on its least environment. A fix found here
 is committed on `v0.6-rg` and merged into `main` on the owner's word.
 
+**Status: passed** (2026-11-20, on `v0.6-rg`): items 1 to 7 as the
+[release notes](README.md#release-notes) record them, G11 cleared
+(spec D599).
+
 1. **Every short test of 12.1**, each under 30 minutes: the bastion's
    stack test (home page, documentation site, `jq` and `tmux`,
    reports); `fixture-status`; the network overview's unit tests and
@@ -2503,7 +2512,7 @@ is committed on `v0.6-rg` and merged into `main` on the owner's word.
    figures measured on 18 and what chunk 12b read of them on 19 (spec
    D590); the known limits (O294's as ruled), each long check
    pointing to v1.0 gating; the access model's known gaps.
-8. G11: the owner's judgement.
+8. G11: the owner's judgement (cleared, spec D599).
 
 **Estimated wall-clock**: about 4 hours on armenelos, nearly all of it
 under the Docker lock: the ten brick builds and stack tests about 55

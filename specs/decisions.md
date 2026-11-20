@@ -702,6 +702,11 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   (G8's note 1, the base layer, not reachable) is handled at the release
   gate:** an `apt-get upgrade` or `zlib1g` named in the Dockerfiles, all
   ten bricks, folded into the unreleased versions. Now in: [build plan](versions/v0.6/build-plan.md) v16, release gate item 2.
+  Corrected 2026-11-20 (G9.3): DSA-6613-1's zlib findings are
+  CVE-2026-85091 and CVE-2026-27171 only. CVE-2026-76844, counted with
+  them since G9.2, is not zlib's: Debian's tracker marks it NOT-FOR-US,
+  a webpack-dev-middleware path traversal that OSV's Debian import
+  misattributes to zlib.
 - **D589 (2026-11-19, spec-writer, placing D587): chunk 17 inserted in
   wave 4 before 12b, split in three:** 17a the images on 19 and every
   path, test and generated file they bind (one commit: the data path
@@ -767,3 +772,24 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   gating; chunk 17c's two content findings to O298, O299. Now in:
   [formats.md](formats.md) v41; [master spec](versions/v0.6/master-spec.md) 9.7, 9.9, 9.10, 12.1, 18;
   [v1.0 gating](versions/README.md#v10-gating); [build plan](versions/v0.6/build-plan.md) v19.
+- **D598 (2026-11-20, spec-writer, release gate item 6): Prometheus'
+  retention after a compaction, never reached in the build, is read in
+  v1.0 gating's full selections,** their real tails the first runs long
+  enough. Technical, none the owner's (master spec 18). Now in:
+  [v1.0 gating](versions/README.md#v10-gating); [master spec](versions/v0.6/master-spec.md) 18.
+- **D599 (2026-11-20, the owner, G11: "Release v0.6"): G11 cleared,
+  the release gate passed,** the gate as run, its known limits and what
+  stays v1.0 gating accepted; `v0.6-rg` merged into `main` (no push),
+  then the milestone archived. Now in: [build plan](versions/v0.6/build-plan.md)
+  v21, G11 and "Release gate"; [release notes](versions/v0.6/README.md#release-notes) item 8.
+- **D600 (2026-11-20, the owner, G11, on row G9.3): OpenSSL's 10 CVEs
+  open at the release,** reviewed at a trixie OpenSSL DSA or 2027-02-01
+  at the latest; nginx's 14 NVD matches on deb13u11 (backport false
+  positives) `[[ignore]]` until 2027-05-01, written in `.tech` by the
+  security advisor. None is on a served path. Now in: [release notes](versions/v0.6/README.md#release-notes), "Security".
+- **D601 (2026-11-20, the owner, G11: wave 4's items, all as
+  proposed):** D595's two readings and f8's `counter_per_call` (4 a
+  call) confirmed; O298 ruled (pgaudit in `lab` and `portal`, a later
+  build), O299 ruled (the owner amends his grid, the copy refreshed);
+  ISS-009 fixed in v0.7. Now in: [open-questions.md](open-questions.md) O298, O299;
+  [ISS-009](../issues/ISS-009_20261120_scenario_document_template_gaps.md); [release notes](versions/v0.6/README.md#release-notes).
