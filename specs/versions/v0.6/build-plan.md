@@ -1,6 +1,7 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v20 (2026-11-20): release gate item 6: "Left for the build" names where each row's outcome is recorded; a compaction over the imported blocks, never reached, goes to v1.0 gating (spec D598).
+Status: v21 (2026-11-20): the release gate passed; G11 cleared by the owner (spec D599): v0.6 released with the OpenSSL CVEs open and nginx's matches ignored (spec D600), wave 4's items ruled as proposed (spec D601). The merge into `main` next.
+v20 (2026-11-20): release gate item 6: "Left for the build" names where each row's outcome is recorded; a compaction over the imported blocks, never reached, goes to v1.0 gating (spec D598).
 v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
 v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
 v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
@@ -158,7 +159,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G10.2 | Wave 2's forms as built, from capture W2 (its preflight correction 8) and the chunk records in the wave log: the status file's form and its secret (the `rendered` kind), the `brick-doc` configs; the true overview's keys; the restart record as written, with `state.yaml`'s `hold` and `clean_restart`; `timeline`'s fake keys (`virtual_t0`, `anchor`, `tail`, `refused`); `wal-rate.yaml`; the cover's `fill.quiet` item (`routine`, `restore.database`); `--test-tail-floor` | `spec-writer`, after wave 2's gate | Release gate item 2 | done (2026-11-17, b2578a0, spec D534) |
 | G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | done (2026-11-19, 06a5d21, spec D580) |
 | G10.4 | Wave 4's forms as built, from capture W4 (its preflight correction 7) and the chunk records in the wave log: the short-game record's name in "Fake aging's measured figures"; 9.10's per-scenario section's sources (the limits as `explains` holds them, the setup time from the newest record, the wait for the anchor not counted); the M3 comparison's judged set and bounds if the spec is to name them (the M1 comparison's is in master spec 12.1, spec D586, D593); the fill's per-database transactions in its metrics record (chunk 18, spec D594) | `spec-writer`, after wave 4's gate | Release gate item 2 | done (2026-11-20, 0c2e91a, spec D597) |
-| G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
+| G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | cleared (2026-11-20, spec D599; D600, D601) |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 | G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
 | G14 | **No game relies on the 18 images under the reused tags** (spec D589): chunks 17a and 17b rebuild `postgres:0.5.1` and the others at their unreleased tags in the host's registry, so a game deployed from `main` (still on 18's paths) or restarted from a snapshot taken on 18 would get 19 binaries over an 18 data directory, which 19 refuses or misplaces. Before 17a's first build: no live game on armenelos using these tags, or its owner told it can't be restarted or restored until v0.6 merges | Hand check by the wave driver | Chunk 17a's first build | done (2026-11-19: no stack deployed, no service, `fa-real` torn down with no snapshot; wave log, wave 4 "G14") |
@@ -2468,6 +2469,10 @@ sleep inhibitor, the VPS untouched. **No aged run, no long run**: every
 item runs under 30 minutes on its least environment. A fix found here
 is committed on `v0.6-rg` and merged into `main` on the owner's word.
 
+**Status: passed** (2026-11-20, on `v0.6-rg`): items 1 to 7 as the
+[release notes](README.md#release-notes) record them, G11 cleared
+(spec D599).
+
 1. **Every short test of 12.1**, each under 30 minutes: the bastion's
    stack test (home page, documentation site, `jq` and `tmux`,
    reports); `fixture-status`; the network overview's unit tests and
@@ -2507,7 +2512,7 @@ is committed on `v0.6-rg` and merged into `main` on the owner's word.
    figures measured on 18 and what chunk 12b read of them on 19 (spec
    D590); the known limits (O294's as ruled), each long check
    pointing to v1.0 gating; the access model's known gaps.
-8. G11: the owner's judgement.
+8. G11: the owner's judgement (cleared, spec D599).
 
 **Estimated wall-clock**: about 4 hours on armenelos, nearly all of it
 under the Docker lock: the ten brick builds and stack tests about 55

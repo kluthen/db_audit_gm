@@ -777,3 +777,19 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   v1.0 gating's full selections,** their real tails the first runs long
   enough. Technical, none the owner's (master spec 18). Now in:
   [v1.0 gating](versions/README.md#v10-gating); [master spec](versions/v0.6/master-spec.md) 18.
+- **D599 (2026-11-20, the owner, G11: "Release v0.6"): G11 cleared,
+  the release gate passed,** the gate as run, its known limits and what
+  stays v1.0 gating accepted; `v0.6-rg` merged into `main` (no push),
+  then the milestone archived. Now in: [build plan](versions/v0.6/build-plan.md)
+  v21, G11 and "Release gate"; [release notes](versions/v0.6/README.md#release-notes) item 8.
+- **D600 (2026-11-20, the owner, G11, on row G9.3): OpenSSL's 10 CVEs
+  open at the release,** reviewed at a trixie OpenSSL DSA or 2027-02-01
+  at the latest; nginx's 14 NVD matches on deb13u11 (backport false
+  positives) `[[ignore]]` until 2027-05-01, written in `.tech` by the
+  security advisor. None is on a served path. Now in: [release notes](versions/v0.6/README.md#release-notes), "Security".
+- **D601 (2026-11-20, the owner, G11: wave 4's items, all as
+  proposed):** D595's two readings and f8's `counter_per_call` (4 a
+  call) confirmed; O298 ruled (pgaudit in `lab` and `portal`, a later
+  build), O299 ruled (the owner amends his grid, the copy refreshed);
+  ISS-009 fixed in v0.7. Now in: [open-questions.md](open-questions.md) O298, O299;
+  [ISS-009](../issues/ISS-009_20261120_scenario_document_template_gaps.md); [release notes](versions/v0.6/README.md#release-notes).

@@ -1,7 +1,8 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft v11. **Release gate** run on `v0.6-rg` from 2026-11-20,
-its [release notes](#release-notes) written (item 7), G11 the owner's.
+Status: draft v12. **Release gate passed** on `v0.6-rg` on 2026-11-20,
+its [release notes](#release-notes) written (item 7), G11 cleared by
+the owner (D599–D601); the merge into `main` next.
 **Consolidated** on 2026-11-16 into the
 [master spec](master-spec.md) and its [access model](access-model.md)
 (D514), **approved** the same day, the review's defaults standing,
@@ -306,7 +307,8 @@ v0.6, release gate run on 2026-11-20 on `v0.6-rg`, cut from `main` at
 under the host lock and a sleep inhibitor, each item under 30 minutes,
 the VPS drained and untouched (D314, D511; master spec 14). Items 1, 2,
 4, 5 and 6 passed, run or cited as below; item 3, the two short fake
-games, run at the gate; item 7, these notes; item 8, G11, the owner's.
+games, run at the gate; item 7, these notes; item 8, G11, cleared by
+the owner on 2026-11-20 (D599).
 The bricks at their v0.6 versions (master spec 6.8): `bastion` 0.6.0,
 `grafana` 0.4.0, `scheduler` 0.4.0, `postgres` 0.5.1, `api` 0.1.1,
 `health-check` 0.1.1, `pgbouncer` 0.1.2, `pgwatch` 0.1.1,
@@ -384,7 +386,9 @@ The bricks at their v0.6 versions (master spec 6.8): `bastion` 0.6.0,
    plan's "Left for the build" recorded (`a8b9edb`), retention after a
    compaction to v1.0 gating (D598, `925734d`).
 7. **Release notes**: these.
-8. **G11**: the owner's judgement, pending.
+8. **G11 cleared** (2026-11-20, D599): the owner releases v0.6 with
+   the gate as run, its known limits and what stays v1.0 gating; the
+   OpenSSL and nginx calls (D600) and wave 4's items (D601) below.
 
 ### Measured figures
 
@@ -528,11 +532,13 @@ Named by master spec 12.2 and the release gate's items 5 and 7:
   gate's runs: 125 s and 95 s); a slower host could cross it.
 - **The history import's memory**: `promtool` peaks at 1.0 to 1.2 GiB
   on the host during the import.
-- **Open questions found in the build**: O298, the clinic's pgaudit
-  described in its policies but loaded by no seed, so T2 and T251 can't
-  bite (before the clinic is next played); O299, the audit grid's
-  sampling block creating a temporary table in a read-only session
-  (v0.7).
+- **Open questions found in the build, ruled** (D601): O298, the
+  clinic's pgaudit described in its policies but loaded by no seed, so
+  T2 and T251 can't bite: pgaudit loaded in `lab`'s and `portal`'s
+  seeds in a later build touching the clinic, before it is next played;
+  O299, the audit grid's sampling block creating a temporary table in a
+  read-only session: the owner amends his grid and the copy is
+  refreshed (v0.7). Each stays open until done.
 - **Open issues**:
   [ISS-006](../../../issues/ISS-006_20261116_health_check_stack_test_cron_race.md),
   `health-check`'s stack test racing the cron daemon (in progress);
@@ -544,7 +550,8 @@ Named by master spec 12.2 and the release gate's items 5 and 7:
   an unset `database` parameter losing a signature's series silently
   (the two covered scenarios checked by a test);
   [ISS-009](../../../issues/ISS-009_20261120_scenario_document_template_gaps.md),
-  five cases the scenario document's template lacks.
+  five cases the scenario document's template lacks (fixed in v0.7,
+  D601).
 - **v0.5's stand**: the governance checks on the whole clinic (D471),
   no hand-over snapshot for the whole clinic, what a restore doesn't
   give back, the partner stubs' reference counters (O249), the
@@ -584,7 +591,7 @@ v0.6's:
   "Recorded in" column (`a8b9edb`); `.tech` after G9.3 (`81b6ffb`);
   D588 corrected (CVE-2026-76844 is not zlib's, below).
 
-### Security, accepted risks and items with the owner
+### Security, accepted risks and the owner's rulings
 
 - **zlib1g at `1:1.3.dfsg+really1.3.1-1+deb13u1` in every image** (D588,
   row G9.3): DSA-6613-1, fixing CVE-2026-85091 and CVE-2026-27171; read
@@ -592,25 +599,28 @@ v0.6's:
   counted with them, is not zlib's: Debian's tracker marks it
   NOT-FOR-US, a webpack-dev-middleware flaw OSV's Debian import
   misattributes (D588, corrected 2026-11-20).
-- **OpenSSL, pending the owner's call at G11**: Debian's 3.5.7-1~deb13u3,
-  in every image, carries 10 CVEs with no Debian fix (8 rated Low
-  upstream and fixed in 3.5.10, 2 with no OpenSSL advisory yet); none
-  is on a path a brick serves (QUIC, DTLS, AES-GCM-SIV, CMS, PEM,
-  DANE, Suite B; the one OpenSSL TLS server is PostgreSQL's), and no
-  rebuild would change anything. The security advisor proposes
-  releasing with them open, reviewed at a trixie OpenSSL DSA or on
-  2027-02-01; until the owner rules, they are open, not accepted
-  (`.tech`, "OpenSSL").
-- **nginx, pending the owner's call at G11**: 14 NVD matches on Debian's
-  `deb13u11`, backport false positives; the choice is to accept them as
-  ignores until 2027-05-01 or to let the sweep file them.
+- **OpenSSL, accepted for the release** (G11, D600): Debian's
+  3.5.7-1~deb13u3, in every image, carries 10 CVEs with no Debian fix
+  (8 rated Low upstream and fixed in 3.5.10, 2 with no OpenSSL advisory
+  yet); none is on a path a brick serves (QUIC, DTLS, AES-GCM-SIV, CMS,
+  PEM, DANE, Suite B; the one OpenSSL TLS server is PostgreSQL's), and
+  no rebuild would change anything. The owner releases v0.6 with them
+  open; they are reviewed at the next trixie OpenSSL DSA, or on
+  2027-02-01 at the latest (`.tech`, "OpenSSL").
+- **nginx, accepted as ignores** (G11, D600): 14 NVD matches on
+  Debian's `deb13u11`, backport false positives, accepted as
+  `[[ignore]]` entries in `.tech` until 2027-05-01, written by the
+  security advisor.
 - **Accepted risks standing**: Debian `curl`'s trixie-unfixed issues
   until 2027-02-01 or the next trixie `curl` security upload (D443);
   `.tech`'s ignores until 2027-05-01 (D444, D458). The
   `security-2026-11-14` branch, with 29 ignores `main` lacks, is on
   hold apart from this release.
-- **Raised for the owner in wave 4's report**: D595's two readings (the
-  `user` label decides before `datname`; a series with neither follows
-  the load); f8's measured `counter_per_call` (gate fix `1e341dc`); the
-  games' margin; O298, O299; ISS-009's timing; the 19 recalibration in
-  v1.0 gating (D597).
+- **Wave 4's items, ruled by the owner at G11** (D601, all as
+  proposed): D595's two readings confirmed (the `user` label decides
+  before `datname`; a series with neither follows the load); f8's
+  measured `counter_per_call`, 4 a call of its key (gate fix
+  `1e341dc`), confirmed; O298, pgaudit loaded in `lab` and `portal` in
+  a later build; O299, the owner amends his grid, the copy refreshed;
+  ISS-009 fixed in v0.7. The games' margin stays a known limit (above)
+  and the 19 recalibration in v1.0 gating (D597).
