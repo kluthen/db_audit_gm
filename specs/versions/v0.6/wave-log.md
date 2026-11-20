@@ -4110,3 +4110,36 @@ span in the script, which costs about 3 more minutes of fill, the
 - For the wave gate: `fixture-fill` short test on the merged tree (17c's
   D592 seeds, chunk 16).
 - Figures: 1 agents, 128 tool calls, 22.8M tokens in / 68k out, max context 242k, $12.26 at API prices.
+
+### G9.2 post-change check — done (cf059a3, merged ec352a1), 2026-11-20
+
+- `security-advisor`, own branch from 0e11541; one commit (`.tech`),
+  merged --no-ff by the driver, branch and worktree removed.
+- Verdict CLEAR (with notes). Introduced: none. Fixed: 35 open
+  SECURITY_TODO.md Go items (34 from the exporter 0.20.1 build, plus
+  GO-2026-6809 shared with pgwatch); the sweep ticks them once v0.6-w4
+  reaches main. PostgreSQL/libpq/psql 19.0-1.pgdg13+1, pg_cron
+  1.6.8-1.pgdg13+3 (CVE-2026-6460 build), pgaudit 19.0-1.pgdg13+1,
+  exporter 0.21.1, pgwatch 6.2.0: no advisory. Exporter keeps
+  GO-2026-5932 (x/crypto/openpgp), not linked in the binary
+  (pre-existing).
+- `postgresql-common` 278: acceptable, no move. postgres and bastion
+  had it since v0.4; only pgbouncer changed (295 → 278). PGDG's
+  postgresql-19 needs >= 275~; 278 has no open CVE; 279–297 carry no
+  security fix; no brick runs pg_createcluster/pg_ctlcluster/
+  pg_upgradecluster. Moving to 297 is optional parity only.
+- `.tech`: PostgreSQL 18.7 → 19.0 over six bricks (libpq/psql 17.12
+  entry merged in), pg_cron/pgaudit sources, check_postgres over psql
+  19, exporter 0.21.1, pgwatch 6.2.0, nginx deb13u11 (DSA-6642-1 fixed),
+  OpenSSL note. `cve-watch lint` exit 0.
+- No ignore removed or added: the preflight's "exporter 0.20.1 ignores"
+  were open SECURITY_TODO.md items, not `[[ignore]]` entries (the
+  preflight's wording was wrong).
+- Pre-existing, not from this change, for the release gate:
+  - zlib1g still +b1 everywhere: D588's two CVEs plus CVE-2026-76844
+    (7.4), all fixed by +deb13u1; stays under D588.
+  - OpenSSL 3.5.7-1~deb13u3: 10 CVEs open in trixie (published
+    2026-11-10 to 11-18, no DSA yet; QUIC, DTLS, AES-GCM-SIV, CMS, PEM,
+    DANE, Suite B); NVD hasn't matched them, so the sweep hasn't raised
+    them; at first sight none on a path a brick serves. A vuln-triage
+    pass when they surface; recheck at the release gate.
