@@ -26,6 +26,14 @@ The composer (pure, unit-tested):
   blipping to 0 at it;
 - the load's shape: the calls the fill's metrics record per virtual minute
   (`local/<pg>/fill/<node>.metrics.jsonl`, W1 item 9) against the tail's;
+- each series' driver (fix 12, spec D594, D595; `Composer.driver`): a
+  database's `pg_stat_database_*` series follow the transactions the fill
+  ran there (the record's `fill_transactions`) against the tail's; else a
+  series whose `user` names a scheduler connection's role, or, without a
+  `user`, whose `datname` names one of their databases, follows the load;
+  any other series with either label (the monitoring's own queries, the
+  `postgres` database) stays flat at the tail's rate; a series with
+  neither (host, WAL, checkpointer) follows the load;
 - the scheduler's series from the fill's metrics records, never a second
   simulation, so the `queue` entries reach the past through them (W3 item
   4); they reset at the restart (the program restarted);
@@ -61,7 +69,11 @@ PAST_START_BEFORE = 60.0            # the past's start times: this long before t
 NOISE_CV_MAX = 0.5                  # a gauge's noise, relative to its level, at most
 COUNTER_JITTER = 0.05               # a counter's increase per step, relative
 SHAPE_SMOOTH = 15                   # minutes: the load's shape, a moving mean
-SHAPE_RATIO = (0.25, 4.0)           # the load's ratio to the tail's, bounded
+# The load's ratio to the tail's, bounded. The floor is far under any night
+# the games draw (the shop's and fixture-fill's lowest, about 0.14 to 0.17),
+# so the forged night follows the load down (fix 12); it only keeps a series
+# moving through a minute the fill ran nothing in.
+SHAPE_RATIO = (0.02, 4.0)
 JUMP_TOLERANCE = 0.01               # a size gauge's step at the join, relative
 
 # Counters a clean shutdown keeps (9.9, "Not done, on purpose"; W3 item 3):
@@ -82,6 +94,13 @@ ACTIVITY_RE = re.compile(r"(_activity_count|_locks_count|numbackends|_connection
 UP_NAMES = ("up", "pg_up")
 SCHEDULER_PREFIX = "scheduler_"
 SCHEDULER_COUNTERS = ("scheduler_calls_total", "scheduler_errors_total")
+# The fill's transactions per database (bricks/scheduler gm_scheduler.fill
+# FILL_TRANSACTIONS): {"<host>:<port>/<database>": so far}; the composer's
+# input only, never a series
+FILL_TRANSACTIONS = "fill_transactions"
+DATABASE_PREFIX = "pg_stat_database_"
+XACT_NAMES = ("pg_stat_database_xact_commit", "pg_stat_database_xact_rollback")
+DRIVEN = ("counter_join", "counter_reset", "size", "activity")     # the classes a driver scales
 FINDING_CHECKS = ("negative", "reset", "jump", "empty")
 
 
@@ -258,24 +277,31 @@ def read_metrics(lines):
     return out
 
 
-class LoadShape:
-    """Calls a minute, every scheduler node together, from the fill's
-    records (a moving mean of SHAPE_SMOOTH minutes), against the tail's.
-    `ratio(t)` is the load at `t` over the tail's, bounded by SHAPE_RATIO;
-    1 throughout without records or a tail load."""
+def per_minute(metrics, key, entry=None):
+    """The increase a minute of the records' cumulative map `key` (only its
+    `entry` when given), every scheduler node together."""
+    out = collections.Counter()
+    for records in (metrics or {}).values():
+        prev = {}
+        for rec in records:
+            counts = rec.get(key) or {}
+            minute = int(rec["t"] // 60)
+            for k, v in counts.items():
+                if entry is None or k == entry:
+                    out[minute] += max(0, v - prev.get(k, 0))
+            prev = counts
+    return out
 
-    def __init__(self, metrics, tail_per_minute):
-        per_minute = collections.Counter()
-        for records in (metrics or {}).values():
-            prev = {}
-            for rec in records:
-                calls = rec.get("scheduler_calls_total") or {}
-                minute = int(rec["t"] // 60)
-                for k, v in calls.items():
-                    per_minute[minute] += max(0, v - prev.get(k, 0))
-                prev = calls
-        self.minutes = sorted(per_minute)
-        self.values = [per_minute[m] for m in self.minutes]
+
+class Shape:
+    """A count a minute from the fill's records (a moving mean of
+    SHAPE_SMOOTH minutes), against the tail's. `ratio(t)` is the count at
+    `t` over the tail's, bounded by SHAPE_RATIO; 1 throughout without
+    records or a tail count."""
+
+    def __init__(self, counts, tail_per_minute):
+        self.minutes = sorted(counts)
+        self.values = [counts[m] for m in self.minutes]
         self.tail = tail_per_minute or 0.0
         self.cache = {}
 
@@ -296,6 +322,33 @@ class LoadShape:
         if load is None or self.tail <= 0:
             return 1.0
         return min(max(load / self.tail, SHAPE_RATIO[0]), SHAPE_RATIO[1])
+
+
+class LoadShape(Shape):
+    """Calls a minute, every scheduler node together, against the tail's."""
+
+    def __init__(self, metrics, tail_per_minute):
+        super().__init__(per_minute(metrics, "scheduler_calls_total"), tail_per_minute)
+
+
+class Flat:
+    """A series the fill's load does not drive: the tail's rate throughout."""
+
+    def ratio(self, t):
+        return 1.0
+
+
+FLAT = Flat()
+
+
+@dataclass(frozen=True)
+class Drivers:
+    """What decides a series' driver (fix 12; `fill_drivers`): the
+    scheduler connections' `roles` and `databases`, and `targets`, each
+    exporter's `instance` label to the `<host>:<port>` it reads."""
+    roles: frozenset = frozenset()
+    databases: frozenset = frozenset()
+    targets: dict = field(default_factory=dict)
 
 
 def tail_calls_per_minute(tail_series):
@@ -382,6 +435,7 @@ class Report:
     series: int = 0
     samples: int = 0
     classes: collections.Counter = field(default_factory=collections.Counter)
+    drivers: collections.Counter = field(default_factory=collections.Counter)
     clamped: list = field(default_factory=list)
     synthesized: list = field(default_factory=list)
     unmatched: list = field(default_factory=list)
@@ -390,6 +444,7 @@ class Report:
 
     def as_dict(self):
         return {"series": self.series, "samples": self.samples, "classes": dict(self.classes),
+                "drivers": dict(self.drivers),
                 "clamped": self.clamped, "synthesized": self.synthesized,
                 "unmatched": self.unmatched, "removed_samples": self.removed_samples,
                 "notes": self.notes}
@@ -402,10 +457,11 @@ class Composer:
     read from the restart on; `metrics`: {node: records} (read_metrics);
     `scheduler_instances`: {node: the `instance` label its target has};
     `selection`: overlays_for's input; `shift`: hours, scenario time minus
-    UTC; `seed`: the game's seed, for the noise."""
+    UTC; `seed`: the game's seed, for the noise; `drivers`: a Drivers (fix
+    12), None for every series following the load."""
 
     def __init__(self, vt0, restart, tail, metrics=None, scheduler_instances=None,
-                 selection=(), shift=0, seed=0):
+                 selection=(), shift=0, seed=0, drivers=None):
         self.vt0, self.restart = float(vt0), float(restart)
         self.meta = tail.get("metadata") or {}
         self.tail = [s for s in tail.get("series") or [] if s.get("samples")]
@@ -418,6 +474,8 @@ class Composer:
         self.overlays, notes = overlays_for(selection, self.restart)
         self.report.notes += notes
         self.shape = LoadShape(self.metrics, tail_calls_per_minute(self.tail))
+        self.drivers = drivers
+        self.db_shapes = {}
         self.step = self._scrape_interval()
         self.past_start = self.vt0 - PAST_START_BEFORE
 
@@ -425,6 +483,43 @@ class Composer:
         gaps = sorted(b[0] - a[0] for s in self.tail for a, b in zip(s["samples"], s["samples"][1:])
                       if b[0] > a[0])
         return round(gaps[len(gaps) // 2], 3) if gaps else STEP
+
+    def driver(self, lb):
+        """The series' shape (fix 12, spec D594, D595): a database's
+        transactions first, then the `user` label, then `datname`; a series
+        with neither follows the load."""
+        if self.drivers is None:
+            return self.shape
+        if lb["__name__"].startswith(DATABASE_PREFIX):
+            shape = self.transaction_shape(lb.get("instance"), lb.get("datname"))
+            if shape is not None:
+                return shape
+        if lb.get("user"):
+            return self.shape if lb["user"] in self.drivers.roles else FLAT
+        if lb.get("datname"):
+            return self.shape if lb["datname"] in self.drivers.databases else FLAT
+        return self.shape
+
+    def transaction_shape(self, instance, datname):
+        """The transactions the fill ran on the database a series reads, a
+        minute, against the tail's commits and rollbacks there; None
+        without a record of them (a fill from an earlier image) or a tail
+        rate."""
+        key = (instance, datname)
+        if key not in self.db_shapes:
+            self.db_shapes[key] = None
+            target = self.drivers.targets.get(instance)
+            entry = f"{target}/{datname}"
+            if target and datname and any(entry in (rec.get(FILL_TRANSACTIONS) or {})
+                                          for recs in self.metrics.values() for rec in recs):
+                tail = 60 * sum(tail_rate(s["samples"]) for s in self.tail
+                                if s["labels"]["__name__"] in XACT_NAMES and len(s["samples"]) > 1
+                                and s["labels"].get("instance") == instance
+                                and s["labels"].get("datname") == datname)
+                if tail > 0:
+                    self.db_shapes[key] = Shape(per_minute(self.metrics, FILL_TRANSACTIONS, entry),
+                                                tail)
+        return self.db_shapes[key]
 
     def rng(self, labels):
         """The noise of a series, the same for a histogram's buckets."""
@@ -449,6 +544,10 @@ class Composer:
             return None
         cls = classify(lb, smp, self.meta, self.restart)
         self.report.classes[cls] += 1
+        shape = self.driver(lb)
+        if cls in DRIVEN:
+            self.report.drivers["flat" if shape is FLAT else "load" if shape is self.shape
+                                else "transactions"] += 1
         r = self.rng(lb)
         values = [v for _, v in smp]
         integral = all(float(v).is_integer() for v in values)
@@ -475,13 +574,13 @@ class Composer:
         elif cls == "const":
             vals = [v_first] * len(ts)
         elif cls == "size":
-            vals = self.size(smp, ts)
+            vals = self.size(smp, ts, shape)
         elif cls == "activity":
-            vals = self.activity(values, ts, r, integral)
+            vals = self.activity(values, ts, r, integral, shape)
         elif cls == "level":
             vals = self.level(values, ts, r, integral)
         else:
-            vals = self.counter(lb, smp, ts, cls == "counter_reset", r, integral)
+            vals = self.counter(lb, smp, ts, cls == "counter_reset", r, integral, shape)
         return lb, ts, vals
 
     def level(self, values, ts, r, integral, scale=False):
@@ -499,33 +598,33 @@ class Composer:
             out.append(round(v) if integral else v)
         return out
 
-    def activity(self, values, ts, r, integral):
-        """Around the tail's median, with its real spread, scaled by the
-        load's shape (fix 5); never below zero."""
+    def activity(self, values, ts, r, integral, shape):
+        """Around the tail's median, with its real spread, scaled by its
+        driver (fix 5, fix 12); never below zero."""
         ordered = sorted(values)
         median = ordered[len(ordered) // 2]
         spread = [v - median for v in values]
         out = []
         for t in ts:
-            v = max(0.0, median * self.shape.ratio(t) + r.choice(spread))
+            v = max(0.0, median * shape.ratio(t) + r.choice(spread))
             out.append(round(v) if integral else v)
         return out
 
-    def size(self, smp, ts):
+    def size(self, smp, ts, shape):
         """A ramp ending at the tail's first value: the tail's slope, per
-        unit of load, over the load's shape (fix 5), never below zero (a
+        unit of load, over its driver (fix 5, fix 12), never below zero (a
         setting the tail holds below zero, -1 for "no limit", stays at it)."""
         (t0, v0), (t1, v1) = smp[0], smp[-1]
         slope = (v1 - v0) / (t1 - t0) if t1 > t0 else 0.0
         floor = min(0.0, v0)
         out, v = [], v0
         for t in reversed(ts):
-            v -= slope * self.step * self.shape.ratio(t)
+            v -= slope * self.step * shape.ratio(t)
             out.append(max(floor, v))
         out.reverse()
         return [round(x) for x in out] if float(v0).is_integer() else out
 
-    def counter(self, lb, smp, ts, resets, r, integral):
+    def counter(self, lb, smp, ts, resets, r, integral, shape):
         rate = tail_rate(smp)
         extra = [0.0] * len(ts)
         for o in self.overlays:
@@ -538,7 +637,7 @@ class Composer:
                     if o.active(t):
                         extra[i] += per_call * calls[i]
         rate = max(rate, 0.0)
-        inc = [max(0.0, rate * self.step * self.shape.ratio(t) * (1 + r.gauss(0, COUNTER_JITTER)))
+        inc = [max(0.0, rate * self.step * shape.ratio(t) * (1 + r.gauss(0, COUNTER_JITTER)))
                + extra[i] for i, t in enumerate(ts)]
         v_first = smp[0][1]
         if resets:
@@ -1053,6 +1152,38 @@ def selection(scenario, impl, st):
     return out
 
 
+def fill_drivers(scenario, impl, playground):
+    """The Drivers of a game (fix 12): the scheduler nodes' connections as
+    the game holds them (each node's schedule.yaml, the rendered copy where
+    render rewrites it: the roles they connect as, the databases they
+    name), and each postgres-exporter node's data source (its exporter.conf:
+    the `instance` Prometheus scrapes it as, `<node>:9187`, to the
+    `<host>:<port>` it reads)."""
+    from . import fill, model
+    from .model import GmError
+    roles, databases, targets = set(), set(), {}
+    for n in fill._nodes(scenario, impl, model.SCHEDULER_BRICK):
+        schedule = fill._yaml(fill._seed_text(scenario, playground, n, fill.SCHEDULE_FILE),
+                              f"{n['name']}'s schedule")
+        for c in (schedule.get("connections") or {}).values():
+            try:
+                _, _, database = fill.parse_target((c or {}).get("target"), n["name"])
+            except GmError:
+                continue                # an HTTP connection: no role, no database
+            databases.add(database)
+            if c.get("role"):
+                roles.add(str(c["role"]))
+    for n in fill._nodes(scenario, impl, fill.EXPORTER_BRICK):
+        conf = fill.parse_env_file(fill._seed_text(scenario, playground, n, fill.EXPORTER_CONF))
+        try:
+            host, port, _ = fill.parse_target((conf.get("DATA_SOURCE_URI") or "").split("?", 1)[0],
+                                              n["name"])
+        except GmError:
+            continue
+        targets[f"{n['name']}:{fill.EXPORTER_PORT}"] = f"{host}:{port}"
+    return Drivers(frozenset(roles), frozenset(databases), targets)
+
+
 def scheduler_targets(tail, nodes):
     """{scheduler node: its target's `instance` label} from the tail."""
     out = {}
@@ -1261,11 +1392,15 @@ def _run(scenario_dir, playground, check_seam, docker, now, sleep, clock):
                 metrics[sched] = read_metrics(path.read_text().splitlines())
         scenario = model.load_scenario(scenario_dir)
         timeline = impl.get(localimpl.TIMELINE) or {}
+        drivers = fill_drivers(scenario, impl, playground)
+        figures["drivers"] = {"roles": sorted(drivers.roles), "databases": sorted(drivers.databases),
+                              "exporters": drivers.targets}
         t = time.monotonic()
         composer = Composer(vt0, restart, tail, metrics=metrics,
                             scheduler_instances=scheduler_targets(tail, set(metrics)),
                             selection=selection(scenario, impl, st),
-                            shift=timeline.get("shift") or 0, seed=timeline.get("seed") or 0)
+                            shift=timeline.get("shift") or 0, seed=timeline.get("seed") or 0,
+                            drivers=drivers)
         with open(work / OM_FILE, "w", buffering=1 << 20) as f:
             report = composer.write(f)
         figures["compose_s"] = round(time.monotonic() - t, 1)

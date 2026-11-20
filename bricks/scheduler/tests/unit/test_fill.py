@@ -146,6 +146,10 @@ queries:
   orders.close-day:
     transaction: {isolation: read committed, hold: 20s}
     sql: UPDATE f_customers SET lifetime_value = lifetime_value + 1
+  orders.touch:
+    steps:
+      - sql: SELECT count(*) FROM f_orders
+      - sql: SELECT count(*) FROM f_customers
 """
 
 SCRIPT = """\
@@ -432,6 +436,109 @@ class TestP0(unittest.TestCase):
         admin(VCLOCK_SQL)                   # back for the class's other tests
 
 
+class FakeCursor:
+    description, rowcount = None, 1
+
+    def fetchall(self):
+        return []
+
+
+class FakeSession:
+    """A session's statements, one of them failing."""
+
+    def __init__(self, failing=None):
+        self.sent, self.failing = [], failing
+        self.closed = self.broken = False
+
+    def execute(self, sql, params=None):
+        import psycopg
+        self.sent.append(sql)
+        if self.failing and self.failing in sql:
+            raise psycopg.errors.UndefinedFunction("function gm_missing_function() does not exist")
+        return FakeCursor()
+
+
+class TestTransactionCount(unittest.TestCase):
+    """FILL_TRANSACTIONS' count of a plan (master spec 9.9 fix 12, spec
+    D594): one per transaction plan, else one per step; the clock's setting
+    not counted."""
+
+    def run_plan(self, steps, txn=None, failing=None):
+        from gm_scheduler.fill import run_steps
+        from gm_scheduler.repository import Plan, Txn
+        sess = FakeSession(failing)
+        plan = Plan([(sql, None) for sql in steps], Txn(txn, 0) if txn else None)
+        _, err, xacts = run_steps(sess, plan, ts(VT0))
+        return sess, err, xacts
+
+    def test_one_per_transaction_plan(self):
+        sess, err, xacts = self.run_plan(["INSERT INTO a VALUES (1)", "UPDATE b SET c = 1"], txn="read committed")
+        self.assertIsNone(err)
+        self.assertEqual(xacts, 1)
+        self.assertEqual(sess.sent[0], "SELECT pg_catalog.set_config(%s, %s, false)")   # the clock: sent, not counted
+        self.assertEqual(len(sess.sent), 4)
+
+    def test_one_per_step_otherwise(self):
+        sess, err, xacts = self.run_plan(["SELECT 1", "SELECT 2", "SELECT 3"])
+        self.assertIsNone(err)
+        self.assertEqual(xacts, 3)
+        self.assertEqual(len(sess.sent), 4)
+
+    def test_a_failed_step_counts_the_steps_sent(self):
+        _, err, xacts = self.run_plan(["SELECT 1", "SELECT gm_missing_function()", "SELECT 3"],
+                                      failing="gm_missing_function")
+        self.assertEqual(err[0], "42883")
+        self.assertEqual(xacts, 2)                  # the failed one rolled back by the server
+        _, err, xacts = self.run_plan(["SELECT gm_missing_function()", "SELECT 3"], txn="read committed",
+                                      failing="gm_missing_function")
+        self.assertEqual(xacts, 1)
+
+    def test_a_scripts_transactions_as_it_ends_them(self):
+        from gm_scheduler.fill import VConnection
+        conn = psycopg_stub()
+        vc = VConnection(conn, ts(VT0))
+        vc.commit()                                 # nothing open: nothing counted
+        conn.status = "INTRANS"
+        vc.commit()
+        conn.status = "INERROR"
+        vc.rollback()
+        conn.status = "INTRANS"
+        vc.close()                                  # left open: the server rolls it back
+        self.assertEqual(vc.gm_transactions, 3)
+        self.assertEqual(conn.calls, ["commit", "commit", "rollback", "close"])
+
+
+def psycopg_stub():
+    from psycopg.pq import TransactionStatus
+
+    class Info:
+        def __init__(self, owner):
+            self.owner = owner
+
+        @property
+        def transaction_status(self):
+            return getattr(TransactionStatus, self.owner.status)
+
+    class Conn:
+        closed = False
+
+        def __init__(self):
+            self.status, self.calls = "IDLE", []
+            self.info = Info(self)
+
+        def commit(self):
+            self.calls.append("commit")
+            self.status = "IDLE"
+
+        def rollback(self):
+            self.calls.append("rollback")
+            self.status = "IDLE"
+
+        def close(self):
+            self.calls.append("close")
+    return Conn()
+
+
 class TestFillSql(unittest.TestCase):
     def test_fill_sql_prints_the_programs_sql(self):
         import contextlib
@@ -485,7 +592,8 @@ class TestFillRun(unittest.TestCase):
         write(f"{r}/producer/repository/queries.yaml", QUERIES)
         write(f"{r}/producer/jobs/jobs.yaml",
               "jobs:\n  - name: close-day\n    key: orders.close-day\n    connection: app\n    at: \"*/10 * * * *\"\n"
-              "  - name: mark\n    key: orders.mark\n    connection: app\n    at: \"5 21 * * *\"\n")
+              "  - name: mark\n    key: orders.mark\n    connection: app\n    at: \"5 21 * * *\"\n"
+              "  - name: touch\n    key: orders.touch\n    connection: app\n    at: \"15 21 * * *\"\n")
         write(f"{r}/consumer/repository/queries.yaml",
               QUERIES + "  rollup.hourly:\n    script: scripts/rollup.py:hourly\n")
         write(f"{r}/consumer/repository/scripts/rollup.py", SCRIPT)
@@ -516,7 +624,7 @@ class TestFillRun(unittest.TestCase):
                                  "arrivals": "even"}],
                     "timeline": []}
         st = {k: {"median": 0.002, "sigma": 0.2} for k in ("orders.place", "catalog.lookup", "catalog.broken",
-                                                           "orders.close-day", "orders.mark")}
+                                                           "orders.close-day", "orders.mark", "orders.touch")}
         return {
             "vt0": VT0, "anchor": ANCHOR, "seed": 7, "pauses": [PAUSE],
             "nodes": {
@@ -600,7 +708,7 @@ class TestFillRun(unittest.TestCase):
         self.assertEqual(record[0]["at"], "2026-03-02T21:01:00Z")
         self.assertEqual(sorted(record[0]), sorted(("at", "scheduler_calls_total", "scheduler_errors_total",
                                                     "scheduler_call_duration_seconds", "scheduler_job_runs_total",
-                                                    "scheduler_job_skips_total")))
+                                                    "scheduler_job_skips_total", "fill_transactions")))
         calls = [r["scheduler_calls_total"]["catalog.lookup"] for r in record]
         self.assertEqual(calls, sorted(calls))
         logged = sum(int(e[2]["calls"]) for e in events if e[1] == "key" and e[2]["key"] == "catalog.lookup")
@@ -609,7 +717,23 @@ class TestFillRun(unittest.TestCase):
         self.assertEqual(hist["buckets"]["60.0"], hist["count"])
         self.assertEqual(record[-1]["scheduler_job_runs_total"],
                          [{"job": "close-day", "key": "orders.close-day", "value": 2},
-                          {"job": "mark", "key": "orders.mark", "value": 1}])
+                          {"job": "mark", "key": "orders.mark", "value": 1},
+                          {"job": "touch", "key": "orders.touch", "value": 1}])
+        # the transactions per database (master spec 9.9 fix 12): cumulative,
+        # each call's plan one (a transaction plan, or a single step), the
+        # two-step touch two; the clock's setting, the set-up and the
+        # exporter's visits not counted
+        shop, reporting = f"{HOST}:{PORT}/{DB}", f"{HOST}:{PORT}/{DST_DB}"
+        xacts = [r["fill_transactions"].get(shop, 0) for r in record]
+        self.assertEqual(xacts, sorted(xacts))
+        self.assertEqual(sorted(record[-1]["fill_transactions"]), [shop])
+        self.assertEqual(record[-1]["fill_transactions"][shop],
+                         sum(record[-1]["scheduler_calls_total"].values()) + 1)
+        with open(f"{self.root}/out/consumer.metrics.jsonl") as f:
+            consumer = [json.loads(x) for x in f][-1]
+        # the dashboard's held snapshots one each; the script's two, one per database
+        self.assertEqual(consumer["fill_transactions"],
+                         {shop: consumer["scheduler_calls_total"]["reports.dashboard"] + 1, reporting: 1})
 
     def test_a_key_without_a_service_time_is_refused(self):
         doc = self.config()
