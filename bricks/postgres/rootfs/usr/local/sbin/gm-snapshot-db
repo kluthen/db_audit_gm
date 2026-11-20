@@ -24,7 +24,7 @@
 set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
-PGBIN=/usr/lib/postgresql/18/bin
+PGBIN=/usr/lib/postgresql/19/bin
 SLOT=gm_snapshot
 WAIT=30
 

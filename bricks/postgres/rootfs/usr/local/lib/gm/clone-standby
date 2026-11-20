@@ -32,8 +32,8 @@
 set -u
 PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
-PGBIN=/usr/lib/postgresql/18/bin
-PGDATA=/var/lib/postgresql/18/data
+PGBIN=/usr/lib/postgresql/19/bin
+PGDATA=/var/lib/postgresql/19/data
 PASSFILE=/run/gm-replication/pgpass
 SERVICE=/run/service/postgres
 REPLICATION_ROLE=replicator

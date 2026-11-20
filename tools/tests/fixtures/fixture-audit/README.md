@@ -232,3 +232,7 @@ None.
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`,
   `faults/fixture-dropped-index/`
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

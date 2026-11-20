@@ -7,7 +7,7 @@ played.
 
 ## Purpose
 
-`postgres_exporter` 0.20.1 on Debian 13 (trixie), with an SSH server for
+`postgres_exporter` 0.21.1 on Debian 13 (trixie), with an SSH server for
 the players, in the image `127.0.0.1:5000/dbagm/postgres-exporter:0.2.1`.
 It fills the role `monitoring`: the node that reads PostgreSQL's
 statistics with a monitoring role and serves them as Prometheus metrics
@@ -21,16 +21,19 @@ The image:
 
 - Debian 13 (`debian:13-slim`), `openssh-server`, `sudo`, `curl`, `jq`,
   `nano`, `vim-tiny`, `less`, `procps`.
-- `postgres_exporter` 0.20.1 (linux-amd64) from the upstream release
-  archive, verified by SHA-256 at build against the release's
-  `sha256sums.txt`. It supports PostgreSQL 18 (the `pg_stat_statements`
-  query for PostgreSQL 17 and later) and `--collector.stat_statements`.
-  The build records the collectors it offers in
-  `/usr/local/lib/gm/exporter-collectors`.
+- `postgres_exporter` 0.21.1 (linux-amd64, go1.27.4) from the upstream
+  release archive, verified by SHA-256 at build against the release's
+  `sha256sums.txt` (G9.2, v0.6 wave log). Its latest release, run against
+  PostgreSQL 19 (spec D587; the `pg_stat_statements` query for
+  PostgreSQL 17 and later), with `--collector.stat_statements`. The build
+  records the collectors it offers in
+  `/usr/local/lib/gm/exporter-collectors`, and checks it takes the data
+  source as flags (`--datasource.uri`, `--datasource.pass-file`).
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
 - Generic: no scenario content, no credential and no host keys in the
   image.
-- Size: 165MB (about 86MB over the shared `debian:13-slim` layer).
+- Size: 168MB (about 89MB over the shared `debian:13-slim` layer; the
+  binary 22MB), postgres_exporter 0.21.1's build.
 
 ## Placement
 
@@ -168,14 +171,24 @@ user and collectors it starts with (never the password), and execs, as
 `exporter`, with a clean environment:
 
 ```
-DATA_SOURCE_URI=<from the file> DATA_SOURCE_USER=<from the file> \
-DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password \
-postgres_exporter --web.listen-address=:9187 --web.telemetry-path=/metrics \
+DATA_SOURCE_USER=<from the file> \
+postgres_exporter --datasource.uri=<DATA_SOURCE_URI from the file> \
+  --datasource.pass-file=/opt/gm/secrets/monitoring_password \
+  --web.listen-address=:9187 --web.telemetry-path=/metrics \
   --config.file=/usr/local/lib/gm/postgres_exporter.yml <COLLECTORS>
 ```
 
-`postgres_exporter` reads the password from the file at start, trimmed
-of surrounding whitespace. Its log goes to the container's output
+`exporter.conf` keeps its keys; 0.21 deprecates the variables
+`DATA_SOURCE_URI` and `DATA_SOURCE_PASS_FILE` (a warning at every start,
+removed in 0.22) for the two flags, and has no flag for the user's name,
+so `DATA_SOURCE_USER` stays a variable. One data source and no
+`--auto-discover-databases`: since 0.21 the database-scoped collectors
+(`stat_user_tables`, `statio_user_tables`, `statio_user_indexes`) run on
+every configured database, which is the one the URI names, `postgres`
+(v0.6 master spec 9.5): the exporter never opens a session in a
+scenario's database, so there are no per-table or per-index series of
+one. `postgres_exporter` reads the password from the file at start,
+trimmed of surrounding whitespace. Its log goes to the container's output
 (`gmctl logs`); players do not see it. `/run` is a named volume for the
 reason the `postgres` brick's
 [GM notes](../../postgres/docs/gm.md#why-run-is-a-volume) give.
@@ -209,20 +222,32 @@ with it, by its node name.
   exporter reconnects on the next scrape once it answers.
 
 **Metrics other bricks and scenarios rely on** (names confirmed in the
-stack test against `postgres` 0.2.0, PostgreSQL 18.6):
+stack test against `postgres` 0.5.1, PostgreSQL 19.0):
 
 | Metric | Meaning |
 |---|---|
 | `pg_up` | 1 when the last scrape reached the database, 0 when it did not |
 | `pg_stat_statements_calls_total`, `pg_stat_statements_seconds_total`, `pg_stat_statements_rows_total` | per statement (`queryid`, `datname`, `user` labels), the top 100 by time; only with `--collector.stat_statements` and the database's preload |
-| `pg_scrape_collector_success{collector=…}` | 1 per collector that succeeded on the last scrape; all default collectors succeed on PostgreSQL 18 |
+| `pg_scrape_collector_success{collector=…}` | 1 per collector that succeeded on the last scrape; all default collectors succeed on PostgreSQL 19. Since 0.21 a collector failing mid-scrape drops all its metrics of that scrape, not only the rest |
 
-The default collectors in 0.20.1: `database`, `locks`, `replication`,
-`replication_slots`, `roles`, `settings`, `stat_activity`,
-`stat_archiver`, `stat_bgwriter`, `stat_database`,
+The default collectors in 0.21.1 (the same as 0.20.1's): `database`,
+`locks`, `replication`, `replication_slots`, `roles`, `settings`,
+`stat_activity`, `stat_archiver`, `stat_bgwriter`, `stat_database`,
 `stat_progress_vacuum`, `stat_replication`, `stat_user_tables`,
 `statio_user_tables`, `wal`. The exporter also serves its own process and
-Go metrics.
+Go metrics. Labels 0.21 changed: `stat_replication`'s series carry the
+sender's `pid` (one series per WAL sender, a new series when a standby
+reconnects); `statio_user_indexes` (off by default) carries `datname`
+beside `schemaname`, `relname` and `indexrelname` only under
+`--auto-discover-databases`, so not here (its series name `postgres`'
+tables alone); the `stat_user_tables`, `statio_user_tables` series'
+`datname` is always `postgres` here. New in 0.21: `pg_settings_pending_restart{name=…}` 1 for each
+setting changed in the configuration and waiting for a restart, served
+only while one is, for any setting, string ones included (the value
+series `pg_settings_<name>` stay the boolean and numeric settings'). A
+player who edits `postgresql.conf` and only reloads sees it. Counters
+are not wrapped (`--wrap-large-counters` stays off), and
+`--web.max-requests` keeps its default, 40 scrapes served at once.
 
 **Mounted material**: the image accepts another brick's mounted companion
 material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
@@ -254,9 +279,9 @@ these interfaces: they run inside the container through `gmctl exec`.
 
 - The secret is root:exporter `0440`; `player` is not in the `exporter`
   group: reading it is an ordinary "permission denied".
-- It reaches the server only as `DATA_SOURCE_PASS_FILE`, set by the s6
-  service: never in `exporter.conf`, an argument, an environment
-  variable holding the value, or the log. The server's environment is
+- It reaches the server only as the file `--datasource.pass-file` names,
+  set by the s6 service: never in `exporter.conf`, an argument, an
+  environment variable holding the value, or the log. The server's environment is
   unreadable to `player` (and to root without `CAP_SYS_PTRACE`: the
   process dropped root).
 - `exporter-conf`, the wrapper and the validator refuse an
@@ -506,7 +531,13 @@ the stack `gmtest-pgexp` (`tests/stack.test.yml`, fixtures in
 the preload; a `pg_hba.conf` `host` line for `monitoring`), both reading
 the same `monitoring_password`, checks the chunk's Done-when and removes
 everything it created, volumes included. It covers `pg_up`, the
-`pg_stat_statements` metrics, every default collector succeeding, the
+`pg_stat_statements` metrics, every default collector succeeding on
+PostgreSQL 19, the data source as flags with no deprecation warning, the
+exporter's one data source (a second database with a table and an index
+on the server, the database-scoped collectors with `statio_user_indexes`
+added: every series theirs is `postgres`', `statio_user_indexes`' without
+a `datname`, and the server's connection
+log holds no session of `monitoring` in another database), the
 secret out of `player`'s reach and out of the server's arguments, the
 wrappers, the validator green and red, a wrong address, the database
 down, a file not valid at start, a new container, the hardening, and the
@@ -541,7 +572,7 @@ test client) built.
   profile costs the node CPU while it runs), linked from the landing
   page, and `/probe`, which has no auth module here, so it holds no
   credential.
-- **Image size**: 165MB, against master spec 12's estimate of about 25M
+- **Image size**: 168MB, against master spec 12's estimate of about 25M
   for the exporter over the shared layers (about 40M of system layer per
   new image): the system packages (`openssh-server`, `sudo`, `curl`,
   `jq`) weigh more than the binary.

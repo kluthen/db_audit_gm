@@ -71,7 +71,7 @@ The story as the players read it: `player/story.md`.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: README.md → `player/README.md`; story.md → `player/story.md`; issues.md → `player/issues.md`; partners.md → `player/partners.md`.
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` → `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface: the
 web front serves the starter-pack page alone, and the tools password is
@@ -96,7 +96,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: api.yaml → `nodes/partners-api/api.yaml`; routes/ → `nodes/partners-api/routes/`; db/ → `nodes/partners-api/db/`.
+- **Seed files**: `api.yaml` → `nodes/partners-api/api.yaml`; `routes/` → `nodes/partners-api/routes/`; `db/` → `nodes/partners-api/db/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -117,7 +117,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: queries.yaml → `nodes/partners-backend/queries.yaml`; jobs.yaml → `nodes/partners-backend/jobs.yaml`; schedule.yaml → `nodes/partners-backend/schedule.yaml`.
+- **Seed files**: `queries.yaml` → `nodes/partners-backend/queries.yaml`; `jobs.yaml` → `nodes/partners-backend/jobs.yaml`; `schedule.yaml` → `nodes/partners-backend/schedule.yaml`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -138,7 +138,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: postgresql.conf → `nodes/partners-db/postgresql.conf`; pg_hba.conf → `nodes/partners-db/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`; `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -175,6 +175,24 @@ Data, restored from `data/partners-db.sql`:
 | `partners-backend` | `partners-db` | each partner's misbehaviour key, its stream alpha.normal or beta.normal, as the partner's role | postgresql 5432 | 1 a minute per partner |
 | `partners-backend` | `partners-api` | each partner's tick, under its hostname, with the credential partners_backend | http 8000 | 6 a minute per partner |
 | `partners-api` | `partners-db` | each partner's state, read at each request, as the partner's role | postgresql 5432 | per request |
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `alpha-lab` | Alpha Laboratories | an outside laboratory, a sample partner | inbound | partners-api, partners-backend, partners-db | `alpha-lab` | `player/partners.md#alpha-laboratories` | none | `f1` |
+| `beta-lab` | Beta Laboratories | an outside laboratory, a sample partner | inbound | partners-api, partners-backend, partners-db | `beta-lab` | `player/partners.md#beta-laboratories` | none | `f1` |
+
+The partners' hidden schedule: `nodes/partners-backend/schedule.yaml`.
 
 ## 4. Host topology it was designed for
 
@@ -254,3 +272,41 @@ None.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-partner-slow/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 8h, the scenario's aging: the virtual T0 at 06:00,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-partner-slow` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-partners-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

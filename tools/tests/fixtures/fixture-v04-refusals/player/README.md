@@ -1,7 +1,7 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (the shop's PostgreSQL 18),
-`reporting` (the agency's PostgreSQL 18) and `bi` (the agency's
+Nodes: `bastion` (you are here), `db` (the shop's PostgreSQL 19),
+`reporting` (the agency's PostgreSQL 19) and `bi` (the agency's
 transformer). Reach them with `ssh <node>`. Times are the customer's,
 {{customer_timezone}}.
 

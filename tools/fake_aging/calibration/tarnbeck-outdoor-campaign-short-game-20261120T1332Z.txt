@@ -1,0 +1,268 @@
+command: sh tools/tests/smoke-fake-aging.sh scenarios/tarnbeck-outdoor-campaign --record (under flock /tmp/dbagm-docker.lock and systemd-inhibit)
+commit: 758e080, with uncommitted changes under tools/ or scenarios/ (this record's own chunk)
+start: 2026-11-20T13:32:00Z
+wall time: 1652 s, deployment and teardown included; exit 0
+
+....  tarnbeck-outdoor-campaign: hand-over 2026-11-20T14:00Z, virtual T0 2026-11-19T22:00:00Z, anchor 2026-11-20T13:45:00Z (780 s ahead), tail 15m
+....  selection: f1 f2 f3 f4 f7 f8 f9; left out: f5,f6,f10
+PASS  fit: 3 CPU / 5G / 14G on this host
+....  game id tarnbeck-outdoor-campai-k4v2en
+PASS  the record: mode, virtual T0, anchor, tail
+....  the record's refused: []
+PASS  deploy, load-data, inject (35 s, the deploy 17 s)
+....  rpt.close_day() before the fill: {"search_path=pg_catalog, pg_temp",TimeZone=Etc/GMT-3}|310077a9d58e71f49700873789f7412a
+PASS  the fill: ok
+FIGURE  the fill: 196 s (945 virtual minutes)
+FIGURE  the setup, the deploy to the fill's end: 231 s (the script's bound 330 s)
+PASS  the fill ended before the anchor (546 s)
+....  rpt.close_day() after the fill: {"search_path=pg_catalog, pg_temp",TimeZone=Etc/GMT-3}|310077a9d58e71f49700873789f7412a
+....  waiting 547 s, to 2026-11-20T13:45:01Z
+....  clean-restart: Game tarnbeck-outdoor-campai-k4v2en: clean-restart.
+....  clean-restart:   db: WAL padded by 635780616 bytes in 0.6 s, pg_wal 620756992 bytes after the checkpoints
+....  clean-restart:   reporting: WAL padded by 219701120 bytes in 0.5 s, pg_wal 218103808 bytes after the checkpoints
+....  clean-restart:   db: 1 log file(s) removed or emptied
+....  clean-restart:   reporting: 2 log file(s) removed or emptied
+....  clean-restart:   pooler: 1 log file(s) removed or emptied
+....  clean-restart:   db: 1388 data file(s) dated to their last virtual write
+....  clean-restart:   reporting: 1317 data file(s) dated to their last virtual write
+....  clean-restart:   every service restarted at 2026-11-20T13:45:18Z (12 services, the monitoring included): the anchor
+....  clean-restart: Next: gmctl start-load.
+PASS  clean-restart and start-load, restart.at 2026-11-20T13:45:18Z (18 s after the anchor)
+FIGURE  clean-restart: 31 s
+FIGURE  the setup's time, the deploy to restart.at: 795 s; the wait for the anchor 546 s within it, so 249 s without it; the fill 196 s
+....  start: bastion -0.0 s from restart.at
+....  start: db -0.0 s from restart.at
+....  start: pooler -0.1 s from restart.at
+....  start: producer -0.0 s from restart.at
+....  start: consumer -0.1 s from restart.at
+....  start: reporting -0.0 s from restart.at
+....  start: bi -0.0 s from restart.at
+....  start: crm -0.1 s from restart.at
+....  start: gateway 0.0 s from restart.at
+....  start: prometheus 0.0 s from restart.at
+....  start: exporter 0.0 s from restart.at
+....  start: grafana 0.0 s from restart.at
+PASS  every service started with the rest, within 10 s after restart.at (12 nodes, the monitoring's included)
+PASS  the player account cannot list /var/lib/prometheus on the Prometheus node (D540)
+PASS  P0: rpt.close_day()'s proconfig and prosrc md5 unchanged across the fill
+PASS  P0: the nightly close once at 01:30 scenario time in rpt.etl_runs (1 run(s): 01:30)
+PASS  P0: every hourly roll-up once at :05 in rpt.etl_runs (16 run(s) for 16 due; missing 0, twice 0, off :05 0)
+....  waiting 665 s, to 2026-11-20T13:57:13Z
+PASS  gmctl history exits 0 (90 s)
+....  history: Game tarnbeck-outdoor-campai-k4v2en: history from the virtual T0 2026-11-19T22:00:00Z to the restart 2026-11-20T13:45:18Z imported at 2026-11-20T13:58:43Z; seam ok (0 findings)
+PASS  gmctl history by hand imported, before the timer's run
+PASS  the record's history: ok, seam ok
+FIGURE  history: 90 s, 1 attempt(s); tail 2472 series read in 0.4 s; composed 2478 series, 9360917 samples, 1139910795 bytes in 9.4 s; promtool 27.8 s, peak 1220.6 MiB; loaded after 30.8 s; seam 9.5 s
+FIGURE  history: blocks {"01M7WKZ0T4H6W801J22CA6CXVS": 1611547, "01M7WKZ3MHH5MJ9QTA8JCND13N": 1556252, "01M7WKZ6G12E3WCYPG3QXJFG1N": 1557314, "01M7WKZ9D7CBS9AE23ETJPBY5Z": 1550024, "01M7WKZC8V4VZWXY7QC2JSRW2F": 1606381, "01M7WKZF6G7QWEH73N2NNVRSSZ": 1629833, "01M7WKZJ2CQW8GYS62T84TC41B": 1630738, "01M7WKZMWPDC1BJ8W7KRGR79DX": 1498638}; tsdb {"prometheus_tsdb_lowest_timestamp_seconds": 1795125600.0, "prometheus_tsdb_blocks_loaded": 8.0, "prometheus_tsdb_storage_blocks_bytes": 12640727.0}
+FIGURE  history: report {"series": 2478, "samples": 9360917, "classes": {"counter_reset": 940, "const": 530, "level": 106, "size": 142, "ts_now": 4, "elapsed": 24, "activity": 73, "ts_start": 13, "counter_join": 92, "up": 20, "scrape": 76}, "drivers": {"load": 997, "flat": 226, "transactions": 24}, "synthesized": [], "unmatched": [], "removed_samples": 0, "notes": ["db:5432/shop: the fill's 1.010 transactions a call (its last 60 min) times the tail's 177.7 calls a minute"], "clamped": 13}
+FIGURE  Prometheus' lowest timestamp: before the import 2026-11-20T13:45:27Z, right after it 2026-11-19T22:00:00Z (0 s from the virtual T0, 0 s for its self-scrape)
+....  early check: f1 purpose-mail-overlapping-window: present — M1 present: order 311894 got 2 order-shipped mails, the latest by the mail-shipped run of 2026-11-20T13:55:00Z (2689 orders notified twice or more since 2026-11-19T22:00:00Z)
+....  early check: f2 purpose-leads-stale-consent: present — L2 present: the leads-extract run of 2026-11-19T22:20:00Z extracted customer 10078 as a lead without consent, the latest event then withdrawn at 2026-11-19T22:17:50Z (unsubscribe-link) (6 leads and 47 marketing mails without consent since 2026-11-19T22:00:00Z)
+....  early check: f3 purpose-mail-outside-hours: present — M3 present: the mail-campaign run of 2026-11-20T08:00:00Z mailed customer 5864 (mail 1648) at 00:00 their time (Etc/GMT+8), outside 08:00-21:00 (76 marketing mails outside their hours since 2026-11-19T22:00:00Z)
+....  early check: f4 purpose-watermark-misses-updates: present — R1 present: the rollup-hourly run of 2026-11-19T22:05:00Z left hour 2026-11-19 00:00 accessories at orders 313, units 625, revenue 115985.50 where the source holds orders 315, units 630, revenue 114027.00 (194 buckets differ)
+....  early check: f7 purpose-day-boundary-wrong-zone: present — R3 present on the close: the close run of 2026-11-20T01:30:00Z left day 2026-11-19 at orders 20000, revenue 24324587.00 where the source's local day holds orders 19723, revenue 23951440.10.
+....  early check: f8 purpose-receiver-down-unnoticed: present — E4 present: declaration 29, sent at 2026-11-19T22:25:00Z, unacknowledged, has no incident by 2026-11-19T23:12:00Z (210 declarations neither acknowledged nor escalated in time since 2026-11-19T22:00:00Z)
+....  early check: f9 governance-personal-copied: present — G1: reporting/reporting src.customers.id holds personal data (remote shop.customers.id), allowed only in db/shop
+....  early check: producer: scheduler running, keys catalog.lookup ok, consent.subscribe ok, consent.unsubscribe-v2 ok, deliveries.ingest ok, orders.detail ok, orders.place ok, orders.status ok; jobs close-day ran
+....  early check: consumer: scheduler running, keys dashboard.categories ok, dashboard.freshness ok, dashboard.revenue ok, dashboard.today ok
+....  early check: bi: scheduler running; jobs rollup-hourly ran, rollup-close ran
+....  early check: crm: scheduler running; jobs leads-extract ran, mail-shipped ran, mail-campaign ran, declare-exports ran, escalate-customs ran
+....  early check: gateway: scheduler running, keys customs.acknowledge ok
+....  early check: outages so far: at least 0 min lost
+....  early check: nodes: bastion healthy, db healthy, pooler healthy, producer healthy, consumer healthy, reporting healthy, bi healthy, crm healthy, gateway healthy, prometheus healthy, exporter healthy, grafana healthy
+....  early check: history import: ok, seam ok
+....  early check: Early check of game tarnbeck-outdoor-campai-k4v2en: FAILED, 1 failure(s):
+....  early check:   f4 purpose-watermark-misses-updates: reads present (exit 1), expected exit 3 at hand-over (masked by f5)
+....  early check: Recorded in state.yaml.
+PASS  the early check's history line
+PASS  the early check reads f1 present
+PASS  the early check reads f2 present
+PASS  the early check reads f3 present
+PASS  the early check reads f4 present
+PASS  the early check reads f7 present
+PASS  the early check reads f8 present
+PASS  the early check reads f9 present
+FIGURE  the early check's failure from a masking by an instance left out of this game: f4 purpose-watermark-misses-updates: reads present (exit 1), expected exit 3 at hand-over (masked by f5)
+PASS  the early check: no failure but a left-out instance's masking
+PASS  the timer's run after the hand run a no-op: 1 attempt(s) recorded
+....  the early check's exit: 1; the timer's unit: Result=success ExecMainStatus=0 
+PASS  history --check-seam: exit 0, the seam joined, a past present
+....  check-seam: Game tarnbeck-outdoor-campai-k4v2en: seam ok (0 findings); nothing recorded
+PASS  start-time db: the postmaster started 2026-11-20T13:45:20.204Z, +2.2 s from restart.at 2026-11-20T13:45:18.000Z (within 0 to 10 s), before now; read again at the end: 2026-11-20T13:45:20.204Z (unchanged)
+PASS  statements db: 0 of 63 pg_stat_statements rows name gm_vclock or gm_pad; pg_stat_statements_info.stats_reset 2026-11-20T13:45:06.630Z (11.4 s before restart.at)
+PASS  stats-reset db: 7 stats_reset within 0.000 s of each other (at most 1 s), 11.4 s before restart.at (at most 120 s)
+FIGURE  pg-wal db: 620756992 bytes live, 620756992 after the padding's checkpoints, ratio 1.000
+PASS  pg-wal db: pg_wal at 100.0% of the padding's figure (at least 90%)
+PASS  autovacuum db/shop public.business_settings: 0 run(s); 1 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.campaigns: 0 run(s); 1 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.consent_events: 1 run(s); 17734 inserted, 0 updated, 0 deleted; threshold 3450; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.customers: 3 run(s); 20000 inserted, 61950 updated, 0 deleted; threshold 4050; at least 1, at most 21 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.customs_acks: 0 run(s); 705 inserted, 0 updated, 0 deleted; threshold 171; at least 0, at most 5 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.customs_outbox: 0 run(s); 917 inserted, 0 updated, 0 deleted; threshold 221; at least 0, at most 5 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.delivery_events: 1 run(s); 69551 inserted, 0 updated, 0 deleted; threshold 13270; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.etl_runs: 0 run(s); 268 inserted, 0 updated, 0 deleted; threshold 98; at least 0, at most 3 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.export_countries: 0 run(s); 6 inserted, 0 updated, 0 deleted; threshold 51; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.incidents: 0 run(s); 0 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.leads: 1 run(s); 4066 inserted, 0 updated, 0 deleted; threshold 841; at least 0, at most 5 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.mail_outbox: 3 run(s); 6623 inserted, 0 updated, 0 deleted; threshold 1265; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.order_lines: 0 run(s); 950864 inserted, 0 updated, 0 deleted; threshold 180050; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.orders: 0 run(s); 316958 inserted, 23541 updated, 0 deleted; threshold 62610; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.popular_products: 0 run(s); 192 inserted, 0 updated, 0 deleted; threshold 88; at least 0, at most 3 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum db/shop public.products: 8 run(s); 2000 inserted, 54864 updated, 0 deleted; threshold 450; at least 1, at most 127 (its dirtied rows over the threshold, plus one)
+PASS  search-path db: 2 database(s) read; no routine's search_path names gm_vclock, no gm_vclock schema
+PASS  start-time reporting: the postmaster started 2026-11-20T13:45:19.984Z, +2.0 s from restart.at 2026-11-20T13:45:18.000Z (within 0 to 10 s), before now; read again at the end: 2026-11-20T13:45:19.984Z (unchanged)
+PASS  statements reporting: 0 of 42 pg_stat_statements rows name gm_vclock or gm_pad; pg_stat_statements_info.stats_reset 2026-11-20T13:45:07.370Z (10.6 s before restart.at)
+PASS  stats-reset reporting: 7 stats_reset within 0.000 s of each other (at most 1 s), 10.6 s before restart.at (at most 120 s)
+FIGURE  pg-wal reporting: 218103808 bytes live, 218103808 after the padding's checkpoints, ratio 1.000
+PASS  pg-wal reporting: pg_wal at 100.0% of the padding's figure (at least 90%)
+PASS  autovacuum reporting/reporting cron.job: 0 run(s); 1 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting cron.job_run_details: 0 run(s); 0 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.business_settings: 0 run(s); 1 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.customer_activity: 0 run(s); 0 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.etl_runs: 0 run(s); 17 inserted, 17 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.sales_daily: 0 run(s); 17 inserted, 17 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.sales_detail: 0 run(s); 0 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.sales_detail_backfills: 0 run(s); 0 inserted, 0 updated, 0 deleted; threshold 50; at least 0, at most 1 (its dirtied rows over the threshold, plus one)
+PASS  autovacuum reporting/reporting rpt.sales_hourly: 1 run(s); 3440 inserted, 0 updated, 432 deleted; threshold 648; at least 0, at most 6 (its dirtied rows over the threshold, plus one)
+PASS  search-path reporting: 2 database(s) read; no routine's search_path names gm_vclock, no gm_vclock schema
+FIGURE  Prometheus (9.10, not judged): lowest timestamp 2026-11-19T22:00:00.000Z, blocks loaded 8, blocks bytes 12640727; virtual T0 2026-11-19T22:00:00Z
+tells.sh: 35 passed, 0 failed, 0 skipped
+FIGURE  f1 at the seam: pg_stat_database_tup_inserted{datname="shop"} 2.3596638655462185 rows/s over the past's last 30 min, 2.3257861635220123 rows/s over the tail; ratio 0.99 (a step is a finding for v1.0 gating's day-long measurement, D578)
+FIGURE  service time producer catalog.lookup: 0.0012 s in the tail (calibrate.py keys' median), 0.0011 s in service-times.yaml (PostgreSQL 18), ratio 1.09
+FIGURE  service time producer consent.subscribe: 0.0095 s in the tail (calibrate.py keys' median), 0.0064 s in service-times.yaml (PostgreSQL 18), ratio 1.48; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time producer consent.unsubscribe: - s in the tail (calibrate.py keys' median), 0.0071 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time producer consent.unsubscribe-v2: 0.0091 s in the tail (calibrate.py keys' median), 0.008 s in service-times.yaml (PostgreSQL 18), ratio 1.14
+FIGURE  service time producer deliveries.ingest: 0.0057 s in the tail (calibrate.py keys' median), 0.0026 s in service-times.yaml (PostgreSQL 18), ratio 2.19; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time producer orders.close-day: - s in the tail (calibrate.py keys' median), 2 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time producer orders.detail: 0.0015 s in the tail (calibrate.py keys' median), 0.0014 s in service-times.yaml (PostgreSQL 18), ratio 1.07
+FIGURE  service time producer orders.place: 0.0083 s in the tail (calibrate.py keys' median), 0.005 s in service-times.yaml (PostgreSQL 18), ratio 1.66; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time producer orders.status: 0.0057 s in the tail (calibrate.py keys' median), 0.0036 s in service-times.yaml (PostgreSQL 18), ratio 1.58; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time consumer dashboard.categories: - s in the tail (calibrate.py keys' median), 0.0013 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time consumer dashboard.freshness: 0.044 s in the tail (calibrate.py keys' median), 0.0007 s in service-times.yaml (PostgreSQL 18), ratio 62.86; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time consumer dashboard.revenue: 0.012 s in the tail (calibrate.py keys' median), 0.0007 s in service-times.yaml (PostgreSQL 18), ratio 17.14; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time consumer dashboard.today: 0.089 s in the tail (calibrate.py keys' median), 0.0013 s in service-times.yaml (PostgreSQL 18), ratio 68.46; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time bi rollup.close: - s in the tail (calibrate.py keys' median), 0.19 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time bi rollup.hourly: - s in the tail (calibrate.py keys' median), 0.075 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time crm declare.exports: 0.051 s in the tail (calibrate.py keys' median), 0.012 s in service-times.yaml (PostgreSQL 18), ratio 4.25; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time crm escalate.customs: - s in the tail (calibrate.py keys' median), 0.0042 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time crm leads.extract: - s in the tail (calibrate.py keys' median), 0.0091 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time crm mail.campaign: - s in the tail (calibrate.py keys' median), 0.0019 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  service time crm mail.shipped: 0.011 s in the tail (calibrate.py keys' median), 0.016 s in service-times.yaml (PostgreSQL 18), ratio 0.69; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time gateway customs.acknowledge: 0.0021 s in the tail (calibrate.py keys' median), 0.0012 s in service-times.yaml (PostgreSQL 18), ratio 1.75; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  service time gateway customs.unavailable: - s in the tail (calibrate.py keys' median), 0.00024 s in service-times.yaml (PostgreSQL 18), ratio -
+FIGURE  WAL rate db: 61726126 bytes/hour in the tail (14561450 bytes in 849 s since the restart's reset), 25418671 in wal-rate.yaml (PostgreSQL 18), ratio 2.43; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  WAL rate reporting: 1127728 bytes/hour in the tail (265911 bytes in 849 s since the restart's reset), 8326392 in wal-rate.yaml (PostgreSQL 18), ratio 0.14; outside x0.8 to x1.25: a finding for a recalibration on 19
+FIGURE  Prometheus' lowest timestamp at the read: 2026-11-19T22:00:00Z (0 s from the virtual T0)
+PASS  retention: the past kept to the virtual T0 at the read (0 s)
+....  status: FAILED early check at 2026-11-20T13:58:45Z: f4 purpose-watermark-misses-updates: reads present (exit 1), expected exit 3 at hand-over (masked by f5)
+....  status: Game tarnbeck-outdoor-campai-k4v2en
+....  status:   playground: fake-smoke (local engine)
+....  status:   stage: load-started
+....  status:   history:
+....  status:     2026-11-20T13:32:02Z  fitted
+....  status:     2026-11-20T13:32:03Z  rendered
+....  status:     2026-11-20T13:32:20Z  deployed
+....  status:     2026-11-20T13:32:37Z  data-loaded
+....  status:     2026-11-20T13:32:38Z  injected
+....  status:     2026-11-20T13:45:44Z  load-started
+....  status:   network: tarnbeck-outdoor-campai-k4v2en_backend
+....  status:   secrets: /home/bastien/work/db_audit_gm-wt/v0.6-c12b-fake-aging-games/scenarios/tarnbeck-outdoor-campaign/local/fake-smoke/secrets/ (mode 0600, not printed)
+....  status:     player_password: password, handed over
+....  status:     player_ssh_key: private key of pair player_ssh_key
+....  status:     player_ssh_key.pub: public key of pair player_ssh_key
+....  status:     dba_password: password
+....  status:     tools_password: password, handed over
+....  status:     monitoring_password: password
+....  status:     gm_check_password: password
+....  status:     pgbouncer_lookup_password: password
+....  status:     replication_password: password
+....  status:     tls.crt: certificate tls
+....  status:     tls.key: private key of certificate tls
+....  status:     role_shop_refresh_password: password
+....  status:     role_shop_app_password: password
+....  status:     role_bi_reader_password: password
+....  status:     role_bi_etl_password: password
+....  status:     role_shop_etl_password: password
+....  status:     role_shop_crm_password: password
+....  status:     role_shop_customs_password: password
+....  status:     role_customs_gw_password: password
+....  status:     role_shop_reports_password: password
+....  status:   aging: fake (restart record /home/bastien/work/db_audit_gm-wt/v0.6-c12b-fake-aging-games/scenarios/tarnbeck-outdoor-campaign/local/fake-smoke/fake-aging.yaml)
+....  status:     virtual T0 2026-11-19T22:00:00Z, anchor 2026-11-20T13:45:00Z (planned), tail 15m, hand-over planned 2026-11-20T14:00:00Z
+....  status:     held off since 2026-11-20T13:32:19Z: db: the cron daemon; reporting: pg_cron's job runs; reporting: the cron daemon
+....  status:     restart: at 2026-11-20T13:45:18Z
+....  status:     history import: ok at 2026-11-20T13:58:43Z, seam ok
+....  status:   aging: T0 2026-11-19T22:00:00Z; ran 15h59m (elapsed less the lost time) of the 16h minimum
+....  status:   lost time: at least 0 min
+....  status:   earliest hand-over: 2026-11-20T14:00:18Z (in 1m)
+....  status:   planned hand-over: 2026-11-20T14:00:00Z; shift +0; customer's time zone UTC+0 (Etc/GMT)
+....  status:   plantings:
+....  status:     f1: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f2: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f3: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f4: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f7: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f8: planted 2026-11-19T22:00:00Z (T0)
+....  status:     f9: planted 2026-11-19T22:00:00Z (T0)
+....  status:   early check: FAILED at 2026-11-20T13:58:45Z
+....  record: # The restart record of this fake game (master spec 6.7, 6.9); GM-side.
+....  record: # Written by gmctl; never edit by hand (capture W2-A).
+....  record: mode: fake
+....  record: virtual_t0: '2026-11-19T22:00:00Z'
+....  record: anchor: '2026-11-20T13:45:00Z'
+....  record: tail: 15m
+....  record: handover_planned: '2026-11-20T14:00:00Z'
+....  record: refused: []
+....  record: restart:
+....  record:   at: '2026-11-20T13:45:18Z'
+....  record:   story_line: The servers were restarted for maintenance on 2026-11-20 at 13:45 UTC; older logs were archived.
+....  record:   explains:
+....  record:   - observation: 'the restart itself: the postmaster''s start, every container''s start, process IDs counted
+....  record:       from it, the statistics'' reset time, the logs'' first lines'
+....  record:     where: pg_postmaster_start_time(), ps, stats_reset, the log folder
+....  record:     in_world: the maintenance restart of the story line
+....  record:   - observation: 'no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler''s
+....  record:       own log does cover the fill)'
+....  record:     where: the log folders
+....  record:     in_world: older logs archived at the maintenance (the story line)
+....  record:   - observation: 'real-clock actors start at the restart: pg_cron''s run history, the crontab''s runs,
+....  record:       the pooler''s statistics, archiving, Grafana''s alert state and history'
+....  record:     where: cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver
+....  record:     in_world: 'partly: they were restarted at the maintenance'
+....  record:   - observation: the data files' inode change times are the fill's real minutes
+....  record:     where: pg_stat_file(), stat, ls -lc
+....  record:     in_world: 'partly: the maintenance touched the files'
+....  record:   - observation: last-use times of what only the fill touched fall in the minutes before the restart
+....  record:     where: pg_stat_user_tables, pg_stat_user_indexes
+....  record:     in_world: 'none: not covered by the story'
+....  record:   - observation: the LSN and WAL volume, if the padding doesn't hold
+....  record:     where: pg_current_wal_lsn(), segment names
+....  record:     in_world: partly
+....  record:   - observation: time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout,
+....  record:       a lock wait, an out-of-memory kill)
+....  record:     where: the fill's span in logs and views
+....  record:     in_world: 'none: not covered by the story'
+....  record:   - observation: Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart
+....  record:     where: the TSDB's files; Prometheus' runtime info
+....  record:     in_world: 'the start: the maintenance restart'
+....  record:   - observation: 'Prometheus'' own series show the import, about 12 minutes after the restart: its lowest
+....  record:       timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up'
+....  record:     where: prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, prometheus_tsdb_storage_blocks_bytes,
+....  record:       in Prometheus and Grafana
+....  record:     in_world: 'none: not covered by the story'
+....  record:   - observation: 'the forged past''s fine shape: series appearing over the day, rarely called statements'
+....  record:     where: Prometheus
+....  record:     in_world: 'none: not covered by the story'
+....  record:   - observation: each routine the fill covered has a new catalog row version from the fill's minutes,
+....  record:       its definition and settings identical
+....  record:     where: pg_proc's xmin against the other routines'; two updates on pg_proc in pg_stat_sys_tables
+....  record:     in_world: 'partly: a change in the maintenance before the restart, not named'
+....  record: history:
+....  record:   at: '2026-11-20T13:58:43Z'
+....  record:   result: ok
+....  record:   seam: ok
+PASS  teardown
+PASS  teardown: nothing labelled with tarnbeck-outdoor-campai-k4v2en left
+FIGURE  the wall time: 1652 s, the start to the teardown's end
+PASS  under 30 minutes (1652 s)
+....  smoke-fake-aging.sh: 64 passed, 0 failed, 0 skipped

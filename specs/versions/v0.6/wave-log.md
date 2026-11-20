@@ -3276,3 +3276,1229 @@ rotation bound, to finish its 23-minute fixture run.
   head at this entry's commit; the worktree and the chunk branches
   `v0.6-c10-history`, `v0.6-c11-faults-assessed`, `v0.6-c13-gm-skill`
   removed after.
+
+## Wave 4 — started 2026-11-19
+
+Chunks 5, 12, 14, 16 (κ = 2). Branch `v0.6-w4`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.6-w4`, cut from `main` at de48602
+(wave 3 merged; plan v14).
+
+### Gates checked at the start
+
+- G3 (network at image build time), hand check 2026-11-19: Debian's
+  trixie `Release`, `trixie-pgdg` `Release`, GitHub's s6-overlay,
+  Prometheus, `postgres_exporter` and pgwatch releases, and the
+  Dockerfile's Grafana download (13.3.1) answer 200. Cleared for wave 4.
+- G4 (swarm), hand check 2026-11-19: armenelos `Ready`, `Active`,
+  Leader; the VPS `vps-5718ad52` `Ready`, `Drain`. No stack deployed.
+  Cleared for wave 4.
+- Host: `/home` 66 % used, 55G free. The Docker lock is free.
+- G8 (post-change check on `grafana` 0.4.0 and any image a wave 3 or 4
+  chunk rebuilt) is due before the gate. G13 cleared (D585).
+
+### Order
+
+Only chunk 12 names a capture (W4: the verification tools' arguments
+and verdicts, the short-game script's name). Chunks 5 and 14 name none
+beyond W2; 16 none. So: capture W4 drafted by a `coding-leader` beside
+chunk 14 (light); chunk 12 starts once W4 is reviewed (and any plan
+correction it raises is committed); chunk 5 takes chunk 14's slot; 16
+starts once 12 and 14 have merged.
+
+### Capture W4 — the verification tools, the short-game script, the scenario document's "Fake aging" section (chunk 12; read by 16 and the release gate)
+
+**Revised 2026-11-20** (spec D593, D596; plan v18): items 1, 2 and 5 as
+chunk 12b built them (its entry, "Chunk 12b — stopped for rulings"),
+with the owner's ruling on `n_live_tup` and the driver's on the tells'
+autovacuum rule. Each change is marked "(rev. 2026-11-20)".
+
+Drafted 2026-11-19 for the wave driver, before any code. Sources: chunk
+12's and chunk 16's lines and the Release gate section (plan v14), gates
+G8 and G13; their spec packs (master spec 7.6, 9.4 to 9.12, 12.1, 12.3,
+14); [formats.md](../../formats.md) v40 ("Fault definition", `gauge_before`
+per D585; "Fake aging's measured figures"); spec D578 and D580 to D585;
+W1 to W3 with the records chunk 12 builds on (W3 items 1 to 6, 8 to 10
+and 12, W3-x, W3-y as amended by plan v11, G10.3's entry, the wave 3
+gate's figures, the handover for wave 4); the code on `v0.6-w4` at
+e6d709c (`tools/gm/{history,aging,cleanrestart,render}.py`,
+`tools/gmctl`'s parser in `tools/gm/__init__.py`, `tools/fake_aging/`
+with `calibrate.py`, `calibration/` and `reference/`,
+`tools/tests/fixtures/fixture-fill/{run-short-test.sh,run-history-test.sh}`,
+the `scenario-document` skill and template, `fixture-v06-refusals`'
+hand-rendered `README.md`, the shop's and the campaign's
+`scenario.yaml`, `faults/pg-join-index-missing/fault.yaml`,
+`.claude/skills/game-master/SKILL.md` where it cites the section);
+ISS-007 and ISS-008; and the research at `10d1bc6` (`m4_tells.sh`,
+`m1_dump.sh`, `m1_compare.py`, `m3_profile.py`,
+`specs/research/fake-aging/{run-2026-11-14,results-2026-11-15}.md`, read
+with `git show`), with four files of run R's M1 dump read through
+`extract.sh`. W1's rules hold: the spec is cited, not restated;
+**(choice)** marks a point the sources leave open, settled with its
+reason; each item names its writer and its readers; chunk internals stay
+out. As-built record: **W4-x** (chunk 12: the tools' and the script's
+interfaces as built where they differ from items 1 to 5; each script's
+start window; each game's figures and verdict counts; the M1 and M3
+verdicts with the reported measures; the tells' figures; f8's value and
+its source; `fixture-dropped-index`'s value; the campaign's figures as
+read; the section as built).
+
+Held, cited not restated: W1 item 3 (`extract.sh`, its exit 77 for an
+absent archive) and W1-x; W2 items 7 (the fake timeline, `left_out`), 8
+(the record), 11 (clean-restart, the padding, `wal-rate.yaml`) and 12
+(start-load, the early check); W3 items 1 to 3 as built (W3-x, D581,
+D583: `gmctl history`, its record and the seam's findings), 6 (the
+checks' history line), 8 to 10 (the faults' forms, the supports, the
+calibration files) and 12 (the section's heading and facts); D578 (no
+covered fault uses `suppressed_by`), D584 and D585 (f8's `gauge_before`,
+the sum). Instants UTC, `YYYY-MM-DDTHH:MMZ`; scenario times `HH:MM`.
+
+**What every tool and the script share (choice)**, the form of
+`calibrate.py` (W3 item 10) and the run scripts
+(`run-history-test.sh:72-82`): the scenario directory first, then
+`--playground <pg>`; a live game read only through `tools/gmctl exec`
+(SQL as `postgres` with `default_transaction_read_only=on`, as the
+research's M1 dump) or, for Prometheus, through
+`tools/gm/history.py`'s `Prometheus` reader (`history.py:879`, `curl`
+in the node, read-only), never a published port; each judged point one
+line, `PASS  <check>: <detail>`, `FAIL  <check>: <detail>`, `SKIP
+<check>: <reason>`, a figure `FIGURE  <what>: <value>`; the last line
+`<tool>: <n> passed, <n> failed, <n> skipped`; exit 0 nothing failed,
+1 any failure, 2 usage or refused (nothing read), 77 the reference
+absent where a tool needs it (its line `SKIP ... the reference archive
+is absent`, `extract.sh`'s message). Why: the script counts `PASS` and
+`FAIL` lines as `run-history-test.sh` does, and the release gate reads
+one form. Each tool names its origin in its header (`research/fake-aging`
+10d1bc6, the file), as `calibrate.py` does.
+
+**1. The tells script** (chunk 12 writes; the script, a GM after a
+restart and the release gate read)
+
+- **(choice)** `sh tools/fake_aging/tells.sh <scenario-dir> --playground
+  <pg> --node <db node> [--node <db node> ...] [--reference --start
+  <game T0 dir>]` (`--start` as built, rev. 2026-11-20, G10.4: the
+  game's M1 dump at its virtual T0, item 2's, which the autovacuum
+  check counts the updates from; only with `--reference`): every primary
+  `postgres` node the game reads (the shop `db`; the campaign `db` and
+  `reporting`), named by the caller. Refused, exit 2: no restart record
+  or `mode` not `fake`, no `restart.at` (the tells are a fake game's);
+  `--reference` for a scenario other than the shop, whose run R is
+  (rev. 2026-11-20).
+- **Its checks**, one verdict each per node, the fixed tells of 12.1
+  and 9.9:
+  - `start-time`: `pg_postmaster_start_time()` at or after
+    `restart.at`, within 10 s of it (the wave 3 gate measured +1.3 to
+    +2.2 s), before `now()`, and the same when read again at the
+    script's end (no negative, no moving start);
+  - `statements`: no row of `pg_stat_statements` in any database whose
+    query names `gm_vclock` or `gm_pad` (the fill's clock and the
+    padding's messages, `fill.py`, `cleanrestart.py:148-172`), and
+    `pg_stat_statements_info.stats_reset` before `restart.at`;
+  - `stats-reset`: one instant: the shared views' `stats_reset`
+    (bgwriter, checkpointer, WAL, archiver, I/O) and the statements' all
+    within one second of each other, before `restart.at` by at most 120
+    s (D536; the bound as built, rev. 2026-11-20; the observed gap a
+    `FIGURE`);
+  - `pg-wal`: the live `pg_wal` total (`pg_ls_waldir()`) not below 90 %
+    of `state.yaml`'s `clean_restart.wal.<node>.pg_wal_bytes`, the
+    padding's own figure (`cleanrestart.py:151-172`), never a day's rate
+    from `wal-rate.yaml` (plan, the campaign's figures read as
+    measured). **(choice)**: only a shrinking `pg_wal` reads as a young
+    server; 90 % leaves one recycled segment's worth of a 1 GB folder.
+    The ratio is a `FIGURE` too;
+  - `autovacuum`: per table, with the reference (the shop, `--reference`
+    given; rev. 2026-11-20, D596): the updated rows counted from the
+    game's T0 dump (the script's M1 at T0; R's from the same T0, the
+    same data), so the load's own updates count in neither; each run of
+    a bulk statement updating the whole table in the span (the shop's
+    `orders.close-day` on `customers`, `nodes/producer/queries.yaml:73`)
+    expected as one run, in the game and in R; the remaining runs
+    expected at R's runs per updated row: expected = bulk runs + (R's
+    runs − R's bulk runs) × the game's updated rows ÷ R's, ×0.5 to ×2,
+    one run either way (the shop's `customers`: (6 − 1) × 16617 / 30334
+    + 1 = 3.7, band 0.85 to 8.4). What the rule leaves unexplained (about
+    2.7 runs from order updates in R: pruning, 18 against 19, time
+    compression) is a `FIGURE`, never judged. Without the reference (the
+    campaign): a table whose updated and deleted rows passed its
+    autovacuum threshold at least once has at least one run, and none
+    more than its dirtied rows (inserted, updated and deleted: inserts
+    trigger autovacuum too) over that threshold plus one
+    **(choice**: the only range the campaign's own figures give; all
+    dirtied rows as built, rev. 2026-11-20);
+  - `search-path`: no routine in any database with `gm_vclock` in its
+    `proconfig`'s `search_path`, and no `gm_vclock` schema left.
+- `FIGURE` only, never a verdict (9.10's row, curation none; W3
+  correction 3): Prometheus' `prometheus_tsdb_lowest_timestamp_seconds`,
+  `prometheus_tsdb_blocks_loaded` and `prometheus_tsdb_storage_blocks_bytes`
+  at the read.
+- `--reference`: run R's tells (`m4-r-20261115.txt`) and M1 table
+  statistics read through `extract.sh`; with the archive absent, or
+  without `--start` (rev. 2026-11-20, G10.4), the autovacuum check
+  takes the campaign's rule and says so in a `SKIP` line for R's.
+
+**2. The M1 dump and comparison** (chunk 12 writes; the script reads)
+
+- `sh tools/fake_aging/m1_dump.sh <scenario-dir> --playground <pg>
+  --node <db node> --database <db> <out-dir>`: the research's queries,
+  its output form (one CSV a query and `meta.txt`, as run R's
+  `m1-fa-real-20261115T0800/`), the database an argument; a query whose
+  tables the database lacks (the shop's order statuses and ledger)
+  writes no file.
+- **The span and the selection differ from R's (finding)**: run R aged
+  24 hours, from 13:59 to 14:00 customer time
+  (`run-2026-11-14.md`, "Run R"); a fake game's virtual T0 is H minus
+  `aging.minimum`, the shop's 16 h (`scenario.yaml:33`, T0 22:00), and
+  the short selection lacks f4, f5 and f7, which R played. Every count
+  accumulated over the span (inserts, updates, scans, transaction ages)
+  differs by R's afternoon and evening; the research's ±3 % held only
+  because its F runs matched R's span (`run-2026-11-14.md`, "Span").
+- **(choice) The comparison scales R to the game's span**:
+  `python3 tools/fake_aging/m1_compare.py <reference-dir> <game-dir>
+  --start <game's T0 dir> --profile <reference M3 profile> --span
+  <HH:MM>-<HH:MM>`. The script dumps M1 twice: once after `inject`,
+  before `fill` (the game's T0 state: the same data file and T0
+  plantings as R's, so it stands for R's T0), and once at the read.
+  For each judged measure the expected value is `T0 + s × (R − T0)`,
+  `s` the share of R's inserted rows (`rows inserted/s, shop`, R's M3
+  profile, its 24 hourly steps) falling in the game's span from its
+  virtual T0 to the read, scenario time. Judged, within ±3 % of the
+  expected value (the research's tolerance, `results-2026-11-15.md`
+  Q1), or one row either way for a count under 34, where 3 % is less
+  than a row (as built, rev. 2026-11-20): the measures inserts drive:
+  each table's `n_tup_ins`, the sequences' `last_value`, the
+  database's `tup_inserted`. Reported as `FIGURE` with their ratio to
+  the expected value, never judged: each table's `n_live_tup` (rev.
+  2026-11-20, D593: the estimate VACUUM and ANALYZE overwrite; run R's
+  `daily_sales` reads 30 for 15 rows); the rest of Q1's list (updates, HOT
+  updates, scans, bloat and dead tuples, transaction ages, order
+  statuses, temp files), which f4's held transaction and f5's noon
+  close in R move, and Q1's own known differences (`delivery_events`'
+  bloat, `products`' transaction age, the `postgres` and `template1`
+  activity, the ledger's last day). Why: insert-driven measures are the
+  ones a share of R's own insert profile scales exactly; the rest
+  depend on instances the game doesn't play.
+- Without the archive: `SKIP`, exit 77, nothing judged (W1 item 3).
+
+**3. The M3 profile and comparison** (chunk 12 writes; the script reads)
+
+- `python3 tools/fake_aging/m3_profile.py dump <scenario-dir>
+  --playground <pg> --handover <YYYY-MM-DDTHH:00Z> <out.json>` (the
+  research's expressions, the database from `--database <db>`, where
+  the research had `shop`) and
+  `python3 tools/fake_aging/m3_profile.py compare <reference.json>
+  <game.json>`. Both hand over at 14:00 scenario time, so step i is the
+  same scenario hour (the research's alignment).
+- **(choice) Only the hours the game's past holds**: the steps from its
+  virtual T0 plus one hour to the last whole hour before the restart
+  (the shop: 23:00 to 13:00, 15 steps); a step spanning the restart or
+  the import is left out. Judged, per expression: Pearson correlation
+  at least 0.95 and the ratio of means 0.95 to 1.05, on the traffic
+  expressions (`calls/s`, `errors/s`, `commits/s`, `rows inserted/s`,
+  `statements calls/s`): the research's 0.96 to 1.00 and "within 5 %"
+  (Q4), rounded to a bound. Reported, not judged: `call p95` (f7's pool
+  and f5's noon close in R), the size and resource gauges (database
+  size, WAL, backends, CPU: R's afternoon growth; 9.9 fixes them against
+  the game's own tail, which the seam judges), `series`.
+- Without the archive: `SKIP`, exit 77.
+
+**4. The seam and the import, as chunk 12 reads them** (chunk 10 built;
+12 reads; W3 items 1 to 3, D581, D583)
+
+- The script reads the record's `history {result: ok, seam: ok}` and
+  `state.yaml`'s `history_import.attempts` (the figures), then runs
+  `tools/gmctl history <dir> --playground <pg> --check-seam` once:
+  exit 0 is the seam verdict (12.1's "a past present" is the `empty`
+  finding). It never re-derives a finding.
+- **(choice) A retention check**: Prometheus' lowest timestamp at the
+  read within one minute of the virtual T0 (`FIGURE` right after the
+  import and at the read). Why: G10.3 left a 13 to 15 h past's retention
+  unmeasured, and the shop's and the campaign's are 16 h; a past cut by
+  retention is a tell. W4-x records both figures.
+- **f8's step** (the Verification line, D584, D585): over the forged
+  past, `pg_database_size_bytes{datname="shop"}`'s last sample before
+  f8's planting (08:00) less its first after it, against f8's `value`:
+  within the larger of 1 % of `value` and the tail's own largest step
+  **(choice**: D581's join tolerance; the drawn level moves far less
+  than that between two scrapes).
+
+**5. The short-game script: `tools/tests/smoke-fake-aging.sh`** (chunk 12
+writes; the release gate item 3 calls it)
+
+- **(choice)** `sh tools/tests/smoke-fake-aging.sh <scenario-dir>
+  [--record]`; it knows two scenarios, by `scenario.yaml`'s `id`:
+  `tarnbeck-outdoor-shop` and `tarnbeck-outdoor-campaign` (any other:
+  exit 2). It plays the scenario as it is (its span, its data), never a
+  copy: the setup's time it measures is the one the scenario document
+  shows (item 8). Playground `fake-smoke`. Run under the host lock and
+  the sleep inhibitor by the caller, as every run script; it takes no
+  lock.
+- **Its selection**, plan and 12.1: the shop f1, f2, f3, f6, f8, f9,
+  f10; the campaign f1 to f4 and f7 to f9 (W3-y: f4 and f7 stay
+  `supported`, no fallback). The rest through `render --test-leave-out`,
+  the tail through `--test-tail-floor 15m` (both hidden options,
+  `tools/gm/__init__.py:280-281`).
+- **The start window (choice)**, as `run-history-test.sh:16-17`: H is
+  the next whole hour; the anchor is H − 15 min; the script refuses to
+  start, exit 3, nothing deployed, unless the setup's measured bounds
+  (from the deploy to the fill's end, per scenario, constants in the
+  script, W4-x records them) end before the anchor and the run ends
+  under 30 minutes. Its refusal line names the window, e.g. `start
+  between hh:MM and hh:MM`. No waiting option: the lock is never held
+  idle.
+- **Steps**, 9.4's and 12.1's order: `fit`, `render --aging fake
+  --handover H` with the two hidden options, `deploy`, `load-data`,
+  `inject`, M1 at T0 (the shop), `fill`, the wait to the anchor,
+  `clean-restart`, `start-load`; then, in the tail: the start-time
+  check (every service of the game, the monitoring's included, started
+  within 10 s after `restart.at`, none before: 12.1's "the monitoring
+  started with the rest"); the `player` account's
+  `ls /var/lib/prometheus` refused on the Prometheus node (D540, through
+  `gmctl exec --user player`); `gmctl history` by hand at
+  `restart.at` + 12 min, as the timer would (W3 item 6: the timer's run
+  after it is a no-op); the early check by hand right after it
+  (`gmctl check --early-check`), reading every selected instance present
+  and its history line `ok, seam ok`; a failure of the early check's
+  own verdict whose masking names only instances the game left out
+  (`(masked by ...)`, an instance `--test-leave-out` dropped, whose
+  masking the answer key expects at the hand-over) a `FIGURE`, every
+  other failure judged (rev. 2026-11-20); item 4's reads; the tells (item
+  1); for the shop, M1 and M3 (items 2, 3) and f8's step; for the
+  campaign, P0's invariants as chunk 11's B2 read them (W3-y:
+  `rpt.close_day()`'s `proconfig` and `prosrc` md5 unchanged across the
+  fill, the nightly close once at 01:30 scenario time and every hourly
+  roll-up once at :05 in `rpt.etl_runs`); `gmctl status` and the
+  restart record printed (release gate item 3 reads them there); the
+  teardown, nothing labelled with the game's id left (on any exit, a
+  trap). It does not wait for H **(choice**: every check 12.1 lists
+  reads by the early check, H − 2 min; waiting for H would put the
+  teardown past 30 minutes).
+- **Figures** (`FIGURE` lines, the Done when's and the release notes'):
+  the wall time from the script's start to the teardown's end; the
+  setup from the deploy to the fill's end, the fill's duration, the
+  clean-restart's, the deploy to `restart.at`; the setup time item 7's
+  section shows, the deploy to `restart.at` less the wait for the
+  anchor (rev. 2026-11-20); `gmctl history`'s duration and its
+  `figures`; each key's median service time in the tail, as
+  `calibrate.py keys` reads it, against its `service-times.yaml`, and
+  each database node's WAL rate against its `wal-rate.yaml` (plan, spec
+  D590; medians as built, rev. 2026-11-20). **The wall time is a
+  check**: `FAIL` at 30 minutes or more (12.1).
+- **`--record` (choice)**: also writes the output to
+  `tools/fake_aging/calibration/<scenario id>-short-game-<YYYYMMDDTHHMMZ>.txt`,
+  opening as every calibration file (the command, the commit, the start,
+  the wall time; W3 item 10). Chunk 12 commits one per scenario; the
+  release gate runs without it. Why: 9.7, every number the scenario
+  document shows traced to a file.
+- **Exit status**: 0 nothing failed (a `SKIP` for the archive counts no
+  failure); 1 any failure; 2 usage; 3 outside the window.
+- **Campaign figures read as measured** (plan, D578): a step in f1's
+  `pg_stat_database_tup_inserted` at the seam is a `FIGURE` and a W4-x
+  finding for v1.0 gating, never a `FAIL`; the tells read `pg_wal`
+  against the padding only (item 1).
+
+**6. `gauge_before` adds its value; f8's and the fixture's values**
+(chunk 12 writes; the shop's game and `fixture-fill`'s history run read)
+
+- The sum, the wording, the test case and `run-history-test.sh`'s new
+  check are the plan's and formats.md v40's (D585); not restated.
+- **f8's `value` from run R's reference first (choice)**: `calibrate.py
+  gauge` on `r-dump/r.om`, the shop's size either side of R's planting
+  (2026-11-15T02:00Z), its `# measured:` comment naming the member; a
+  short run of the shop (`--record f8`) only if that read can't isolate
+  the step. Why: R is the shop at its scale, already archived; a run
+  costs a lock slot and a window (the plan leaves both open).
+- f8's new entry selects `{DATABASE}`, a required parameter
+  (`fault.yaml:56-59`): ISS-008 (an optional parameter left unset) does
+  not reach it. ISS-007 touches no covered fault (D578): neither game
+  meets it.
+
+**7. The scenario document's "Fake aging" section** (chunk 12 writes;
+chunk 16, the GM skill, the feedback and the release gate read)
+
+- **Heading `## Fake aging`, unnumbered, after section 7 (choice)**: the
+  literal heading W3 item 12 fixed and `SKILL.md:689-697` cites; last,
+  since it is GM-side material about how a game may be run, not about
+  the system. **Always present**, in every scenario document: the GM
+  skill treats a document without it as stale (`SKILL.md:690-693`).
+- **Its contents**, 9.10's per-scenario facts, from the authoritative
+  files only:
+  - a scenario without `aging:`: one line, "none: the scenario does
+    not age, so it has no fake game", and nothing else;
+  - the virtual span: `aging.minimum`, the virtual T0 at the designed
+    hand-over (`aging.handover_at`) minus it, scenario time;
+  - a table, one row per instance: instance, fault, support
+    (`aging.fake.support`, or **"not assessed"** when the definition has
+    no `aging.fake`), its tail needs (`tail_minimum`, `tail_covers`),
+    `plant_in`, its reason (`aging.fake.reason`) and, when the
+    definition's `gm.md` has one, a pointer to its `**Fake aging.**`
+    note (W3 item 8);
+  - the full selection: the tail and the anchor at the designed
+    hand-over, by 9.6 as `render.fake_timeline` computes them (the shop
+    3 h, anchor 11:00; the campaign 5 h, 09:00, W3 item 9), and the
+    instances refused with their reasons; with any instance not
+    assessed, "not assessed: no fake game of this scenario until every
+    instance is" instead (9.5);
+  - **the limits (choice)**: the rows of `cleanrestart.EXPLAINS`
+    (`cleanrestart.py:72-109`, 9.10's table) that hold for the scenario
+    by the same conditions (a Prometheus node, an archiving node, a
+    cover in an instance's `fill.quiet`), each with the instances whose
+    evidence in the answer key reads where it shows, or "none of this
+    scenario's evidence". Why: the restart record's `explains` carries
+    the same rows, so the document and the record never disagree;
+  - **the setup's measured time (choice)**: from the newest
+    `<scenario id>-short-game-*.txt` (item 5), the deploy to the
+    restart, the wait for the anchor not counted, and the fill's
+    duration within it, the file named; "not measured" without one. Why:
+    D544 asks for a measured figure, and the newest record is the one
+    the code as it stands produced.
+- **Its inputs** join the skill's "When to generate or regenerate": the
+  faults' `aging.fake` and `gm.md` notes, and the scenario's short-game
+  records; a chunk changing one regenerates the documents that read it
+  in the same commit (workflow deltas).
+
+**8. An instance's `admitted:` in the scenario document** (chunk 12
+writes; chunk 16 reads)
+
+- In section 5, after the plantings' line, only when an instance has
+  `admitted:`: "Admitted by a partner on its status page:", the table
+  (instance, partner, title, `from`, `until` as written), then each
+  one's text quoted, exactly as `fixture-v06-refusals/README.md:196-203`
+  shows it (the plan's model). No **(choice)** here.
+
+**9. The starter-pack line** (chunk 12 writes; chunk 16 reads)
+
+- **(choice) Chunk 12 fixes it**: in `template.md:588-598`, "(v0.5; the
+  true register, `gm/data-register.yaml`, stays GM side)" moves inside
+  the "if: the bastion maps data-register.md" block. Why: chunk 12 owns
+  the template in wave 4, and chunk 16's Out forbids changing it; a
+  scenario without a register now names one it doesn't have.
+
+**10. What chunk 16 and the release gate read; order and shared files**
+
+- **Chunk 16** reads items 7 to 9 only: every fixture's document gains
+  "Fake aging" (always present; "not assessed" for most fixture
+  faults, "none: ... does not age" for fixtures without `aging:`), the
+  `admitted:` table where an instance has one, the corrected
+  starter-pack line. It starts once 12 and 14 have merged.
+- **The release gate** reads item 5: the script's name, arguments, exit
+  status, window and `FIGURE` lines (item 3 of the gate); items 1 to 4
+  through the script's verdicts; item 7's section for "the limits
+  documented where 9.10 says" (gate item 6).
+- **Shared files**: none with chunks 5 and 14 (chunk 5's
+  `node-health.json` seed files are no scenario document input, which
+  names seed files by path only; chunk 14's fixtures and the root
+  `README.md` are its own). Chunk 12's games deploy `grafana` 0.4.0 as
+  the registry holds it; chunk 5's rebuild of it under the lock does not
+  change what 12 checks.
+- **Risk**: `gmctl history`'s GM-side memory for a 16 h past (W3-x: 732
+  MB for 8 h in run 2, about double for 16 h; promtool about 590 MiB in
+  an unlimited helper), on armenelos; W4-x records the peaks.
+
+**Choices made here, not in the spec** (for the driver's review): the
+shared form of the tools' output and exit status; the tells' arguments,
+their 10 s start bound, 90 % `pg_wal` floor and the campaign's
+autovacuum range; M1 dumped at T0 and scaled to the game's span by R's
+insert share, judged on insert-driven measures within ±3 %, the rest
+reported; M3 judged on the traffic expressions over the hours the past
+holds (correlation 0.95, means within 5 %); the retention check; f8's
+step tolerance; the script's arguments, scenarios, playground, window
+and no wait, the check by the early check instead of H, the wall-time
+check, `--record` and its file name; f8's value from R first; the
+section's place, presence, limits from `EXPLAINS` and setup time from
+the newest record; chunk 12 fixing the starter-pack line.
+
+### Preflight corrections for spec-writer
+
+1. **Chunk 12's split rule**: 12a as written holds two Docker runs with
+   start windows (`fixture-fill`'s history run, the shop's game), four
+   tools, the script, the sum and f8; 12b is light. Chunk 10's second
+   owner spent about 140 calls on windows and lock waits (wave 3's
+   record). Proposed: **12a** `gauge_before`'s sum, the `scenario-format`
+   wording, `fixture-dropped-index`'s value and `fixture-fill`'s history
+   run, f8's `gauge_before` (one Docker run); **12b** the four tools,
+   `smoke-fake-aging.sh`, the shop's and the campaign's games and their
+   records (`--record`), the two scenarios' `README.md` regenerated with
+   the records (two Docker runs; after 12a for f8's step and after 12c
+   for the section); **12c** the scenario document: the "Fake aging"
+   section, `admitted:`, the starter-pack line, every scenario's
+   `README.md` and the two fixtures' (no Docker; no file shared with
+   12a, so it may run beside it). The scenarios' setup times read "not
+   measured" until 12b's records land.
+2. **Chunk 12's Done when, "the shop's M1 and M3 comparisons within the
+   reference's tolerances"**: the reference states none, and R's span
+   (24 h from 14:00, `run-2026-11-14.md`) and selection (ten faults)
+   differ from the short game's (16 h from 22:00, seven). To read: "the
+   shop's M1 comparison's judged measures within ±3 % of R scaled to the
+   game's span, and its M3 comparison's traffic expressions within its
+   bounds (capture W4 items 2 and 3)". Its Scope's M1 line gains the
+   dump at T0.
+3. **Chunk 12's Files**: `tools/fake_aging/calibration/` gains the short
+   games' records, `<scenario id>-short-game-<stamp>.txt` (item 5), not
+   only f8's file.
+4. **Chunk 12's Scope: the starter-pack line** (handover for wave 4,
+   "for chunk 12 or 16"): name it in chunk 12 (item 9), since chunk 16's
+   Out forbids changing the template.
+5. **Chunk 16's Scope**: every fixture's document gains the "Fake aging"
+   section (item 7; all 32 with chunk 14's), beside the "Third parties"
+   and "Composition" lists; its size grows by one table a fixture.
+6. **The Release gate's item 3 and estimate**: the script runs in a
+   start window (item 5, exit 3 outside it), so the second game waits
+   for its next window: about 1½ hours for the two, not 60 minutes
+   (estimate about 4 hours). Item 3's "the restart record and `gmctl
+   status` read" are in the script's output.
+7. **G10.4 after wave 4's gate** (none contradicts the spec; formats.md
+   v40 doesn't carry them): the short-game record's name in "Fake
+   aging's measured figures"; 9.10's per-scenario section's sources (the
+   limits as `explains` holds them, the setup time from the newest
+   record, the wait for the anchor not counted); the M1 and M3
+   comparisons' judged sets and bounds if the spec is to name them
+   (12.1 says only "against the saved real run").
+
+### Questions for the owner (as drafted)
+
+None. Every point above is settled by the spec, a capture, or a
+correction `spec-writer` can make without changing how a game plays.
+Correction 2 changes what the shop's M1 comparison proves (R scaled to
+the game's span, not R as is); if the driver prefers the comparison to
+stay span for span, the alternative is a copy of the shop with R's 24 h
+span in the script, which costs about 3 more minutes of fill, the
+30-minute margin and the setup time the scenario document shows.
+
+### W4 reviewed by the driver; owner ruling on M1 — 2026-11-19
+
+- Capture W4 drafted by a `coding-leader` (688b5c1, 57 tool calls),
+  merged into the wave as e78e3f9. Its (choice) points are accepted as
+  drafted. The extracted M1 files sit in the git-ignored
+  `tools/fake_aging/reference/extracted/` of the removed capture
+  worktree (gone with it).
+- **Owner, on the M1 comparison** (W4 item 2, correction 2): "Scale R to
+  span": the shop's M1 dumped at the virtual T0, expected T0 +
+  s × (R − T0), insert-driven measures judged within ±3 %, the rest
+  reported; the shop played as it is. For `spec-writer` to record as a
+  decision with plan v15.
+- Corrections 1 to 7 go to `spec-writer` for plan v15 (chunk 12 split
+  in three: 12a, 12b, 12c).
+
+### Chunk 14 — merged (edb11e8), 2026-11-19
+
+- b659382 on `v0.6-c14-docs-overview-fault`, merged `--no-ff` as
+  edb11e8. Done when met: `docs-overview-backup-claimed` (trap N5) passes
+  `check_fault_dir`; `fixture-overview-fault` 16 passed / 0 failed in
+  16 s (deploy 6 s), the instance planted, `overview_diff` in the answer
+  key, `gmctl check --instance n5` reads present; `fixture-clinic-front`
+  38 passed / 0 failed in 20 s (deploy 6 s): 7 documents, 76 internal
+  links, nine status pages "Operational", a copied report listed with
+  its sandbox header. Unit suite 1558 OK, 2 skipped (new
+  `test_clinic_front.py`, 12 tests). No image rebuilt.
+- Inside the chunk, no deviation: the bastion-only fixtures' true
+  overviews have `entries: []` (the loader refuses entries for nodes
+  outside the topology); `fixture-clinic-front`'s handouts are the
+  clinic's with `{{customer_timezone}}` and credentials filled, kept
+  equal by `test_clinic_front.py` (a regenerated clinic handout fails it
+  until the copies are refreshed, deliberately); classes set to
+  `locations: any`; no `aging:`; one bastion→bastion flow.
+- For `spec-writer` (plan v15): the fault has no `aging.fake` (refused
+  in a fake game, like the register fault), a one-line assessment if
+  overview faults should be playable in fake games; the
+  `scenario-document` template has no case for a true overview with
+  zero entries (both fixtures' READMEs say "0 entries" beside a handout
+  of 21 nodes), cosmetic, for 12c's template work.
+- For the wave gate: `tools/tests/fixtures/fixture-clinic-front/run-short-test.sh`
+  and `tools/tests/fixtures/fixture-overview-fault/run-short-test.sh`
+  (release gate item 4), `bastion:0.6.0` only.
+- Figures: 2 agents, 142 tool calls, 22.2M tokens in / 116k out, max
+  context 289k, $8.69 at API prices.
+
+### Plan v15 (a935a6d, merged 177a7d3); chunk 12a started — 2026-11-19
+
+- `spec-writer` applied W4's corrections 1 to 7, none declined: plan
+  v15. **D586**: the owner's "Scale R to span" (master spec 12.1
+  amended). Chunk 12 split: **12a** (D585's sum, f8's measured
+  `gauge_before`, `fixture-fill`'s history run; Docker light), **12b**
+  (the four tools, `smoke-fake-aging.sh`, both short games, their
+  records; Docker heavy; after 12a and 12c), **12c** (the scenario
+  document: "Fake aging", `admitted:`, the starter-pack line, the
+  zero-entries overview case, every scenario's README; no Docker).
+  Chunk 16 now depends on 12c and 14 (not 12b), so it may run beside
+  12b. G10.4 added (open). Release gate estimate ~4 h.
+- Chunk 14's notes settled by the spec, no owner question: the overview
+  and register faults stay not assessed (master spec 9.5, 9.8: no
+  covered scenario uses them); the zero-entries case is in 12c.
+- Chunk 12a dispatched from 177a7d3 beside chunk 5, branch
+  `v0.6-c12a-gauge-before`. 12c takes chunk 5's slot.
+
+### Chunk 5 — merged (da4bd14), 2026-11-19
+
+- 6646829 on `v0.6-c5-grafana-node`, merged `--no-ff` as da4bd14 (on
+  177a7d3, no conflict). Done when met: the `node` variable
+  (`label_values(node_health_cpu_limit_cores, node)`, multi, "All" =
+  `.*`, refreshed on time-range change); all 7 queries filtered
+  `{node=~"$node"}`; the stack test opens `?var-node=<name>`, each
+  query returns that node only, `no-such-node` returns nothing, "All"
+  both nodes; the 8 seeded copies byte-identical to the companion.
+  Grafana stack test 139 passed / 0 failed in 183 s (two test-only fixes
+  on the way: no `/tmp` in the client image, panel 7's two series per
+  node). Image build 15 s, from cache; Grafana 13.3.1 unchanged. Unit
+  suite 1558 OK, 2 skipped.
+- For G8 (at the gate, with any other image wave 4 rebuilds): the
+  image's `dpkg-query` list (129 packages) saved at
+  `/tmp/claude-1001/-home-bastien-work-db-audit-gm/e95c81d0-9133-4a5d-85a1-2bc7abccbc57/scratchpad/grafana-0.4.0-dpkg-query.txt`; no dependency changed.
+- For the wave gate: a possible flake in the existing check "a data
+  source pointing nowhere is a finding" (health still OK once, right
+  after a provisioning reload; passed on runs 2 and 3); `bricks/grafana/brick.yaml`'s
+  header comment still says the `node` variable "comes with its
+  chunk" (stale, a one-line gate fix).
+- Figures: 1 agents, 91 tool calls, 10.5M tokens in / 50k out, max context 167k, $3.91 at API prices.
+
+### Chunk 12a — merged (303697f), 2026-11-19
+
+- c1bcaf8 on `v0.6-c12a-gauge-before` (v0.6-w4 taken in first, 360e5be),
+  merged `--no-ff` as 303697f. Done when met: `history.py`'s
+  `gauge_overlays` adds `value` to the drawn level (a `None` base
+  reads `value` alone); `test_gauge_before_adds_its_value` (test_history
+  30 OK); the `scenario-format` skill and template word `value` as
+  "what is added until the planting" (D585).
+- `fixture-dropped-index`'s value **13213696** (order_lines_order_id_idx,
+  1613 pages), checked equal to the run's FIGURE; the old
+  `size_before == 202500000` check replaced by a step check: 13207587
+  for 13213696, within 1 %, PASS.
+- f8 (`pg-join-index-missing`) gains its `gauge_before` on
+  `pg_database_size_bytes{datname="{DATABASE}"}`, value **14016512**,
+  read from run R's `r-dump/r.om` (196531903 at 01:59:55Z, 182515391 at
+  02:00:10Z; neighbours move 0 to 32768 bytes): W4 item 6's choice held,
+  no shop run, no calibration file.
+- `fixture-fill`'s history run, once, in its window (17:38:03), under
+  the lock: 39 passed / 0 failed, **1326 s** with the deployment
+  (deploy + load-data + inject 31 s; fill 233 s for 466 virtual min;
+  clean-restart 26 s; `gmctl history` 69 s; restart.at 14 s after the
+  anchor; lowest timestamp 3 s after the virtual T0). Unit suite OK
+  (2 skipped), before and after taking the wave in.
+- For 12b: f8's step over the shop's own forged past (W4 item 4's
+  tolerance). f8's `fault.yaml` is an input of the shop's answer key and
+  README: 12c regenerates it after taking the wave in (its brief says so).
+- For W4-x: f8 14016512 (R), `fixture-dropped-index` 13213696 (run),
+  forged step 13207587.
+- Figures: 1 agents, 55 tool calls, 5.5M tokens in / 31k out, max context 134k, $3.35 at API prices.
+
+### G8 — done (19c67f1, merged 3a7ac22), 2026-11-19: CLEAR WITH NOTES
+
+- `security-advisor` checked `grafana` 0.4.0 (dpkg list equal to chunk
+  5's, Grafana 13.3.1 still the newest, its SBOM findings unchanged) and
+  the ten images wave 3's gate rebuilt `--no-cache --pull` (every
+  version `.tech` records still holds; Debian 13.7). Nothing wave 3 or 4
+  changed brought a finding. `.tech` updated (`cve-watch lint` 0;
+  `cve-watch check` 75 findings, as at G9.1).
+- Notes, none reachable here:
+  1. **zlib1g** `+deb13u1` (DSA-6613-1) in all ten images: it comes from
+     the `debian:13-slim` layer (Hub digest unchanged since 2026-11-04)
+     and no Dockerfile upgrades it, so `--no-cache` does not pick it up;
+     only an `apt-get upgrade` or naming `zlib1g` would. Gzwrite is not
+     used. Batch (release gate or v0.7).
+  2. **nginx** deb13u11 (DSA-6642-1, today 14:40 UTC, 9 CVEs) in
+     `bastion` 0.6.0 and `health-check` 0.1.1: each CVE read against both
+     configs, none reachable (no mail, TLS listener, stream, HTTP/2-3,
+     SSI/mirror, regex-capture map).
+  3. **PGDG moved on 2026-11-17**: libpq5 19.0 in `trixie-pgdg main`
+     (18.x in component `18`), postgresql-18 18.7-1.pgdg13+5 (a
+     non-security rebuild), postgresql-common 297. A fresh build would
+     give `postgres` libpq5 19.0 and server/client +5; `bastion` libpq5
+     19.0, client-18 +5, nginx u11; `pgbouncer` libpq5 19.0 and
+     **postgresql-client-19** (the unpinned metapackage), make and guile
+     through postgresql-common-dev; `health-check` nginx only.
+- The gate's rebuild policy is an owner decision before the gate (see
+  below). Whatever the gate builds, each rebuilt image's `dpkg-query`
+  diff goes to `security-advisor` for a G9.2 check.
+- Context: `security-2026-11-14` (on hold) carries 29 `[[ignore]]`
+  entries `v0.6-w4` lacks; some `SECURITY_TODO.md` lines say "accepted"
+  ahead of that merge. c-ares was closed at G9.1 (3768038).
+
+### PostgreSQL 19 — the owner's ruling, G9.2's preflight, plan v16 (66169ba, merged 184316a); G14 — 2026-11-19
+
+- Asked how the gate should rebuild after G8 (pin 18 / accept 19
+  client-side / cached), the owner: "didn't know pg19 was out yet.
+  that's great news. Move to pg19 everywhere." zlib1g: release gate.
+- `security-advisor`, G9.2 preflight: CLEAR WITH NOTES (no advisory
+  on any candidate). Picks: postgresql-19 / client-19 / libpq5
+  19.0-1.pgdg13+1; pg_cron 1.6.8-1.pgdg13+3 (the only build `>> 19~rc2`);
+  pgaudit 19.0-1.pgdg13+1; postgresql-common 297; postgres_exporter
+  0.21.1 and pgwatch 6.2.0 (clear the accepted Go findings); libpq 19
+  for `scheduler`, `api`, `health-check` from PGDG `main` through a key
+  stage, asserted at build. Notes: exporter 0.21's flags and labels,
+  pgaudit 19's logging (four faults rerun), changed server defaults, 18
+  data directories don't start on 19. Full text kept in the driver's
+  scratchpad (`g92-preflight.md`), passed to `spec-writer`.
+- `spec-writer`, plan v16: **D587** (19 everywhere, D539's pgAudit
+  wait ended), **D588** (zlib1g at the release gate), **D589** (chunk 17
+  inserted, split 17a/17b/17c; G9.2, G14, G15), **D590** (18's figures
+  stand; `fixture-dropped-index`'s size re-measured on 19; 18-vs-19
+  ratios reported in 12b, never judged). No brick bump: master spec 6.8
+  folds a change into an unreleased version (G14 covers the reused
+  tags). **O294** (pgBadger 13.3 drops 19's checkpoint lines), **O295**
+  (autoanalyze no longer logged by `log_autovacuum_min_duration` on 19,
+  56 seeds) for the owner, G15; O296 never used.
+  - 17a (heavy): the images, paths and tests on 19, one commit; beside
+    12c, merges after it.
+  - 17b (heavy): exporter 0.21.1, pgwatch 6.2.0, the size re-measured.
+  - 17c (light): 19 in the game's text, the pgaudit faults rerun, O294
+    and O295 as ruled.
+  - Then 12b beside 16 (12b after 17b and 17c; 16 after 17c).
+- **G14** (driver's hand check, before 17a's first build): `docker stack
+  ls` empty, no service but `ollama`; the only local implementation,
+  `tarnbeck-outdoor-shop/local/fa-real`, is `torn-down` with no
+  snapshot. Cleared.
+- Inserted chunk's checks: no intent register (no `documentalist`
+  peek), no data register; G9.2's preflight done.
+
+### Plan v17 (a775891, merged 314a16f); chunk 17a rotated — 2026-11-19
+
+- Owner on G15: O294 "Known limit" (**D591**), O295 "Add the new
+  setting" (**D592**). G15 done; chunk 17c states both as settled.
+- Chunk 17a's first owner stopped at the rotation bound: WIP 5428aeb.
+  postgres on 19 (pins asserted), stack test 317 / 0 in 7m38s; bastion,
+  pgbouncer, scheduler, api, health-check rebuilt `--no-cache` on 19
+  (libpq5 19.0-1.pgdg13+1 in each, no 17 or 18 package); every 18 path
+  moved; the clinic's crontabs, overview and digests updated; unit suite
+  OK. Findings for G9.2's post-change: postgres, bastion, pgbouncer keep
+  Debian's postgresql-common 278 (installed before the PGDG source);
+  `.tech` still says 18. `domains/vet-scheduling/data/schema.sql:31`'s
+  "postgresql-18" comment left to 17c. A second owner resumed from
+  5428aeb (nine stack tests, the two unit runners, the smokes, the
+  clinic's README after 12c, the merge).
+
+### Chunk 12c — merged (ee98c68), 2026-11-19
+
+- c53b0d1 (rebased on 314a16f), merged `--no-ff` as ee98c68. Done when
+  met: `## Fake aging` last in all five scenario READMEs and
+  `fixture-status`'s and `fixture-v06-refusals`' (bookshop, fernway:
+  "None"; aldermoor and fixture-status: "not assessed"; shop tail 3h,
+  anchor 11:00; campaign tail 5h, anchor 09:00, f10 refused
+  `real-only`; tails and anchors from `render.fake_timeline`; limits
+  from `cleanrestart.EXPLAINS` under their design-time conditions;
+  setup time "not measured" until 12b). `admitted:` shown;
+  `fixture-v06-refusals` fully regenerated (four template drifts fixed);
+  the starter-pack line inside the register condition; the
+  zero-entries overview case in the template (16 applies it). A second
+  render changes nothing. Unit suite 1558 OK, 2 skipped.
+- Choices recorded in the skill: the evidence-to-limit table (one row
+  per `EXPLAINS` row); the section as the template's fourth exception
+  to "read only `scenario.yaml` and the answer key"; template labels
+  moved to v0.6; admitted texts quoted in instance order with no
+  instance label (an owner-visible nicety, not needed for v0.6).
+- For 12b: the shop's and campaign's READMEs regenerated in the same
+  commit as the short-game records. For 17a: the clinic's README
+  regenerated on top of this merge.
+- The owner's wait loops (`pgrep -f` matching itself) kept it idle
+  after its suite; killed on the driver's status check.
+- Figures: 1 agents, 76 tool calls, 10.8M tokens in / 53k out, max context 207k, $5.01 at API prices.
+
+### Chunk 17a — merged (b788df5), 2026-11-19
+
+- aff0b4d (second owner, from WIP 5428aeb), merged `--no-ff` as b788df5
+  on top of dc1420b (12c in, no conflict). Done when met: six images
+  `--no-cache` on 19 (libpq5 19.0-1.pgdg13+1 everywhere, no 17/18
+  PostgreSQL package left); ten stack tests green (postgres 317,
+  bastion 136, pgbouncer 121, scheduler 179, api 89, health-check 97,
+  postgres-exporter 104, pgwatch 73, prometheus 132, grafana 139 PASS);
+  unit suite 1559 OK, 2 skipped; scheduler (113) and api unit runners
+  in their images on 19.0; eight smokes green, each under 30 minutes;
+  the clinic's README's three "overview beside it" lines now read 19,
+  12c's sections untouched.
+- Paths beside capture W4: data `/var/lib/postgresql/19/data`,
+  binaries `/usr/lib/postgresql/19/bin` (17b, 17c, 12b read them).
+- To G9.2's post-change check: postgresql-common 278 (Debian) in
+  postgres, bastion and pgbouncer (first `apt install` before the PGDG
+  source); health-check has 297.pgdg13+1. dpkg lists in the driver's
+  scratchpad `c17a/dpkg/`.
+- To 17c: `domains/vet-scheduling/data/schema.sql:31` ("postgresql-18"
+  comment, a digest input) and `scenarios/tarnbeck-outdoor-shop/README.md`
+  line ~650 ("PostgreSQL 18's wording" of the autovacuum log line, from
+  the answer key).
+- Figures: 3 agents, 160 tool calls, 17.8M tokens in / 72k out, max context 186k, $7.20 at API prices.
+
+### Chunk 17c — merged (270d883), 2026-11-20
+
+- Commits d9a7b86 (the game's text on 19, D591) and e1c2e3b (D592:
+  `log_autoanalyze_min_duration = 0` in all 56 seeds); merged --no-ff,
+  no conflicts. Branch deleted.
+- Evidence: fixture runs on 19, all green: `fixture-lab` /
+  pg-monitoring-option-absent 19/0 (22 s); `fixture-portal-scope` /
+  security-policy-ownership-end-dropped 20/0 (374 s); `fixture-reports`
+  planted / governance-statement-log-personal 24/0 (685 s);
+  `fixture-reports` planted / purpose-herd-use-dropped 32/0 (739 s from
+  deployment; 3016 s lock-to-end includes the test's own 2276 s idle wait
+  for T0 at :10 local). Postgres stack test 317/0 (484 s). Unit suite 1559
+  OK, 2 skipped. Loader passes on all 39 scenarios and fixtures.
+- VACUUM (VERBOSE) and autovacuum wording read on 19.0: unchanged from
+  15-18; `scheduler-transaction-held-open`'s gm.md and the shop's answer
+  key say so; shop README regenerated.
+- D591 named in postgres' `docs/gm.md` ("Logging"), quoting 19's
+  checkpoint line. For the release notes: pgBadger 13.3's Checkpoints
+  section is empty on PostgreSQL 19; the next pgBadger that reads 19's
+  lines is taken under D396.
+- Generated files: clinic's and `fixture-clinic-front`'s overview digests
+  re-recorded (entries unchanged); only the shop's scenario document
+  regenerated. 17b merges second, so it regenerates the clinic's overview
+  and README on the merged inputs.
+- **Open, for spec-writer at G10.4 (predates this chunk, not about 19):**
+  no played scenario or fixture loads pgaudit in its seed
+  `shared_preload_libraries` (only postgres' stack-test seeds and
+  `fixture-composed` do). vet-lab's and vet-portal's `policy.md` and the
+  domain notes describe pgaudit as on (`write, ddl, role`; traps T2,
+  T251), so those traps can't bite in the clinic as built. The four
+  pgaudit-reading faults reach it only through the `SET pgaudit.log =
+  'none'` guard, which 19.0 accepts as a placeholder. No content changed.
+- Also noted: the grid's sampling block's `CREATE TEMP TABLE` fails in
+  the read-only session the grid itself prescribes (predates the chunk).
+- For the wave gate: existing scenarios' smokes with the D592 seeds.
+- Figures: 1 agents, 166 tool calls, 26.5M tokens in / 76k out, max context 227k, $7.81 at API prices.
+
+### Chunk 16 — merged (d24715c), 2026-11-20
+
+- Commits 5d37c7f (16a: `fixture-alias` to `fixture-load`) and 7860234
+  (16b: the rest); merged --no-ff, no conflicts. Branch deleted.
+- Evidence: 34 fixture scenario documents from chunk 12c's template (32
+  regenerated, 12c's two byte-identical); checked by script for the
+  warning, "Fake aging" in every one, "Third parties" and "Composition"
+  wherever their keys are, `admitted:` tables, "Data register", no
+  placeholders left; a second run reproduces all 34 byte for byte. Unit
+  suite 1559 OK, 2 skipped. Only `tools/tests/fixtures/*/README.md`
+  changed.
+- Method: no generator exists in the repo; the owner applied the
+  template with an uncommitted script (scratchpad `gen/scendoc.py`,
+  `apply.py`, `run.sh`), validated on the five scenarios and 12c's two
+  fixtures. `run.sh` regenerates every fixture document (for 17b if it
+  changes `fixture-fill` or `fixture-clinic-front` inputs).
+- **Open, for spec-writer at G10.4 (the template, capture W4 items
+  7-10; information some fixture documents carried by hand is now
+  gone):**
+  1. node keys `options:` (9 fixtures) and `standby_of:` have no place
+     in the template; aldermoor-centre's document invents "Options" and
+     "Standby of" lines; `fixture-monitoring-v05` and `fixture-reports`
+     lost them;
+  2. "Column classification" handles only `domain:`; a `domains:`
+     scenario gets "the scenario's own" (`fixture-register`,
+     `-clinic-load`, `-archive` lost richer wording);
+  3. nothing says which database each composed domain loads into except
+     the Composition table's "At"; "Restored-backup data" reads "none."
+     where data comes only from domains;
+  4. no wording for an empty pg_cron jobs table (kept the existing
+     "— | none | … | nothing scheduled in the baseline" row);
+  5. owner's calls on ambiguities: totals at the end of the placement
+     table; scenario-only bricks/faults kept in existing order; the
+     starter-pack line's ", and the data policy"; `cron.schedule` jobs
+     listed as postgres in `cron.database_name`.
+  Also seen in `scenarios/*` (out of scope): aldermoor-centre lists s6
+  under the vault limit though its evidence reads the data register;
+  bookshop-new-server writes one total as "2.25G".
+- Figures: 1 agents, 75 tool calls, 12.9M tokens in / 85k out, max context 253k, $5.39 at API prices.
+
+### Chunk 17b — merged (a2dbe23), 2026-11-20
+
+- Commit 741751c; v0.6-w4 taken in twice (17c, then chunk 16 as
+  8ef9d21), generated files regenerated on the merged inputs; merged
+  --no-ff. Branch deleted.
+- Evidence: `postgres-exporter:0.2.1` (0.21.1, sha256 02f316da…) and
+  `pgwatch:0.1.1` (6.2.0, sha256 8c61a80e…) built --no-cache with
+  version-banner checks. Stack tests on 19: exporter all pass (101 s;
+  first run failed on the owner's own `datname` check, fixed), pgwatch
+  all pass (250 s; `basic` preset on 190000; 13.5 MiB at rest, peak
+  23 MB). SBOMs regenerated (34 and 46 components), `go-sbom check` and
+  `test_go_sbom` pass. `fixture-fill` short test 65/0 (889 s, pre-merge
+  tree); history run 39/0 (1412 s, merged tree). Unit suite 1559 OK, 2
+  skipped; `test_planted` green after chunk 16.
+- Index size on 19 (D590): `order_lines_order_id_idx` 13213696 bytes,
+  exactly 18's; f8's 14016512 stands; gauge_before read 13207980. No
+  fault, calibration or shop README change.
+- Generated: the clinic's overview (four exporter entries now 0.21.1,
+  pgwatch 6.2.0, `brick.yaml` digests), the same five lines in
+  `fixture-clinic-front`'s and `fixture-overview-fault`'s handouts;
+  clinic README unchanged; chunk 16's `scendoc.py` reruns change
+  nothing.
+- dpkg lists for G9.2's post-change check:
+  scratchpad `c17b/dpkg/postgres-exporter-0.2.1.txt`,
+  `c17b/dpkg/pgwatch-0.1.1.txt`. The exporter 0.20.1 ignores live only
+  in `.tech`: post-change check.
+- **Beside W4, the exporter on 0.21.1** (12b's tells and the history
+  read these): started as `env -i PATH DATA_SOURCE_USER=<user>
+  postgres_exporter --datasource.uri=<from exporter.conf>
+  --datasource.pass-file=/opt/gm/secrets/monitoring_password
+  --web.listen-address=:9187 --web.telemetry-path=/metrics
+  --config.file=/usr/local/lib/gm/postgres_exporter.yml <collectors>`;
+  `exporter.conf` keys unchanged; no `--auto-discover-databases`, no
+  `--wrap-large-counters`, `--web.max-requests` default 40. Same 15
+  default collectors; database-scoped ones reach `postgres` only
+  (checked: 25 sessions all in `postgres`, no series for a second
+  database). Label changes: `stat_replication` gains `pid`;
+  `statio_user_indexes` gets `datname` only under discovery (not here);
+  new `pg_settings_pending_restart{name}` = 1 while a setting waits for
+  a restart (a possible tell when a player or fault only reloads). A
+  collector failing mid-scrape drops all its metrics. No counter family
+  changed: `history.py` untouched. `fill.py`'s `EXPORTER_SQL` replays
+  0.21's session setup, slot columns, `pg_stat_replication.pid`,
+  `pg_settings.pending_restart` (`test_fill` asserts it).
+- Deviation, for spec-writer at G10.4: the chunk and G9.2 say
+  `statio_user_indexes` "gains `datname`"; it does only under discovery.
+  Docs and stack test state it; no code path changes.
+- Outside Files, to keep docs true: `bricks/pgwatch/docs/player.md`
+  (6.1 → 6.2), comments in pgwatch's `pgwatch-sources`, its test
+  `sources.yaml`, the exporter's s6 `run`. Left: `bricks/grafana/docs/
+  gm.md:135` still says "pgwatch 6.1.0" (wave gate fix);
+  `fixture-monitoring-v05`'s comment (frozen v0.5 fixture).
+- For the wave gate: `fixture-fill` short test on the merged tree (17c's
+  D592 seeds, chunk 16).
+- Figures: 1 agents, 128 tool calls, 22.8M tokens in / 68k out, max context 242k, $12.26 at API prices.
+
+### G9.2 post-change check — done (cf059a3, merged ec352a1), 2026-11-20
+
+- `security-advisor`, own branch from 0e11541; one commit (`.tech`),
+  merged --no-ff by the driver, branch and worktree removed.
+- Verdict CLEAR (with notes). Introduced: none. Fixed: 35 open
+  SECURITY_TODO.md Go items (34 from the exporter 0.20.1 build, plus
+  GO-2026-6809 shared with pgwatch); the sweep ticks them once v0.6-w4
+  reaches main. PostgreSQL/libpq/psql 19.0-1.pgdg13+1, pg_cron
+  1.6.8-1.pgdg13+3 (CVE-2026-6460 build), pgaudit 19.0-1.pgdg13+1,
+  exporter 0.21.1, pgwatch 6.2.0: no advisory. Exporter keeps
+  GO-2026-5932 (x/crypto/openpgp), not linked in the binary
+  (pre-existing).
+- `postgresql-common` 278: acceptable, no move. postgres and bastion
+  had it since v0.4; only pgbouncer changed (295 → 278). PGDG's
+  postgresql-19 needs >= 275~; 278 has no open CVE; 279–297 carry no
+  security fix; no brick runs pg_createcluster/pg_ctlcluster/
+  pg_upgradecluster. Moving to 297 is optional parity only.
+- `.tech`: PostgreSQL 18.7 → 19.0 over six bricks (libpq/psql 17.12
+  entry merged in), pg_cron/pgaudit sources, check_postgres over psql
+  19, exporter 0.21.1, pgwatch 6.2.0, nginx deb13u11 (DSA-6642-1 fixed),
+  OpenSSL note. `cve-watch lint` exit 0.
+- No ignore removed or added: the preflight's "exporter 0.20.1 ignores"
+  were open SECURITY_TODO.md items, not `[[ignore]]` entries (the
+  preflight's wording was wrong).
+- Pre-existing, not from this change, for the release gate:
+  - zlib1g still +b1 everywhere: D588's two CVEs plus CVE-2026-76844
+    (7.4), all fixed by +deb13u1; stays under D588.
+  - OpenSSL 3.5.7-1~deb13u3: 10 CVEs open in trixie (published
+    2026-11-10 to 11-18, no DSA yet; QUIC, DTLS, AES-GCM-SIV, CMS, PEM,
+    DANE, Suite B); NVD hasn't matched them, so the sweep hasn't raised
+    them; at first sight none on a path a brick serves. A vuln-triage
+    pass when they surface; recheck at the release gate.
+
+### Chunk 12b — stopped for rulings (WIP c14d445), 2026-11-20
+
+- Built on `v0.6-c12b-fake-aging-games` (worktree kept): the four tools
+  in `tools/fake_aging/` (from research 10d1bc6, generalised, W4's
+  PASS/FAIL/SKIP/FIGURE form, exit 0/1/2/77) and their README;
+  `tools/tests/smoke-fake-aging.sh <scenario-dir> [--record]` (playground
+  `fake-smoke`, exit 0/1/2/3, refuses outside its window: shop
+  hh:31:00–hh:35:00, campaign hh:31:00–hh:39:30); two records; both
+  READMEs' setup-time line (campaign 4 min 6 s; shop 8 min 43 s).
+- Runs (each under the lock, in its window): campaign 1 61/1 (1558 s; an
+  extra check of the owner's on a left-out instance's masking, since
+  reported not judged); **shop 55/5 (1546 s)**; **campaign 2 64/0 (1674
+  s), the committed record**. Unit suite 1559 OK. No campaign instance
+  dropped (f1–f4, f7–f9 all `supported`).
+- Shop: f8's step met (14008827 for 14016512, tolerance 161808); every
+  `n_tup_ins`, `last_value`, `tup_inserted` within ±3 % of R scaled
+  (s = 0.5604). The five failures:
+  1. M1 `daily_sales.n_live_tup` 15 vs 23.4 (R's 30 for 15 inserts) and
+     `delivery_events.n_live_tup` ×1.040: an ANALYZE estimate, the owner
+     proposes dropping it from W4 item 2's judged set;
+  2. M3 `commits/s` mean ×1.18 (night 1.07/s vs R 0.60); M1
+     `shop.xact_commit` ×1.95 (reported only): suspected `fill.py`
+     `run_steps`'s `set_clock` committing once per call (scheduler brick,
+     outside 12b's Files);
+  3. M3 `statements calls/s` mean ×0.851 (night 1.44 vs 2.3), cause not
+     found;
+  4. tells: `autovacuum public.customers` 1 run for 57018 updates vs 4.9
+     expected (1.45–10.8).
+- FIGURE findings (never judged, for v1.0 gating): tail service times
+  outside ×0.8–×1.25 for many keys (cold caches after the restart, plus
+  19 vs 18 files); tail WAL shop ×1.07, campaign `db` ×2.13–2.57
+  (full-page writes after the restart's checkpoint), `reporting` ×0.14;
+  campaign f1 at the seam ×1.00–1.03 (no step); retention holds; history
+  import memory peak 1.0–1.2 GiB.
+- As-built deviations to fold into W4 when it's revised: M1 "or one row
+  either way for a count under 34"; the tells' autovacuum upper bound
+  counts all dirtied rows; `stats-reset` within 120 s before
+  `restart.at`; service times as medians (`calibrate.py keys`) not
+  means; `--reference` refused for scenarios other than the shop; setup
+  time excludes the wait for the anchor; an early-check failure caused
+  by a left-out instance's masking reported, not judged.
+- Risk: each game's wall time is 26–28 min; a slower host could cross 30.
+- Next: a read-only diagnosis of failures 1–4 (dispatched), then
+  rulings (spec-writer, the owner where a judged set changes), then a
+  fresh owner resumes from c14d445: shop rerun with `--record`, the
+  0133Z record replaced, squash, merge.
+
+### Wave gate, first pass (all but 12b's games) — green, 2026-11-20
+
+- `coding-executor`, 04:04–06:46 CET on armenelos, one item at a time
+  under the lock and inhibitor, each under 30 min. Logs:
+  scratchpad `gate4/logs/`, `gate4/results.txt`.
+- Fixes: 3017cf8 (grafana `brick.yaml`'s stale header comment; the
+  clinic's overview digest line for it), 9b45eba (grafana `docs/gm.md`
+  names pgwatch 6.2.0).
+- Unit suite 1559 OK (382 s); scheduler unit 113 OK; api unit 36 OK;
+  `sh -n` 349, `py_compile` 485, `perl -c` 14 files.
+- Ten builds `--no-cache --pull` (197 s), Debian 13 on 10/10. Stack
+  tests on 19, all 0 failed: postgres 317 (450 s), bastion 136 (95 s),
+  pgbouncer 121 (173 s), scheduler 179 (838 s), api 89 (196 s),
+  health-check 97 (169 s), postgres-exporter 112 (103 s), pgwatch 74
+  (252 s), prometheus 132 (78 s), grafana 139 (201 s; "data source
+  pointing nowhere" passed first time, no flake seen).
+- Smokes: `smoke.sh` 61/0 (31 s), `smoke-monitoring.sh` 43/0 (48 s),
+  `smoke-governance.sh` 121/0 (109 s), `smoke-load.sh` 73/0 (378 s).
+  Scenario short smokes: bookshop 19/0 (22 s), fernway 18/0 (30 s), shop
+  26/0 (841 s), campaign 33/0 (317 s).
+- Fixtures on the merged branch: `fixture-fill` history 39/0 (1396 s;
+  index 13213696 = the fault's value, step 13208585, fill 224 s for 466
+  virtual min, promtool peak 625 MiB); `fixture-fill` short 65/0 (836 s;
+  exporter sessions 3790 vs 3780); `fixture-overview-fault` 16/0;
+  `fixture-clinic-front` 38/0 (76 links, none dead); `fixture-lab` 19/0;
+  `fixture-portal-scope` 20/0 (352 s); `fixture-reports` s7 24/0 (649 s),
+  s3 32/0 (767 s, no idle wait).
+- dpkg: all ten lists identical to their last builds (c17a, c17b, G8):
+  PostgreSQL 19 alone everywhere; no G9 row needed.
+- Left: 12b's two short games after 12b merges, plus reruns of whatever
+  the inserted fill/history chunk touches (scheduler build and stack
+  test, unit suite, `fixture-fill` short and history).
+
+### Chunk 12b's rulings — 2026-11-20
+
+- Diagnosis (read-only `coding-executor`): scratchpad
+  `c12b/diagnosis.md`. 1: `n_live_tup` is a VACUUM/ANALYZE estimate (R's
+  `daily_sales` 30 for 15 rows from its load's late counter flush). 2
+  and 3: M3's commits ×1.18 and statements ×0.851 come from
+  `tools/gm/history.py` scaling every counter by one load ratio clamped
+  at 0.25 (history.py:64, :298, :541): a flat night plateau at 25 %
+  while calls drop to 17 %, and the scraper's own queries slowing at
+  night: a DBA-visible tell. `set_clock`'s extra commit per call
+  (fill.py:474-475, :578) explains M1 `xact_commit` ×1.95 but not M3;
+  report only. 4: the tells' autovacuum rule counts the load's 20000
+  updates and close-day's one bulk statement as per-row updates;
+  corrected, 3.7 expected (band 0.85–8.4), observed 1 passes.
+- **Owner, 2026-11-20:** (1) "Report only": `n_live_tup` leaves M1's
+  judged set and is reported (master spec 12.1 reworded). (2/3) "Fix
+  a+b+c now": an inserted chunk before 12b resumes: (a) per-series
+  drivers in `history.py` (the scheduler's roles and databases follow the
+  load, the rest stay flat), (b) the 0.25 floor removed, (c) the fill
+  records its transactions per minute per database as the shape of
+  `pg_stat_database_*` (scheduler image rebuilt).
+- Driver's call (no ruling needed): 4 is a tells-rule correction inside
+  12b's own files (updates from T0, one run per bulk statement), folded
+  into W4 with 12b's other as-built deviations; the residual reported.
+- Sent to `spec-writer`: the rulings, master spec 12.1, the inserted
+  chunk, W4's revision, 12b's dependency.
+
+### Plan v18 (bd194b6): chunk 18 inserted — 2026-11-20
+
+- `spec-writer` recorded D593 (owner: `n_live_tup` reported only; 12.1
+  reworded, one row either way under 34), D594 (owner: the forged past's
+  counters follow what drives them; `set_clock` report-only), D595
+  (chunk 18 placed in wave 4; two readings below), D596 (W4 items 1, 2, 5
+  revised as 12b built them, the corrected autovacuum rule; all seven
+  as-built deviations accepted). 9.9 gains fix 12; 9.10 unchanged.
+  O297 reserved by `doc-ids next`, unused.
+- **Chunk 18** ("The forged past's counters follow what drives them"):
+  (a) per-series drivers in `history.py`, (b) the floor removed, (c) the
+  fill's per-database transactions per virtual minute as the shape of
+  `pg_stat_database_*`; scheduler 0.4.0 rebuilt; depends on 8, 10, 12a,
+  17b; 12b depends on it. Runs alone (Docker heavy).
+- D595's readings, for the owner's nod in the wave report: the `user`
+  label decides before `datname` (else the monitoring's queries in a
+  scheduler database would keep the night tell); a series with neither
+  label (host, WAL, checkpointer) keeps following the load (flattening
+  it would be a new tell).
+- Driver's call: 12b's resume reruns **both** games with `--record` on
+  the post-18 tree (the campaign's 0231Z record predates 18's fill),
+  and those runs stand as the gate's two-games item if nothing else
+  changes after.
+
+### Chunk 18 — merged (11ad762), 2026-11-20
+
+- Commit 9767de6, merged --no-ff (wave branch unmoved). Branch deleted.
+- Built: (a) `Composer.driver` in `tools/gm/history.py`: `user` decides
+  first (scheduler role → load, other → flat), then `datname` (scheduler
+  database → load, other, e.g. `postgres`, → flat), neither → load;
+  scales counters, activity gauges and size ramps; overlays and
+  signatures unchanged; roles/databases from each scheduler node's
+  rendered `schedule.yaml`, exporter `instance` → `host:port` from
+  `exporter.conf`. (b) `SHAPE_RATIO` (0.02, 4.0): today's nights run
+  0.14–0.17, so it never binds. (c) `fill.py` records
+  `fill_transactions` per virtual minute (`{"host:port/database":
+  cumulative}`, a pooler session keyed by its server): one per
+  transaction plan, else one per step (failed included); a script's
+  commits/rollbacks plus one for a transaction open at close; not
+  `set_clock`, session set-up or the exporter. `pg_stat_database_*` takes
+  its shape from it over the tail's commits+rollbacks, ahead of (a);
+  falls back to (a) without it. Never served or forged as a series.
+- Evidence: `test_history` 37 OK (new `TestDrivers`, `TestFillDrivers`);
+  scheduler unit 117 OK with the replay guard (224 s); scheduler 0.4.0
+  `--no-cache --pull` build, Debian 13, dpkg identical to gate4's (no G9
+  row); stack test 179/0 (834 s); `fixture-fill` short 65/0 (851 s; fill
+  461 s for 929 virtual min; exporter 3726 vs 3716); history 39/0 (1416
+  s, in window; drivers load 900, flat 276, transactions 24; seam ok;
+  promtool 551 MiB; index step 13207583 for 13213696). Unit suite 1567
+  OK (384 s), then one report-only `history.py` change with
+  `test_history` rerun green. These stand as the gate's post-18 reruns.
+- For G10.4 (the owner's readings): (c)'s denominator is the tail's
+  commits + rollbacks on that database; scripts counted by their
+  commits/rollbacks; the key's `host:port/database` form and the
+  exporter mapping; the per-database shape smoothed and bounded like
+  the load shape (15 min, `SHAPE_RATIO`).
+- Risks: a script using psycopg's `conn.transaction()` blocks would go
+  uncounted (none today); non-scheduler transactions on a scheduler
+  database in the tail scale the forged rate slightly.
+- Not measured here: the M3 predictions (statements ×1.0, commits
+  ×1.0); 12b's reruns judge them.
+- Figures: 1 agents, 90 tool calls, 18.0M tokens in / 71k out, max context 259k, $8.68 at API prices.
+
+### Chunk 12b (resume 2) — stopped on a judged failure (WIP 713fbcf), 2026-11-20
+
+- Branch rebased as 56c3f3b (as-built tools on e04b5b3, research origin
+  10d1bc6 named; 0133Z/0231Z records removed) + WIP 713fbcf (records
+  0931Z shop (failing), 1031Z campaign; campaign README setup line).
+- Resume work: `m1_compare.py` judges `n_tup_ins`, `last_value`,
+  `tup_inserted` only (`n_live_tup` FIGURE, D593); `tells.sh`'s
+  autovacuum rule per D596 with a new `--start <game T0 M1 dir>`
+  argument (goes with `--reference`; W4 item 1's usage line lacks it:
+  for W4-x / G10.4); offline check on the old run: 3.74, 0.87–8.5.
+- Unit suite 1567 OK on the merged tree.
+- **Shop 09:31Z: 52/2, 1660 s.** Fill 476 s; setup 519 s (832 s with
+  the anchor wait); history 77 s, promtool 1027.5 MiB; M1 10/0; tells
+  10/0 (customers 2 runs vs 3.8, band 0.90–8.6); f8's step 14008635 for
+  14016512 passes. M3: calls ×0.985, errors ×1.01, **statements ×0.986
+  (chunk 18's prediction met)**, **commits ×0.787 FAIL**, **rows
+  inserted ×0.703 FAIL** (passed before 18).
+- **Campaign 10:31Z: 64/0, 1683 s.** Fill 197 s; setup 248 s; P0 holds;
+  tells 35/0; f1 at the seam ×1.03; WAL `db` ×2.54, `reporting` ×0.14
+  (FIGURE).
+- Cause (owner's diagnosis): `Composer.transaction_shape`
+  (`tools/gm/history.py:503-525`) divides the fill's own counted
+  transactions (`fill.py:230-235`: no session set-up, `set_clock` or
+  visits) by the tail's **every** commit + rollback on the database: R
+  reads 1.34 commits per call at 13:00, the forged past 0.97; rows
+  inserted ride the same shape (×0.70–0.74 every hour). Chunk 18's own
+  risk line, at −21 % / −30 %.
+- Driver's call: a defect in chunk 18's code, not a change to stated
+  behaviour (D594): a `coding-executor` fixes it on the wave branch,
+  then a fresh 12b owner reruns both games.
+- Risk: game wall times 1660–1683 s against 1800 s, about 2 min margin.
+
+### Gate fix: chunk 18's transaction shape — 1e341dc, merged df27325, 2026-11-20
+
+- `coding-executor`, own branch from 237cef9 (branch deleted after).
+- Cause: R's commits before f8's planting are 0.9425 per call + a flat
+  0.095/s (likely autovacuum, inferred). From f8's planting, +3.995
+  commits per `orders.detail` call: without the index, the query runs a
+  Parallel Seq Scan with 2 workers, and each worker counts 2 commits at
+  start-up (tested on 19: 50 queries gave +200 with workers on, +4 off).
+  Session set-up, pooler checks, the reports and real mode ruled out.
+- Fix: `Composer.transaction_shape`'s denominator is the tail's
+  fill-equivalent transactions: the fill's counted transactions per call
+  over its last 60 min (`TX_PER_CALL_SPAN`, `fill_per_call()`, whole fill
+  as fallback) × the tail's calls; the report notes it. D594 unchanged
+  (shape still the fill's transactions; only the level was wrong).
+  `tup_inserted` and the other `pg_stat_database_*` counters stay on the
+  transaction shape (R's rows per call rise at night with
+  `deliveries.ingest`; predicted ×1.001 vs ×0.987 on calls).
+- **Game content touched:** f8's history signature gains a measured
+  `counter_per_call` on `pg_stat_database_xact_commit`, key `{KEY}`,
+  `per_call 4` (`faults/pg-join-index-missing/fault.yaml`, beside its
+  measured `tup_returned`/`blks_hit`, and the fixture's mirror
+  `fixture-dropped-index`); without it the fix would spread f8's commits
+  over the whole past (predicted ×1.08, FAIL). Faults don't bump
+  versions.
+- Known limit: the flat ~0.09/s floor scales with the load, so the
+  forged night stays 6–12 % under R.
+- Checks: `test_history` 40 OK (3 new, two fail on the old code); unit
+  suite 1570 OK (378 s); `fixture-fill` history 39/0 (1396 s, in window;
+  per-call 1.010; forged rows inserted per call within ±2.2 % of the tail
+  every hour; commits +3.9/+5.3 % in f8-active hours from the detail
+  mix, +0.5 % without f8's share). No image change.
+- Predicted for 12b's shop rerun (inferred): commits ×0.97 (night
+  ×0.88–0.94, day ×0.98–1.00), rows inserted ×1.00, statements ×0.986.
+  Scratch: `fix18/`.
+
+## 2026-11-20: chunk 12b merged; wave 4's gate passed
+
+- Chunk 12b, third owner, resumed from WIP 713fbcf: the tools squashed as
+  758e080 onto v0.6-w4 before the runs (so each record names a surviving
+  commit), records and setup-time lines 17fdb0b, merged `--no-ff` as
+  a86c3e3. The 0931Z and 1031Z WIP records never reached the wave branch.
+- Shop game 12:31Z: 54/0, 1642 s. Fill 473 s; deploy to fill end 503 s
+  (bound 600); deploy to `restart.at` 814 s (296 s anchor wait); import
+  80 s, promtool peak 1043.9 MiB.
+  - M1 10/10: all within 0.2 % of R scaled to span, except `daily_sales`
+    16 vs 15.0 (one row) and `delivery_events` ×1.025; `n_live_tup`
+    FIGURE only (D593).
+  - Tells 10/10; autovacuum `customers` 1 run (D596 rule), `products`
+    102 vs 123.3 (band 60.66–247.6).
+  - M3 5/5 over 15 steps: commits ×0.996 (predicted ×0.97; night steps
+    ×0.91–0.97 vs predicted ×0.88–0.94), rows inserted ×0.982, statements
+    ×1.00, calls ×0.992, errors ×0.991; correlations 0.995–1.
+  - f8's step 14008930 vs 14016512, tolerance 170000.
+- Campaign game 13:32Z: 64/0, 1652 s. Fill 196 s; deploy to fill end
+  231 s (bound 330); import 90 s, peak 1220.6 MiB; P0 holds; tells 35/0;
+  f1 at the seam ×0.99.
+- Setup times in the READMEs: shop 8 min 38 s (fill 7 min 53 s),
+  campaign 4 min 9 s (fill 3 min 16 s). Both documents and
+  `fixture-fill`'s checked against a fresh generation (`scendoc.py`):
+  only the setup line changed.
+- Unit suite 1570 OK, 2 skipped (374 s) on the merged tree.
+- For v1.0 gating (recalibration on 19, FIGURE only): 16 service-time
+  ratios outside ×0.8–×1.25 (shop `orders.detail` ×15 from f8's scan,
+  `reports.best-days` ×35, `deliveries.ingest` ×2.27, `orders.place`
+  ×1.96, `orders.status` ×1.61, `reports.dashboard` ×0.44; campaign 10 of
+  22, among them `dashboard.today` ×68, `dashboard.freshness` ×63,
+  `dashboard.revenue` ×17, `declare.exports` ×4.25); WAL rates outside
+  the band: campaign `db` ×2.43, `reporting` ×0.14 (shop `db` ×1.18 is
+  inside it; corrected by G10.4).
+- Risks: both games about 2.5 min under 1800 s; history import peaks at
+  1.0–1.2 GiB.
+- Figures: 5 agents, 348 tool calls, 51.1M tokens in / 315k out, max
+  context 333k, $30.91 at API prices. **Over 300k:** the first owner
+  (333k) ran the three games and the tools' build in one context before
+  stopping for rulings; the later owners stayed under 170k.
+- **Gate:** every item of wave 4's gate row is met: the first pass
+  (figures, ten stack tests, smokes, fixtures, dpkg lists), the post-18
+  reruns (chunk 18 and fix 1e341dc: scheduler rebuilt, its unit tests,
+  stack test, `fixture-fill` short test and history run), the full unit
+  suite on the merged tree, and the two short games. Next: G10.4
+  (spec-writer), the wave report, the merge into main.
+
+## 2026-11-20: G10.4 done; wave 4 report; merged into main
+
+- G10.4 (spec-writer): 0c2e91a, status 3c5c82b, spec D597, formats.md
+  v41, plan v19.
+  - The forms: `short-game` records named in "Fake aging's measured
+    figures"; the scenario document's `## Fake aging` section and its
+    sources (9.10); M3's judged set and bounds in master spec 12.1 (five
+    measures, correlation ≥ 0.95, ratio of means 0.95–1.05); the
+    `fill_transactions` key in "The fill's metrics record"; 9.9 fix 12
+    gains the gate fix's denominator, f8's `counter_per_call` and
+    `SHAPE_RATIO`.
+  - Capture W4 item 1 names `tells.sh --start`. Chunk 17b's scope line
+    corrected for `statio_user_indexes`' `datname`.
+  - Chunk 16's template gaps filed as ISS-009 (Medium), not a form.
+  - Chunk 17c's content findings are open questions for the owner: O298
+    (the clinic's policy says pgaudit is on, but no seed loads it) and
+    O299 (the grid's TEMP TABLE in a read-only session), both with
+    proposed defaults.
+  - The 19 recalibration figures are under v1.0 gating's "v0.6's
+    additions" (D597 extends D590): 16 service times, 2 WAL rates.
+- Wave 4 merged: chunks 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c, 18
+  (18 inserted mid-wave, D594/D595). Rulings in the wave: D586–D597.
+  Gate fixes: 1e341dc (chunk 18's transaction shape).
+- Figures: 31 agents, 2,231 tool calls, 304.6M tokens in / 1.6M out, max
+  context 333k (12b's first owner, the only one over 300k; see 12b's
+  entry), $145.30 at API prices, before G10.4 (+1 agent, 217k context).
+  By chunk: 12b $30.91 (21 %), 17b $12.26, 14 $8.69, 18 $8.68, 17c $7.81,
+  17a $7.20, 16 $5.39, 12c $5.01, 5 $3.91, 12a $3.35; outside chunks
+  $52.08 (driver $15.11, security-advisor $7.75, spec-writer, research).
+- For the owner's nod (report): D595's two readings (`user` before
+  `datname`; a series with neither follows the load); f8's
+  `counter_per_call` content change; the games' ~2.5 min wall-time
+  margin; O298, O299; ISS-009's timing; D597's placing of the 19
+  recalibration in v1.0 gating.
+- Next: v0.6's release gate on main (no push): zlib1g (D588) and
+  CVE-2026-76844; recheck the 10 OpenSSL CVEs in trixie; pgBadger's
+  limit (D591) in the release notes. Then the milestone archive, v0.7's
+  G3/G4 (`dev` from main at v0.6's release commit) and v0.7 wave 2.

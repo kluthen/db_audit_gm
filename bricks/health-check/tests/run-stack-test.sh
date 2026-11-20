@@ -12,7 +12,7 @@
 #     resolve, says so, runs the checks anyway at the bound, and the page
 #     shows their honest failure (CRITICAL, the name not resolved); once the
 #     names resolve, the checks read them;
-#   - every check_postgres action of the set, run against PostgreSQL 18 as
+#   - every check_postgres action of the set, run against PostgreSQL 19 as
 #     monitoring, through PGPASSFILE (G9): connection, backends, locks,
 #     txn_wraparound, last_autovacuum, last_analyze, database_size on each
 #     instance, hot_standby_delay on the standby; each a check_postgres line
@@ -240,7 +240,7 @@ SB=$(wait_healthy "$SB_SERVICE") || fail "standby not healthy after the clone"
 w=$(docker exec -u postgres "$SB" psql -XAtc 'select pg_is_in_recovery()' 2>&1)
 [ "$w" = t ] && pass "standby in recovery" || fail "standby recovery: $w"
 
-# --- every check of the set, against PostgreSQL 18 (G9) -------------------------------
+# --- every check of the set, against PostgreSQL 19 (G9) -------------------------------
 out=$(pssh sudo -n gm-run-checks 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "sudo gm-run-checks: $out" || fail "gm-run-checks: exit $rc: $out"
 for inst in db standby; do

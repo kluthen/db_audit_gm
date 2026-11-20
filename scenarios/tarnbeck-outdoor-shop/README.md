@@ -647,7 +647,7 @@ Evidence, as the `player` user (and `dba` in psql):
 | `bastion` | pg_stat_activity | `psql -c "SELECT application_name, state, now() - xact_start AS xact_age, backend_xmin FROM pg_stat_activity WHERE state LIKE 'idle in transaction%'"` | consumer sessions idle in transaction for up to five minutes, holding the oldest backend_xmin (the producer's checkouts show too, for under four seconds each: see f7) |
 | `node:consumer` | the query repository | `ssh consumer, then cat /srv/scheduler/repository/queries.yaml` | reports.dashboard: transaction: {isolation: repeatable read, hold: 5m} |
 | `node:consumer` | the scheduler's log, per-minute key lines | `grep 'key=reports.dashboard ' /var/log/scheduler/scheduler.log \| tail` | p50_ms about 300000, the hold |
-| `node:db` | the PostgreSQL log's autovacuum lines | `ssh db, then grep -A8 'automatic vacuum of table "shop.public.products"' /var/log/postgresql/postgresql-*.log \| tail -20` | "tuples: ... are dead but not yet removable" and "removable cutoff: ..., which was ... XIDs old when operation ended" at every run, the cutoff held back by the oldest open snapshot (PostgreSQL 18's wording; "oldest xmin" before 15) |
+| `node:db` | the PostgreSQL log's autovacuum lines | `ssh db, then grep -A8 'automatic vacuum of table "shop.public.products"' /var/log/postgresql/postgresql-*.log \| tail -20` | "tuples: ... are dead but not yet removable" and "removable cutoff: ..., which was ... XIDs old when operation ended" at every run, the cutoff held back by the oldest open snapshot (PostgreSQL 19's wording, as 15 to 18; "oldest xmin" before 15) |
 | `bastion` | the tables' statistics | `psql -d shop -c 'SELECT relname, n_dead_tup, autovacuum_count, last_autovacuum FROM pg_stat_user_tables ORDER BY n_dead_tup DESC'` | customers and products keeping dead rows although autovacuum ran on them many times |
 
 Acceptable answers:
@@ -1002,3 +1002,52 @@ None.
   - `db`: `data/db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 16h, the scenario's aging: the virtual T0 at 22:00
+  the day before, scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `scheduler-query-error` | `supported` | — | any | the fill runs the key's calls through the scheduler's own code, so a call in ten fails in the fill as it would live, its lines in the log; the history draws the rollbacks the failed calls cost the database | — |
+| `f2` | `scheduler-report-unbounded` | `supported` | — | any | the fill runs the report for real, so its sorts spill and its slow statements are in the statistics; the history draws the temporary bytes and files of each run, and the report's longer service time | — |
+| `f3` | `scheduler-insert-retry-duplicates` | `supported` | — | any | the duplicates are state: the fill runs the resending builder, so the repeated rows are in the table at their virtual times; the history draws the extra rows inserted | — |
+| `f4` | `scheduler-transaction-held-open` | `tail-only` | at least 2h | any | autovacuum's "dead but not yet removable" lines are genuine only in the tail, the PostgreSQL log starting at the restart; the fill holds the snapshot, so the night's dead rows are there | yes |
+| `f5` | `scheduler-batch-at-peak` | `tail-only` | covers 12:00 | any | the batch's lock waits at its peak run (the stalled calls, the PostgreSQL log's lock waits) are genuine only when that run happens in the tail, so the tail must hold the job's time | yes |
+| `f6` | `scheduler-job-wrong-timezone` | `supported` | — | any | the fill reads the job's time and zone from jobs.yaml and runs it at its wrong hour on the virtual clock, so the run is in the log and the database whether that hour falls in the fill or the tail | — |
+| `f7` | `pgbouncer-pool-too-small` | `tail-only` | covers 12:00 | any | the fill goes straight to the database, so the pooler's own waiting clients and statistics start at the restart, and the peak that drains the pool must be in the tail | yes |
+| `f8` | `pg-join-index-missing` | `supported` | — | any | the fill drops the index at the instance's planting on the virtual clock, so the later joins scan the table; the history draws the scanned rows and blocks of each call and its longer service time | — |
+| `f9` | `pg-table-autovacuum-off` | `supported` | — | any | the table's setting and its dead rows are state, which the fill makes as the day's updates do | — |
+| `f10` | `prometheus-scrape-target-missing` | `supported` | — | any | the missing target is a file's state, and the history removes the node's node-health series from the forged past as it was never scraped | — |
+
+- **The full selection**: a tail of 3h, anchored at 11:00, scenario
+  time; refused: none.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: 8 min 38 s, the fill 7 min 53 s of it
+  (`tools/fake_aging/calibration/tarnbeck-outdoor-shop-short-game-20261120T1231Z.txt`).
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | `f1`, `f2`, `f4`, `f5`, `f7`, `f9` |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | `f1`, `f2`, `f4`, `f5`, `f7`, `f9` |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | `f7` |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | `f4`, `f9` |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | `f4`, `f5`, `f7` |
+| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start: the maintenance restart | none of this scenario's evidence |
+| Prometheus' own series show the import, about 12 minutes after the restart: its lowest timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up | prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, prometheus_tsdb_storage_blocks_bytes, in Prometheus and Grafana | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | `f1`, `f2`, `f5`, `f7`, `f8`, `f10` |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

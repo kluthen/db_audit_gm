@@ -306,7 +306,25 @@ aged run is decided then (D193).
     and, when the initiator may play, the setup dialogue included
     (D494, D496, D504); a reported tell explained in the teaching
     moment from the restart record and the documented limits; with no
-    tell reported, no mention of aging (D496).
+    tell reported, no mention of aging (D496);
+  - **fake aging's figures on PostgreSQL 19** (D590, D597): the service
+    times and WAL rates were measured on 18; v0.6's short games read
+    their 15-minute tails on 19 against them, figures only, never
+    judged, right after the restart's cold caches and with faults
+    planted. Outside ×0.8 to ×1.25 there: 16 service times (the shop's
+    `orders.detail` ×15 with f8's scan, `reports.best-days` ×35,
+    `deliveries.ingest` ×2.27, `orders.place` ×1.96, `orders.status`
+    ×1.61, `reports.dashboard` ×0.44; the campaign's
+    `dashboard.today` ×68, `dashboard.freshness` ×63,
+    `dashboard.revenue` ×17, `declare.exports` ×4.25,
+    `deliveries.ingest` ×2.19, `customs.acknowledge` ×1.75,
+    `orders.place` ×1.66, `orders.status` ×1.58, `consent.subscribe`
+    ×1.48, `mail.shipped` ×0.69) and two WAL rates (the campaign's `db`
+    ×2.43, `reporting` ×0.14; the shop's `db` ×1.18 within). The full
+    selections' runs above read them again over their real tails; a
+    key or rate still outside that no planted fault explains is
+    re-measured on 19 (master spec 9.7), its file and `source:`
+    replaced. Records: `tools/fake_aging/calibration/tarnbeck-outdoor-*-short-game-20261120T*.txt`.
 - **v0.7's additions** (D566): the stance check-list's game assistant
   items, on a deployment, in each of Claude Code and OpenCode: it keeps
   to its purview (no `~/.pgpass`, no `~/.psql_history`, no GM side of

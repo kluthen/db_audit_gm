@@ -46,11 +46,7 @@ for, not any one playground.
 A small shop's order service writes into its database all day; the shop
 asks why yesterday's figures are sometimes missing in the morning.
 
-The story as the players read it: `player/story.md`. The partner as the
-players read it: `player/partners.md#northfield-veterinary-laboratories`
-(Northfield Veterinary Laboratories, `northfield-lab`, the shop's
-reference laboratory, with a status page, outbound, no node). The
-bastion's seed files map `partners.md`: the page is in the starter pack.
+The story as the players read it: `player/story.md`.
 
 ## 3. Topology
 
@@ -162,6 +158,21 @@ No knobs.
 |---|---|---|---|---|
 | `bastion` | `db` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `producer` | `db` | the shop's orders, lookups and reports | postgresql 5432 | continuous |
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `northfield-lab` | Northfield Veterinary Laboratories | the shop's reference laboratory, with a status page | outbound | none | `northfield-lab` | `player/partners.md#northfield-veterinary-laboratories` | none | none |
 
 ## 4. Host topology it was designed for
 
@@ -297,8 +308,9 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`, `player/partners.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, `player/issues.md`, the partners `player/partners.md`.
+  It does not carry this document's warning, and nothing in it names a
+  hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
   - `producer`: `nodes/producer/queries.yaml`, `nodes/producer/builders/`,
@@ -307,5 +319,47 @@ None.
   - `db`: `data/db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
-- **Scenario-only faults**: `faults/fixture-random-page-cost/`,
+- **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`,
   `faults/fixture-dropped-index/`, `faults/fixture-job-timezone/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 16h, the scenario's aging: the virtual T0 at 22:00
+  the day before, scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` | `tail-only` | at least 2h; covers 12:00 | any | a fixture's: the planner's choices show only in the real tail's plans | — |
+| `f2` | `fixture-dropped-index` | `supported` | — | any | a fixture's: the sequential scans' counter is imitated by the history | — |
+| `f3` | `fixture-job-timezone` | `real-only` | — | any | a fixture's: the job's early run is read in the real log only | — |
+
+- **The full selection**: a tail of 3h, anchored at 11:00, scenario
+  time; refused: `f3` (`real-only`): a fixture's: the job's early run is
+  read in the real log only.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-v06-refusals-short-game-*.txt`,
+  yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

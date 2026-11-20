@@ -30,7 +30,7 @@ set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 SECRET=/opt/gm/secrets/gm_check_password
-PSQL=/usr/lib/postgresql/18/bin/psql
+PSQL=/usr/lib/postgresql/19/bin/psql
 
 fail() { printf 'check-psql: %s\n' "$*" >&2; exit 2; }
 

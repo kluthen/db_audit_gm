@@ -345,6 +345,15 @@ class TestPlan(FilledGame):
         self.assertEqual((visit["target"], visit["role"], visit["every"], visit["node"]),
                          ("db:5432/postgres", "monitoring", 15, "exporter"))
         self.assertEqual(visit["sql"][-1], fill.STAT_STATEMENTS_SQL)
+        # postgres_exporter 0.21.1's scrape (v0.6 chunk 17b): the session's
+        # setup first, every collector's statement on the catalog, in the
+        # one database the target names (no discovery, master spec 9.5)
+        self.assertEqual(visit["sql"][:len(fill.EXPORTER_SQL)], list(fill.EXPORTER_SQL))
+        self.assertEqual(visit["sql"][1], "SELECT pg_catalog.current_database(), "
+                                          "pg_catalog.to_regproc('aurora_version') IS NOT NULL")
+        self.assertTrue(all("pg_catalog." in s for s in fill.EXPORTER_SQL))
+        self.assertIn("SELECT pid,", " ".join(s for s in fill.EXPORTER_SQL
+                                              if "pg_stat_replication" in s))
 
     def test_a_planted_instance_is_no_pause(self):
         localimpl.update_state(self.ldir, lambda st: st["plantings"]["f8"].update(

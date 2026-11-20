@@ -6,7 +6,7 @@ required sections: spec D56). Never shipped to players. Brick version
 
 ## Purpose
 
-A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
+A PostgreSQL 19 database server on Debian 13 (trixie), with an SSH server
 for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.5.1`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
@@ -17,14 +17,19 @@ name it in `applies_to` apply to the monitoring bricks `prometheus` and
 
 The image:
 
-- Debian 13 (`debian:13-slim`), PostgreSQL 18 server and client from the
+- Debian 13 (`debian:13-slim`), PostgreSQL 19 server and client from the
   PGDG repository (`trixie-pgdg`, major version pinned by package name;
+  19.0 at the 0.5.1 build, v0.6 spec D587; the build asserts the server,
+  the client and libpq at 19 and no other major's server or client;
   `pg_stat_statements` ships with the server), pgBadger from the same
-  repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
+  repository (13.2 at the 0.2.0 build, 13.3 at the 0.5.1 build, its
+  checkpoint section empty on 19: see "Logging" below), `openssh-server`, `sudo`, `nano`,
   `vim-tiny`, `less`, `procps`. About 265MB (pgCluu included, 0.5.0).
 - From 0.5.0, pgCluu 5.0 from the same repository (G9: `pgcluu=5.0-1.pgdg13+1`,
   build argument `PG_CLUU_PACKAGE`, pinned exactly and checked at build;
-  not Debian's 4.0, which does not collect from PostgreSQL 17 and 18), a
+  not Debian's 4.0, which does not collect from PostgreSQL 17 and later;
+  pgCluu's notes stop at 18, and the stack test runs one collection and
+  its report against 19 with no error, v0.6 G9.2), a
   report tool beside pgBadger (master spec 7.4, O225): run on demand by
   the players, never a daemon or a node of its own. Its report CGI
   (`/usr/lib/cgi-bin/pgcluu.cgi`) and Apache configuration
@@ -35,10 +40,10 @@ The image:
   in the browser's JavaScript, not reachable here). Cosmetic: every run
   prints `Duplicate specification "no-sysinfo!"`; `--help` exits 1.
 - From 0.4.0, for jobs on the node (see "`pg_cron`" and "The cron
-  daemon"): `postgresql-18-cron` from the same repository, pinned exactly
+  daemon"): `postgresql-19-cron` from the same repository, pinned exactly
   (`1.6.8-1.pgdg13+3`, build argument `PG_CRON_PACKAGE`, checked at build;
-  security preflight G5; `+3` is the same source rebuilt against
-  PostgreSQL 18.7, v0.6 G9.1 follow-up, CVE-2026-6460), and Debian's
+  security preflight G5; `+3` is PGDG's only 19 build declaring `>>
+  19~rc2`, v0.6 G9.2, CVE-2026-6460: not `+1` or `+2`), and Debian's
   `cron` (`3.0pl1-197` at the 0.4.0 build, unpinned, without recommends,
   so no mail transfer agent). Both
   sit idle unless the scenario uses them. They add Debian's group
@@ -122,7 +127,7 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Seed directory | `/opt/gm/seed/` | configs `postgresql.conf`, `pg_hba.conf` and, optional, `crontab`, read-only |
 | Configuration | `/etc/postgresql/` | volume `pgconf`; `postgres:pgconf`, dir `2775`, seeded files `0664` |
 | Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
-| PGDATA | `/var/lib/postgresql/18/data` | volume `pgdata` |
+| PGDATA | `/var/lib/postgresql/19/data` | volume `pgdata` |
 | Player home | `/home/player` | volume `home`; pgBadger reports land here |
 | Server log | `/var/log/postgresql/` | volume `pglog`; `postgres:pgconf`, dir `2750` (setgid), files `0640` |
 | Crontab's job logs | `/var/log/postgresql/cron/` | on `pglog`; `postgres:pgconf`, dir `2750` (setgid), a job's files `0644` |
@@ -186,7 +191,7 @@ for the default footprint; a scenario may tighten them, never widen them.
    missing (anything but a directory there is removed first) and sets it
    the same.
 6. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
-   default in 18), then, in single-user mode, creates the role `dba`
+   default since 18), then, in single-user mode, creates the role `dba`
    (`LOGIN SUPERUSER`, password from its secret), with the option
    `monitoring` the role `monitoring` (`LOGIN`, member of `pg_monitor`,
    password from `monitoring_password`), and the extension
@@ -235,11 +240,11 @@ key, `~/.pgpass`, the crontab's password
 file, and the GM's roles' attributes, memberships, grants and passwords.
 
 PostgreSQL runs as
-`postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c reserved_connections=2`
+`postgres -D /var/lib/postgresql/19/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c reserved_connections=2`
 (the GM's reserve, see "The GM check role and the reserve"), with
 `PG_OOM_ADJUST_FILE` and `PG_OOM_ADJUST_VALUE` in its environment (see
 "The out-of-memory victim") and, from 0.5.0, `PATH` set by the run
-script (`/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin`), so
+script (`/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/19/bin`), so
 `archive_command` finds `vault-post`: s6 gives its services a minimal
 environment.
 With the seed's `logging_collector = on`, it writes its log to files in
@@ -319,6 +324,7 @@ log_disconnections = on
 log_lock_waits = on
 log_temp_files = 0
 log_autovacuum_min_duration = 0
+log_autoanalyze_min_duration = 0
 lc_messages = 'C.UTF-8'
 shared_preload_libraries = 'pg_stat_statements'
 ```
@@ -334,9 +340,26 @@ shared_preload_libraries = 'pg_stat_statements'
 - `log_line_prefix` is the stderr prefix pgBadger's documentation
   recommends: pgBadger reads it with no `--prefix` option. Timestamps
   (`%t`) are in `log_timezone`, UTC like the node (`TZ=UTC`).
+- `log_autoanalyze_min_duration` (new in PostgreSQL 19) governs
+  autovacuum's `automatic analyze` lines, which
+  `log_autovacuum_min_duration` governed before 19; every seed setting the one to 0 sets the
+  other beside it (v0.6 spec D592), so the logs keep their autoanalyze
+  lines as designed.
 - `log_min_duration_statement` sets which queries pgBadger can report
   (`-1` logs none, `0` logs all); `lc_messages` must be English (`C`,
   `C.UTF-8` or `en_*`) for pgBadger to classify the messages.
+- **Known limit on PostgreSQL 19: pgBadger's checkpoint section is
+  empty** (v0.6 spec D591). PostgreSQL 19 writes its `checkpoint
+  complete:` line in a new form (the checkpoint's reasons and the SLRU
+  buffers in it: `checkpoint complete: fast force wait: wrote 162 buffers
+  (1.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, ...`, read on 19.0,
+  v0.6 chunk 17c), which pgBadger 13.3 no longer reads: its *Checkpoints*
+  report stays empty however many checkpoints ran. No fault's witness
+  reads that section; the lines themselves are in the log
+  (`log_checkpoints = on`) and the counters in `pg_stat_checkpointer`,
+  which is where a player or the GM reads checkpoints on 19. The next
+  pgBadger release that reads 19's lines is taken under D396; until then
+  this is a limit for the release notes, not a fault.
 - `shared_preload_libraries = 'pg_stat_statements'` loads the library
   (restart only). The extension already exists in the database `postgres`
   (start-up step 6), so the view `pg_stat_statements` answers as soon as
@@ -396,10 +419,41 @@ the image, is deleted at build, and the build asserts it gone.
 
 Always available, turned on by the seed (v0.5 master spec 7.1). Not an
 option: removing the settings can be a fault. The package
-`postgresql-18-pgaudit` is pinned exactly (`18.0-3.pgdg13+2`, upstream
-18.0, G5; `+2` is the same source rebuilt against PostgreSQL 18.7, v0.6
-G9.1 follow-up, CVE-2026-6460), the build asserting its version and
-`/usr/lib/postgresql/18/lib/pgaudit.so`.
+`postgresql-19-pgaudit` is pinned exactly (`19.0-1.pgdg13+1`, upstream
+19.0, G5; the release build, never PGDG's `19~rc1` ones, v0.6 G9.2), the
+build asserting its version and `/usr/lib/postgresql/19/lib/pgaudit.so`.
+
+- **What 19.0 logs differently from 18.0** (v0.6 G9.2; upstream's 18.1
+  and 19.0 release notes). The line's format is unchanged: the
+  `SESSION`/`OBJECT` fields, the statement text, `log_statement_once`,
+  `log_rows` and the `<REDACTED>` password in a `ROLE` line read as in
+  18.0, and the stack test's class and redaction checks pass on 19.0 as
+  written. What changed, all from 18.1, which 19.0 carries:
+  - only a statement's own permission checks are audited: checks made
+    by pgaudit's own event-trigger queries or by another extension are
+    no longer logged against the DDL or statement running;
+  - checks that enforce nothing are no longer audited: `ALTER TABLE ...
+    ADD CONSTRAINT` of a foreign key (or `VALIDATE CONSTRAINT`) logs its
+    validation reads and its `DDL` line, no longer bogus `READ` lines in
+    place of the `DDL` one;
+  - object auditing (`pgaudit.role`) no longer logs the columns an
+    `INSERT`/`UPDATE ... RETURNING` writes against the role's `SELECT`
+    grant;
+  - a `COPY` reads `COPY` in the command field (no longer `SELECT` or
+    `INSERT`), and with `log_rows` on a table `COPY` reports its rows and
+    relation (no longer 0 rows and none).
+  19.0's own changes are PostgreSQL 19's foreign-key fast path (its
+  checks no longer logged against the statement, `CALL` or `DO`) and
+  internal ones that log the same lines. The four faults whose planting
+  or evidence passes through pgaudit (`governance-statement-log-personal`,
+  `purpose-herd-use-dropped`, `pg-monitoring-option-absent`,
+  `security-policy-ownership-end-dropped`) were re-run on 19 (v0.6 chunk
+  17c): no played scenario's or fixture's seed preloads pgaudit (only
+  this brick's stack test and `fixture-composed` do), so each meets it
+  only through the guard of a session kept out of the log (`SET
+  pgaudit.log = 'none'`, a placeholder setting where the library is not
+  loaded), which 19.0 accepts as 18.0 did; their logs hold no `AUDIT:`
+  line, and no witness of theirs changed.
 
 - **The seed**: `shared_preload_libraries` naming it beside
   `pg_stat_statements` (a restart), and its classes. The stack test's
@@ -424,7 +478,7 @@ G9.1 follow-up, CVE-2026-6460), the build asserting its version and
   count it per class.
 - **Passwords never reach the log**: the `role` class logs `CREATE
   ROLE`, `ALTER ROLE` and the user mappings with their text. pgaudit
-  18.0 redacts a password there (`... password <REDACTED>`, which the
+  (18.0 and 19.0 alike) redacts a password there (`... password <REDACTED>`, which the
   stack test shows), but PostgreSQL's own statement logging
   (`log_statement`, `log_min_duration_statement`, an error's statement)
   does not, and G5 asked for neither to see them. So every secret this
@@ -774,7 +828,7 @@ v0.5. Which instances archive and send a base backup is the scenario's
   neither command):
 
   ```
-  PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+  PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/19/bin
   30 3 * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "<node>-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1
   ```
 
@@ -1406,7 +1460,8 @@ catalog faults apply to `scheduler` 0.3.0, 0.2.0 and 0.1.0 (`scheduler-query-err
 `postgres`, so none is listed above, but much of their evidence is read
 here. A scenario using them gives this node a seed `postgresql.conf` with
 the logging block above (`log_min_duration_statement`, `log_lock_waits =
-on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0`) and
+on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0` and
+`log_autoanalyze_min_duration = 0`) and
 `pg_stat_statements` in `shared_preload_libraries` (players read it from
 the bastion: rows per call, temporary blocks, mean time); the PostgreSQL
 log and pgBadger readings are the scenario's, in its answer key.
@@ -1626,7 +1681,7 @@ the `postgres-exporter` brick's check.
 ## `pg_cron`
 
 **What it is**: the PostgreSQL extension `pg_cron` (PGDG package
-`postgresql-18-cron` 1.6.8, pinned), which runs SQL on a schedule from
+`postgresql-19-cron` 1.6.8, pinned), which runs SQL on a schedule from
 inside the server: a launcher, one background worker, reads the jobs
 from its tables and starts a background worker per run. The image ships
 the library and the extension's files only; nothing runs until a seed

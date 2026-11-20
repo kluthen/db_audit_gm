@@ -146,7 +146,7 @@ never empty; `#` lines and blank lines are ignored, every key required:
 node=db
 services=postgres sshd
 disk_reservation=1073741824
-volumes=/var/lib/postgresql/18/data /etc/postgresql /home/player /var/lib/gm-state /run
+volumes=/var/lib/postgresql/19/data /etc/postgresql /home/player /var/lib/gm-state /run
 ```
 
 `node`: the node's name, used as the `node` label. `services`: the map

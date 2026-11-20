@@ -360,6 +360,79 @@ O292 raised by the build (D584), closed by D585.
   planting (`history.py`, formats.md, `fixture-dropped-index`'s value).
   Recommended: the latter. Ruled so: a `gauge_before` adds its value.
 
+## v0.6: PostgreSQL 19
+
+Raised by D587's placement (D589); each gates one item of chunk 17c
+(gate G15 of the [build plan](versions/v0.6/build-plan.md)), never the
+images. O296 was reserved during that drafting and never used. Both
+closed by the owner on 2026-11-19 (D591, D592); the closed entries are
+kept here until v0.6's archive moves them.
+
+- **O294** (v0.6; **closed**, D591, as recommended; before chunk 17c's
+  documentation item; raised by D589) — pgBadger 13.3, the latest release and PGDG's, no longer reads
+  PostgreSQL 19's `checkpoint complete:` lines (19 writes the
+  checkpoint's flags before `wrote`; its regex wants `complete: wrote`),
+  so a player's report on 19 has an empty checkpoint section: buffers
+  written, WAL files added and recycled, write and sync times. No fault's
+  witness reads it (f10's pgBadger witness is the kill and the restart),
+  and no fix exists upstream. Default (proposed): accept it as a known
+  limit, named in `postgres`' `docs/gm.md` and the release notes, the
+  next pgBadger taken under D396 when it fixes it; the alternatives are
+  a local patch of the packaged script (a fork to keep) or keeping
+  `postgres` on 18 (against D587). Refs: build plan chunk 17c. Ruled
+  so: a known limit.
+- **O295** (v0.6; **closed**, D592, as recommended; before chunk 17c's
+  seed item; raised by D589) — On
+  PostgreSQL 19, `log_autovacuum_min_duration` covers vacuum only and
+  the new `log_autoanalyze_min_duration` (default 10 minutes) gates the
+  autoanalyze lines, so every seed setting `log_autovacuum_min_duration
+  = 0` (56 `postgresql.conf` files: 13 in the scenarios and bricks, 43
+  in the test fixtures) stops logging autoanalyze. Nothing
+  in the game reads those lines (no witness, no check); pgBadger's
+  autovacuum section and a player reading the log see fewer. Default
+  (proposed): add `log_autoanalyze_min_duration = 0` beside it in every
+  such seed, keeping what the customers' logs show as designed, with
+  the overviews and documents those seeds feed regenerated; the
+  alternative is leaving the seeds as written, the lines gone. Refs:
+  build plan chunk 17c. Ruled so: the new setting added.
+
+## v0.6: game content found in wave 4
+
+Findings of chunk 17c about game content that predates v0.6, routed at
+G10.4 (D597); no content changed. Both the owner's.
+
+- **O298** (v0.6 or later, before the clinic is next played; raised at
+  G10.4 from chunk 17c) — The clinic's pgaudit is described but never
+  loaded. `vet-lab`'s and `vet-portal`'s `policy.md` (and their domain
+  notes) tell the players pgaudit logs `write, ddl, role` with its
+  parameters off on `lab` and `portal`, but no played scenario's or
+  fixture's seed `shared_preload_libraries` loads pgaudit (only
+  `postgres`' stack-test seeds and `fixture-composed` do): the
+  aldermoor-centre seeds preload `pg_stat_statements,pg_cron`. So the
+  traps T2 and T251 (pgaudit's parameters turned on) can't bite as
+  built (neither is in the clinic's selection today), and a player who
+  checks the policy against the server finds an unlisted breach no
+  answer-key item explains. Default (proposed): load pgaudit in `lab`'s
+  and `portal`'s seeds with the policy's settings, the overview, the
+  register and the scenario document regenerated, in a build that
+  touches the clinic (v0.7 or the clinic's fake aging); the alternative
+  is rewording both policies to pgaudit off and dropping T2 and T251.
+  Refs: [build plan](versions/v0.6/build-plan.md) chunk 17c; wave log
+  "Chunk 17c — merged"; [vet-portal domain](versions/v0.5/vet-portal-domain.md) T251.
+- **O299** (v0.7, the audit grid; raised at G10.4 from chunk 17c) — The
+  owner's audit grid ([references/grille-audit-pg.md](../references/grille-audit-pg.md),
+  a verbatim copy, D558) says every query is read-only and to run them
+  in a `SET default_transaction_read_only = on;` session, but its
+  sampling block ("Qui émet une requête") starts with `CREATE TEMP TABLE
+  echantillons`, which PostgreSQL refuses in a read-only transaction
+  (every `CREATE` is; only writes to a temporary table are allowed). A
+  player or the game assistant following the grid as written gets an
+  error. Default (proposed): the owner amends the grid (the sampling
+  run in its own session without the read-only setting, or the note
+  naming the exception), the copy refreshed; the alternative is the
+  copy left verbatim and the game assistant's notes pointing it out.
+  Refs: [v0.7 master spec](versions/v0.7/master-spec.md#615-the-audit-grid) 6.15.
+
 ## v0.5: scope, the domain procedure, post-mortems
 
 Raised on 2026-10-31, when the owner centred v0.5 on domain definition

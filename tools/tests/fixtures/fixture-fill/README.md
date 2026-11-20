@@ -102,6 +102,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `db`
@@ -201,6 +203,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `consumer`
@@ -223,6 +227,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 64M | 128M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -257,6 +263,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 384M | — |
 | Reservations | 0.1 | 160M | 512M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `exporter`
@@ -275,6 +283,8 @@ Resources (absolute, never recomputed per playground):
 |---|---|---|---|
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.05 | 48M | 64M |
+
+Knobs (initial value as seeded; envelope as the validator enforces it):
 
 No knobs.
 
@@ -326,7 +336,7 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `f8` | `fixture-dropped-index` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id | known | `handover-6h` | 4h |
+| `f8` | `fixture-dropped-index` 0.1.0, scenario-only | `db` | database = shop, table-name = order_lines, column = order_id | known | `handover-6h` | 4h |
 
 `T0`: right after the data load, before the load starts.
 `handover-6h`: 6 hours before the hand-over.
@@ -402,3 +412,44 @@ None.
   - `db`: `data/db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Scenario-only bricks and faults**: `faults/fixture-dropped-index/`
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 16h, the scenario's aging: the virtual T0 at 22:00 the day before,
+  scenario time, for the hand-over designed at 14:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `f8` | `fixture-dropped-index` | `supported` | — | any | a fixture's (fixture-fill, spec D533): the fill drops the index at its pause, the sequential scans' counter is imitated by the history | — |
+
+- **The full selection**: a tail of 1h, anchored at 13:00,
+  scenario time; refused: none.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/fixture-fill-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | none of this scenario's evidence |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | none of this scenario's evidence |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | none of this scenario's evidence |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | none of this scenario's evidence |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start: the maintenance restart | none of this scenario's evidence |
+| Prometheus' own series show the import, about 12 minutes after the restart: its lowest timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up | prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, prometheus_tsdb_storage_blocks_bytes, in Prometheus and Grafana | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

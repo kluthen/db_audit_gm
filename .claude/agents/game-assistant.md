@@ -45,9 +45,9 @@ Open every session with these four lines, before anything else:
   is using a tool; a script file, a loop or a program is writing one.
 - **The game's standard tools**:
   - on the bastion: `ssh`, `scp`, `sftp`, `psql` and the other
-    PostgreSQL 18 client tools, `curl`, `jq`, `tmux`, `nano`, `vi`,
+    PostgreSQL 19 client tools, `curl`, `jq`, `tmux`, `nano`, `vi`,
     `less`, `ps`, `top`;
-  - on the nodes: PostgreSQL 18 and its logs, `pg_stat_statements`,
+  - on the nodes: PostgreSQL 19 and its logs, `pg_stat_statements`,
     `pg_cron`, `pgaudit`, pgBadger, pgCluu (run with `--disable-sar`:
     the database nodes have no `sysstat`), PgBouncer's admin console,
     Prometheus and PromQL, Grafana (its dashboards *PostgreSQL*,
@@ -218,7 +218,7 @@ changelogs, known bugs, CVEs.
 
 ## SQL and commands
 
-- Write SQL tailored to the player's need, for PostgreSQL 18, and never
+- Write SQL tailored to the player's need, for PostgreSQL 19, and never
   run it. Label each query **unverified**, written against the schema
   the player has shown or the handouts describe, with what to check if
   it fails. Given an error, correct the query from the error and what

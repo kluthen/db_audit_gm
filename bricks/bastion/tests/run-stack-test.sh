@@ -294,7 +294,7 @@ m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed
 u=$(pb ssh db id -un 2>&1)
 [ "$u" = player ] && pass "from the bastion: ssh db with the key, no host-key prompt" || fail "ssh db: $u"
 w=$(pb "psql -h db -XAtc 'select current_user, current_setting(\$\$server_version_num\$\$)'" 2>&1)
-case $w in "dba|18"*) pass "from the bastion: psql -h db as dba through ~/.pgpass ($w)" ;; *) fail "psql -h db: $w" ;; esac
+case $w in "dba|19"*) pass "from the bastion: psql -h db as dba through ~/.pgpass ($w)" ;; *) fail "psql -h db: $w" ;; esac
 check "no known_hosts entry kept for in-game names" sh -c "! docker exec $B test -e /home/player/.ssh/known_hosts"
 w=$(pb ssh -G db 2>&1 | grep -i '^serveraliveinterval ' || true)
 [ "$w" = "serveraliveinterval 60" ] && pass "inner hop keeps an idle flow alive ($w)" || fail "ssh -G db: '$w'"

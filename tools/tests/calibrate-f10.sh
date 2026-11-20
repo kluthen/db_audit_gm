@@ -468,7 +468,7 @@ for setting in $SETTINGS; do
         for c in $CAP_ADD; do set -- "$@" --cap-add "$c"; done
         for v in $VOLS; do
             case $v in
-                pgdata) t=/var/lib/postgresql/18/data ;; pgconf) t=/etc/postgresql ;; home) t=/home/player ;;
+                pgdata) t=/var/lib/postgresql/19/data ;; pgconf) t=/etc/postgresql ;; home) t=/home/player ;;
                 gmstate) t=/var/lib/gm-state ;; pglog) t=/var/log/postgresql ;; run) t=/run ;;
                 cronspool) t=/var/spool/cron/crontabs ;;
             esac

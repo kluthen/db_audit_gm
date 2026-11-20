@@ -16,7 +16,7 @@
 #                           bounded, for the sources' hosts to resolve, then
 #                           exec pgwatch as `pgwatch`
 #
-# The file is pgwatch 6.1.0's YAML sources format: a list of sources, each
+# The file is pgwatch 6.2.0's YAML sources format: a list of sources, each
 # a map (name, conn_str, kind, preset_metrics, is_enabled, ...). pgwatch
 # itself parses it: `pgwatch source resolve`, run as pgwatch with nothing
 # but the file, prints `<name>=<conn_str>` for every enabled source and

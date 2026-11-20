@@ -15,11 +15,11 @@
       "type": "application",
       "bom-ref": "pgwatch/pgwatch",
       "name": "pgwatch",
-      "version": "6.1.0",
+      "version": "6.2.0",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "47a8db5092e697d7d84d68c1708b7a496ff2bc50d137b0c9c146f9e4679b0453"
+          "content": "53a9db8e1d30746c546a3d76939e3f52410282d0d9ba0ed6d3201bd196bc2aba"
         }
       ],
       "properties": [
@@ -33,15 +33,15 @@
         },
         {
           "name": "dbagm:release-arg",
-          "value": "PGWATCH_VERSION=6.1.0"
+          "value": "PGWATCH_VERSION=6.2.0"
         },
         {
           "name": "dbagm:archive",
-          "value": "https://github.com/cybertec-postgresql/pgwatch/releases/download/v6.1.0/pgwatch_Linux_x86_64.tar.gz"
+          "value": "https://github.com/cybertec-postgresql/pgwatch/releases/download/v6.2.0/pgwatch_Linux_x86_64.tar.gz"
         },
         {
           "name": "dbagm:archive-sha256",
-          "value": "8c9bb13978e6e769b2c82f304479c2840bbcb44e9a6ba8209507cdfc24a117da"
+          "value": "8c61a80eb7a68023896029c339b83c1938c557e94ce9aba6140e86b3788c1e51"
         },
         {
           "name": "dbagm:archive-member",
@@ -53,11 +53,11 @@
         },
         {
           "name": "dbagm:go-version",
-          "value": "go1.26.9"
+          "value": "go1.26.11"
         },
         {
           "name": "dbagm:vcs-revision",
-          "value": "742aaf91551df5d65cce2423c32e6fd8b3cdd9cc"
+          "value": "e6b5e94908148256094b73602c368907f3fdc66d"
         }
       ]
     }
@@ -65,17 +65,17 @@
   "components": [
     {
       "type": "library",
-      "bom-ref": "pkg:golang/stdlib@1.26.9",
+      "bom-ref": "pkg:golang/stdlib@1.26.11",
       "name": "stdlib",
-      "version": "1.26.9",
-      "purl": "pkg:golang/stdlib@1.26.9"
+      "version": "1.26.11",
+      "purl": "pkg:golang/stdlib@1.26.11"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/cybertec-postgresql/pgwatch/v6@v6.1.0",
+      "bom-ref": "pkg:golang/github.com/cybertec-postgresql/pgwatch/v6@v6.2.0",
       "name": "github.com/cybertec-postgresql/pgwatch/v6",
-      "version": "v6.1.0",
-      "purl": "pkg:golang/github.com/cybertec-postgresql/pgwatch/v6@v6.1.0",
+      "version": "v6.2.0",
+      "purl": "pkg:golang/github.com/cybertec-postgresql/pgwatch/v6@v6.2.0",
       "properties": [
         {
           "name": "dbagm:role",
@@ -141,10 +141,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/grpc-gateway/v2@v2.30.0",
+      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/grpc-gateway/v2@v2.33.0",
       "name": "github.com/grpc-ecosystem/grpc-gateway/v2",
-      "version": "v2.30.0",
-      "purl": "pkg:golang/github.com/grpc-ecosystem/grpc-gateway/v2@v2.30.0"
+      "version": "v2.33.0",
+      "purl": "pkg:golang/github.com/grpc-ecosystem/grpc-gateway/v2@v2.33.0"
     },
     {
       "type": "library",
@@ -162,17 +162,17 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/jackc/pgx/v5@v5.11.0",
+      "bom-ref": "pkg:golang/github.com/jackc/pgx/v5@v5.12.0",
       "name": "github.com/jackc/pgx/v5",
-      "version": "v5.11.0",
-      "purl": "pkg:golang/github.com/jackc/pgx/v5@v5.11.0"
+      "version": "v5.12.0",
+      "purl": "pkg:golang/github.com/jackc/pgx/v5@v5.12.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/jackc/puddle/v2@v2.2.2",
+      "bom-ref": "pkg:golang/github.com/jackc/puddle/v2@v2.2.3",
       "name": "github.com/jackc/puddle/v2",
-      "version": "v2.2.2",
-      "purl": "pkg:golang/github.com/jackc/puddle/v2@v2.2.2"
+      "version": "v2.2.3",
+      "purl": "pkg:golang/github.com/jackc/puddle/v2@v2.2.3"
     },
     {
       "type": "library",
@@ -211,6 +211,13 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:golang/github.com/pandatix/go-abnf@v0.5.5",
+      "name": "github.com/pandatix/go-abnf",
+      "version": "v0.5.5",
+      "purl": "pkg:golang/github.com/pandatix/go-abnf@v0.5.5"
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:golang/github.com/prometheus/client_golang@v1.25.0",
       "name": "github.com/prometheus/client_golang",
       "version": "v1.25.0",
@@ -225,17 +232,17 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/common@v0.72.1",
+      "bom-ref": "pkg:golang/github.com/prometheus/common@v0.73.1",
       "name": "github.com/prometheus/common",
-      "version": "v0.72.1",
-      "purl": "pkg:golang/github.com/prometheus/common@v0.72.1"
+      "version": "v0.73.1",
+      "purl": "pkg:golang/github.com/prometheus/common@v0.73.1"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/procfs@v0.22.0",
+      "bom-ref": "pkg:golang/github.com/prometheus/procfs@v0.23.0",
       "name": "github.com/prometheus/procfs",
-      "version": "v0.22.0",
-      "purl": "pkg:golang/github.com/prometheus/procfs@v0.22.0"
+      "version": "v0.23.0",
+      "purl": "pkg:golang/github.com/prometheus/procfs@v0.23.0"
     },
     {
       "type": "library",
@@ -253,10 +260,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/shirou/gopsutil/v4@v4.26.9",
+      "bom-ref": "pkg:golang/github.com/shirou/gopsutil/v4@v4.26.10",
       "name": "github.com/shirou/gopsutil/v4",
-      "version": "v4.26.9",
-      "purl": "pkg:golang/github.com/shirou/gopsutil/v4@v4.26.9"
+      "version": "v4.26.10",
+      "purl": "pkg:golang/github.com/shirou/gopsutil/v4@v4.26.10"
     },
     {
       "type": "library",
@@ -316,52 +323,52 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/net@v0.61.0",
+      "bom-ref": "pkg:golang/golang.org/x/net@v0.62.0",
       "name": "golang.org/x/net",
-      "version": "v0.61.0",
-      "purl": "pkg:golang/golang.org/x/net@v0.61.0"
+      "version": "v0.62.0",
+      "purl": "pkg:golang/golang.org/x/net@v0.62.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/sync@v0.24.0",
+      "bom-ref": "pkg:golang/golang.org/x/sync@v0.25.0",
       "name": "golang.org/x/sync",
-      "version": "v0.24.0",
-      "purl": "pkg:golang/golang.org/x/sync@v0.24.0"
+      "version": "v0.25.0",
+      "purl": "pkg:golang/golang.org/x/sync@v0.25.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/sys@v0.49.0",
+      "bom-ref": "pkg:golang/golang.org/x/sys@v0.50.0",
       "name": "golang.org/x/sys",
-      "version": "v0.49.0",
-      "purl": "pkg:golang/golang.org/x/sys@v0.49.0"
+      "version": "v0.50.0",
+      "purl": "pkg:golang/golang.org/x/sys@v0.50.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/text@v0.43.0",
+      "bom-ref": "pkg:golang/golang.org/x/text@v0.44.0",
       "name": "golang.org/x/text",
-      "version": "v0.43.0",
-      "purl": "pkg:golang/golang.org/x/text@v0.43.0"
+      "version": "v0.44.0",
+      "purl": "pkg:golang/golang.org/x/text@v0.44.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/api@v0.0.0-20260908043556-f8649ddbbfe6",
+      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/api@v0.0.0-20261110000943-09e21b237f2c",
       "name": "google.golang.org/genproto/googleapis/api",
-      "version": "v0.0.0-20260908043556-f8649ddbbfe6",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/api@v0.0.0-20260908043556-f8649ddbbfe6"
+      "version": "v0.0.0-20261110000943-09e21b237f2c",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/api@v0.0.0-20261110000943-09e21b237f2c"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20260908043556-f8649ddbbfe6",
+      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20261110000943-09e21b237f2c",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20260908043556-f8649ddbbfe6",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20260908043556-f8649ddbbfe6"
+      "version": "v0.0.0-20261110000943-09e21b237f2c",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20261110000943-09e21b237f2c"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/google.golang.org/grpc@v1.84.0",
+      "bom-ref": "pkg:golang/google.golang.org/grpc@v1.85.0",
       "name": "google.golang.org/grpc",
-      "version": "v1.84.0",
-      "purl": "pkg:golang/google.golang.org/grpc@v1.84.0"
+      "version": "v1.85.0",
+      "purl": "pkg:golang/google.golang.org/grpc@v1.85.0"
     },
     {
       "type": "library",

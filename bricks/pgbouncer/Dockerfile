@@ -31,7 +31,8 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 
-# PgBouncer and psql (the console, for players, the GM and the validator)
+# PgBouncer and psql 19 (the console, for players, the GM and the validator;
+# `postgresql-client-19` named, not the metapackage, v0.6 spec D587, G9.2)
 # from the PGDG repository, whose signing key Debian ships in
 # postgresql-common (packages verified by apt against it), as in the
 # PostgreSQL brick. No server: only the client is installed (checked).
@@ -46,7 +47,7 @@ RUN set -eux; \
         > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        openssh-server sudo procps less nano vim-tiny "pgbouncer=${PGBOUNCER_PACKAGE}" postgresql-client; \
+        openssh-server sudo procps less nano vim-tiny "pgbouncer=${PGBOUNCER_PACKAGE}" postgresql-client-19; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -59,7 +60,13 @@ RUN set -eux; \
     rm -rf /etc/pgbouncer /var/log/postgresql /etc/logrotate.d/pgbouncer; \
     /usr/sbin/pgbouncer --version | grep -q "^PgBouncer ${PGBOUNCER_VERSION}\$"; \
     test "$(dpkg-query -W -f '${Version}' pgbouncer)" = "${PGBOUNCER_PACKAGE}"; \
-    if ls /usr/lib/postgresql/*/bin/postgres 2>/dev/null; then exit 1; fi
+    if ls /usr/lib/postgresql/*/bin/postgres 2>/dev/null; then exit 1; fi; \
+    # PostgreSQL 19 only (G9.2): psql and libpq at 19, no other major's
+    # client left
+    case "$(dpkg-query -W -f '${Version}' postgresql-client-19)" in 19.*) ;; *) exit 1 ;; esac; \
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
+    psql --version | grep -q '(PostgreSQL) 19\.'; \
+    if dpkg-query -W -f '${Package} ${Status}\n' 'postgresql-1[0-8]*' 'postgresql-client-1[0-8]*' 2>/dev/null | grep -q 'ok installed'; then exit 1; fi
 
 # Accounts: `pgbouncer` runs PgBouncer and is its console's admin over the
 # local socket (peer); `player` (SSH by key only) is in `pgbconf`, which owns

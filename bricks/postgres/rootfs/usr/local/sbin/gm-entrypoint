@@ -35,7 +35,7 @@
 # (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
 
-PG_MAJOR=18
+PG_MAJOR=19
 PGBIN=/usr/lib/postgresql/$PG_MAJOR/bin
 PGDATA=/var/lib/postgresql/$PG_MAJOR/data
 CONF_DIR=/etc/postgresql

@@ -39,7 +39,10 @@ What differs from the real mode:
     minute's `summary` and `key` lines up to the anchor; no `reload` line;
   - beside it, the node's metrics record: one JSON object a virtual minute
     from the virtual T0's minute to the anchor, what `/metrics` would have
-    served at that minute's end (METRIC_KEYS), read by `gmctl history`;
+    served at that minute's end (METRIC_KEYS), read by `gmctl history`,
+    plus the transactions the fill ran on each database so far
+    (FILL_TRANSACTIONS: the composer's input only, never served; master
+    spec 9.9 fix 12);
   - visits: sessions opened at a fixed rate in virtual time as another
     client would (the exporter's, fix 9), each running its statements;
   - pauses: at each pause instant it prints `PAUSE <instant>` on standard
@@ -224,6 +227,12 @@ CDATE_RE = re.compile(r"\bcurrent_date\b", re.I)
 # the metrics record's keys (W1 item 9; exact keys: W1-x)
 METRIC_KEYS = ("at", "scheduler_calls_total", "scheduler_errors_total", "scheduler_call_duration_seconds",
                "scheduler_job_runs_total", "scheduler_job_skips_total")
+# and one more, never served by /metrics (master spec 9.9 fix 12, spec D594):
+# {"<host>:<port>/<database>": transactions the fill ran there so far}, the
+# host and port the session went to (the pooler's database, its server); one
+# per transaction plan, else one per step, a script's as it ends them; the
+# clock's setting and the session set-up not counted, the visits not either
+FILL_TRANSACTIONS = "fill_transactions"
 
 
 class FillError(Exception):
@@ -399,10 +408,20 @@ class VCursor:
 
 class VConnection:
     """A script's psycopg connection: `execute` and its cursors' statements
-    virtualized at the run's instant (`gm_vt`); everything else psycopg's."""
+    virtualized at the run's instant (`gm_vt`); everything else psycopg's.
+    `gm_transactions` counts the transactions the script ended through it
+    (a commit, a rollback, or one left open at the close, which the server
+    rolls back)."""
 
     def __init__(self, conn, vt):
         self._conn, self.gm_vt = conn, vt
+        self.gm_transactions = 0
+
+    def _ending(self):
+        from psycopg.pq import TransactionStatus
+        if not self._conn.closed and self._conn.info.transaction_status in (TransactionStatus.INTRANS,
+                                                                           TransactionStatus.INERROR):
+            self.gm_transactions += 1
 
     def execute(self, query, params=None, **kw):
         q, p = virtualize(query, params, self.gm_vt)
@@ -411,10 +430,23 @@ class VConnection:
     def cursor(self, *a, **kw):
         return VCursor(self._conn.cursor(*a, **kw), self)
 
+    def commit(self):
+        self._ending()
+        return self._conn.commit()
+
+    def rollback(self):
+        self._ending()
+        return self._conn.rollback()
+
+    def close(self):
+        self._ending()
+        return self._conn.close()
+
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
+        self._ending()
         return self._conn.__exit__(*exc)
 
     def __getattr__(self, name):
@@ -538,10 +570,22 @@ class Node:
         self.seq += 1
         self.records.append((ts, self.seq, kind, payload))
 
+    def transactions(self, ts, cname, n):
+        """`n` transactions ended at `ts` on the database `cname` reaches
+        (FILL_TRANSACTIONS)."""
+        if n:
+            self.mark(ts, "xact", (self.database(cname), n))
+
     def target(self, cname):
         c = self.schedule.connections[cname]
         host, port = self.cfg.targets.get(cname, (c.host, c.port))
         return c, host, port
+
+    def database(self, cname):
+        """FILL_TRANSACTIONS' key of a connection: `<host>:<port>/<database>`
+        where its sessions go."""
+        c, host, port = self.target(cname)
+        return f"{host}:{port}/{c.database}"
 
     def session(self, cname):
         s = self.sessions.get(cname)
@@ -570,26 +614,32 @@ class Node:
 
 def run_steps(conn, plan, vt):
     """Sets the session's clock, then runs the plan (BEGIN first when it has
-    a transaction, no COMMIT); returns (rows, None) or (rows, (sqlstate,
-    message)) after a rollback."""
+    a transaction, no COMMIT); returns (rows, None, transactions) or (rows,
+    (sqlstate, message), transactions) after a rollback. `transactions`: the
+    plan's on the database (FILL_TRANSACTIONS), one for a transaction plan,
+    else one per step sent (a failed step's included: the server rolls it
+    back); the clock's setting not counted."""
     import psycopg
-    rows = 0
+    rows = xacts = 0
     try:
         set_clock(conn, vt)
         if plan.txn:
             conn.execute(ISOLATION_SQL[plan.txn.isolation])
+            xacts = 1
         for sql, params in plan.steps:
             s, p = virtualize(sql, params, vt)
+            if not plan.txn:
+                xacts += 1
             cur = conn.execute(s, p if p else None)
             rows += len(cur.fetchall()) if cur.description is not None else max(cur.rowcount, 0)
-        return rows, None
+        return rows, None, xacts
     except psycopg.Error as exc:
         if plan.txn and not (conn.closed or conn.broken):
             try:
                 conn.execute("ROLLBACK")
             except psycopg.Error:
                 pass
-        return rows, _sql_error(exc)
+        return rows, _sql_error(exc), xacts
 
 
 # --- the fill ---------------------------------------------------------------------
@@ -704,12 +754,13 @@ class Fill:
         import psycopg
         hold = plan.txn.hold if plan.txn else 0
         pool = node.cfg.pools.get(cname, (None, None))[0]
+        xacts = 0
         try:
             if plan.txn and hold and plan.txn.isolation in ("repeatable read", "serializable"):
-                rows, err = self.held_call(node, cname, plan, now, hold)
+                rows, err, xacts = self.held_call(node, cname, plan, now, hold)
             else:
                 sess = node.session(cname)
-                rows, err = run_steps(sess, plan, now)
+                rows, err, xacts = run_steps(sess, plan, now)
                 if plan.txn and err is None:
                     sess.execute("COMMIT")
         except psycopg.Error as exc:
@@ -718,6 +769,7 @@ class Fill:
         latency = self.model.call(node.name, key, now, hold=hold, pool=pool, error=err is not None)
         end = now + latency
         node.record(key, latency, err is not None, end)
+        node.transactions(end, cname, xacts)
         if job is None and err is not None:
             node.write(end, "error", ("key", key), ("sqlstate", err[0]), ("message", err[1]))
         self.last = (rows, err, latency)
@@ -729,20 +781,20 @@ class Fill:
         the fill's next call on them)."""
         import psycopg
         sess = node.held_session(cname)
-        rows, err = run_steps(sess, plan, now)
+        rows, err, xacts = run_steps(sess, plan, now)
         if err is not None:
             node.held.setdefault(cname, []).append(sess)
-            return rows, err
+            return rows, err, xacts
         wrote = sess.execute("SELECT pg_catalog.pg_current_xact_id_if_assigned() IS NOT NULL").fetchone()[0]
         if wrote:
             try:
                 sess.execute("COMMIT")
             except psycopg.Error as exc:
-                return rows, _sql_error(exc)
+                return rows, _sql_error(exc), xacts
             node.held.setdefault(cname, []).append(sess)
         else:
             self.push(now + hold, "release", (node, cname, sess))
-        return rows, None
+        return rows, None, xacts
 
     def on_release(self, t, payload):
         import psycopg
@@ -855,6 +907,8 @@ class Fill:
         latency = self.model.call(node.name, job.key, due, error=not outcome.ok)
         end = due + latency
         node.record(job.key, latency, not outcome.ok, end)
+        for name, cname in job.connections.items():
+            node.transactions(end, cname, conns[name].gm_transactions)
         node.job_end[job.name] = end
         ms = f"{latency * 1000:.1f}"
         if outcome.ok:
@@ -958,6 +1012,7 @@ class Fill:
             stats.declare(job.key)
         records = sorted(node.records)
         i, out = 0, []
+        xacts = {}
         m = minute_start(cfg.vt0)
         while m < cfg.anchor:
             if m >= minute_start(self.start):
@@ -970,13 +1025,15 @@ class Fill:
                     stats.job_run(p[0], p[1])
                 elif kind == "skip":
                     stats.job_skip(p[0], p[1], p[2])
+                elif kind == "xact":
+                    xacts[p[0]] = xacts.get(p[0], 0) + p[1]
                 else:
                     stats.touch(set(p), ts)
                 i += 1
             if m >= minute_start(self.start) and m + 60 + SUMMARY_DELAY < cfg.anchor:
                 for event, fields in stats.summary(m):
                     node.write(m + 60 + SUMMARY_DELAY, event, *fields)
-            out.append(metrics_record(stats, m + 60))
+            out.append(dict(metrics_record(stats, m + 60), **{FILL_TRANSACTIONS: dict(sorted(xacts.items()))}))
             m += 60
         return out
 

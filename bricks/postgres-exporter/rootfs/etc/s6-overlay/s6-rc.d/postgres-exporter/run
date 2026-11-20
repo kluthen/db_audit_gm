@@ -5,6 +5,6 @@
 # sourced; a file that is not valid leaves the service down (exit 3, see
 # ./finish). postgres_exporter runs as `exporter`, listens on :9187, serves
 # /metrics, and reads the password from the secret
-# (DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password).
+# (--datasource.pass-file=/opt/gm/secrets/monitoring_password).
 exec 2>&1
 exec /usr/local/lib/gm/exporter-conf run

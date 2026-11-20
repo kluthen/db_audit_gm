@@ -1,6 +1,6 @@
 # Welcome
 
-Nodes: `bastion` (you are here), `db` (PostgreSQL 18), `standby` (its
+Nodes: `bastion` (you are here), `db` (PostgreSQL 19), `standby` (its
 read-only replica), `exporter` (the PostgreSQL exporter), `producer` (the
 order service's scheduler) and `lab-api` (the order API). Reach each with
 `ssh <node>`; reach `db` with `psql` from there.

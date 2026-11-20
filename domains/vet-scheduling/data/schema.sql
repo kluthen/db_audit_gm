@@ -28,7 +28,7 @@ CREATE ROLE sched_reports LOGIN;     -- the periodic reports on the standby (pur
 GRANT CONNECT ON DATABASE :"DBNAME" TO sched_app, sched_reports;
 
 -- The exclusion constraints' integer equality under GiST (PostgreSQL's
--- contrib, in the brick's postgresql-18 package), created as postgres.
+-- contrib, in the brick's postgresql-19 package), created as postgres.
 CREATE EXTENSION btree_gist;
 
 -- The tables are sched's: it may create them in public for this file only.

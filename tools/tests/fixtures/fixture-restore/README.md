@@ -73,7 +73,7 @@ The story as the players read it: `player/story.md`.
 - **Networks**: backend.
 - **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port 8080).
-- **Seed files**: README.md → `player/README.md`; story.md → `player/story.md`; issues.md → `player/issues.md`; partners.md → `player/partners.md`.
+- **Seed files**: `README.md` → `player/README.md`; `story.md` → `player/story.md`; `issues.md` → `player/issues.md`; `partners.md` → `player/partners.md`.
 
 Web front routes (`web_routes`): none. The topology has no web interface: the
 web front serves the starter-pack page alone, and the tools password is
@@ -98,7 +98,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
 - **Published ports**: none.
-- **Seed files**: postgresql.conf → `nodes/records/postgresql.conf`; pg_hba.conf → `nodes/records/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`; `pg_hba.conf` → `nodes/records/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -134,7 +134,7 @@ Data, restored from `data/records.sql`:
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: postgresql.conf → `nodes/standby/postgresql.conf`; pg_hba.conf → `nodes/standby/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/standby/postgresql.conf`; `pg_hba.conf` → `nodes/standby/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -162,7 +162,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: api.yaml → `nodes/partners-api/api.yaml`; routes/ → `nodes/partners-api/routes/`; db/ → `nodes/partners-api/db/`.
+- **Seed files**: `api.yaml` → `nodes/partners-api/api.yaml`; `routes/` → `nodes/partners-api/routes/`; `db/` → `nodes/partners-api/db/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -183,7 +183,7 @@ No knobs.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: postgresql.conf → `nodes/partners-db/postgresql.conf`; pg_hba.conf → `nodes/partners-db/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/partners-db/postgresql.conf`; `pg_hba.conf` → `nodes/partners-db/pg_hba.conf`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -222,6 +222,21 @@ Data, restored from `data/partners-db.sql`:
 | `records` | `partners-api` | WAL segments to the vault (cold-storage), vault-post's POST /shipments | http 8000 | per segment |
 | `bastion` | `partners-api` | cold storage's page and manifests (cold-storage), read only | http 8000 | interactive |
 | `partners-api` | `partners-db` | cold storage's manifests and state, as coldstore | postgresql 5432 | per request |
+
+### Third parties
+
+The customer's partners, on the partners' shared nodes. **Played by no
+one**: their stubs answer by themselves, the GM speaks for none, and each
+one's support contact never answers during the game (the players write
+in their report the message they would send). Their nodes are
+`no-access`, out of the players' reach, and named in nothing handed
+over; the players get each one's page in `player/partners.md`, never its
+internals. No expected *fix* names a partner's node; a check may read a
+partner's side as evidence, judging the customer's.
+
+| Id | Name | Stands for | Role | Nodes | Hostname | Player doc | Credentials | Faults on its nodes |
+|---|---|---|---|---|---|---|---|---|
+| `cold-storage` | Cold Storage | an off-site archive service, the vault | round-trip | partners-api, partners-db | `cold-storage` | `player/partners.md#cold-storage` | none | none |
 
 ## 4. Host topology it was designed for
 
@@ -307,3 +322,7 @@ None.
   - `partners-db`: `data/partners-db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

@@ -32,7 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 1 (1 fault instance) |
 | Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
-| Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`), its part `vet-lab` (at `records/lab`, beside the core) and its part `vet-portal` (at `records/portal`, beside the core), for provenance: the business's data loaded from `domains/vet-core/`, then `domains/vet-lab/` (composed only because the portal's derivation reads it; no partners' node, so no partner's state is loaded), then `domains/vet-portal/`, and `vet-portal`'s derivation, `domains/vet-portal/data/derive.sql`, after the core's and the lab's loads, as the composition record sanctions it; its producers' fragments composed by `gmctl compose` from `domains/vet-portal/producers/api/portal-api/` alone (into `nodes/portal-api/`); left out: vet-core's `pms`, `api/clinic-api` and `partners/centres`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`, vet-portal's `pms` and `partners/owners`; its composition record `composition.yaml` |
+| Domains | `vet-core` (variant `regional-franchise`), `vet-lab`, `vet-portal`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
 
@@ -90,6 +90,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.5 | 256M | — |
 | Reservations | 0.1 | 96M | 256M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 #### Node `records`
@@ -127,7 +129,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 | `max_wal_size` | 1GB | 64MB .. 1GB | yes |
 | `autovacuum` | on | allowed: on | yes |
 
-Data, restored from `data/records.sql` (the database `jobs` and pg_cron in it; the domains `vet-core`, `vet-lab` and `vet-portal` are loaded into the databases `clinic`, `lab` and `portal`, see section 1):
+Data, restored from `data/records.sql`:
 
 - Database `jobs`, owner `postgres`:
 
@@ -153,6 +155,8 @@ Resources (absolute, never recomputed per playground):
 | Limits | 0.25 | 128M | — |
 | Reservations | 0.1 | 96M | 128M |
 
+Knobs (initial value as seeded; envelope as the validator enforces it):
+
 No knobs.
 
 ### Flows
@@ -162,6 +166,42 @@ No knobs.
 | `bastion` | `records` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `portal-api` | players' SSH sessions; an owner's call needs an owner's login, which the bastion does not hold | ssh 22, http 8000 | interactive |
 | `portal-api` | `records` | the portal's requests, as portal_api over TLS, each one transaction under the owner's row-level security | postgresql 5432 (hostssl) | per request |
+
+### Composition
+
+Composed from the catalogue's domains at design time; its record,
+`composition.yaml`, written by the GM. `gmctl
+compose` writes the files of `portal-api` (each `nodes/<node>/`): its output, never edited by
+hand.
+
+| Domain | Variant | At | Lands with | Keys it relies on |
+|---|---|---|---|---|
+| `vet-core` | `regional-franchise` | `records/clinic` | — | — |
+| `vet-lab` | — | `records/lab` | — | `core_request`, `core_animal`, `core_microchip`, `core_ueln`, `core_ear_tag`, `core_ownership`, `core_owner` |
+| `vet-portal` | — | `records/portal` | — | `core_owner`, `core_ownership` |
+
+- **Load order**: `vet-core` → `vet-lab` → `vet-portal`.
+- **Derivations**:
+  - `vet-portal` after `vet-core`, `vet-lab`: the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404).
+- **Scale**: checked: the core, its lab and the owners' portal at one centre's scale on one node: about 0.27, 0.33 and 0.20 million rows, 49, 54 and 78 MB.
+- **Left out** (a fixture's least environment):
+  - `vet-core`'s `pms`: no practice software: s5's short test writes the sale in clinic itself.
+  - `vet-core`'s `api/clinic-api`: no lookup API node: the portal reads the core through its derivation.
+  - `vet-core`'s `partners/centres`: no partners' nodes: the other centres' stub is fixture-exchanges' (spec D435).
+  - `vet-lab`'s `lis`: no laboratory information system node: the lab is composed for the portal's derivation alone.
+  - `vet-lab`'s `api/lab-api`: no lab order API node.
+  - `vet-lab`'s `partners/xlab`: no partners' nodes: the external lab's fragments composed in test_compose.py.
+  - `vet-lab`'s `partners/practices`: no partners' nodes: the practices' fragments composed in test_compose.py.
+  - `vet-portal`'s `pms`: no practice software: the desk's consent stream composed in test_compose.py.
+  - `vet-portal`'s `partners/owners`: no partners' nodes: s5's short test makes the former owner's call itself (the owners' traffic is thin in a short watch, spec D423).
+- **Merge resolutions**: none: no two sources of one layer collided.
+- **Scenario layer**: none.
+- **Coherence**: checked by `load-data` at every setup, after the loads,
+  the derivations and the histories, before any fault is planted; a
+  failure is a design error, fixed in the composition or a domain and
+  reloaded, never a fault. Its result is setup state, recorded in
+  `composition.yaml`'s `coherence:` and the game's `state.yaml`, and not
+  shown here.
 
 ## 4. Host topology it was designed for
 
@@ -250,22 +290,13 @@ None.
   warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`
-  - `portal-api`: `nodes/portal-api/api.yaml`, `nodes/portal-api/routes/`
-    (`accounts.py`, `animals.py`, `desk.py`, `documents.py`, `me.py`,
-    `session.py`), `nodes/portal-api/db/` (the same six)
+  - `portal-api`: `nodes/portal-api/api.yaml`, `nodes/portal-api/routes/`, `nodes/portal-api/db/`
 - **Restored-backup data**, streamed in after deployment:
-  - `records`: `data/records.sql` (the database `jobs` and pg_cron in it),
-    first;
-  - the domain `vet-core`'s `data/schema.sql`, `data/keys.sql` and
-    `data/load.sql`, into `records/clinic`; then the domain `vet-lab`'s
-    `data/schema.sql`, its `data/keys.sql` (after the core's) and
-    `data/load.sql`, into `records/lab`; then the domain `vet-portal`'s
-    `data/schema.sql`, its `data/keys.sql` (after the core's) and
-    `data/load.sql`, into `records/portal`, and its `data/cron.sql` on
-    `records`' `jobs`; in `composition.yaml`'s order; then `gm_check`'s
-    read policies on the portal's tables (step 2c); then `vet-portal`'s
-    `data/derive.sql` in `records/portal`, reading the core and the lab
-    through `gm_src_vet_core` and `gm_src_vet_lab`; the domains' coherence
-    checks after.
+  - `records`: `data/records.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Composition** (GM side, never shipped): `composition.yaml`.
+
+## Fake aging
+
+None: the scenario does not age, so it has no fake game.

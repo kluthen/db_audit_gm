@@ -14,12 +14,12 @@
 # PATH: what archive_command and the server's other shell commands find
 # (vault-post in /usr/local/bin), set here, not inherited (s6 gives its
 # services a minimal environment).
-export PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/19/bin
 export PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj
 export PG_OOM_ADJUST_VALUE=300
 exec 2>&1
-exec /command/s6-setuidgid postgres /usr/lib/postgresql/18/bin/postgres \
-    -D /var/lib/postgresql/18/data \
+exec /command/s6-setuidgid postgres /usr/lib/postgresql/19/bin/postgres \
+    -D /var/lib/postgresql/19/data \
     -c config_file=/etc/postgresql/postgresql.conf \
     -c hba_file=/etc/postgresql/pg_hba.conf \
     -c reserved_connections=2

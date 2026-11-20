@@ -1,4 +1,4 @@
-# PostgreSQL 18 node for db_audit_gm (master spec 9.1).
+# PostgreSQL 19 node for db_audit_gm (master spec 9.1).
 #
 # Generic image: no scenario content. Seed files, the envelope file and the
 # secrets arrive at run time at the fixed paths declared in brick.yaml.
@@ -18,20 +18,22 @@ RUN chmod -R u=rwX,go=rX /rootfs
 # --- the node ----------------------------------------------------------------
 FROM debian:13-slim
 
-ARG PG_MAJOR=18
+# PostgreSQL 19 (v0.6 spec D587), PGDG's 19.0 at its release.
+ARG PG_MAJOR=19
 ARG S6_OVERLAY_VERSION=3.2.3.2
 # pg_cron, pinned exactly (G5, specs/versions/v0.4/wave-log.md; the
 # pgbouncer precedent, D177): 1.6.8 stops cron.unschedule matching a job's
-# owner case-insensitively, so 1.6.7 is not acceptable. PGDG's +3 is the
-# same source rebuilt against PostgreSQL 18.7 (v0.6 G9.1 follow-up:
-# CVE-2026-6460 needs C extensions rebuilt).
+# owner case-insensitively, so 1.6.7 is not acceptable. PGDG's +3 of
+# postgresql-19-cron is the only 19 build declaring `>> 19~rc2` (v0.6
+# G9.2: CVE-2026-6460 needs C extensions rebuilt; +1 and +2 do not).
 ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+3
 # pgaudit, pinned exactly (G5, specs/versions/v0.5/wave-log.md): upstream
-# 18.0, always installed, turned on by a seed only (v0.5 master spec 7.1).
-# PGDG's +2 is the same source rebuilt against 18.7 (G9.1 follow-up).
-ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+2
+# 19.0, always installed, turned on by a seed only (v0.5 master spec 7.1).
+# The release build, never PGDG's 19~rc1 ones (v0.6 G9.2).
+ARG PG_AUDIT_PACKAGE=19.0-1.pgdg13+1
 # pgCluu, pinned exactly (G9, specs/versions/v0.5/wave-log.md): PGDG's 5.0,
-# which collects from PostgreSQL 17 and 18 (Debian's 4.0 does not); a
+# which collects from PostgreSQL 17 and later (Debian's 4.0 does not; 19
+# exercised by the stack test, v0.6 G9.2); a
 # report tool run on demand by the players, as pgBadger is (master spec
 # 7.4), never a daemon. Its CGI and Apache files are removed below.
 ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1
@@ -76,6 +78,12 @@ RUN set -eux; \
     # host keys are generated per container start (gm-entrypoint), never baked
     rm -f /etc/ssh/ssh_host_*; \
     test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/postgres"; \
+    # PostgreSQL 19 only (G9.2): the server and client at 19, no other
+    # major's server, client or libpq left
+    case "$(dpkg-query -W -f '${Version}' "postgresql-${PG_MAJOR}")" in 19.*) ;; *) exit 1 ;; esac; \
+    case "$(dpkg-query -W -f '${Version}' "postgresql-client-${PG_MAJOR}")" in 19.*) ;; *) exit 1 ;; esac; \
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
+    if dpkg-query -W -f '${Package} ${Status}\n' 'postgresql-1[0-8]*' 'postgresql-client-1[0-8]*' 2>/dev/null | grep -q 'ok installed'; then exit 1; fi; \
     test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pg_stat_statements.so"; \
     pgbadger --version; \
     # pgCluu (G9): the pinned package; its report CGI and Apache
@@ -193,7 +201,7 @@ ENV S6_READ_ONLY_ROOT=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_SERVICES_GRACETIME=8000 \
     S6_KILL_GRACETIME=1000 \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/18/bin
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/19/bin
 
 EXPOSE 5432 22
 

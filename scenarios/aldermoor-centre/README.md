@@ -1333,7 +1333,7 @@ toward the fault cap or the score:
 - **What is wrong**: records' archive_command is 'vault-post wal %p %f || true': vault-post's name and file swapped, so vault-post refuses every segment's name (pg_wal/...), and `|| true` makes the archiver count each one archived and recycle it; no segment of records has reached the vault since the game's start (lab's archive, to the same vault, still ships).
 - **Why it matters**: the WAL archive is what rolls the nightly base backup forward: without it a restore loses up to a day of the clinic's records, and every signal PostgreSQL gives says the archive works.
 - **The overview beside it**: [the `records` entry](player/network-overview.md#records):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
   - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
   - Backups: WAL archived to Cold Storage, segment by segment
   - Backups: a base backup each night at 03:30 UTC to Cold Storage
@@ -1459,7 +1459,7 @@ the expected answer): none.
 - **What is wrong**: records' postgresql.conf sets log_statement = 'all'.
 - **Why it matters**: every write of the practice software, its values included, goes into the server log: owners' names, phone numbers and addresses outside the record, against "none in the logs" (vet-core's core rule 10).
 - **The overview beside it**: [the `records` entry](player/network-overview.md#records):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements, pg_cron; options: monitoring; report tools: pgbadger; cron
   - Backups: streamed to `standby`, a replica in the off-site room at Lowmoor
   - Backups: WAL archived to Cold Storage, segment by segment
   - Backups: a base backup each night at 03:30 UTC to Cold Storage
@@ -1494,7 +1494,7 @@ the expected answer): none.
 - **What is wrong**: the standby's postgresql.conf sets recovery_min_apply_delay = '1h'.
 - **Why it matters**: the reports read the standby an hour behind the record: the 00:30 feeder misses the evening after 23:30, every feeder the entries made late for yesterday, and a feeder writes its day once.
 - **The overview beside it**: [the `standby` entry](player/network-overview.md#standby):
-  - Applications: PostgreSQL 18; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
+  - Applications: PostgreSQL 19; preloaded: pg_stat_statements; options: monitoring; report tools: pgbadger
   - Backups: itself the streaming replica of `records`; no backup of its own
 
 Evidence, as the `player` user (and `dba` in psql):
@@ -1604,7 +1604,7 @@ Judged at the final answer, on the report alone: no sealed check.
 
 ## 7. Starter pack, node files and data
 
-- **Starter pack**, shipped to the bastion: `player/README.md` (how to get in, rules, DO NOT TAMPER list, how to run the validator; the machines are in the network overview), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, the data register `player/data-register.md`, and the network overview `player/network-overview.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side). It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
+- **Starter pack**, shipped to the bastion: `player/README.md` (how to get in, rules, DO NOT TAMPER list, how to run the validator; the machines are in the network overview), `player/story.md`, `player/issues.md`, the data policy `player/data-policy.md`, the partners `player/partners.md`, the data register `player/data-register.md` (v0.5; the true register, `gm/data-register.yaml`, stays GM side), and the network overview `player/network-overview.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `records`: `nodes/records/postgresql.conf`, `nodes/records/pg_hba.conf`, `nodes/records/crontab`
   - `standby`: `nodes/standby/postgresql.conf`, `nodes/standby/pg_hba.conf`
@@ -1638,3 +1638,53 @@ Judged at the final answer, on the report alone: no sealed check.
 - **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml`, each key prefixed with its table's database.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`, the true overview `gm/network-overview.yaml`.
 - **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/backoffice/`, `compose/clinic-api/`, `compose/equipment/`, `compose/interfaces/`, `compose/lis/`, `compose/partners-api/`, `compose/partners-backend/`, `compose/pms/`, `compose/ward/`.
+
+## Fake aging
+
+How a quick game of this scenario may be run instead of real aging: what
+each fault instance needs, the tail the full selection needs, and what a
+DBA hunting with superuser access could still read. From each fault
+definition's `aging.fake` and its `gm.md` note, `gmctl render`'s
+timeline and the restart record's limits; nothing of it reaches the
+bastion, the starter pack or a handout.
+
+- **Virtual span**: 10h, the scenario's aging: the virtual T0 at 23:00
+  the day before, scenario time, for the hand-over designed at 09:00.
+
+| Instance | Fault | Support | Tail needs | Planted in | Why | `gm.md` note |
+|---|---|---|---|---|---|---|
+| `s1` | `purpose-urgent-priority-dropped` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s2` | `pg-archive-command-silent` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s3` | `purpose-herd-use-dropped` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s5` | `security-policy-ownership-end-dropped` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s6` | `governance-register-flow-undeclared` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s7` | `governance-statement-log-personal` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s8` | `pg-standby-apply-delay` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s9` | `scheduler-display-refresh-loop` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+| `s10` | `pg-monitoring-option-absent` | not assessed | — | — | no `aging.fake`: refused in a fake game (master spec 9.5) | — |
+
+- **The full selection**: not assessed: no fake game of this scenario
+  until every instance is.
+- **Setup time**, from the deploy to the restart, the wait for the
+  anchor not counted: not measured: no short-game record,
+  `tools/fake_aging/calibration/aldermoor-centre-short-game-*.txt`, yet.
+
+### Limits that touch its evidence
+
+| Limit | Where it shows | Covered by the story | Evidence it touches |
+|---|---|---|---|
+| the restart itself: the postmaster's start, every container's start, process IDs counted from it, the statistics' reset time, the logs' first lines | pg_postmaster_start_time(), ps, stats_reset, the log folder | the maintenance restart of the story line | `s2`, `s7`, `s9`, `s10` |
+| no log before the restart: PostgreSQL, the pooler, pgaudit, the cron jobs (the scheduler's own log does cover the fill) | the log folders | older logs archived at the maintenance (the story line) | `s2`, `s7`, `s9`, `s10` |
+| real-clock actors start at the restart: pg_cron's run history, the crontab's runs, the pooler's statistics, archiving, Grafana's alert state and history | cron.job_run_details, the cron log, SHOW STATS, pg_stat_archiver | partly: they were restarted at the maintenance | `s2` |
+| the data files' inode change times are the fill's real minutes | pg_stat_file(), stat, ls -lc | partly: the maintenance touched the files | none of this scenario's evidence |
+| last-use times of what only the fill touched fall in the minutes before the restart | pg_stat_user_tables, pg_stat_user_indexes | none: not covered by the story | none of this scenario's evidence |
+| the LSN and WAL volume, if the padding doesn't hold | pg_current_wal_lsn(), segment names | partly | `s2`, `s8` |
+| time-driven behaviour in the fill is emulated in outcome only (a held snapshot, a timeout, a lock wait, an out-of-memory kill) | the fill's span in logs and views | none: not covered by the story | none of this scenario's evidence |
+| the archive vault and a standby date from the restart | the vault, pg_stat_replication, a slot's age | partly: the maintenance | `s2`, `s6`, `s8` |
+| Prometheus' imported blocks carry their creation time, and Prometheus starts at the restart | the TSDB's files; Prometheus' runtime info | the start: the maintenance restart | none of this scenario's evidence |
+| Prometheus' own series show the import, about 12 minutes after the restart: its lowest timestamp drops from the restart to the virtual T0, its loaded blocks and their bytes step up | prometheus_tsdb_lowest_timestamp_seconds, prometheus_tsdb_blocks_loaded, prometheus_tsdb_storage_blocks_bytes, in Prometheus and Grafana | none: not covered by the story | none of this scenario's evidence |
+| the forged past's fine shape: series appearing over the day, rarely called statements | Prometheus | none: not covered by the story | none of this scenario's evidence |
+| each routine the fill covered has a new catalog row version from the fill's minutes, its definition and settings identical | pg_proc's xmin against the other routines'; two updates on pg_proc in pg_stat_sys_tables | partly: a change in the maintenance before the restart, not named | none of this scenario's evidence |
+
+The host's uptime and Docker's task history are out of the players'
+reach: they have the bastion only.

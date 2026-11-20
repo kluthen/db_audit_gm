@@ -38,13 +38,17 @@ history:                            # the signature, its placeholders resolved p
     series: 'pg_stat_database_tup_returned{datname="{DATABASE}"}'
     key: orders.detail
     per_call: 963700
+  - kind: counter_per_call          # each scan's parallel workers' commits: the catalogue's pg-join-index-missing's measured figure
+    series: 'pg_stat_database_xact_commit{datname="{DATABASE}"}'
+    key: orders.detail
+    per_call: 4
   - kind: gauge_sawtooth            # the scans' transactions, longer in a five-minute cycle
     series: 'pg_stat_activity_max_tx_duration{datname="{DATABASE}",state="active"}'
     period: 300s
     amplitude: 0.5
-  - kind: gauge_before              # the database's size with the index, before its drop: run R's shop at its start (r-dump/r.om, 182.5 MB) plus the index, about 20 MB
+  - kind: gauge_before              # the index's size, added to the database's size drawn up to its drop (spec D585)
     series: 'pg_database_size_bytes{datname="{DATABASE}"}'
-    value: 202500000
+    value: 13213696                 # measured: run-history-test.sh, its FIGURE "the index f8 drops, before the fill": order_lines_order_id_idx's pg_relation_size after inject, 1613 pages
   - kind: daily_spike               # the lookups piling up once a day, after the drop (13:20: after the history run's planting, 12:00, before its anchor)
     series: 'pg_stat_activity_count{datname="{DATABASE}",state="active"}'
     at: "13:20"

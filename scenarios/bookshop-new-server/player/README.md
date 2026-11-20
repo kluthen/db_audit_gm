@@ -8,8 +8,8 @@ asked to look at. You have up to 3 hours.
 
 | Node | What it is | Your access | Write policy |
 |---|---|---|---|
-| `bastion` | this machine: SSH, PostgreSQL 18 client tools, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
-| `db` | the shop's PostgreSQL 18 server, database `bookshop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable**: configuration changes are expected |
+| `bastion` | this machine: SSH, PostgreSQL 19 client tools, your notes and report | you are here, as `player` | **report-only**: nothing to fix here |
+| `db` | the shop's PostgreSQL 19 server, database `bookshop` | `ssh db` as `player`; `psql` as the role `dba` | **fixable**: configuration changes are expected |
 
 Both nodes are on one private network. Only the bastion's SSH port is
 reachable from outside.
