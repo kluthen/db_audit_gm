@@ -132,7 +132,7 @@ metric name and the `node` label, never by `job`.
   per second, mean time per call and calls per second for the ten heaviest
   statements (`pg_stat_statements_calls_total`,
   `pg_stat_statements_seconds_total`, by `queryid`).
-- **`pgwatch.json`**, optional: the databases as pgwatch 6.1.0's `basic`
+- **`pgwatch.json`**, optional: the databases as pgwatch 6.2.0's `basic`
   preset reads them, from its Prometheus sink (series `pgwatch_*`, one per
   source, label `dbname`, the pgwatch source name). Whether each source
   answered pgwatch's last fetch (`pgwatch_instance_up`, UP or DOWN);
