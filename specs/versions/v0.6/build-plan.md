@@ -2056,7 +2056,11 @@ Architecture capture: none.
 
 ### Chunk 18 — The forged past's counters follow what drives them
 
-Status: ready
+Status: merged (w4, 11ad762)
+Record: 9767de6, merged as 11ad762 on 2026-11-20; no deviation from the
+spec. `SHAPE_RATIO` lowered to (0.02, 4.0), not removed. The fill's
+metrics record gains `fill_transactions` (`{"host:port/database":
+cumulative}`); its readings for G10.4 are in the wave log.
 Wave: 4
 Depends on: chunks 8, 10 (the fill's metrics record, the history);
 chunks 12a and 17b (in wave 4, merged: `history.py` and `fixture-fill`

@@ -4307,3 +4307,42 @@ span in the script, which costs about 3 more minutes of fill, the
   the post-18 tree (the campaign's 0231Z record predates 18's fill),
   and those runs stand as the gate's two-games item if nothing else
   changes after.
+
+### Chunk 18 — merged (11ad762), 2026-11-20
+
+- Commit 9767de6, merged --no-ff (wave branch unmoved). Branch deleted.
+- Built: (a) `Composer.driver` in `tools/gm/history.py`: `user` decides
+  first (scheduler role → load, other → flat), then `datname` (scheduler
+  database → load, other, e.g. `postgres`, → flat), neither → load;
+  scales counters, activity gauges and size ramps; overlays and
+  signatures unchanged; roles/databases from each scheduler node's
+  rendered `schedule.yaml`, exporter `instance` → `host:port` from
+  `exporter.conf`. (b) `SHAPE_RATIO` (0.02, 4.0): today's nights run
+  0.14–0.17, so it never binds. (c) `fill.py` records
+  `fill_transactions` per virtual minute (`{"host:port/database":
+  cumulative}`, a pooler session keyed by its server): one per
+  transaction plan, else one per step (failed included); a script's
+  commits/rollbacks plus one for a transaction open at close; not
+  `set_clock`, session set-up or the exporter. `pg_stat_database_*` takes
+  its shape from it over the tail's commits+rollbacks, ahead of (a);
+  falls back to (a) without it. Never served or forged as a series.
+- Evidence: `test_history` 37 OK (new `TestDrivers`, `TestFillDrivers`);
+  scheduler unit 117 OK with the replay guard (224 s); scheduler 0.4.0
+  `--no-cache --pull` build, Debian 13, dpkg identical to gate4's (no G9
+  row); stack test 179/0 (834 s); `fixture-fill` short 65/0 (851 s; fill
+  461 s for 929 virtual min; exporter 3726 vs 3716); history 39/0 (1416
+  s, in window; drivers load 900, flat 276, transactions 24; seam ok;
+  promtool 551 MiB; index step 13207583 for 13213696). Unit suite 1567
+  OK (384 s), then one report-only `history.py` change with
+  `test_history` rerun green. These stand as the gate's post-18 reruns.
+- For G10.4 (the owner's readings): (c)'s denominator is the tail's
+  commits + rollbacks on that database; scripts counted by their
+  commits/rollbacks; the key's `host:port/database` form and the
+  exporter mapping; the per-database shape smoothed and bounded like
+  the load shape (15 min, `SHAPE_RATIO`).
+- Risks: a script using psycopg's `conn.transaction()` blocks would go
+  uncounted (none today); non-scheduler transactions on a scheduler
+  database in the tail scale the forged rate slightly.
+- Not measured here: the M3 predictions (statements ×1.0, commits
+  ×1.0); 12b's reruns judge them.
+- Figures: 1 agents, 90 tool calls, 18.0M tokens in / 71k out, max context 259k, $8.68 at API prices.
