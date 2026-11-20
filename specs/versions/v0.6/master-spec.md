@@ -1744,7 +1744,8 @@ spec:
   at the virtual T0 a minute after the import and after the snapshot's
   restart (a past of under eight hours); in wave 4, the shop's and the
   campaign's 16-hour pasts kept to within 3 s of the virtual T0 at the
-  read, about 15 minutes after the import; a compaction not measured.
+  read, about 15 minutes after the import; a compaction not measured,
+  left to v1.0 gating's full selections.
 - The players' shell on the Prometheus node can't read the TSDB folder,
   whose owner and mode the import keeps (the shell itself stays: f10's
   fix edits `prometheus.yml` there): the folder measured

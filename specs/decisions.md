@@ -767,3 +767,8 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   gating; chunk 17c's two content findings to O298, O299. Now in:
   [formats.md](formats.md) v41; [master spec](versions/v0.6/master-spec.md) 9.7, 9.9, 9.10, 12.1, 18;
   [v1.0 gating](versions/README.md#v10-gating); [build plan](versions/v0.6/build-plan.md) v19.
+- **D598 (2026-11-20, spec-writer, release gate item 6): Prometheus'
+  retention after a compaction, never reached in the build, is read in
+  v1.0 gating's full selections,** their real tails the first runs long
+  enough. Technical, none the owner's (master spec 18). Now in:
+  [v1.0 gating](versions/README.md#v10-gating); [master spec](versions/v0.6/master-spec.md) 18.

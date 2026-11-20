@@ -1,6 +1,7 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
+Status: v20 (2026-11-20): release gate item 6: "Left for the build" names where each row's outcome is recorded; a compaction over the imported blocks, never reached, goes to v1.0 gating (spec D598).
+v19 (2026-11-20): G10.4 done after wave 4's gate (spec D597): wave 4's forms in formats.md v41 and the master spec; chunk 17b's `datname` wording as built; capture W4 item 1's usage line in the wave log.
 v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
 v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
 v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
@@ -547,21 +548,23 @@ Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 
 ## Left for the build (master spec 18)
 
-Each item is settled by the chunk named and recorded in its **Record**
-line and, for a brick, in its `docs/gm.md`; the release gate checks
-each is recorded.
+Each item is settled by the chunk named. Its outcome is recorded where
+the last column says: the chunk's merge entry in the wave log, the short
+games' records (`tools/fake_aging/calibration/tarnbeck-outdoor-*-short-game-20261120T*.txt`,
+chunk 12b), a brick's `docs/gm.md`, and master spec 18, which states
+each as measured; release gate item 6 checks each.
 
-| Item | Chunk |
-|---|---|
-| P0 | 8; the cover 15; f4 and f7 confirmed 11 |
-| The WAL padding's time and what it leaves | 9 |
-| A short autovacuum naptime against the fill's speed | 8 |
-| A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 |
-| `daily_spike` and `gauge_before` | 10 |
-| The imported blocks after a hand-over snapshot's restart; retention after a compaction | 10 |
-| The players' shell can't read the TSDB folder | 10, 12b |
-| The campaign's f4 and the 12:00 close | 11 |
-| A brick's exact version if a build finds more to change (folded into the unreleased version) | any brick chunk; G5, G7, G8 |
+| Item | Chunk | Recorded in |
+|---|---|---|
+| P0 | 8; the cover 15; f4 and f7 confirmed 11 | chunk 8's Record (partial); spec D523 (the cover); the wave log's chunk 11 merge ("P0 as applied"); `scheduler`'s `docs/gm.md` "The fill mode (0.4.0)"; master spec 9.8, 18 |
+| The WAL padding's time and what it leaves | 9 | the wave log's chunk 9 merge (the fixture: 1.6 s, `pg_wal` 1 GiB after the checkpoints); the short games' records (0.5 to 2.5 s a node, `pg_wal` at 98 to 100 %); master spec 18 |
+| A short autovacuum naptime against the fill's speed | 8 | the wave log's chunk 8 merge (1 s, the fixture's counts); the short games' records (the tells' autovacuum counts, spec D596); master spec 18 |
+| A restart of every service keeping the fill's output, fresh process namespaces, the monitoring in the same restart | 9 | the wave log's chunk 9 merge (the fixture: 0.7 to 1.7 s after `restart.at`); the short games' records (every service within 10 s, the monitoring's included); master spec 18 |
+| `daily_spike` and `gauge_before` | 10 | chunk 10's Record; the wave log's chunk 10 merge (`fixture-fill`'s history run reading every kind back); master spec 18 |
+| The imported blocks after a hand-over snapshot's restart; retention after a compaction | 10 | the wave log's chunk 10 merge (the blocks kept after the snapshot's restart, the lowest timestamp at the virtual T0); the short games' records (the 16-hour pasts within 3 s of it); a compaction never reached: v1.0 gating (spec D598); master spec 18 |
+| The players' shell can't read the TSDB folder | 10, 12b | the wave log's chunk 10 merge (`prometheus:prometheus 750`); the short games' records (the `player` listing refused); `prometheus`' `docs/gm.md` (the TSDB's owner and mode); master spec 18 |
+| The campaign's f4 and the 12:00 close | 11 | the wave log's chunk 11 merge and capture W3 item 9 as amended (no 12:00 close needed); master spec 9.8, 18 |
+| A brick's exact version if a build finds more to change (folded into the unreleased version) | any brick chunk; G5, G7, G8 | chunks 2, 17a and 17b's Records; gates G5, G7, G8, G9.1, G9.2; `.tech` |
 
 ## Chunks
 
