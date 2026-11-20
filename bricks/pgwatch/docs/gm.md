@@ -7,7 +7,7 @@ and the port: capture W2 item 5). Never shipped to players. Brick version
 
 ## Purpose
 
-pgwatch 6.1.0 on Debian 13 (trixie), with an SSH server for the players,
+pgwatch 6.2.0 on Debian 13 (trixie), with an SSH server for the players,
 in the image `127.0.0.1:5000/dbagm/pgwatch:0.1.1`. It fills the role
 `monitoring`: one collector for every instance in the players' scope,
 standing for the clinic's "monitoring tooling required in such complex
@@ -21,19 +21,21 @@ The image:
 
 - Debian 13 (`debian:13-slim`), `openssh-server`, `sudo`, `curl`, `nano`,
   `vim-tiny`, `less`, `procps`.
-- pgwatch 6.1.0 (2026-10-26), its latest release at the build (spec
-  D368): the release tarball `pgwatch_Linux_x86_64.tar.gz`, verified by
-  SHA-256 at build (G9's digest, which agrees with `checksums.txt`), the
-  binary only, in `/usr/local/bin/pgwatch` (static, go1.26.9). Its metric
+- pgwatch 6.2.0 (2026-11-14), its latest release at the build (spec
+  D368, D396), watching PostgreSQL 19 (spec D587; 6.1 and 6.2 carry 19's
+  SQL for the metrics that need it, and the `basic` preset needs none):
+  the release tarball `pgwatch_Linux_x86_64.tar.gz`, verified by
+  SHA-256 at build (G9.2's digest, which agrees with `checksums.txt`), the
+  binary only, in `/usr/local/bin/pgwatch` (static, go1.26.11). Its metric
   definitions and presets are built in; the tarball's sample files,
   `metrics.yaml` and dashboards are not installed. The build asserts the
-  banner's `Version: 6.1.0`, and that the `basic` preset has no init SQL
+  banner's `Version: 6.2.0`, and that the `basic` preset has no init SQL
   (`pgwatch metric print-init basic` prints none, `standard` does).
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
 - Generic: no scenario content, no credential and no host keys in the
   image.
-- Size: 167MB (about 88MB over the shared `debian:13-slim` layer, 24MB of
-  it the pgwatch binary).
+- Size: 168MB (about 89MB over the shared `debian:13-slim` layer, 25MB of
+  it the pgwatch binary), pgwatch 6.2.0's build.
 
 ## Placement
 
@@ -71,7 +73,7 @@ can read them.
 
 ### What the seed file must contain
 
-`sources.yaml`, pgwatch 6.1.0's YAML sources format: a YAML **list** at
+`sources.yaml`, pgwatch 6.2.0's YAML sources format (6.1.0's): a YAML **list** at
 the top (not a map), one entry per watched instance:
 
 ```yaml

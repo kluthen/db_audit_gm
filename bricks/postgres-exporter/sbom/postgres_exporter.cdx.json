@@ -15,11 +15,11 @@
       "type": "application",
       "bom-ref": "postgres-exporter/postgres_exporter",
       "name": "postgres_exporter",
-      "version": "0.20.1",
+      "version": "0.21.1",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f9314f6eb5b45f83c713cc4129778513054a064062b21a7ffd0aaac80ae06dca"
+          "content": "cb30bff3241e81c4491e83bb6ee2ac6cb79974859d98c10674a3de9094a735da"
         }
       ],
       "properties": [
@@ -33,19 +33,19 @@
         },
         {
           "name": "dbagm:release-arg",
-          "value": "PG_EXPORTER_VERSION=0.20.1"
+          "value": "PG_EXPORTER_VERSION=0.21.1"
         },
         {
           "name": "dbagm:archive",
-          "value": "https://github.com/prometheus-community/postgres_exporter/releases/download/v0.20.1/postgres_exporter-0.20.1.linux-amd64.tar.gz"
+          "value": "https://github.com/prometheus-community/postgres_exporter/releases/download/v0.21.1/postgres_exporter-0.21.1.linux-amd64.tar.gz"
         },
         {
           "name": "dbagm:archive-sha256",
-          "value": "89d4f7e7920cad48fdc3133f789556ef5253c330a9f5fdace3bdb6344c0a8b5a"
+          "value": "02f316da4e9e409749d6f3b25102d3561cb408023110f3653f6514548926ff0c"
         },
         {
           "name": "dbagm:archive-member",
-          "value": "postgres_exporter-0.20.1.linux-amd64/postgres_exporter"
+          "value": "postgres_exporter-0.21.1.linux-amd64/postgres_exporter"
         },
         {
           "name": "dbagm:go-package",
@@ -53,11 +53,11 @@
         },
         {
           "name": "dbagm:go-version",
-          "value": "go1.26.4"
+          "value": "go1.27.4"
         },
         {
           "name": "dbagm:vcs-revision",
-          "value": "867fbcac31cd18c143e244190ea9168cca069827"
+          "value": "05ec47a115a2c5d813e64c664213a88682fc8dc7"
         }
       ]
     }
@@ -65,17 +65,17 @@
   "components": [
     {
       "type": "library",
-      "bom-ref": "pkg:golang/stdlib@1.26.4",
+      "bom-ref": "pkg:golang/stdlib@1.27.4",
       "name": "stdlib",
-      "version": "1.26.4",
-      "purl": "pkg:golang/stdlib@1.26.4"
+      "version": "1.27.4",
+      "purl": "pkg:golang/stdlib@1.27.4"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus-community/postgres_exporter@v0.20.1",
+      "bom-ref": "pkg:golang/github.com/prometheus-community/postgres_exporter@v0.21.1",
       "name": "github.com/prometheus-community/postgres_exporter",
-      "version": "v0.20.1",
-      "purl": "pkg:golang/github.com/prometheus-community/postgres_exporter@v0.20.1",
+      "version": "v0.21.1",
+      "purl": "pkg:golang/github.com/prometheus-community/postgres_exporter@v0.21.1",
       "properties": [
         {
           "name": "dbagm:role",
@@ -148,10 +148,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/lib/pq@v1.10.9",
+      "bom-ref": "pkg:golang/github.com/lib/pq@v1.12.3",
       "name": "github.com/lib/pq",
-      "version": "v1.10.9",
-      "purl": "pkg:golang/github.com/lib/pq@v1.10.9"
+      "version": "v1.12.3",
+      "purl": "pkg:golang/github.com/lib/pq@v1.12.3"
     },
     {
       "type": "library",
@@ -183,38 +183,45 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/client_golang@v1.23.2",
+      "bom-ref": "pkg:golang/github.com/pandatix/go-abnf@v0.5.5",
+      "name": "github.com/pandatix/go-abnf",
+      "version": "v0.5.5",
+      "purl": "pkg:golang/github.com/pandatix/go-abnf@v0.5.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/prometheus/client_golang@v1.25.0",
       "name": "github.com/prometheus/client_golang",
-      "version": "v1.23.2",
-      "purl": "pkg:golang/github.com/prometheus/client_golang@v1.23.2"
+      "version": "v1.25.0",
+      "purl": "pkg:golang/github.com/prometheus/client_golang@v1.25.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/client_model@v0.6.2",
+      "bom-ref": "pkg:golang/github.com/prometheus/client_model@v0.6.3",
       "name": "github.com/prometheus/client_model",
-      "version": "v0.6.2",
-      "purl": "pkg:golang/github.com/prometheus/client_model@v0.6.2"
+      "version": "v0.6.3",
+      "purl": "pkg:golang/github.com/prometheus/client_model@v0.6.3"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/common@v0.69.0",
+      "bom-ref": "pkg:golang/github.com/prometheus/common@v0.74.0",
       "name": "github.com/prometheus/common",
-      "version": "v0.69.0",
-      "purl": "pkg:golang/github.com/prometheus/common@v0.69.0"
+      "version": "v0.74.0",
+      "purl": "pkg:golang/github.com/prometheus/common@v0.74.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/exporter-toolkit@v0.17.1",
+      "bom-ref": "pkg:golang/github.com/prometheus/exporter-toolkit@v0.20.0",
       "name": "github.com/prometheus/exporter-toolkit",
-      "version": "v0.17.1",
-      "purl": "pkg:golang/github.com/prometheus/exporter-toolkit@v0.17.1"
+      "version": "v0.20.0",
+      "purl": "pkg:golang/github.com/prometheus/exporter-toolkit@v0.20.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/prometheus/procfs@v0.16.1",
+      "bom-ref": "pkg:golang/github.com/prometheus/procfs@v0.22.0",
       "name": "github.com/prometheus/procfs",
-      "version": "v0.16.1",
-      "purl": "pkg:golang/github.com/prometheus/procfs@v0.16.1"
+      "version": "v0.22.0",
+      "purl": "pkg:golang/github.com/prometheus/procfs@v0.22.0"
     },
     {
       "type": "library",
@@ -225,52 +232,52 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/go.yaml.in/yaml/v2@v2.4.4",
+      "bom-ref": "pkg:golang/go.yaml.in/yaml/v2@v2.4.5",
       "name": "go.yaml.in/yaml/v2",
-      "version": "v2.4.4",
-      "purl": "pkg:golang/go.yaml.in/yaml/v2@v2.4.4"
+      "version": "v2.4.5",
+      "purl": "pkg:golang/go.yaml.in/yaml/v2@v2.4.5"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/crypto@v0.53.0",
+      "bom-ref": "pkg:golang/golang.org/x/crypto@v0.58.0",
       "name": "golang.org/x/crypto",
-      "version": "v0.53.0",
-      "purl": "pkg:golang/golang.org/x/crypto@v0.53.0"
+      "version": "v0.58.0",
+      "purl": "pkg:golang/golang.org/x/crypto@v0.58.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/net@v0.55.0",
+      "bom-ref": "pkg:golang/golang.org/x/net@v0.62.0",
       "name": "golang.org/x/net",
-      "version": "v0.55.0",
-      "purl": "pkg:golang/golang.org/x/net@v0.55.0"
+      "version": "v0.62.0",
+      "purl": "pkg:golang/golang.org/x/net@v0.62.0"
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/oauth2@v0.36.0",
+      "bom-ref": "pkg:golang/golang.org/x/oauth2@v0.38.0",
       "name": "golang.org/x/oauth2",
-      "version": "v0.36.0",
-      "purl": "pkg:golang/golang.org/x/oauth2@v0.36.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/sync@v0.21.0",
-      "name": "golang.org/x/sync",
-      "version": "v0.21.0",
-      "purl": "pkg:golang/golang.org/x/sync@v0.21.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/sys@v0.46.0",
-      "name": "golang.org/x/sys",
-      "version": "v0.46.0",
-      "purl": "pkg:golang/golang.org/x/sys@v0.46.0"
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/text@v0.38.0",
-      "name": "golang.org/x/text",
       "version": "v0.38.0",
-      "purl": "pkg:golang/golang.org/x/text@v0.38.0"
+      "purl": "pkg:golang/golang.org/x/oauth2@v0.38.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/golang.org/x/sync@v0.24.0",
+      "name": "golang.org/x/sync",
+      "version": "v0.24.0",
+      "purl": "pkg:golang/golang.org/x/sync@v0.24.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/golang.org/x/sys@v0.49.0",
+      "name": "golang.org/x/sys",
+      "version": "v0.49.0",
+      "purl": "pkg:golang/golang.org/x/sys@v0.49.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/golang.org/x/text@v0.43.0",
+      "name": "golang.org/x/text",
+      "version": "v0.43.0",
+      "purl": "pkg:golang/golang.org/x/text@v0.43.0"
     },
     {
       "type": "library",
@@ -281,10 +288,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/google.golang.org/protobuf@v1.36.11",
+      "bom-ref": "pkg:golang/google.golang.org/protobuf@v1.36.12",
       "name": "google.golang.org/protobuf",
-      "version": "v1.36.11",
-      "purl": "pkg:golang/google.golang.org/protobuf@v1.36.11"
+      "version": "v1.36.12",
+      "purl": "pkg:golang/google.golang.org/protobuf@v1.36.12"
     },
     {
       "type": "library",

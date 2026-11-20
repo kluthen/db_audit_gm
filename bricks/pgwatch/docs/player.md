@@ -13,7 +13,7 @@ through the bastion's web front.
 
 ## What it does
 
-pgwatch 6.1 connects to each database listed in its sources file as the
+pgwatch 6.2 connects to each database listed in its sources file as the
 role `monitoring`, runs the queries of a metric preset on a schedule (once
 a minute for most metrics of the `basic` preset), and serves the latest
 values as Prometheus metrics on port 9188:

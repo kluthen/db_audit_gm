@@ -13,7 +13,8 @@
 #     so, starts anyway at the bound, serves its sink and reports
 #     pgwatch_instance_up 0 for `db` (an honest failure, no hang); once `db`
 #     resolves and is healthy, pgwatch reaches it within its sources
-#     refresh, and the basic preset's series appear (instance_up 1);
+#     refresh, and the basic preset's series appear (instance_up 1), the
+#     source on PostgreSQL 19 (spec D587);
 #   - pgwatch runs as `pgwatch`, with --web-disable=all (nothing on 8080),
 #     never --create-helpers; nothing created in the watched database;
 #   - the password: in the secret and /run/gm-pgwatch/pgpass (0600, pgwatch)
@@ -231,6 +232,11 @@ done
 for s in pgwatch_db_stats_numbackends pgwatch_db_stats_xact_commit pgwatch_db_size_size_b pgwatch_wal_xlog_location_b; do
     printf '%s\n' "$m" | grep -q "^$s{dbname=\"db\"" && pass "the basic preset's series: $s" || fail "series missing: $s"
 done
+v=$(dbsql "SHOW server_version_num")
+case $v in
+    19????) pass "the basic preset read on PostgreSQL 19 (server_version_num $v)" ;;
+    *) fail "the source's server_version_num: [$v], not 19" ;;
+esac
 n=$(printf '%s\n' "$m" | grep -c '^pgwatch_')
 info "pgwatch series in one scrape: $n"
 

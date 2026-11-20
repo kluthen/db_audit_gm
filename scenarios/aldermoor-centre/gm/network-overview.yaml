@@ -41,8 +41,8 @@ generated_from:
   catalog/bricks/api/brick.yaml: sha256:8f5200ff43cd95d6c210f1482481b2d6dd0a035e5f7d6e091455aa1bdf2f8574
   catalog/bricks/prometheus/brick.yaml: sha256:3a7b2403cbfa1cf37adf6a4a37dcf901039c2d49816115a0e0c554d8b0d4d934
   catalog/bricks/grafana/brick.yaml: sha256:d3e524bcf5a7d1c1bd35519c6a743e0b9c0cbce014c2e9cb5652305eaea003e1
-  catalog/bricks/postgres-exporter/brick.yaml: sha256:5047ecab7710400538eafb4a09a174e782a839efb8cb3cc051831587dc70c091
-  catalog/bricks/pgwatch/brick.yaml: sha256:f00474d59ff35cc97839d36633f5c3f2ea5ef04a42b1fa823e9065d805b718b8
+  catalog/bricks/postgres-exporter/brick.yaml: sha256:b6ef93072feba37397d214f00fa91b65daa61b6b1b21548c3659ad89a10df081
+  catalog/bricks/pgwatch/brick.yaml: sha256:c0203b013749da86f9bc8496f77300ac19679abc9194c0fff5c64534b31d2639
   catalog/bricks/health-check/brick.yaml: sha256:d480ab1a6a9b29eeea488d92c90ce57f363df00460cb1879d5d97b9aa6376b0f
   catalog/domains/vet-core/data/overview.yaml: sha256:a283ac0d1d4fdd94be732d77917f2f7eb111b557762f8843d5469512ba2c42a2
   catalog/domains/vet-housing/data/overview.yaml: sha256:0aed8124d87fd42f407828bd18f4e7866b0834ff1461656761f2f602fc004c1e
@@ -1283,7 +1283,7 @@ entries:
   activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-records&from=now-6h&to=now)'
   description: The PostgreSQL exporter for records.
   system: Debian GNU/Linux 13
-  applications: postgres_exporter 0.20.1
+  applications: postgres_exporter 0.21.1
   sizing: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
   databases: []
   fed_and_used_by: []
@@ -1305,7 +1305,7 @@ entries:
   activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-standby&from=now-6h&to=now)'
   description: The PostgreSQL exporter for the standby.
   system: Debian GNU/Linux 13
-  applications: postgres_exporter 0.20.1
+  applications: postgres_exporter 0.21.1
   sizing: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
   databases: []
   fed_and_used_by: []
@@ -1327,7 +1327,7 @@ entries:
   activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-lab&from=now-6h&to=now)'
   description: The PostgreSQL exporter for lab.
   system: Debian GNU/Linux 13
-  applications: postgres_exporter 0.20.1
+  applications: postgres_exporter 0.21.1
   sizing: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
   databases: []
   fed_and_used_by: []
@@ -1349,7 +1349,7 @@ entries:
   activity: '[Node health](/grafana/d/node-health/node-health?var-node=exporter-machines&from=now-6h&to=now)'
   description: The PostgreSQL exporter for machines.
   system: Debian GNU/Linux 13
-  applications: postgres_exporter 0.20.1
+  applications: postgres_exporter 0.21.1
   sizing: CPU 0.25 (0.05 reserved), memory 128M (48M reserved), disk 64M
   databases: []
   fed_and_used_by: []
@@ -1371,7 +1371,7 @@ entries:
   activity: '[Node health](/grafana/d/node-health/node-health?var-node=pgwatch&from=now-6h&to=now)'
   description: pgwatch, a second collector of PostgreSQL metrics.
   system: Debian GNU/Linux 13
-  applications: pgwatch 6.1.0
+  applications: pgwatch 6.2.0
   sizing: CPU 0.25 (0.1 reserved), memory 128M (96M reserved), disk 64M
   databases: []
   fed_and_used_by: []
