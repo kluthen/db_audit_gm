@@ -34,6 +34,10 @@ ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG CHECK_POSTGRES_PACKAGE=2.26.0-2
 # The OpenSSL floor libpq's TLS runs on (G9, as the postgres brick's G5).
 ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
+# zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
+# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# only, so naming it upgrades it; the build fails below this floor.
+ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -57,7 +61,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         xz-utils "check-postgres=${CHECK_POSTGRES_PACKAGE}" postgresql-client-19 cron nginx curl \
-        openssh-server sudo procps less nano vim-tiny; \
+        openssh-server sudo procps less nano vim-tiny zlib1g; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -73,6 +77,8 @@ RUN set -eux; \
     case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
     if dpkg-query -W -f '${Package} ${Status}\n' 'postgresql-1[0-8]*' 'postgresql-client-1[0-8]*' 2>/dev/null | grep -q 'ok installed'; then exit 1; fi; \
     dpkg --compare-versions "$(dpkg-query -W -f '${Version}' libssl3t64)" ge "${LIBSSL_FLOOR}"; \
+    # zlib1g at or above DSA-6613-1's fix (D588)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' zlib1g)" ge "${ZLIB_FLOOR}"; \
     perl -MJSON::PP -MPOSIX -MFcntl -e 1; \
     # nginx static only (G9): no dynamic module package, no module loaded,
     # Debian's sites and conf.d cleared; this node's configuration is

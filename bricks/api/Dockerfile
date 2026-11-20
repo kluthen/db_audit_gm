@@ -53,6 +53,11 @@ RUN set -eux; \
 # When PostgreSQL 20 ships, main moves to libpq 20 and the assertion below
 # fails the build (G9.2): then component 19, or 20 by a ruling.
 FROM debian:13-slim AS program
+# zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
+# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# only, so naming it upgrades it; the build fails below this floor. The node
+# and the unit-test image inherit it from this stage.
+ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 COPY --from=pgdg-key /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc /etc/apt/keyrings/apt.postgresql.org.asc
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
@@ -61,9 +66,11 @@ RUN set -eux; \
     echo "deb [signed-by=/etc/apt/keyrings/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
         > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends python3 libpq5 python3-yaml tzdata; \
+    apt-get install -y --no-install-recommends python3 libpq5 python3-yaml tzdata zlib1g; \
     rm -rf /var/lib/apt/lists/*; \
-    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac
+    case "$(dpkg-query -W -f '${Version}' libpq5)" in 19.*) ;; *) exit 1 ;; esac; \
+    # zlib1g at or above DSA-6613-1's fix (D588)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' zlib1g)" ge "${ZLIB_FLOOR}"
 # /usr/local/lib/python3.13/dist-packages is on Debian's python3 path, -I included
 COPY --from=wheels /stage/site/ /usr/local/lib/python3.13/dist-packages/
 COPY --from=modes /stage/gm_api/ /usr/local/lib/python3.13/dist-packages/gm_api/

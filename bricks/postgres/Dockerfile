@@ -40,6 +40,10 @@ ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1
 # The OpenSSL floor PostgreSQL's TLS runs on (G5: DSA-6531-1, fixed only in
 # trixie-security); the libraries come with postgresql-common.
 ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
+# zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
+# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# only, so naming it upgrades it; the build fails below this floor.
+ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -68,7 +72,7 @@ RUN set -eux; \
         "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" pgbadger "pgcluu=${PG_CLUU_PACKAGE}" \
         "postgresql-${PG_MAJOR}-cron=${PG_CRON_PACKAGE}" \
         "postgresql-${PG_MAJOR}-pgaudit=${PG_AUDIT_PACKAGE}" cron \
-        openssh-server openssh-client sudo procps less nano vim-tiny; \
+        openssh-server openssh-client sudo procps less nano vim-tiny zlib1g; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -105,6 +109,8 @@ RUN set -eux; \
     # same in every game built from this image, deleted: a game's TLS
     # certificate and key are per-game secrets (brick.yaml)
     dpkg --compare-versions "$(dpkg-query -W -f '${Version}' libssl3t64)" ge "${LIBSSL_FLOOR}"; \
+    # zlib1g at or above DSA-6613-1's fix (D588)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' zlib1g)" ge "${ZLIB_FLOOR}"; \
     rm -f /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem; \
     test ! -e /etc/ssl/private/ssl-cert-snakeoil.key; \
     test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem; \
