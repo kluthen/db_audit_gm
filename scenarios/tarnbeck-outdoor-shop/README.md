@@ -1031,9 +1031,8 @@ bastion, the starter pack or a handout.
 - **The full selection**: a tail of 3h, anchored at 11:00, scenario
   time; refused: none.
 - **Setup time**, from the deploy to the restart, the wait for the
-  anchor not counted: not measured: no short-game record,
-  `tools/fake_aging/calibration/tarnbeck-outdoor-shop-short-game-*.txt`,
-  yet.
+  anchor not counted: 8 min 38 s, the fill 7 min 53 s of it
+  (`tools/fake_aging/calibration/tarnbeck-outdoor-shop-short-game-20261120T1231Z.txt`).
 
 ### Limits that touch its evidence
 
