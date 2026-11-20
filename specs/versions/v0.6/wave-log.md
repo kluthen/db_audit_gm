@@ -4598,3 +4598,16 @@ Asked with AskUserQuestion; all four answered "(Recommended)":
    `counter_per_call` (per_call 4); O298 (load pgaudit in `lab` and
    `portal` in a later build); O299 (the owner amends the grid, the
    copy is refreshed); ISS-009 fixed in v0.7.
+
+### Release gate passed; v0.6 merged into main, 2026-11-20
+
+- G11 recorded e18b222 (D599 release; D600 OpenSSL open until a trixie
+  DSA or 2027-02-01, nginx's 14 matches ignored until 2027-05-01; D601
+  wave 4's items; plan v21; release notes draft v12; O298, O299 ruled,
+  open until done; ISS-009 targets v0.7). `.tech` fb4cc2c merged
+  (findings ≥ medium 31 → 17, accepted 110 → 124). D599's acceptance of
+  the gate as run covers the games' margin and D597's recalibration
+  placing as known limits.
+- `v0.6-rg` merged into main `--no-ff` (no push). Next: the milestone
+  archive (spec-writer, on main; keep O251, O269, O298, O299 live), then
+  v0.7's G3/G4: `dev` from main at v0.6's release commit, and v0.7 wave 2.
