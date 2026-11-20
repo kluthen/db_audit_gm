@@ -4502,3 +4502,15 @@ span in the script, which costs about 3 more minutes of fill, the
   CVE-2026-76844; recheck the 10 OpenSSL CVEs in trixie; pgBadger's
   limit (D591) in the release notes. Then the milestone archive, v0.7's
   G3/G4 (`dev` from main at v0.6's release commit) and v0.7 wave 2.
+
+## 2026-11-20: v0.6 release gate started
+
+- Branch `v0.6-rg` (worktree `~/work/db_audit_gm-wt/v0.6-rg`) cut from
+  main 1db4044. G3 (PGDG and Debian reachable) and G4 (swarm active,
+  armenelos the only active node, the VPS drained and untouched) checked
+  by hand; the host lock is free.
+- Order: (A) zlib1g (D588) in the ten bricks' install steps, the ten
+  builds `--no-cache`, dpkg lists, stack tests, the unit suite and the
+  format checks (item 2); (B) security-advisor's post-change check, row
+  G9.3, with the OpenSSL recheck; (C) items 1, 4, 5; (D) item 3, the two
+  short games; (E) spec-writer's items 6 and 7; (F) G11, the owner.
