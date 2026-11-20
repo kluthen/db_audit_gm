@@ -35,7 +35,7 @@ ARG CHECK_POSTGRES_PACKAGE=2.26.0-2
 # The OpenSSL floor libpq's TLS runs on (G9, as the postgres brick's G5).
 ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
 # zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
-# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# +b1, and DSA-6613-1's fix is in trixie-security
 # only, so naming it upgrades it; the build fails below this floor.
 ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 

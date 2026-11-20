@@ -41,7 +41,7 @@ ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1
 # trixie-security); the libraries come with postgresql-common.
 ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
 # zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
-# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# +b1, and DSA-6613-1's fix is in trixie-security
 # only, so naming it upgrades it; the build fails below this floor.
 ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 

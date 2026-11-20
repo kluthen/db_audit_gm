@@ -22,7 +22,7 @@ FROM debian:13-slim
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG PROMETHEUS_VERSION=3.16.0
 # zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
-# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# +b1, and DSA-6613-1's fix is in trixie-security
 # only, so naming it upgrades it; the build fails below this floor.
 ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
 

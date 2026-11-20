@@ -363,10 +363,13 @@ The bricks at their v0.6 versions (master spec 6.8): `bastion` 0.6.0,
    the format check 0 missing on the 5 scenarios and 38 fixtures; G5,
    G7, G8, G9.2, G9.3 (`81b6ffb`, CLEAR WITH NOTES) and G10.1 to G10.4
    done, `.tech` current.
-3. **Two short fake games: TO FILL (driver): the shop's and the
-   campaign's results and check counts, from the wave log's release
-   gate entry for item 3.** Their wall times are under "Measured
-   figures".
+3. **Two short fake games: PASS.** On 19, without `--record`, each in
+   its start window: the shop 54/0 (M1 10/10; M3 5/5, commits ×1.00,
+   rows inserted ×0.977, statements ×0.998; tells 10/0; f8's step
+   14008804 vs 14016512), the campaign 64/0 (tells 35/0, P0 held). The
+   restart record and `gmctl status` read in each run's output; all 20
+   faults carry `aging.fake`, 19 their `history:` (f10 is `real-only`).
+   Their wall times are under "Measured figures".
 4. **The clinic's front: PASS.** `fixture-clinic-front` 38/0, read as
    `player`; the bastion's footprint with `status-pages` up measured
    (`8674f10`, below).
@@ -429,8 +432,11 @@ v0.6's tests.
 - **The short games' wall times**, deployment and teardown included,
   against 1800 s: wave 4's, on `v0.6-w4` at `758e080`, the shop 1642 s
   (54/0) and the campaign 1652 s (64/0), each about 2.5 minutes under.
-  **TO FILL (driver): release gate item 3's wall times, the shop ____ s
-  and the campaign ____ s, on `v0.6-rg`.**
+  The release gate's runs on `v0.6-rg` (2026-11-20): the shop 1675 s
+  (fill 476 s, deploy to `restart.at` 520 s without the anchor wait,
+  import 78 s, peak 1063.5 MiB), the campaign 1705 s (fill 192 s, 241 s,
+  import 90 s, peak 1224.9 MiB): 125 s and 95 s under 30 minutes. The
+  margin is narrowing (12b had about 150 s): a known limit, see below.
 - **`bastion` 0.6.0's footprint** (limits 0.5 CPU, 256M; reservations
   0.25, 128M, 256M disk; growth 1M an hour; `brick.yaml` unchanged), in
   its `docs/gm.md`, "At rest in v0.6":
@@ -518,8 +524,8 @@ Named by master spec 12.2 and the release gate's items 5 and 7:
   the shop game's night steps): R's flat floor of about 0.09 commits a
   second is forged as following the load (gate fix `1e341dc`); M3's
   judged mean holds (×0.996).
-- **The short games' margin**: about 2.5 minutes under 30; a slower
-  host could cross it.
+- **The short games' margin**: 1.5 to 2.5 minutes under 30 (the release
+  gate's runs: 125 s and 95 s); a slower host could cross it.
 - **The history import's memory**: `promtool` peaks at 1.0 to 1.2 GiB
   on the host during the import.
 - **Open questions found in the build**: O298, the clinic's pgaudit

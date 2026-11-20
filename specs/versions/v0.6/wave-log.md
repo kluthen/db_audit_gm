@@ -4560,3 +4560,27 @@ span in the script, which costs about 3 more minutes of fill, the
   nginx 11.2 MiB, the status service 1.7 MiB between renders, cgroup
   peak 21.7 MB at start-up. Logs: scratchpad `rg/c/`.
 - Next: (D) item 3, the two short fake games.
+
+### Release gate (D) item 3 and (E2) item 7 done, 2026-11-20
+
+- (D) both short fake games PASS on 19, without `--record`, each in its
+  window, nothing committed: shop 16:31Z 54/0 in 1675 s (fill 476 s;
+  deploy to `restart.at` 520 s without the 328 s anchor wait; import 78
+  s, peak 1063.5 MiB; M1 10/10; M3 5/5: calls ×0.983, errors ×1.00,
+  commits ×1.00, rows ×0.977, statements ×0.998; tells 10/0, customers 2
+  runs; f8's step 14008804); campaign 17:31Z 64/0 in 1705 s (fill 192 s;
+  241 s without the 609 s wait; import 90 s, peak 1224.9 MiB; tells
+  35/0; P0 held; f1 at the seam ×1.05). The restart record and `gmctl
+  status` in each output; all 20 faults carry `aging.fake`, 19
+  `history:` (f10 `real-only`); `test_fake_aging_faults` 6 OK. Nothing
+  left deployed. **Margin narrowing:** 125 s and 95 s under 30 min (12b:
+  about 150 s). Logs: scratchpad `rg/d/`.
+- (E2) release notes ff7f19a (`## Release notes` in the v0.6 README; the
+  driver filled in item 3's placeholders); D588 corrected (CVE-2026-76844
+  is not zlib's; Debian NOT-FOR-US); merged. The ten Dockerfiles' zlib
+  comment corrected the same way (comment only, no image change).
+- O251 and O269 still read "open until built" though the refusals are
+  built: for the milestone archive.
+- Items 1 to 7 done. Left: item 8, G11, the owner's judgement, with the
+  OpenSSL and nginx calls (G9.3) and wave 4's nods; then the merge into
+  main on the owner's word.

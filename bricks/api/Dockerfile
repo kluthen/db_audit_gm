@@ -54,7 +54,7 @@ RUN set -eux; \
 # fails the build (G9.2): then component 19, or 20 by a ruling.
 FROM debian:13-slim AS program
 # zlib1g, named in the install below (v0.6 spec D588): debian:13-slim ships
-# +b1, and DSA-6613-1's fix (with CVE-2026-76844's) is in trixie-security
+# +b1, and DSA-6613-1's fix is in trixie-security
 # only, so naming it upgrades it; the build fails below this floor. The node
 # and the unit-test image inherit it from this stage.
 ARG ZLIB_FLOOR=1:1.3.dfsg+really1.3.1-1+deb13u1
