@@ -237,7 +237,7 @@ source = "Debian sudo 1.9.16p2-3+deb13u2 in the nine v0.6 images other than bast
 name = "OpenSSL"
 version = "3.5.7"
 cpe = "cpe:2.3:a:openssl:openssl"
-source = "Debian libssl3t64 3.5.7-1~deb13u3 (trixie-security) in all ten v0.6 images, the openssl command in bastion 0.6.0, pgbouncer 0.1.2 and postgres 0.5.1 (apt, unpinned; dpkg-query 2026-11-16, v0.6 gate G5). Network-facing in postgres 0.5.1 (server TLS on, the 0.5.0 image); bricks/postgres/Dockerfile asserts the floor ARG LIBSSL_FLOOR=3.5.7-1~deb13u3 (gate G5) and removes ssl-cert's snakeoil pair; bricks/health-check/Dockerfile asserts the same floor (gate G9) for libpq's TLS client (check_postgres and the customer's scripts to PostgreSQL 19 over TLS). pgwatch 0.1.1's collector is a static Go binary on Go's crypto/tls, not OpenSSL; its libssl3t64 serves curl and ssh only. NVD matches 3.5.7 to OpenSSL's 2026-08-25 batch (fix 3.5.8) and 2026-09-29 batch (fix 3.5.9); Debian backported both, DSA-6465-1 (3.5.7-1~deb13u2) and DSA-6531-1 (3.5.7-1~deb13u3), no openssl issue open in trixie on the Debian tracker (2026-11-03): those NVD findings are false positives on these images. Re-checked 2026-11-09 and 2026-11-16 (v0.6): all ten images run 3.5.7-1~deb13u3; the tracker marks every NVD match on 3.5.7 at or above medium (19, CVE-2026-14456 included) fixed in trixie at deb13u2 or deb13u3 (accepted below, owner ruling 2026-11-10). G9.2 (2026-11-20): libssl3t64 unchanged in all ten; scheduler 0.4.0, api 0.1.1 and health-check 0.1.1 now also carry the openssl command (ca-certificates Depends it, added for the PGDG source over HTTPS) and PGDG libpq 19 as their TLS client on it. Open in trixie with no fix (since 2026-11-10; NVD has matched none, so the sweep has not raised them): the Debian tracker lists 10 OpenSSL CVEs vulnerable in trixie, trixie-security and sid alike, no DSA, no no-dsa or postponed tag (OSV Debian:13 openssl 3.5.7-1~deb13u3: 10, no fixed version; rechecked at the release gate, 2026-11-20). Eight are in OpenSSL's advisories of 2026-11-10 and 2026-11-17, all rated Low upstream, fixed in 3.5.10: CVE-2026-95691 (QUIC client, malicious server), -88822 (QUIC, connected socket), -124709 (QUIC server), -95692 and -88823 (AES-GCM-SIV through EVP), -107496 (CMS_encrypt to an attacker's EC certificate), -107493 (PEM_X509_INFO_read with a caller's non-NULL stack; OpenSSL's own callers and TLS CA loading pass NULL), -35190 (TLS 1.3 server with the Suite B cert flag). Two have no OpenSSL advisory yet, only upstream pull requests: -95690 (DTLS out-of-sequence fragments; PR 33729 for 3.5) and -84786 (DANE-enabled TLS client; PR 33634). None is on a path a brick serves: the one OpenSSL TLS server is PostgreSQL 19's, TLS over TCP, no Suite B flag, no DTLS, QUIC, CMS, GCM-SIV or DANE; libpq, OpenSSH and nginx (no TLS listener) use none of them. curl 8.14 in the images speaks HTTP/3 through OpenSSL's own QUIC (nghttp3, no ngtcp2), so CVE-2026-95691 and -88822 are reachable only by a player's own curl --http3 to a hostile server, outside the game's hosts (impact: that curl crashes, or one heap byte). The fix arrives with a trixie DSA (3.5.10's backport), then a --no-cache rebuild and a LIBSSL_FLOOR bump in postgres and health-check"
+source = "Debian libssl3t64 3.5.7-1~deb13u3 (trixie-security) in all ten v0.6 images, the openssl command in bastion 0.6.0, pgbouncer 0.1.2 and postgres 0.5.1 (apt, unpinned; dpkg-query 2026-11-16, v0.6 gate G5). Network-facing in postgres 0.5.1 (server TLS on, the 0.5.0 image); bricks/postgres/Dockerfile asserts the floor ARG LIBSSL_FLOOR=3.5.7-1~deb13u3 (gate G5) and removes ssl-cert's snakeoil pair; bricks/health-check/Dockerfile asserts the same floor (gate G9) for libpq's TLS client (check_postgres and the customer's scripts to PostgreSQL 19 over TLS). pgwatch 0.1.1's collector is a static Go binary on Go's crypto/tls, not OpenSSL; its libssl3t64 serves curl and ssh only. NVD matches 3.5.7 to OpenSSL's 2026-08-25 batch (fix 3.5.8) and 2026-09-29 batch (fix 3.5.9); Debian backported both, DSA-6465-1 (3.5.7-1~deb13u2) and DSA-6531-1 (3.5.7-1~deb13u3), no openssl issue open in trixie on the Debian tracker (2026-11-03): those NVD findings are false positives on these images. Re-checked 2026-11-09 and 2026-11-16 (v0.6): all ten images run 3.5.7-1~deb13u3; the tracker marks every NVD match on 3.5.7 at or above medium (19, CVE-2026-14456 included) fixed in trixie at deb13u2 or deb13u3 (accepted below, owner ruling 2026-11-10). G9.2 (2026-11-20): libssl3t64 unchanged in all ten; scheduler 0.4.0, api 0.1.1 and health-check 0.1.1 now also carry the openssl command (ca-certificates Depends it, added for the PGDG source over HTTPS) and PGDG libpq 19 as their TLS client on it. Open in trixie with no fix (since 2026-11-10; NVD has matched none, so the sweep has not raised them): the Debian tracker lists 10 OpenSSL CVEs vulnerable in trixie, trixie-security and sid alike, no DSA, no no-dsa or postponed tag (OSV Debian:13 openssl 3.5.7-1~deb13u3: 10, no fixed version; rechecked at the release gate, 2026-11-20). Eight are in OpenSSL's advisories of 2026-11-10 and 2026-11-17, all rated Low upstream, fixed in 3.5.10: CVE-2026-95691 (QUIC client, malicious server), -88822 (QUIC, connected socket), -124709 (QUIC server), -95692 and -88823 (AES-GCM-SIV through EVP), -107496 (CMS_encrypt to an attacker's EC certificate), -107493 (PEM_X509_INFO_read with a caller's non-NULL stack; OpenSSL's own callers and TLS CA loading pass NULL), -35190 (TLS 1.3 server with the Suite B cert flag). Two have no OpenSSL advisory yet, only upstream pull requests: -95690 (DTLS out-of-sequence fragments; PR 33729 for 3.5) and -84786 (DANE-enabled TLS client; PR 33634). None is on a path a brick serves: the one OpenSSL TLS server is PostgreSQL 19's, TLS over TCP, no Suite B flag, no DTLS, QUIC, CMS, GCM-SIV or DANE; libpq, OpenSSH and nginx (no TLS listener) use none of them. curl 8.14 in the images speaks HTTP/3 through OpenSSL's own QUIC (nghttp3, no ngtcp2), so CVE-2026-95691 and -88822 are reachable only by a player's own curl --http3 to a hostile server, outside the game's hosts (impact: that curl crashes, or one heap byte). The fix arrives with a trixie DSA (3.5.10's backport), then a --no-cache rebuild and a LIBSSL_FLOOR bump in postgres and health-check. Accepted risk (owner ruling at the release gate's G11, 2026-11-20, \"Release, review later\"): v0.6 ships with the 10 open; no [[ignore]], NVD matching none (the note in the accepted risks below). Review at the first trixie openssl DSA, or 2027-02-01 at the latest"
 
 [[platform]]
 name = "curl / libcurl (Debian)"
@@ -269,7 +269,7 @@ source = "Debian libcares2 1.34.9-1~deb13u1 (trixie-security, DSA-6626-1; apt, u
 name = "nginx (bastion web front, health-check status page)"
 version = "1.26.3"
 cpe = "cpe:2.3:a:f5:nginx_open_source"
-source = "Debian nginx and nginx-common 1.26.3-3+deb13u11 (DSA-6642-1) in bastion 0.6.0 and health-check 0.1.1 since their --no-cache rebuilds of v0.6 wave 4's G9.2 (2026-11-19, dpkg-query read by the advisor 2026-11-20; apt, unpinned; deb13u10 before, from gate G9). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04). G8, 2026-11-19: both images still at deb13u10 (wave 3's --no-cache build came at 12:21 UTC, before the DSA). DSA-6642-1 (2026-11-19 14:40 UTC) fixes 9 CVEs at 1.26.3-3+deb13u11, none reachable in either config: CVE-2026-113425 (mail proxy; mail is a dynamic module, no libnginx-mod-* installed), CVE-2026-118899 (listen ... ssl with TLSv1.3; no TLS listener), CVE-2026-120967 and CVE-2026-123640 (stream ssl_verify_client, ssl_preread; no stream), CVE-2026-121810 (HTTP/3), CVE-2026-123007 and CVE-2026-123633 (HTTP/2; neither config enables http2), CVE-2026-123634 (proxy to a variable server name plus an SSI or mirror subrequest; the bastion proxies its web_routes to set variables but has no ssi or mirror), CVE-2026-125283 (try_files with alias and a map variable built from regex captures; the bastion's only map is $http_upgrade -> $connection_upgrade, no capture, used in neither). NVD has not analysed them yet (cve-watch latest: none listed); OSV Debian:13 nginx deb13u10 lists them, deb13u11 leaves CVE-2026-120993 (stream ssl with proxy_protocol v2; no stream, no fix) and the two unimportant ones. The fix arrives with a --no-cache rebuild of health-check and bastion (bastion's also takes PGDG's libpq5 19.0, see the header). G9.2 (2026-11-20): both images run deb13u11, so the nine are fixed in them; OSV Debian:13 nginx 1.26.3-3+deb13u11 leaves CVE-2026-120993 (stream, none here, no fix) and the two unimportant ones. NVD has still not analysed the nine (cve-watch latest --version 1.26.3, 2026-11-20); once it does they match 1.26.3 here as backport false positives, settled by the Debian tracker. Watch: the Debian tracker's nginx. Release gate (2026-11-20, afternoon): NVD has now analysed DSA-6642-1's CVEs and newly matches older ones on 1.26.3, 14 at or above medium not covered below: eight of DSA-6642-1's nine (CVE-2026-113425, -118899, -121810, -123007, -123633, -123634, -123640, -125283; fix 1.30.7), CVE-2026-15176, -97205 and -97629 (2026-10-14; Debian fixed them at deb13u10) and CVE-2026-42533, -56434 and -60005 (2026-07-15; OSV Debian:13 does not list them on deb13u8 or later). OSV Debian:13 nginx 1.26.3-3+deb13u11: 3 (CVE-2009-4487, CVE-2013-0337, CVE-2026-120993): all 14 are backport false positives on these images"
+source = "Debian nginx and nginx-common 1.26.3-3+deb13u11 (DSA-6642-1) in bastion 0.6.0 and health-check 0.1.1 since their --no-cache rebuilds of v0.6 wave 4's G9.2 (2026-11-19, dpkg-query read by the advisor 2026-11-20; apt, unpinned; deb13u10 before, from gate G9). health-check serves static files only on :8080 under /health/, reached only through the bastion's web_routes: GET and HEAD, autoindex and server_tokens off, no libnginx-mod-* package and no module loaded, no proxy, fastcgi, uwsgi, scgi, grpc, dav, charset, rewrite, mail or stream directive, no HTTP/2 or 3 (asserted by the Dockerfile on nginx -T), so NVD's module CVEs on 1.26.3 (proxy_v2, grpc, charset, rewrite) have no code path there. The Debian tracker lists only 2 unimportant trixie issues (CVE-2009-4487, CVE-2013-0337; 2026-11-04). G8, 2026-11-19: both images still at deb13u10 (wave 3's --no-cache build came at 12:21 UTC, before the DSA). DSA-6642-1 (2026-11-19 14:40 UTC) fixes 9 CVEs at 1.26.3-3+deb13u11, none reachable in either config: CVE-2026-113425 (mail proxy; mail is a dynamic module, no libnginx-mod-* installed), CVE-2026-118899 (listen ... ssl with TLSv1.3; no TLS listener), CVE-2026-120967 and CVE-2026-123640 (stream ssl_verify_client, ssl_preread; no stream), CVE-2026-121810 (HTTP/3), CVE-2026-123007 and CVE-2026-123633 (HTTP/2; neither config enables http2), CVE-2026-123634 (proxy to a variable server name plus an SSI or mirror subrequest; the bastion proxies its web_routes to set variables but has no ssi or mirror), CVE-2026-125283 (try_files with alias and a map variable built from regex captures; the bastion's only map is $http_upgrade -> $connection_upgrade, no capture, used in neither). NVD has not analysed them yet (cve-watch latest: none listed); OSV Debian:13 nginx deb13u10 lists them, deb13u11 leaves CVE-2026-120993 (stream ssl with proxy_protocol v2; no stream, no fix) and the two unimportant ones. The fix arrives with a --no-cache rebuild of health-check and bastion (bastion's also takes PGDG's libpq5 19.0, see the header). G9.2 (2026-11-20): both images run deb13u11, so the nine are fixed in them; OSV Debian:13 nginx 1.26.3-3+deb13u11 leaves CVE-2026-120993 (stream, none here, no fix) and the two unimportant ones. NVD has still not analysed the nine (cve-watch latest --version 1.26.3, 2026-11-20); once it does they match 1.26.3 here as backport false positives, settled by the Debian tracker. Watch: the Debian tracker's nginx. Release gate (2026-11-20, afternoon): NVD has now analysed DSA-6642-1's CVEs and newly matches older ones on 1.26.3, 14 at or above medium not covered below: eight of DSA-6642-1's nine (CVE-2026-113425, -118899, -121810, -123007, -123633, -123634, -123640, -125283; fix 1.30.7), CVE-2026-15176, -97205 and -97629 (2026-10-14; Debian fixed them at deb13u10) and CVE-2026-42533, -56434 and -60005 (2026-07-15; OSV Debian:13 does not list them on deb13u8 or later). OSV Debian:13 nginx 1.26.3-3+deb13u11: 3 (CVE-2009-4487, CVE-2013-0337, CVE-2026-120993): all 14 are backport false positives on these images, accepted below until 2027-05-01 (owner ruling at G11, 2026-11-20)"
 
 [[platform]]
 name = "pg_cron (PostgreSQL extension, postgres brick)"
@@ -487,6 +487,95 @@ reason = "fixed by Debian backport 1.26.3-3+deb13u7, images run deb13u10"
 approved_by = "bastien"
 until = 2027-05-01
 
+# nginx, NVD's release-gate matches on 1.26.3 (Debian 1.26.3-3+deb13u11 in bastion
+# 0.6.0 and health-check 0.1.1). Owner approved 2026-11-20 at the v0.6 release
+# gate's G11 ("Accept as ignores", relayed by the wave driver), as proposed in
+# the advisor's G9.3 check (81b6ffb).
+
+[[ignore]]
+id = "CVE-2026-113425"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-118899"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-121810"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-123007"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-123633"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-123634"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-123640"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-125283"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-15176"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-97205"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-97629"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-42533"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-56434"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
+[[ignore]]
+id = "CVE-2026-60005"
+reason = "fixed in Debian 1.26.3-3+deb13u11 (DSA-6642-1) or earlier; OSV Debian:13 deb13u11 leaves none of them"
+approved_by = "bastien"
+until = 2027-05-01
+
 # python3.13 (Debian 3.13.5-2+deb13u5 in the images and, from 2026-11-10, on the host)
 
 [[ignore]]
@@ -538,6 +627,16 @@ approved_by = "bastien"
 until = 2027-05-01
 
 # OpenSSL (Debian 3.5.7-1~deb13u3 in every brick)
+#
+# Accepted with no [[ignore]]: the 10 OpenSSL CVEs open in trixie with no
+# Debian fix (CVE-2026-95691, -88822, -124709, -95692, -88823, -107496,
+# -107493, -35190, -95690, -84786; the OpenSSL platform entry). NVD has matched
+# none, so no finding exists to ignore. Owner approved 2026-11-20 at the v0.6
+# release gate's G11 ("Release, review later", relayed by the wave driver):
+# v0.6 is released with them open. Reason: no Debian fix exists; Low upstream;
+# no QUIC, DTLS, CMS, GCM-SIV, DANE or Suite B on any served path. Review at
+# the first trixie openssl DSA, or 2027-02-01 at the latest. Should NVD match
+# one before then, it surfaces as a finding and is triaged against this ruling.
 
 [[ignore]]
 id = "CVE-2026-63073"
