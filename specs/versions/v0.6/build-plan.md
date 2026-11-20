@@ -1,6 +1,7 @@
 # db_audit_gm v0.6 — Build plan
 
-Status: v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
+Status: v18 (2026-11-20): chunk 12b's rulings (spec D593 to D596): chunk 18 inserted in wave 4 before 12b resumes; chunk 12b, the wave 4 gate row and G10.4 revised; capture W4's items 1 to 5 revised in the wave log.
+v17 (2026-11-19): O294 and O295 ruled (spec D591, D592), G15 done; chunk 17c states them.
 v16 (2026-11-19): the owner's ruling after G8, PostgreSQL 19
 everywhere (spec D587), zlib1g at the release gate (spec D588), placed
 by spec D589 and D590: chunk 17 inserted in wave 4 before 12b, split
@@ -153,7 +154,7 @@ this plan states only its deltas. Its conventions follow v0.5's
 | G10.1 | Wave 1's forms as built, from capture W1 and the chunk records in the wave log: the fill's interface (`gm_scheduler fill`'s FillConfig, PAUSE/GO/DONE/FAILED), the `<node>.metrics.jsonl` record, `service-times.yaml`'s place and shape, the restart record's fields (`local/<pg>/fake-aging.yaml`), `fill.quiet`, the `fill-sql` command | `spec-writer` | Release gate item 2 | done (2026-11-17, b2578a0, spec D534; with G10.2) |
 | G10.2 | Wave 2's forms as built, from capture W2 (its preflight correction 8) and the chunk records in the wave log: the status file's form and its secret (the `rendered` kind), the `brick-doc` configs; the true overview's keys; the restart record as written, with `state.yaml`'s `hold` and `clean_restart`; `timeline`'s fake keys (`virtual_t0`, `anchor`, `tail`, `refused`); `wal-rate.yaml`; the cover's `fill.quiet` item (`routine`, `restore.database`); `--test-tail-floor` | `spec-writer`, after wave 2's gate | Release gate item 2 | done (2026-11-17, b2578a0, spec D534) |
 | G10.3 | Wave 3's forms as built, from capture W3 (its preflight correction 11) and the chunk records in the wave log: the restart record's `history` with its `seam` values and `reason`; `state.yaml`'s `history_import`; the history unit and `HISTORY_READ`; `gmctl history --check-seam`; the seam check's findings; the `# measured:` comments; the calibration files' names, as built beyond W3 item 10's (`keys-<node>`, `run-a`, one per fault such as `f1` and `f5`, `fill`, `wal-<node>`); a report-only node's `service-times.yaml` timed from the fill's `rpt.etl_runs` or with psql, its `source:` saying so, a one-run key's `sigma: 0` (spec D578); a fault's optional parameter a signature needs (f1's `database`); the `**Fake aging.**` note | `spec-writer`, after wave 3's gate | Release gate item 2 | done (2026-11-19, 06a5d21, spec D580) |
-| G10.4 | Wave 4's forms as built, from capture W4 (its preflight correction 7) and the chunk records in the wave log: the short-game record's name in "Fake aging's measured figures"; 9.10's per-scenario section's sources (the limits as `explains` holds them, the setup time from the newest record, the wait for the anchor not counted); the M3 comparison's judged set and bounds if the spec is to name them (the M1 comparison's is in master spec 12.1, spec D586) | `spec-writer`, after wave 4's gate | Release gate item 2 | open |
+| G10.4 | Wave 4's forms as built, from capture W4 (its preflight correction 7) and the chunk records in the wave log: the short-game record's name in "Fake aging's measured figures"; 9.10's per-scenario section's sources (the limits as `explains` holds them, the setup time from the newest record, the wait for the anchor not counted); the M3 comparison's judged set and bounds if the spec is to name them (the M1 comparison's is in master spec 12.1, spec D586, D593); the fill's per-database transactions in its metrics record (chunk 18, spec D594) | `spec-writer`, after wave 4's gate | Release gate item 2 | open |
 | G11 | The owner's judgement at release close: the short tests as run, the named known limits, what stays v1.0 gating | The owner | Release close | open |
 | G12 | **`fa-real` torn down** (spec D520): the research's real-aged shop game (game `tarnbeck-outdoor-shop-z8415w`), its usefulness spent once chunk 1 has merged and its archive verifies, since no chunk needs the live game (8, 11 and 12 read the archived data). From the main checkout, where its local implementation lives (`scenarios/tarnbeck-outdoor-shop/local/fa-real/`, ignored by git), under the lock: `tools/gmctl teardown scenarios/tarnbeck-outdoor-shop --playground fa-real --reason "v0.6 chunk 1: the reference archived and verified (spec D520)"`; recorded in the wave log | The wave driver | Wave 1's gate (the host alone) | done (2026-11-16, spec D520) |
 | G13 | **O292 ruled**: the form of f8's `gauge_before` (spec D584), an absolute level held until the planting as built, or the index's size added to the drawn size before it | The owner | Chunk 12's f8 item (its `value` and the check of the step), not the chunk's start | cleared (2026-11-19, spec D585) |
@@ -179,7 +180,7 @@ owner did (spec D587): pgAudit 19.0, which carries 18.1's changes
 | 1 | 1, 2, 3, 4, 8 | G1 (done); G2 (done); G3, G4; G5 and G12 before its gate | gated (2026-11-16, all green); merge into `main` on the owner's word |
 | 2 | 6, 7, 9, 15 | wave 1; G6 (chunk 6); G7 before its gate | gated (2026-11-17, f83805b); merge on the owner's word |
 | 3 | 10, 11, 13 | wave 2 | merged into `main` (2026-11-19) |
-| 4 | 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c | wave 3; G8 before its gate; G9.2 and G14 (17a); G15 (17c's two items); G9.2's post-change half before its gate. 17 was inserted mid-wave by an owner ruling (spec D589), so its chain 17a, 17b, 12b runs three deep: each link is a version and a path this plan fixes, not an interface a capture would | in progress (started 2026-11-19) |
+| 4 | 5, 12a, 12b, 12c, 14, 16, 17a, 17b, 17c, 18 | wave 3; G8 before its gate; G9.2 and G14 (17a); G15 (17c's two items); G9.2's post-change half before its gate. 17 was inserted mid-wave by an owner ruling (spec D589), so its chain 17a, 17b, 12b runs three deep: each link is a version and a path this plan fixes, not an interface a capture would. 18 was inserted mid-wave by an owner ruling (spec D594, D595) after 12b stopped: 12b reads its effect in the shop's game, not an interface | in progress (started 2026-11-19) |
 
 ```
 2 ──> 3, 4, 8           (in wave 1, merge order: each merges after chunk 2 and takes
@@ -222,6 +223,10 @@ G6 ──> 6
                          fixed by this plan, spec D589)
 17b, 17c ──> 12b        (in wave 4, start order: the games run on what ships;
                          17b's re-measured size)
+8, 10, 12a, 17b ──> 18  (the fill and its metrics record; history.py as 12a and
+                         17b left it; fixture-fill's runs on 19)
+18 ──> 12b              (in wave 4, resume order: the shop's game reruns on the
+                         forged past chunk 18 shapes; spec D594)
 17c ──> 16              (in wave 4, start order: the fixtures' handouts and
                          anything 17c regenerated)
 G9.2, G14 ──> 17a;  G9.2 ──> 17b;  G15 ──> 17c's two items
@@ -294,7 +299,12 @@ skill, `fixture-fill`'s fault and f8's `fault.yaml`, and no
 every scenario's `README.md` and two fixtures'; 12b regenerates only
 the shop's and the campaign's `README.md`, after 12c, with its
 records; 16 owns every fixture's scenario document, 12c's two and 14's
-new ones included.
+new ones included. **Chunk 18** (spec D595), inserted after 12b stopped
+for rulings: it starts alone (every other chunk of the wave has merged
+and 12b waits on it) and merges into `v0.6-w4`; 12b's next owner then
+resumes from its WIP, taking `v0.6-w4` in first. 18 owns
+`tools/gm/history.py` and the scheduler's `fill.py` in the wave; 12b
+touches neither.
 
 ## Workflow deltas
 
@@ -392,7 +402,7 @@ new ones included.
 | 1 | G5 cleared; every brick built at its v0.6 version, its `base:` checked against the image's `/etc/os-release`; the loader's new refusals (chunk 3's unit tests, every scenario and fixture loading); `check_domain_dir` clean on the seven domains with their overview fragments; the scheduler's replay guard and P0's result recorded in the wave log; chunk 8's short fill on its fixture |
 | 2 | G7 cleared; `bastion` 0.6.0's stack test (the home page, the documentation site, the reports folder with its sandbox header, `jq` and `tmux`) and chunk 6's status fixture (an incident started, one not yet, "Operational", the status file unreadable by `player`); the network overview's unit tests on the clinic (each crafted break refused); the clinic's format check with its overview, every scenario's `README.md` matching a fresh regeneration; chunk 9's clean-restart fixture (one restart instant, the monitoring started in it, the statistics reset once, `pg_wal`'s size, the restart record, no seeded or T0-planted time after the virtual T0); chunk 15's cover in `TestP0` (the scheduler's unit runner), the replay guard green |
 | 3 | chunk 10's history fixture (the import, the seam check, the restart from the hand-over snapshot keeping the imported blocks); every fault of the shop and the campaign passing the format check with `aging.fake` and `history:`; the calibration figures recorded in the wave log |
-| 4 | G8 cleared; G9.2's post-change half cleared; every image's `dpkg-query` list on PostgreSQL 19 alone (no 17 or 18 PostgreSQL package) and every stack test and smoke on 19 (chunk 17a); `postgres_exporter` 0.21.1 reaching the `postgres` database alone and pgwatch 6.2.0 (chunk 17b); `grafana` 0.4.0's stack test (the `node` variable filtering one node); `fixture-fill`'s short test and history run on 19, the index's size against `fixture-dropped-index`'s value (chunks 12a, 17b); the three pgaudit-reading fixtures on 19 (chunk 17c: `fixture-reports`' planted test, `fixture-lab`, `fixture-portal-scope`); the two short fake games (chunk 12b: shop and campaign, each under 30 minutes in its start window, the checks reading every selected fault present, the seam check, the tells script, the shop's M1 comparison against run R scaled to its span (spec D586) and its M3 comparison within its bounds, f8's step); the `docs-overview-*` fault's short test and the clinic's front fixture (chunk 14) |
+| 4 | G8 cleared; G9.2's post-change half cleared; every image's `dpkg-query` list on PostgreSQL 19 alone (no 17 or 18 PostgreSQL package) and every stack test and smoke on 19 (chunk 17a); `postgres_exporter` 0.21.1 reaching the `postgres` database alone and pgwatch 6.2.0 (chunk 17b); `grafana` 0.4.0's stack test (the `node` variable filtering one node); `fixture-fill`'s short test and history run on 19, the index's size against `fixture-dropped-index`'s value (chunks 12a, 17b); the three pgaudit-reading fixtures on 19 (chunk 17c: `fixture-reports`' planted test, `fixture-lab`, `fixture-portal-scope`); the two short fake games (chunk 12b: shop and campaign, each under 30 minutes in its start window, the checks reading every selected fault present, the seam check, the tells script, the shop's M1 comparison against run R scaled to its span (spec D586, D593) and its M3 comparison within its bounds, f8's step); the `docs-overview-*` fault's short test and the clinic's front fixture (chunk 14); **after chunk 18 merges**, rerun on the merged wave branch whatever the gate's first pass ran before it and chunk 18 touches: `scheduler` 0.4.0 rebuilt `--no-cache` (its `dpkg-query` list against its last build), its unit tests with the replay guard green, its stack test; the full unit suite; `fixture-fill`'s short test and its history run (its hh:38 to hh:41 window) |
 
 ## Settled with the owner
 
@@ -463,6 +473,15 @@ Ruled on 2026-11-19, O294 and O295 (G15), each "as recommended":
 |---|---|---|
 | pgBadger 13.3's empty checkpoint section on 19 a known limit, named in `postgres`' `docs/gm.md` and the release notes; the next pgBadger that reads 19's lines taken under D396 | D591 | 17c; release gate item 7 |
 | `log_autoanalyze_min_duration = 0` beside `log_autovacuum_min_duration = 0` in every seed setting it, what those seeds feed regenerated | D592 | 17c |
+
+Ruled on 2026-11-20, on chunk 12b's shop game (wave log, wave 4,
+"Chunk 12b's rulings"), placed by spec D595; the tells' autovacuum rule
+and 12b's as-built deviations the driver's call (spec D596):
+
+| Ruling | Spec | Chunks it touches |
+|---|---|---|
+| "Report only": `n_live_tup` leaves the shop's M1 judged set and is reported | D593 | 12b |
+| "Fix a+b+c now": the forged past's counters follow what drives them (per-series drivers, no 0.25 floor, the fill's transactions per database); `set_clock`'s extra commit reported only | D594 | 18, 12b |
 
 Answered on 2026-11-17, after capture W2 (wave log, "Owner answers,
 2026-11-17"), all three as recommended:
@@ -2035,6 +2054,91 @@ Architecture capture: none.
   under the lock.
 - Split rule: none (D592's seeds a second commit of the chunk).
 
+### Chunk 18 — The forged past's counters follow what drives them
+
+Status: ready
+Wave: 4
+Depends on: chunks 8, 10 (the fill's metrics record, the history);
+chunks 12a and 17b (in wave 4, merged: `history.py` and `fixture-fill`
+as they left them, on PostgreSQL 19); spec D594, D595. Chunk 12b
+resumes after it.
+Docker: heavy (`scheduler` 0.4.0 rebuilt and its stack test;
+`fixture-fill`'s short test and its history run, in its hh:38 to hh:41
+start window; one at a time under the lock)
+Architecture capture: none beyond this plan: the metrics record's new
+key is written by the fill and read by `history.py`, both this chunk's,
+and no other chunk reads it; the chunk's record names its form, which
+G10.4 carries into formats.md ("The fill's metrics record").
+
+- Goal: the forged past's night shows no tell a DBA reads in Prometheus
+  (master spec 9.9 fix 12, spec D594): the workload's series follow the
+  fill's load all the way down, the monitoring's own stay flat, and each
+  database's commits follow the transactions the fill actually ran
+  there, so the shop's M3 comparison stops failing on `commits/s`
+  (×1.18) and `statements calls/s` (×0.851) for causes in the composer
+  (chunk 12b's diagnosis, wave log, wave 4, "Chunk 12b's rulings").
+- Scope: in:
+  - **(a) per-series drivers** in `tools/gm/history.py`: a series whose
+    `user` label names one of the scheduler's connection roles, or,
+    without a `user` label, whose `datname` names one of its databases,
+    follows the load (today's `LoadShape`); any other series with either
+    label (the monitoring's own queries, in any database; the `postgres`
+    database's counters) stays flat at the tail's rate; a series
+    carrying neither label (host, WAL, checkpointer) follows the load as
+    today (spec D595). The roles and
+    databases come from the game's scheduler nodes' connections as the
+    local implementation holds them; the record names the source. The
+    research prototype's `shape_of` (`gen_history.py:92-104` at
+    10d1bc6) is the precedent. Overlays and signatures are unchanged;
+  - **(b) the load ratio's floor**: `SHAPE_RATIO`'s 0.25 lower bound
+    removed or lowered to about 0.02, the chunk owner's choice from the
+    fill's records of the shop and `fixture-fill` (the record says which
+    and why); the upper bound unchanged;
+  - **(c) the fill's transactions per database**: the scheduler's fill
+    (`bricks/scheduler/program/gm_scheduler/fill.py`) records in each
+    virtual minute's metrics record the transactions it ran on each
+    database, keyed so `history.py` can match a `pg_stat_database_*`
+    series' `instance` and `datname`: one per transaction plan, else
+    one per step; `set_clock` and the session set-up excluded; the
+    monitoring footprint fix 9 replays not counted. `history.py` uses
+    it as the shape of that database's `pg_stat_database_*` counters,
+    ahead of (a); a database with no such record, or a record without
+    the key (a fill from an earlier image), keeps (a)'s driver. The key
+    is the composer's input only: never served by `/metrics`, never
+    forged as a series; the real mode is unchanged (the replay guard);
+  - the scheduler image rebuilt at its unreleased 0.4.0 (no new tag, no
+    re-pin);
+  - Out: `set_clock`'s extra commit per call (reported only, spec
+    D594); the shop's and the campaign's games and their records (chunk
+    12b); formats.md (G10.4).
+- Files: `tools/gm/history.py`, `tools/tests/test_history.py`;
+  `bricks/scheduler/program/gm_scheduler/fill.py`,
+  `bricks/scheduler/tests/unit/test_fill.py`;
+  `tools/tests/fixtures/fixture-fill/{run-short-test.sh,run-history-test.sh}`
+  only if a check reads what changed. No file shared with chunk 12b.
+- Spec sections: [9.9](master-spec.md#99-the-fix-list),
+  [12.1](master-spec.md#121-short-tests-only).
+- Done when: `test_history.py` green with cases for (a) (a
+  monitoring-role series flat across a night drop in the load, a
+  scheduler-role series following it, a series with neither label
+  following it), (b) (a ratio below 0.25 kept) and (c) (a database's
+  `pg_stat_database_xact_commit` shaped by its recorded transactions,
+  the fallback without them); `test_fill.py` green with the per-database
+  count (`set_clock` excluded, one per transaction plan, one per step
+  otherwise); the replay guard green; `scheduler` 0.4.0's stack test
+  green; `fixture-fill`'s short test and history run passing. The
+  expected effect on the shop, judged by chunk 12b's rerun and not here:
+  the diagnosis **predicts** (inferred, not measured) M3's `statements
+  calls/s` about ×1.0 after (a), `commits/s` about ×1.11 after (a) and
+  (b) and about ×1.0 with (c).
+- Verification: chunk checks (the scheduler's: its image build, unit
+  tests with the replay guard, stack test); `fixture-fill`'s short test
+  and history run, once each, one at a time under the lock, the history
+  run in its start window.
+- Split rule: none ((a) and (b) about 50 lines and (c) about 40, each
+  with its tests; one commit, since (c)'s shape is read through (a)'s
+  drivers).
+
 ### Chunk 12b — Fake aging verified: the tools and the two short games
 
 Status: blocked (on rulings: the shop's M1/M3 judged sets and three fill deviations; WIP c14d445)
@@ -2044,7 +2148,8 @@ and 12c (in wave 4: starts once both have merged: f8's value its game
 checks, the section its records fill; capture W4); chunks 17b and 17c
 (in wave 4: starts once both have merged, so the games run on
 PostgreSQL 19 and the exporter that ship, with f8's value as 17b left
-it; spec D589)
+it; spec D589); chunk 18 (in wave 4: 12b resumes once it has merged, so
+the shop's game reads the forged past chunk 18 shapes; spec D594)
 Docker: heavy (one short fake game of the shop and one of the campaign,
 each in its start window, one at a time under the lock)
 Architecture capture: W4 (items 1 to 5): the verification tools'
@@ -2059,7 +2164,9 @@ window and exit status, which the release gate calls.
   - **the verification tools** in `tools/fake_aging/`: the tells
     script (no negative or moving start time, no fill statement in
     `pg_stat_statements`, one `stats_reset` instant, `pg_wal`'s size,
-    autovacuum counts in range, no routine's `search_path` naming
+    autovacuum counts in range (against run R, the updates counted from
+    the game's T0 and one run per bulk statement, the rest reported:
+    capture W4 item 1, spec D596), no routine's `search_path` naming
     `gm_vclock`), the M1 dump and comparison, the M3
     profile and comparison; from the research's `m4_tells.sh`,
     `m1_dump.sh`, `m1_compare.py` and `m3_profile.py`, **copied and
@@ -2081,7 +2188,8 @@ window and exit status, which the release gate calls.
     minutes and the early check right after it; the checks reading
     every selected fault present; the seam check; the tells script; for
     the shop, the M1 comparison against run R scaled to the game's span
-    (spec D586) and the M3 comparison over the hours the game's past
+    (spec D586; `n_live_tup` reported, never judged, spec D593) and the
+    M3 comparison over the hours the game's past
     holds (capture W4 items 2, 3), and f8's step over its forged past
     (capture W4 item 4); for the
     campaign, P0's jobs' outputs against their invariants; a start-time
@@ -2102,7 +2210,8 @@ window and exit status, which the release gate calls.
     comparisons' output names run R as a PostgreSQL 18 reference; their
     judged measures (inserts, traffic) are counts the workload drives
     and stand as 12.1 states them. Each game reports, as `FIGURE` lines
-    never judged, each key's mean service time in the tail against its
+    never judged, each key's median service time in the tail (as
+    `calibrate.py keys` reads it) against its
     `service-times.yaml` and each database node's WAL rate in the tail
     against its `wal-rate.yaml` where one exists, with their ratios; the
     chunk's record names any ratio outside ×0.8 to ×1.25 as a finding
@@ -2114,7 +2223,18 @@ window and exit status, which the release gate calls.
     (capture W4 item 5), and the shop's and the campaign's `README.md`
     regenerated with the `scenario-document` skill as chunk 12c leaves
     it, their "Fake aging" section showing the setup's measured time
-    from that record.
+    from that record;
+  - **the resume** (spec D593 to D596), from WIP c14d445 on
+    `v0.6-c12b-fake-aging-games`, once chunk 18 has merged, taking
+    `v0.6-w4` in first: `m1_compare.py` reporting `n_live_tup` as a
+    `FIGURE`; `tells.sh`'s autovacuum rule against run R as capture W4
+    item 1 now states it; W4's other as-built points as written there;
+    then the shop's game rerun once with `--record`, its record
+    replacing `tarnbeck-outdoor-shop-short-game-20261120T0133Z.txt` (the
+    failed run's, removed), and the shop's `README.md` regenerated, its
+    setup time from the new record. The campaign's record
+    (`...-20261120T0231Z.txt`, 64 passed, 0 failed) stands; the wave
+    gate's campaign game runs on chunk 18's code.
   - Out: the full selections with their real tails, the blind reads
     (v1.0 gating); the recorded baseline and the research's run scripts
     (stay research); the `scenario-document` skill and template (chunk
@@ -2133,7 +2253,8 @@ window and exit status, which the release gate calls.
   minutes on PostgreSQL 19, its wall time, the fill's duration, the time from the
   deploy to the restart and the import's time recorded in its
   committed record; the shop's M1 comparison's judged measures within
-  ±3 % of run R scaled to the game's span (spec D586), and its M3
+  ±3 % of run R scaled to the game's span, or one row either way for a
+  count under 34 (spec D586, D593, D596), and its M3
   comparison's traffic expressions within its bounds (capture W4 items
   2 and 3); the shop's forged past stepping down at f8's planting by
   f8's `value`, within capture W4 item 4's tolerance; the shop's and

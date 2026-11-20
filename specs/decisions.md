@@ -733,3 +733,28 @@ D480 on. Take the next number from `doc-ids`; no ID is reused.
   `postgresql.conf` files), what those seeds feed regenerated, so the
   customers' logs keep their autoanalyze lines on 19 as designed.
   Closes O295. Now in: [build plan](versions/v0.6/build-plan.md) v17, chunk 17c, G15.
+- **D593 (2026-11-20, the owner, on chunk 12b's shop game: "Report
+  only"): `n_live_tup` leaves the shop's M1 judged set and is reported
+  as a figure;** it is the estimate VACUUM and ANALYZE overwrite, not a
+  count inserts drive (run R's `daily_sales` reads 30 for 15 rows).
+  Refines D586. Now in: [master spec](versions/v0.6/master-spec.md) 12.1; [build plan](versions/v0.6/build-plan.md) v18, chunk 12b.
+- **D594 (2026-11-20, the owner, on chunk 12b's shop game: "Fix a+b+c
+  now"): the forged past's counters follow what drives them,** fixed
+  before 12b resumes: the scheduler's roles and databases follow the
+  load, the monitoring's own series stay flat; no 0.25 floor on the
+  load's ratio; each database's `pg_stat_database_*` shaped by the fill's
+  transactions there. `set_clock`'s extra commit stays reported, not a
+  tell. Now in: [master spec](versions/v0.6/master-spec.md) 9.9 fix 12; [build plan](versions/v0.6/build-plan.md) v18, chunk 18.
+- **D595 (2026-11-20, spec-writer, placing D594): chunk 18 inserted in
+  wave 4, chunk 12b resuming after it;** the scheduler 0.4.0 rebuilt
+  unreleased, the wave gate rerunning what it touches. D594 read: the
+  `user` label decides before `datname` (the monitoring's queries in a
+  scheduler database stay flat); a series with neither (host, WAL) keeps
+  the load. 9.10 unchanged: its "fine shape" row is not the night's
+  level. Now in: [build plan](versions/v0.6/build-plan.md) v18; [master spec](versions/v0.6/master-spec.md) 9.9.
+- **D596 (2026-11-20, the wave driver's call, recorded by spec-writer):
+  capture W4's items 1 to 5 as chunk 12b built them,** with the tells'
+  autovacuum rule against run R counting updates from T0 and one run
+  per bulk statement (the shop's `customers`: 3.7 expected, observed 1
+  passes), the residual reported. Now in: wave log, capture W4 (revised
+  2026-11-20); [build plan](versions/v0.6/build-plan.md) v18, chunk 12b; [master spec](versions/v0.6/master-spec.md) 12.1.

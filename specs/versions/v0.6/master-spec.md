@@ -52,7 +52,11 @@ imported again (9.4; spec D583); what wave 3 measured (9.4, 9.8, 12.1,
 shop's M1 comparison scales the saved real run to the game's span
 (12.1; spec D586). Amended in wave 4, on the owner's ruling after G8:
 PostgreSQL 19 everywhere, server, client tools and libpq, folded into
-the unreleased versions (6.8, 7.7, 8's N3; spec D587).
+the unreleased versions (6.8, 7.7, 8's N3; spec D587). Amended in wave
+4, on the owner's rulings after chunk 12b's shop game: `n_live_tup`
+reported, not judged, and one row's leeway for a small count (12.1;
+spec D593, D596); the forged past's counters follow what drives them
+(9.9 fix 12; spec D594, D595).
 
 Baseline: the released [v0.5 master spec](../v0.5/master-spec.md) and
 its [access model](../v0.5/access-model.md). Everything v0.5 specifies
@@ -1244,6 +1248,7 @@ Every fixable caveat is fixed.
 | 9 | Monitoring's footprint in the database | the fill opens the exporter's and pgwatch's sessions at the scrape rate in virtual time |
 | 10 | Fault parameters, not constants | the queue model and the overlays read the instance's parameters and the keys' measured service times |
 | 11 | The seed and the plantings at T0 dated from the virtual T0 | `load-data`, and `inject`'s plantings at T0, run on the virtual T0's clock with P0's means: every session given `gm.vclock` at the virtual T0 and the path `"$user", public, gm_vclock, pg_catalog` (the default path, `gm_vclock` placed by 9.4's rule), so the time-of-day functions it calls read that instant and what it creates unqualified lands where a real load puts it; in the SQL `load-data` sends, the time-of-day keywords bound to it outside DDL, and in DDL every unqualified `now()` and its kin written `pg_catalog.`, so a stored default or view binds the real function, as a real load leaves it, and the shim's drop reaches no customer object; inject's scripts run unchanged, with the session means only. So the seeded history ends at the virtual T0 and the fill continues it: no seeded or T0-planted time after the virtual T0. The fill's plantings at its pauses take the same session means at the pause's virtual instant (9.4 step 5). The real mode is unchanged |
+| 12 | The forged past's counters follow what drives them | a series of the scheduler's roles (its `user` label) or, without a `user` label, of its databases (`datname`) follows the fill's load, with no floor at night; one of another role or database (the monitoring's own queries, the `postgres` database) stays flat at the tail's rate; a series with neither label follows the load; each database's `pg_stat_database_*` series follow the transactions the fill ran on it each virtual minute, the fill's clock setting excluded |
 
 **Not done, on purpose**: resetting the table and index statistics at
 the clean-up. It would hide the last-use times, but it zeroes the dead
@@ -1451,9 +1456,11 @@ No aged run.
   expected at T0 + `s` × (R − T0), T0 the game's value at its virtual T0,
   R the saved run's, `s` the share of the saved run's inserted rows that
   fell in the game's span (from its M3 profile); the measures inserts
-  drive (each table's `n_tup_ins` and `n_live_tup`, the sequences'
-  `last_value`, the database's `tup_inserted`) judged within ±3 % of
-  that, the rest reported, never judged; the shop played as it is, never
+  drive (each table's `n_tup_ins`, the sequences' `last_value`, the
+  database's `tup_inserted`) judged within ±3 % of that, or one row
+  either way for a count under 34, the rest reported, never judged,
+  `n_live_tup` among them (an estimate VACUUM and ANALYZE overwrite,
+  not a count inserts drive); the shop played as it is, never
   a copy at the saved run's span. For the campaign, the checks
   reading present, P0's jobs' outputs against their invariants, the
   seam and the tells. A start-time check confirms the monitoring

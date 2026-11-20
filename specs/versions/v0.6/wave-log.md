@@ -3307,6 +3307,11 @@ starts once 12 and 14 have merged.
 
 ### Capture W4 — the verification tools, the short-game script, the scenario document's "Fake aging" section (chunk 12; read by 16 and the release gate)
 
+**Revised 2026-11-20** (spec D593, D596; plan v18): items 1, 2 and 5 as
+chunk 12b built them (its entry, "Chunk 12b — stopped for rulings"),
+with the owner's ruling on `n_live_tup` and the driver's on the tells'
+autovacuum rule. Each change is marked "(rev. 2026-11-20)".
+
 Drafted 2026-11-19 for the wave driver, before any code. Sources: chunk
 12's and chunk 16's lines and the Release gate section (plan v14), gates
 G8 and G13; their spec packs (master spec 7.6, 9.4 to 9.12, 12.1, 12.3,
@@ -3372,7 +3377,9 @@ restart and the release gate read)
   <pg> --node <db node> [--node <db node> ...]`: every primary
   `postgres` node the game reads (the shop `db`; the campaign `db` and
   `reporting`), named by the caller. Refused, exit 2: no restart record
-  or `mode` not `fake`, no `restart.at` (the tells are a fake game's).
+  or `mode` not `fake`, no `restart.at` (the tells are a fake game's);
+  `--reference` for a scenario other than the shop, whose run R is
+  (rev. 2026-11-20).
 - **Its checks**, one verdict each per node, the fixed tells of 12.1
   and 9.9:
   - `start-time`: `pg_postmaster_start_time()` at or after
@@ -3385,7 +3392,9 @@ restart and the release gate read)
     `pg_stat_statements_info.stats_reset` before `restart.at`;
   - `stats-reset`: one instant: the shared views' `stats_reset`
     (bgwriter, checkpointer, WAL, archiver, I/O) and the statements' all
-    within one second of each other, seconds before `restart.at` (D536);
+    within one second of each other, before `restart.at` by at most 120
+    s (D536; the bound as built, rev. 2026-11-20; the observed gap a
+    `FIGURE`);
   - `pg-wal`: the live `pg_wal` total (`pg_ls_waldir()`) not below 90 %
     of `state.yaml`'s `clean_restart.wal.<node>.pg_wal_bytes`, the
     padding's own figure (`cleanrestart.py:151-172`), never a day's rate
@@ -3394,12 +3403,24 @@ restart and the release gate read)
     server; 90 % leaves one recycled segment's worth of a 1 GB folder.
     The ratio is a `FIGURE` too;
   - `autovacuum`: per table, with the reference (the shop, `--reference`
-    given): run R's runs per updated row, ×0.5 to ×2, one run either
-    way, the fill test's rule (`run-short-test.sh:338-373`); without it
-    (the campaign): a table whose updated and deleted rows passed its
+    given; rev. 2026-11-20, D596): the updated rows counted from the
+    game's T0 dump (the script's M1 at T0; R's from the same T0, the
+    same data), so the load's own updates count in neither; each run of
+    a bulk statement updating the whole table in the span (the shop's
+    `orders.close-day` on `customers`, `nodes/producer/queries.yaml:73`)
+    expected as one run, in the game and in R; the remaining runs
+    expected at R's runs per updated row: expected = bulk runs + (R's
+    runs − R's bulk runs) × the game's updated rows ÷ R's, ×0.5 to ×2,
+    one run either way (the shop's `customers`: (6 − 1) × 16617 / 30334
+    + 1 = 3.7, band 0.85 to 8.4). What the rule leaves unexplained (about
+    2.7 runs from order updates in R: pruning, 18 against 19, time
+    compression) is a `FIGURE`, never judged. Without the reference (the
+    campaign): a table whose updated and deleted rows passed its
     autovacuum threshold at least once has at least one run, and none
-    more than its dirtied rows over that threshold plus one
-    **(choice**: the only range the campaign's own figures give);
+    more than its dirtied rows (inserted, updated and deleted: inserts
+    trigger autovacuum too) over that threshold plus one
+    **(choice**: the only range the campaign's own figures give; all
+    dirtied rows as built, rev. 2026-11-20);
   - `search-path`: no routine in any database with `gm_vclock` in its
     `proconfig`'s `search_path`, and no `gm_vclock` schema left.
 - `FIGURE` only, never a verdict (9.10's row, curation none; W3
@@ -3438,10 +3459,13 @@ restart and the release gate read)
   profile, its 24 hourly steps) falling in the game's span from its
   virtual T0 to the read, scenario time. Judged, within ±3 % of the
   expected value (the research's tolerance, `results-2026-11-15.md`
-  Q1): the measures inserts drive: each table's `n_tup_ins` and
-  `n_live_tup`, the sequences' `last_value`, the database's
-  `tup_inserted`. Reported as `FIGURE` with their ratio to the
-  expected value, never judged: the rest of Q1's list (updates, HOT
+  Q1), or one row either way for a count under 34, where 3 % is less
+  than a row (as built, rev. 2026-11-20): the measures inserts drive:
+  each table's `n_tup_ins`, the sequences' `last_value`, the
+  database's `tup_inserted`. Reported as `FIGURE` with their ratio to
+  the expected value, never judged: each table's `n_live_tup` (rev.
+  2026-11-20, D593: the estimate VACUUM and ANALYZE overwrite; run R's
+  `daily_sales` reads 30 for 15 rows); the rest of Q1's list (updates, HOT
   updates, scans, bloat and dead tuples, transaction ages, order
   statuses, temp files), which f4's held transaction and f5's noon
   close in R move, and Q1's own known differences (`delivery_events`'
@@ -3529,7 +3553,11 @@ writes; the release gate item 3 calls it)
   `restart.at` + 12 min, as the timer would (W3 item 6: the timer's run
   after it is a no-op); the early check by hand right after it
   (`gmctl check --early-check`), reading every selected instance present
-  and its history line `ok, seam ok`; item 4's reads; the tells (item
+  and its history line `ok, seam ok`; a failure of the early check's
+  own verdict whose masking names only instances the game left out
+  (`(masked by ...)`, an instance `--test-leave-out` dropped, whose
+  masking the answer key expects at the hand-over) a `FIGURE`, every
+  other failure judged (rev. 2026-11-20); item 4's reads; the tells (item
   1); for the shop, M1 and M3 (items 2, 3) and f8's step; for the
   campaign, P0's invariants as chunk 11's B2 read them (W3-y:
   `rpt.close_day()`'s `proconfig` and `prosrc` md5 unchanged across the
@@ -3543,9 +3571,14 @@ writes; the release gate item 3 calls it)
 - **Figures** (`FIGURE` lines, the Done when's and the release notes'):
   the wall time from the script's start to the teardown's end; the
   setup from the deploy to the fill's end, the fill's duration, the
-  clean-restart's, the deploy to `restart.at`; `gmctl history`'s
-  duration and its `figures`. **The wall time is a check**: `FAIL` at 30
-  minutes or more (12.1).
+  clean-restart's, the deploy to `restart.at`; the setup time item 7's
+  section shows, the deploy to `restart.at` less the wait for the
+  anchor (rev. 2026-11-20); `gmctl history`'s duration and its
+  `figures`; each key's median service time in the tail, as
+  `calibrate.py keys` reads it, against its `service-times.yaml`, and
+  each database node's WAL rate against its `wal-rate.yaml` (plan, spec
+  D590; medians as built, rev. 2026-11-20). **The wall time is a
+  check**: `FAIL` at 30 minutes or more (12.1).
 - **`--record` (choice)**: also writes the output to
   `tools/fake_aging/calibration/<scenario id>-short-game-<YYYYMMDDTHHMMZ>.txt`,
   opening as every calibration file (the command, the commit, the start,
