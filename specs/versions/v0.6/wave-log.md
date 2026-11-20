@@ -4413,3 +4413,49 @@ span in the script, which costs about 3 more minutes of fill, the
 - Predicted for 12b's shop rerun (inferred): commits ×0.97 (night
   ×0.88–0.94, day ×0.98–1.00), rows inserted ×1.00, statements ×0.986.
   Scratch: `fix18/`.
+
+## 2026-11-20: chunk 12b merged; wave 4's gate passed
+
+- Chunk 12b, third owner, resumed from WIP 713fbcf: the tools squashed as
+  758e080 onto v0.6-w4 before the runs (so each record names a surviving
+  commit), records and setup-time lines 17fdb0b, merged `--no-ff` as
+  a86c3e3. The 0931Z and 1031Z WIP records never reached the wave branch.
+- Shop game 12:31Z: 54/0, 1642 s. Fill 473 s; deploy to fill end 503 s
+  (bound 600); deploy to `restart.at` 814 s (296 s anchor wait); import
+  80 s, promtool peak 1043.9 MiB.
+  - M1 10/10: all within 0.2 % of R scaled to span, except `daily_sales`
+    16 vs 15.0 (one row) and `delivery_events` ×1.025; `n_live_tup`
+    FIGURE only (D593).
+  - Tells 10/10; autovacuum `customers` 1 run (D596 rule), `products`
+    102 vs 123.3 (band 60.66–247.6).
+  - M3 5/5 over 15 steps: commits ×0.996 (predicted ×0.97; night steps
+    ×0.91–0.97 vs predicted ×0.88–0.94), rows inserted ×0.982, statements
+    ×1.00, calls ×0.992, errors ×0.991; correlations 0.995–1.
+  - f8's step 14008930 vs 14016512, tolerance 170000.
+- Campaign game 13:32Z: 64/0, 1652 s. Fill 196 s; deploy to fill end
+  231 s (bound 330); import 90 s, peak 1220.6 MiB; P0 holds; tells 35/0;
+  f1 at the seam ×0.99.
+- Setup times in the READMEs: shop 8 min 38 s (fill 7 min 53 s),
+  campaign 4 min 9 s (fill 3 min 16 s). Both documents and
+  `fixture-fill`'s checked against a fresh generation (`scendoc.py`):
+  only the setup line changed.
+- Unit suite 1570 OK, 2 skipped (374 s) on the merged tree.
+- For v1.0 gating (recalibration on 19, FIGURE only): 16 service-time
+  ratios outside ×0.8–×1.25 (shop `orders.detail` ×15 from f8's scan,
+  `reports.best-days` ×35, `deliveries.ingest` ×2.27, `orders.place`
+  ×1.96, `orders.status` ×1.61, `reports.dashboard` ×0.44; campaign 10 of
+  22, among them `dashboard.today` ×68, `dashboard.freshness` ×63,
+  `dashboard.revenue` ×17, `declare.exports` ×4.25); WAL rates shop `db`
+  ×1.18, campaign `db` ×2.43, `reporting` ×0.14.
+- Risks: both games about 2.5 min under 1800 s; history import peaks at
+  1.0–1.2 GiB.
+- Figures: 5 agents, 348 tool calls, 51.1M tokens in / 315k out, max
+  context 333k, $30.91 at API prices. **Over 300k:** the first owner
+  (333k) ran the three games and the tools' build in one context before
+  stopping for rulings; the later owners stayed under 170k.
+- **Gate:** every item of wave 4's gate row is met: the first pass
+  (figures, ten stack tests, smokes, fixtures, dpkg lists), the post-18
+  reruns (chunk 18 and fix 1e341dc: scheduler rebuilt, its unit tests,
+  stack test, `fixture-fill` short test and history run), the full unit
+  suite on the merged tree, and the two short games. Next: G10.4
+  (spec-writer), the wave report, the merge into main.

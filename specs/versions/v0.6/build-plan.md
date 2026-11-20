@@ -2145,7 +2145,14 @@ G10.4 carries into formats.md ("The fill's metrics record").
 
 ### Chunk 12b — Fake aging verified: the tools and the two short games
 
-Status: ready (resumes from WIP 713fbcf; gate fix df27325 merged)
+Status: merged (w4, a86c3e3)
+Record: 758e080 (the tools) and 17fdb0b (the records, the setup-time
+lines), merged as a86c3e3 on 2026-11-20 by its third owner; no new
+deviation (the as-built ones are in spec D596 and capture W4). Shop
+54/0 in 1642 s (record `...-shop-short-game-20261120T1231Z`), campaign
+64/0 in 1652 s (`...-campaign-short-game-20261120T1332Z`), both on 19
+on the merged tree with chunk 18 and the gate fix; they stand as the
+wave 4 gate's two-games item. Unit suite 1570 OK.
 Wave: 4
 Depends on: chunks 8, 9, 10, 11, 15; chunk 1 (the reference); chunks 12a
 and 12c (in wave 4: starts once both have merged: f8's value its game
