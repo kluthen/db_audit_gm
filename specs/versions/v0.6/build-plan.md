@@ -1854,7 +1854,11 @@ notes them in the wave log beside capture W4.
 
 ### Chunk 17b — `postgres_exporter` 0.21.1, pgwatch 6.2.0, fake aging's size re-measured on 19
 
-Status: planned
+Status: merged (w4, a2dbe23)
+Record: 741751c, merged as a2dbe23 on 2026-11-20. Index size on 19 is
+13213696, unchanged from 18 (D590): no fault or calibration file
+changed. One wording deviation: `statio_user_indexes` carries `datname`
+only under database discovery, so not here (wave log).
 Wave: 4
 Depends on: chunk 17a (in wave 4: starts once it has merged; its runs
 read 19); G9.2 (its preflight, done)

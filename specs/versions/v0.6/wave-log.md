@@ -4054,3 +4054,59 @@ span in the script, which costs about 3 more minutes of fill, the
   under the vault limit though its evidence reads the data register;
   bookshop-new-server writes one total as "2.25G".
 - Figures: 1 agents, 75 tool calls, 12.9M tokens in / 85k out, max context 253k, $5.39 at API prices.
+
+### Chunk 17b — merged (a2dbe23), 2026-11-20
+
+- Commit 741751c; v0.6-w4 taken in twice (17c, then chunk 16 as
+  8ef9d21), generated files regenerated on the merged inputs; merged
+  --no-ff. Branch deleted.
+- Evidence: `postgres-exporter:0.2.1` (0.21.1, sha256 02f316da…) and
+  `pgwatch:0.1.1` (6.2.0, sha256 8c61a80e…) built --no-cache with
+  version-banner checks. Stack tests on 19: exporter all pass (101 s;
+  first run failed on the owner's own `datname` check, fixed), pgwatch
+  all pass (250 s; `basic` preset on 190000; 13.5 MiB at rest, peak
+  23 MB). SBOMs regenerated (34 and 46 components), `go-sbom check` and
+  `test_go_sbom` pass. `fixture-fill` short test 65/0 (889 s, pre-merge
+  tree); history run 39/0 (1412 s, merged tree). Unit suite 1559 OK, 2
+  skipped; `test_planted` green after chunk 16.
+- Index size on 19 (D590): `order_lines_order_id_idx` 13213696 bytes,
+  exactly 18's; f8's 14016512 stands; gauge_before read 13207980. No
+  fault, calibration or shop README change.
+- Generated: the clinic's overview (four exporter entries now 0.21.1,
+  pgwatch 6.2.0, `brick.yaml` digests), the same five lines in
+  `fixture-clinic-front`'s and `fixture-overview-fault`'s handouts;
+  clinic README unchanged; chunk 16's `scendoc.py` reruns change
+  nothing.
+- dpkg lists for G9.2's post-change check:
+  scratchpad `c17b/dpkg/postgres-exporter-0.2.1.txt`,
+  `c17b/dpkg/pgwatch-0.1.1.txt`. The exporter 0.20.1 ignores live only
+  in `.tech`: post-change check.
+- **Beside W4, the exporter on 0.21.1** (12b's tells and the history
+  read these): started as `env -i PATH DATA_SOURCE_USER=<user>
+  postgres_exporter --datasource.uri=<from exporter.conf>
+  --datasource.pass-file=/opt/gm/secrets/monitoring_password
+  --web.listen-address=:9187 --web.telemetry-path=/metrics
+  --config.file=/usr/local/lib/gm/postgres_exporter.yml <collectors>`;
+  `exporter.conf` keys unchanged; no `--auto-discover-databases`, no
+  `--wrap-large-counters`, `--web.max-requests` default 40. Same 15
+  default collectors; database-scoped ones reach `postgres` only
+  (checked: 25 sessions all in `postgres`, no series for a second
+  database). Label changes: `stat_replication` gains `pid`;
+  `statio_user_indexes` gets `datname` only under discovery (not here);
+  new `pg_settings_pending_restart{name}` = 1 while a setting waits for
+  a restart (a possible tell when a player or fault only reloads). A
+  collector failing mid-scrape drops all its metrics. No counter family
+  changed: `history.py` untouched. `fill.py`'s `EXPORTER_SQL` replays
+  0.21's session setup, slot columns, `pg_stat_replication.pid`,
+  `pg_settings.pending_restart` (`test_fill` asserts it).
+- Deviation, for spec-writer at G10.4: the chunk and G9.2 say
+  `statio_user_indexes` "gains `datname`"; it does only under discovery.
+  Docs and stack test state it; no code path changes.
+- Outside Files, to keep docs true: `bricks/pgwatch/docs/player.md`
+  (6.1 → 6.2), comments in pgwatch's `pgwatch-sources`, its test
+  `sources.yaml`, the exporter's s6 `run`. Left: `bricks/grafana/docs/
+  gm.md:135` still says "pgwatch 6.1.0" (wave gate fix);
+  `fixture-monitoring-v05`'s comment (frozen v0.5 fixture).
+- For the wave gate: `fixture-fill` short test on the merged tree (17c's
+  D592 seeds, chunk 16).
+- Figures: 1 agents, 128 tool calls, 22.8M tokens in / 68k out, max context 242k, $12.26 at API prices.
