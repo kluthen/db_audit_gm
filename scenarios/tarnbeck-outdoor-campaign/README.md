@@ -1028,9 +1028,8 @@ bastion, the starter pack or a handout.
   can emulate in outcome only and the restart erases (master spec 9.10);
   no history.
 - **Setup time**, from the deploy to the restart, the wait for the
-  anchor not counted: not measured: no short-game record,
-  `tools/fake_aging/calibration/tarnbeck-outdoor-campaign-short-game-*.txt`,
-  yet.
+  anchor not counted: 4 min 9 s, the fill 3 min 16 s of it
+  (`tools/fake_aging/calibration/tarnbeck-outdoor-campaign-short-game-20261120T1332Z.txt`).
 
 ### Limits that touch its evidence
 
