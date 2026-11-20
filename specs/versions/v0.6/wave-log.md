@@ -4514,3 +4514,21 @@ span in the script, which costs about 3 more minutes of fill, the
   format checks (item 2); (B) security-advisor's post-change check, row
   G9.3, with the OpenSSL recheck; (C) items 1, 4, 5; (D) item 3, the two
   short games; (E) spec-writer's items 6 and 7; (F) G11, the owner.
+
+### Release gate (A) item 2 and (E1) item 6 done, 2026-11-20
+
+- (A) 7476d7b: `zlib1g` named in each of the ten installs plus a
+  `ZLIB_FLOOR` assertion (naming it rather than `apt-get upgrade` keeps
+  `postgresql-common` at 278 where G9.2 left it). All ten built
+  `--no-cache --pull`; the only dpkg difference in each is zlib1g +b1 →
+  +deb13u1. Stack tests all green at wave 4's counts (postgres 317/0
+  after 3179aff, a test-only fix: `pgrep -o -x cron`, cron's per-job
+  child raced the check). Scheduler unit 117 OK, api 36 OK; unit suite
+  1570 OK, 2 skipped (397 s); format check 0 missing on the 5 scenarios
+  and 38 fixtures. G5, G7, G8, G9.2, G10.1–G10.4 done. Row G9.3 added
+  for the post-change check. Logs and dpkg lists: scratchpad `rg/`.
+- (E1) item 6 met: 94bb1b5 (v1.0 gating's campaign per D542), 925734d
+  (D598: retention after a compaction to v1.0 gating), a8b9edb (plan
+  v20: "Recorded in" column); merged e91fb5a. The archive's checksum
+  verified. Gap: the bastion's footprint with the status service up was
+  never measured; (C) takes it.
