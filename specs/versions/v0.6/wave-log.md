@@ -4190,3 +4190,63 @@ span in the script, which costs about 3 more minutes of fill, the
   rulings (spec-writer, the owner where a judged set changes), then a
   fresh owner resumes from c14d445: shop rerun with `--record`, the
   0133Z record replaced, squash, merge.
+
+### Wave gate, first pass (all but 12b's games) — green, 2026-11-20
+
+- `coding-executor`, 04:04–06:46 CET on armenelos, one item at a time
+  under the lock and inhibitor, each under 30 min. Logs:
+  scratchpad `gate4/logs/`, `gate4/results.txt`.
+- Fixes: 3017cf8 (grafana `brick.yaml`'s stale header comment; the
+  clinic's overview digest line for it), 9b45eba (grafana `docs/gm.md`
+  names pgwatch 6.2.0).
+- Unit suite 1559 OK (382 s); scheduler unit 113 OK; api unit 36 OK;
+  `sh -n` 349, `py_compile` 485, `perl -c` 14 files.
+- Ten builds `--no-cache --pull` (197 s), Debian 13 on 10/10. Stack
+  tests on 19, all 0 failed: postgres 317 (450 s), bastion 136 (95 s),
+  pgbouncer 121 (173 s), scheduler 179 (838 s), api 89 (196 s),
+  health-check 97 (169 s), postgres-exporter 112 (103 s), pgwatch 74
+  (252 s), prometheus 132 (78 s), grafana 139 (201 s; "data source
+  pointing nowhere" passed first time, no flake seen).
+- Smokes: `smoke.sh` 61/0 (31 s), `smoke-monitoring.sh` 43/0 (48 s),
+  `smoke-governance.sh` 121/0 (109 s), `smoke-load.sh` 73/0 (378 s).
+  Scenario short smokes: bookshop 19/0 (22 s), fernway 18/0 (30 s), shop
+  26/0 (841 s), campaign 33/0 (317 s).
+- Fixtures on the merged branch: `fixture-fill` history 39/0 (1396 s;
+  index 13213696 = the fault's value, step 13208585, fill 224 s for 466
+  virtual min, promtool peak 625 MiB); `fixture-fill` short 65/0 (836 s;
+  exporter sessions 3790 vs 3780); `fixture-overview-fault` 16/0;
+  `fixture-clinic-front` 38/0 (76 links, none dead); `fixture-lab` 19/0;
+  `fixture-portal-scope` 20/0 (352 s); `fixture-reports` s7 24/0 (649 s),
+  s3 32/0 (767 s, no idle wait).
+- dpkg: all ten lists identical to their last builds (c17a, c17b, G8):
+  PostgreSQL 19 alone everywhere; no G9 row needed.
+- Left: 12b's two short games after 12b merges, plus reruns of whatever
+  the inserted fill/history chunk touches (scheduler build and stack
+  test, unit suite, `fixture-fill` short and history).
+
+### Chunk 12b's rulings — 2026-11-20
+
+- Diagnosis (read-only `coding-executor`): scratchpad
+  `c12b/diagnosis.md`. 1: `n_live_tup` is a VACUUM/ANALYZE estimate (R's
+  `daily_sales` 30 for 15 rows from its load's late counter flush). 2
+  and 3: M3's commits ×1.18 and statements ×0.851 come from
+  `tools/gm/history.py` scaling every counter by one load ratio clamped
+  at 0.25 (history.py:64, :298, :541): a flat night plateau at 25 %
+  while calls drop to 17 %, and the scraper's own queries slowing at
+  night: a DBA-visible tell. `set_clock`'s extra commit per call
+  (fill.py:474-475, :578) explains M1 `xact_commit` ×1.95 but not M3;
+  report only. 4: the tells' autovacuum rule counts the load's 20000
+  updates and close-day's one bulk statement as per-row updates;
+  corrected, 3.7 expected (band 0.85–8.4), observed 1 passes.
+- **Owner, 2026-11-20:** (1) "Report only": `n_live_tup` leaves M1's
+  judged set and is reported (master spec 12.1 reworded). (2/3) "Fix
+  a+b+c now": an inserted chunk before 12b resumes: (a) per-series
+  drivers in `history.py` (the scheduler's roles and databases follow the
+  load, the rest stay flat), (b) the 0.25 floor removed, (c) the fill
+  records its transactions per minute per database as the shape of
+  `pg_stat_database_*` (scheduler image rebuilt).
+- Driver's call (no ruling needed): 4 is a tells-rule correction inside
+  12b's own files (updates from T0, one run per bulk statement), folded
+  into W4 with 12b's other as-built deviations; the residual reported.
+- Sent to `spec-writer`: the rulings, master spec 12.1, the inserted
+  chunk, W4's revision, 12b's dependency.
