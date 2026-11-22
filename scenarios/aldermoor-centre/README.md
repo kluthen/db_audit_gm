@@ -32,6 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 9 (9 fault instances); targets hard |
 | Aging | 10h at least; hand-over designed for 09:00, scenario time |
+| Weekdays | the schedulers' shapes differ by day (`pms`: `clinic-day` mon-fri / sat / sun, `office` mon-fri / sat-sun, `herd-days` mon / tue / wed / thu / fri-sun, `reception` mon-fri / sat / sun; `lis`: `bench` mon-sat / sun, `courier-waves` mon-sat / sun; `equipment`: `imaging-day` mon-fri / sat / sun, `reporting` mon-fri / sat / sun, `theatre` mon-fri / sat-sun, `clinic-day` mon-fri / sat / sun, `office` mon-fri / sat-sun; `partners-backend`: `centres-office` mon-fri / sat / sun, `practice-hours` mon-fri / sat / sun, `xlab-hours` mon-sat / sun); age on a weekday (mon-fri; `herd-days` busy on tue and thu alone) so the window holds the story's day |
 | Domains | `vet-core` (variant `regional-franchise`), `vet-housing`, `vet-scheduling`, `vet-lab`, `vet-machinery`, `vet-portal`; see "Composition" in section 3 |
 
 ### Initiator's inputs, as given
@@ -149,11 +150,12 @@ No knobs.
   fixable.
 - **Description**: The record's database server, the medical record, the agenda and the wards, the back office's registers and reports, the owners' portal.
 - **Users**: none.
-- **Options**: `monitoring`.
+- **Options**: `monitoring`: on; every other option its brick declares is off.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
 - **Published ports**: none.
 - **Seed files**: `postgresql.conf` → `nodes/records/postgresql.conf`; `pg_hba.conf` → `nodes/records/pg_hba.conf`; `crontab` → `nodes/records/crontab`.
+- **Standbys**: `standby`, cloned from this node after the load.
 - **Crontab roles**: none: its crontab connects as no customer role.
 
 Jobs on the node (cron daemon on, pg_cron on, metadata in `jobs`, cron.timezone `'{{customer_timezone}}'`), scheduled by `load-data` from the domain `vet-portal`'s `data/cron.sql` after its load (its data file schedules none):
@@ -220,7 +222,7 @@ The domains loaded here by `load-data`, after the data file: `vet-core`, `vet-ho
 - **Description**: The record's standby, a streaming replica of records where the back office's reports run their heavy reads.
 - **Site**: the off-site room, at Lowmoor.
 - **Users**: none.
-- **Options**: `monitoring`.
+- **Options**: `monitoring`: on; every other option its brick declares is off.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -252,6 +254,7 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
   fixable.
 - **Description**: The laboratory's database server, its orders, samples and results, the practices' accounts and their billing.
 - **Users**: none.
+- **Options**: none: every option its brick declares is off (`monitoring` not chosen: instance `s10`, see section 5).
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
 - **Published ports**: none.
@@ -292,7 +295,7 @@ Data: no data file; the domain loaded here by `load-data`: `vet-lab` into the da
   fixable.
 - **Description**: The machines' database server, the imaging worklist and reports, the monitors' readings and the biomedical events.
 - **Users**: none.
-- **Options**: `monitoring`.
+- **Options**: `monitoring`: on; every other option its brick declares is off.
 - **Networks**: backend.
 - **Parameters**: vault_target = cold-storage:8000; vault_credential = cold_storage.
 - **Published ports**: none.
@@ -347,6 +350,14 @@ The domain loaded here by `load-data`, after the data file: `vet-machinery` into
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/pms/queries.yaml`; `jobs.yaml` → `nodes/pms/jobs.yaml`; `schedule.yaml` → `nodes/pms/schedule.yaml`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `administrations-round` | `0 2,6,10,14,18,22 * * *` | `clinic` | — | key `administrations.round` |
+| jobs.yaml | `prescriptions-expire` | `15 0 * * *` | `clinic` | — | key `prescriptions.expire` |
+| jobs.yaml | `rota-publish` | `0 12 * * 5` | `sched` | — | key `sched.rota.publish` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -368,6 +379,18 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/lis/queries.yaml`; `jobs.yaml` → `nodes/lis/jobs.yaml`; `schedule.yaml` → `nodes/lis/schedule.yaml`; `scripts/` → `nodes/lis/scripts/`.
+
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `lab-qc-morning` | `45 6 * * *` | `lab` | — | key `lab.qc.morning` |
+| jobs.yaml | `lab-qc-night` | `15 21 * * *` | `lab` | — | key `lab.qc.night` |
+| jobs.yaml | `lab-release-round` | `0 11 * * *` | `lab` | — | key `lab.release.round` |
+| jobs.yaml | `lab-release-round-14` | `0 14 * * 1,2,3,4,5,6` | `lab` | — | key `lab.release.round` |
+| jobs.yaml | `lab-release-round-18` | `0 18 * * 1,2,3,4,5,6` | `lab` | — | key `lab.release.round` |
+| jobs.yaml | `lab-samples-dispose` | `0 6 * * *` | `lab` | — | key `lab.samples.dispose` |
+| jobs.yaml | `lab-identity` | `* * * * *` | `lab`, `clinic-api` | — | key `lab.identity` |
 
 Resources (absolute, never recomputed per playground):
 
@@ -391,6 +414,8 @@ No knobs.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/ward/queries.yaml`; `jobs.yaml` → `nodes/ward/jobs.yaml`; `schedule.yaml` → `nodes/ward/schedule.yaml`.
 
+Jobs on the node: none (its `jobs.yaml` lists no job).
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -412,6 +437,14 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/equipment/queries.yaml`; `jobs.yaml` → `nodes/equipment/jobs.yaml`; `schedule.yaml` → `nodes/equipment/schedule.yaml`; `scripts/` → `nodes/equipment/scripts/`.
+
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `mach-identity` | `* * * * *` | `pacs`, `clinic-api` | — | key `mach.identity` |
+| jobs.yaml | `mach-census` | `*/5 * * * *` | `vitals`, `clinic-api` | — | key `mach.census` |
+| jobs.yaml | `vitals-chart` | `*/5 * * * *` | `vitals` | — | key `vitals.chart` |
 
 Resources (absolute, never recomputed per playground):
 
@@ -435,6 +468,33 @@ No knobs.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/interfaces/queries.yaml`; `jobs.yaml` → `nodes/interfaces/jobs.yaml`; `schedule.yaml` → `nodes/interfaces/schedule.yaml`; `scripts/` → `nodes/interfaces/scripts/`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `post-lab-orders` | `* * * * *` | `clinic`, `lab-api` | — | key `lab-orders.post` |
+| jobs.yaml | `fetch-lab-results` | `*/5 * * * *` | `clinic`, `lab-api` | — | key `lab-orders.fetch` |
+| jobs.yaml | `deliver-practice-results` | `* * * * *` | `lab-dispatch`, `practices` | — | key `practice-results.deliver` |
+| jobs.yaml | `send-outs` | `0 16 * * 1,2,3,4,5` | `lab-dispatch`, `northfield-lab` | — | key `send-outs.send` |
+| jobs.yaml | `chase-send-outs` | `*/15 * * * *` | `lab-dispatch`, `northfield-lab` | — | key `send-outs.chase` |
+| jobs.yaml | `sync-exchanges` | `*/5 * * * *` | `clinic`, `centres-central`, `centres-south`, `centres-abroad` | — | key `exchanges.sync` |
+| jobs.yaml | `chase-exchanges` | `0 9 * * 1,2,3,4,5` | `clinic`, `centres-central`, `centres-south`, `centres-abroad` | — | key `exchanges.chase` |
+| jobs.yaml | `notify-vet` | `*/5 * * * *` | `clinic`, `authority` | — | key `notify.vet` |
+| jobs.yaml | `notify-lab` | `*/5 * * * *` | `lab-dispatch`, `authority` | — | key `notify.lab` |
+| jobs.yaml | `escalate-notifications` | `*/15 * * * *` | `clinic`, `lab-dispatch` | — | key `notify.escalate` |
+| jobs.yaml | `check-in` | `* * * * *` | `clinic`, `sched` | — | key `bookings.check-in` |
+| jobs.yaml | `book-requests` | `* * * * *` | `clinic`, `sched` | — | key `bookings.book-requests` |
+| jobs.yaml | `cancel-deceased` | `* * * * *` | `clinic`, `sched` | — | key `bookings.cancel-deceased` |
+| jobs.yaml | `post-imaging-orders` | `* * * * *` | `clinic`, `pacs` | — | key `imaging.post` |
+| jobs.yaml | `fetch-imaging-reports` | `*/5 * * * *` | `clinic`, `pacs` | — | key `imaging.fetch` |
+| jobs.yaml | `ship-partitions` | `40 0-5 * * *` | `vitals`, `biomed`, `cold-storage` | — | key `archive.ship` |
+| jobs.yaml | `sync-portal-identity` | `*/5 * * * *` | `portal-clinic`, `portal-sync` | — | key `portal.identity` |
+| jobs.yaml | `publish-records` | `*/5 * * * *` | `portal-clinic`, `portal-sync` | — | key `portal.records` |
+| jobs.yaml | `publish-results` | `*/5 * * * *` | `portal-clinic`, `portal-lab`, `portal-sync` | — | key `portal.results` |
+| jobs.yaml | `queue-notices` | `*/5 * * * *` | `portal-dispatch` | — | key `messages.notices` |
+| jobs.yaml | `queue-reminders` | `0 9 * * *` | `portal-dispatch` | — | key `messages.reminders` |
+| jobs.yaml | `send-messages` | `* * * * *` | `portal-dispatch`, `messaging` | — | key `messages.send` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -457,6 +517,25 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/backoffice/queries.yaml`; `jobs.yaml` → `nodes/backoffice/jobs.yaml`; `schedule.yaml` → `nodes/backoffice/schedule.yaml`; `scripts/` → `nodes/backoffice/scripts/`.
+
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `copy-notifications` | `15 2 * * *` | `clinic-reports`, `lab-reports`, `office` | — | key `notify.copy` |
+| jobs.yaml | `feed-medicines-register` | `30 1 * * *` | `clinic-reports`, `office` | — | key `meds.register` |
+| jobs.yaml | `feed-controlled-drugs` | `45 1 * * *` | `clinic-reports`, `office` | — | key `meds.controlled` |
+| jobs.yaml | `close-medicines-register` | `0 3 * * *` | `clinic-reports`, `office` | — | key `meds.close` |
+| jobs.yaml | `balance-controlled-drugs` | `15 3 * * *` | `clinic-reports`, `office` | — | key `meds.balance` |
+| jobs.yaml | `inventory-controlled-drugs` | `30 3 * * *` | `clinic-reports`, `office` | — | key `meds.inventory` |
+| jobs.yaml | `feed-antimicrobial-use` | `0 2 * * *` | `clinic-reports`, `office` | — | key `amu.feed` |
+| jobs.yaml | `report-antimicrobial-use` | `0 4 * * *` | `clinic-reports`, `office`, `authority` | — | key `amu.report` |
+| jobs.yaml | `feed-working-time` | `30 9 * * *` | `sched-reports`, `clinic-reports`, `office` | — | key `worktime.feed` |
+| jobs.yaml | `close-working-time` | `0 5 * * *` | `clinic-reports`, `office` | — | key `worktime.close` |
+| jobs.yaml | `feed-daily-figures` | `30 0 * * *` | `clinic-reports`, `lab-reports`, `office` | — | key `figures.feed` |
+| jobs.yaml | `send-monthly-figures` | `0 5 * * *` | `clinic-reports`, `office`, `headoffice` | — | key `figures.send` |
+| jobs.yaml | `feed-lab-charges` | `30 2 * * *` | `lab-reports`, `office` | — | key `charges.feed` |
+| jobs.yaml | `close-lab-statements` | `0 4 * * *` | `lab-reports`, `office` | — | key `charges.close` |
 
 Resources (absolute, never recomputed per playground):
 
@@ -735,6 +814,18 @@ No knobs.
 - **Seed files**: `health.yaml` → `nodes/health/health.yaml`; `crontab` → `nodes/health/crontab`; `scripts/` → `nodes/health/scripts/`.
 - **Crontab roles**: none: its crontab connects as no customer role.
 
+Jobs on the node (cron daemon on, the crontab of the OS user `postgres`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| crontab | `checks` | `*/5 * * * *` | `postgres` | — | the health page's checks on the four database servers, check_postgres over `health.yaml` |
+| crontab | `disk-alarm` (records) | `*/5 * * * *` | `postgres` | — | the disk alarm on records' databases, warning at 2 GB, critical at 4 GB |
+| crontab | `disk-alarm` (lab) | `*/5 * * * *` | `postgres` | — | the disk alarm on lab's databases, warning at 2 GB, critical at 4 GB |
+| crontab | `disk-alarm` (machines) | `*/5 * * * *` | `postgres` | — | the disk alarm on machines' databases, warning at 2 GB, critical at 4 GB |
+| crontab | `backup-there` (records) | `30 6 * * *` | `postgres` | — | whether last night's base backup of records is in Cold Storage (`http://cold-storage:8000`) |
+| crontab | `backup-there` (lab) | `30 6 * * *` | `postgres` | — | whether last night's base backup of lab is in Cold Storage (`http://cold-storage:8000`) |
+| crontab | `backup-there` (machines) | `30 6 * * *` | `postgres` | — | whether last night's base backup of machines is in Cold Storage (`http://cold-storage:8000`) |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -776,6 +867,8 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/partners-backend/queries.yaml`; `jobs.yaml` → `nodes/partners-backend/jobs.yaml`; `schedule.yaml` → `nodes/partners-backend/schedule.yaml`.
+
+Jobs on the node: none (its `jobs.yaml` lists no job).
 
 Resources (absolute, never recomputed per playground):
 
@@ -1253,7 +1346,7 @@ Placement and the reservations it was sized with:
 | `partners-backend` | `vps` | 0.1 | 64M | 128M |
 | `partners-db` | `vps` | 0.25 | 256M | 2G |
 | **Total on `armenelos`** | | 2.75 of 4 | 2704M of 4G | 8960M of 20G |
-| **Total on `vps`** | | 1.3 of 2 | 1536M of 4G | 5120M of 10G |
+| **Total on `vps`** | | 1.3 of 2 | 1.5G of 4G | 5G of 10G |
 
 ## 5. Incidents, flaws and defects
 
@@ -1261,17 +1354,17 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `s1` | `purpose-urgent-priority-dropped` 0.1.0 | `interfaces` | none | known | `T0` | the definition's |
-| `s2` | `pg-archive-command-silent` 0.1.0 | `records` | none | hidden | `T0` | the definition's |
-| `s3` | `purpose-herd-use-dropped` 0.1.0 | `backoffice` | target_node = records | hidden | `T0` | the definition's |
-| `s5` | `security-policy-ownership-end-dropped` 0.1.0 | `records` | database = portal | hidden | `handover-3h` | the definition's |
-| `s6` | `governance-register-flow-undeclared` 0.1.0 | `bastion` | recipient = Cold Storage | hidden | `T0` | the definition's |
-| `s7` | `governance-statement-log-personal` 0.1.0 | `records` | none | hidden | `T0` | the definition's |
-| `s8` | `pg-standby-apply-delay` 0.1.0 | `standby` | none | hidden | `T0` | the definition's |
-| `s9` | `scheduler-display-refresh-loop` 0.1.0 | `ward` | unit = 7 | hidden | `T0` | the definition's |
-| `s10` | `pg-monitoring-option-absent` 0.1.0 | `lab` | none | hidden | `T0` | the definition's |
+| `s1` | `purpose-urgent-priority-dropped` 0.1.0 | `interfaces` | none | known | `T0` | 0m (the definition's) |
+| `s2` | `pg-archive-command-silent` 0.1.0 | `records` | none | hidden | `T0` | 1h (the definition's) |
+| `s3` | `purpose-herd-use-dropped` 0.1.0 | `backoffice` | target_node = records | hidden | `T0` | 0m (the definition's) |
+| `s5` | `security-policy-ownership-end-dropped` 0.1.0 | `records` | database = portal | hidden | `handover-3h` | 0m (the definition's) |
+| `s6` | `governance-register-flow-undeclared` 0.1.0 | `bastion` | recipient = Cold Storage | hidden | `T0` | 0m (the definition's) |
+| `s7` | `governance-statement-log-personal` 0.1.0 | `records` | none | hidden | `T0` | 0m (the definition's) |
+| `s8` | `pg-standby-apply-delay` 0.1.0 | `standby` | none | hidden | `T0` | 0m (the definition's) |
+| `s9` | `scheduler-display-refresh-loop` 0.1.0 | `ward` | unit = 7 | hidden | `T0` | 0m (the definition's) |
+| `s10` | `pg-monitoring-option-absent` 0.1.0 | `lab` | none | hidden | `T0` | 0m (the definition's) |
 
-`T0`: right after the data load, before the load starts.
+`T0`: right after the data load, before the workload starts.
 `handover-3h`: 3 hours before the hand-over.
 
 ### Issues given to the players
@@ -1635,9 +1728,10 @@ Judged at the final answer, on the report alone: no sealed check.
   - `machines`: `data/machines.sql`
   - `partners-db`: `data/partners-db.sql`
   - the domains, loaded by `load-data` from the catalogue after the data files, in `composition.yaml`'s order: `domains/vet-core/`, `domains/vet-housing/`, `domains/vet-scheduling/`, `domains/vet-lab/`, `domains/vet-machinery/`, `domains/vet-portal/`.
-- **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml`, each key prefixed with its table's database.
+- **Column classification**: `data/classification.yaml`, the scenario's copy of the composed domains' `data/classification.yaml` (`domains/vet-core/data/classification.yaml`, `domains/vet-housing/data/classification.yaml`, `domains/vet-scheduling/data/classification.yaml`, `domains/vet-lab/data/classification.yaml`, `domains/vet-machinery/data/classification.yaml`, `domains/vet-portal/data/classification.yaml`, one per domain), each key prefixed with its table's database.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`, `gm/notes.md`, the true register `gm/data-register.yaml`, the true overview `gm/network-overview.yaml`.
 - **Composition** (GM side, never shipped): `composition.yaml`, the scenario layer `compose/backoffice/`, `compose/clinic-api/`, `compose/equipment/`, `compose/interfaces/`, `compose/lis/`, `compose/partners-api/`, `compose/partners-backend/`, `compose/pms/`, `compose/ward/`.
+- **Fake aging figures** (GM side, never mapped): none yet: a fake game needs them, see "Fake aging".
 
 ## Fake aging
 
@@ -1668,6 +1762,18 @@ bastion, the starter pack or a handout.
 - **Setup time**, from the deploy to the restart, the wait for the
   anchor not counted: not measured: no short-game record,
   `tools/fake_aging/calibration/aldermoor-centre-short-game-*.txt`, yet.
+- **Measured figures**: `nodes/pms/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/lis/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/ward/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/equipment/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/interfaces/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/backoffice/service-times.yaml` missing:
+  `gmctl fill` refuses; `nodes/partners-backend/service-times.yaml`
+  missing: `gmctl fill` refuses; `nodes/records/wal-rate.yaml` missing:
+  `gmctl clean-restart` refuses; `nodes/lab/wal-rate.yaml` missing:
+  `gmctl clean-restart` refuses; `nodes/machines/wal-rate.yaml` missing:
+  `gmctl clean-restart` refuses; `nodes/partners-db/wal-rate.yaml`
+  missing: `gmctl clean-restart` refuses.
 
 ### Limits that touch its evidence
 

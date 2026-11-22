@@ -32,7 +32,8 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 10 (10 fault instances); targets normal |
 | Aging | 16h at least; hand-over designed for 14:00, scenario time |
-| Domain | `shop`, for provenance: the business's data and producer copied from `domains/shop/` |
+| Weekdays | the same every day: no scheduler's shape writes `days:` |
+| Domain | `shop`, for provenance: the business's data and producer copied from `domains/shop/`; the domain's GM notes, `domains/shop/docs/gm.md` |
 
 ### Initiator's inputs, as given
 
@@ -127,6 +128,8 @@ No knobs.
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Options**: `monitoring`: on; every other option its brick declares is
+  off.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -220,6 +223,12 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/producer/queries.yaml`; `builders/` → `nodes/producer/builders/`; `jobs.yaml` → `nodes/producer/jobs.yaml`; `schedule.yaml` → `nodes/producer/schedule.yaml`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `close-day` | `0 12 * * *` | `app` | — | key `orders.close-day` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -242,6 +251,8 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/consumer/queries.yaml`; `jobs.yaml` → `nodes/consumer/jobs.yaml`; `schedule.yaml` → `nodes/consumer/schedule.yaml`.
+
+Jobs on the node: none (its `jobs.yaml` lists no job).
 
 Resources (absolute, never recomputed per playground):
 
@@ -320,6 +331,13 @@ Data, restored from `data/reporting.sql`:
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/bi/queries.yaml`; `scripts/` → `nodes/bi/scripts/`; `jobs.yaml` → `nodes/bi/jobs.yaml`; `schedule.yaml` → `nodes/bi/schedule.yaml`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `rollup-hourly` | `5 * * * *` | `shop`, `reporting` | — | key `rollup.hourly` |
+| jobs.yaml | `rollup-close` | `30 1 * * *` | `reporting` | — | key `rollup.close` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -343,6 +361,16 @@ No knobs.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/crm/queries.yaml`; `jobs.yaml` → `nodes/crm/jobs.yaml`; `schedule.yaml` → `nodes/crm/schedule.yaml`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `leads-extract` | `20 * * * *` | `shop_crm` | — | key `leads.extract` |
+| jobs.yaml | `mail-shipped` | `*/5 * * * *` | `shop_crm` | — | key `mail.shipped` |
+| jobs.yaml | `mail-campaign` | `*/15 8-20 * * *` | `shop_crm` | — | key `mail.campaign` |
+| jobs.yaml | `declare-exports` | `*/5 * * * *` | `shop_customs` | — | key `declare.exports` |
+| jobs.yaml | `escalate-customs` | `*/15 * * * *` | `shop_customs` | — | key `escalate.customs` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -363,6 +391,8 @@ No knobs.
 - **Parameters**: none.
 - **Published ports**: none.
 - **Seed files**: `queries.yaml` → `nodes/gateway/queries.yaml`; `jobs.yaml` → `nodes/gateway/jobs.yaml`; `schedule.yaml` → `nodes/gateway/schedule.yaml`.
+
+Jobs on the node: none (its `jobs.yaml` lists no job).
 
 Resources (absolute, never recomputed per playground):
 
@@ -596,7 +626,7 @@ Placement and the reservations it was sized with:
 | `f9` | `governance-personal-copied` 0.1.0 | `reporting` | none | hidden | `T0` | 1h |
 | `f10` | `purpose-heavy-job-on-database-node` 0.1.0 | `reporting` | none | known | `handover-12h` | 90m |
 
-`T0`: right after the data load, before the load starts.
+`T0`: right after the data load, before the workload starts.
 `handover-5h`: 5 hours before the hand-over.
 `handover-12h`: 12 hours before the hand-over.
 
@@ -995,6 +1025,10 @@ the expected answer): none.
   copy of `domains/shop/data/classification.yaml`.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Fake aging figures** (GM side, never mapped): `nodes/db/wal-rate.yaml`,
+  `nodes/producer/service-times.yaml`, `nodes/consumer/service-times.yaml`,
+  `nodes/reporting/wal-rate.yaml`, `nodes/bi/service-times.yaml`,
+  `nodes/crm/service-times.yaml`, `nodes/gateway/service-times.yaml`.
 
 ## Fake aging
 
@@ -1030,6 +1064,12 @@ bastion, the starter pack or a handout.
 - **Setup time**, from the deploy to the restart, the wait for the
   anchor not counted: 4 min 9 s, the fill 3 min 16 s of it
   (`tools/fake_aging/calibration/tarnbeck-outdoor-campaign-short-game-20261120T1332Z.txt`).
+- **Measured figures**: `nodes/producer/service-times.yaml` present;
+  `nodes/consumer/service-times.yaml` present;
+  `nodes/bi/service-times.yaml` present; `nodes/crm/service-times.yaml`
+  present; `nodes/gateway/service-times.yaml` present;
+  `nodes/db/wal-rate.yaml` present; `nodes/reporting/wal-rate.yaml`
+  present.
 
 ### Limits that touch its evidence
 

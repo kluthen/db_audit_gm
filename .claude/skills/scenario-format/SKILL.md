@@ -217,7 +217,7 @@ loader too:
   fault is worth 1; tooling expectations do not count); `level`, when
   given, is `easy`, `normal` or `hard`.
 - **Planting moment** (`plant_at`): `T0` (the default: right after the
-  data load, before the load starts) or `handover-<N>h`, N a whole number
+  data load, before the workload starts) or `handover-<N>h`, N a whole number
   of hours, at least 1, so never at or after hand-over. A moment other
   than `T0` only for a fault whose `injection.kind` is `state`
   (`seed-file` and `parameter` faults are planted at render), and N is at

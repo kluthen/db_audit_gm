@@ -254,8 +254,10 @@ wish for a quick or an extended game taken into account.
      aging, to the end of the game (always-on hosts: a laptop that sleeps
      or leaves is no host for a game that ages);
    - when the scenario's traffic differs by weekday (its scenario
-     document says which days the story needs), choose the start so the
-     aged hours are the ones the story needs.
+     document's **Weekdays** row, section 1, derived from the schedulers'
+     shapes: the shapes that differ by day and the day to age on), choose
+     the start so the aged hours are the ones the story needs; a row
+     reading "the same every day" leaves the start free.
 
    **Fake aging** (a quick game), master spec 9.3 to 9.6:
    - **An eligible selection.** Read the scenario document's "Fake

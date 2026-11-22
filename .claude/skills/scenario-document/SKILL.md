@@ -8,7 +8,7 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). This is its **v0.6 version**, expected
+skill's [template](template.md). This is its **v0.7 version**, expected
 to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
@@ -36,7 +36,12 @@ register (v0.5)" below) and v0.6's (`specs/versions/v0.6/master-spec.md`,
 the "Network overview" section and the overview beside each fault; see
 "The network overview (v0.6)" below; and 7.6, 9.5 and 9.10, with capture
 W3 item 12 and W4 items 7 to 9: an instance's admitted incident, the
-"Fake aging" section, the starter-pack line; see "The v0.6 items" below). The template's sections follow the keys of the
+"Fake aging" section, the starter-pack line; see "The v0.6 items" below)
+and v0.7's (ISS-009, `issues/ISS-009_20261120_scenario_document_template_gaps.md`:
+a node's options and standbys, a non-database node's jobs, the weekdays,
+fake aging's measured figures, where the composed domains load, the
+effective aging minimum, and calls earlier left unwritten; see "The v0.7
+items" below). The template's sections follow the keys of the
 format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -70,6 +75,11 @@ so the document is filled field by field.
   every scenario with an instance of it, and a new short-game record
   `tools/fake_aging/calibration/<id>-short-game-*.txt`, for its scenario;
   in the same change.
+- After a change to what the v0.7 items read: a scheduler's seed
+  `jobs.yaml` or its `schedule.yaml`'s shapes and keys, a non-database
+  node's seed `crontab`, a fault definition's `aging.minimum` or
+  `option_absent`, or a `service-times.yaml` or `wal-rate.yaml` added or
+  removed; in the same change.
 - Before deploying, when `README.md` is missing or does not match the
   authoritative files (its scenario version, or any value, differs).
 - After this template changes, for the scenarios the GM is about to use.
@@ -88,9 +98,9 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
 2. **Read the inputs**: `scenario.yaml`, `gm/answer-key.yaml`, and
    `brief.md` (quoted as given). Nothing else is a source: the document
    names the other files of the folder by path, it does not copy them.
-   Two exceptions: a node's parameter whose value is a map is rendered by
+   The exceptions: a node's parameter whose value is a map is rendered by
    its `shape`, read from the pinned brick's `brick.yaml` (see
-   "Map-valued parameters" below); and a database node's jobs are read
+   "Map-valued parameters" below); a database node's jobs are read
    from its seed `crontab`, its seed `postgresql.conf`, its data file,
    the `data/cron.sql` of each domain `domains:` places on it and the
    `ddl:` files of each purpose mapped onto it (see "The v0.4 items" and
@@ -102,7 +112,13 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
    its `gm.md` note), the rows of `tools/gm/cleanrestart.py`'s
    `EXPLAINS` with the seed `postgresql.conf` files and the data and
    domains' schema files their conditions name, and the newest short-game
-   record; see "The v0.6 items" below.
+   record; see "The v0.6 items" below; from v0.7 the same definitions
+   give section 5's aging minimum (`aging.minimum`) and a node's option
+   not chosen (`option_absent`). The fifth (v0.7): a scheduler node's
+   seed `jobs.yaml` and the `shapes:` and keys of its seed
+   `schedule.yaml`, and a non-database node's seed `crontab` (see "The
+   v0.7 items" below). The measured figures of "Fake aging" are read
+   from the folder listing alone.
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -134,6 +150,14 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      (every crontab entry, every `pg_cron` job its data file schedules,
      and from v0.5 every one a domain's `data/cron.sql` or a purpose's
      `ddl:` schedules there); every check's `judges` and threshold;
+   - from v0.7: every node's `options:` (and the option a topology
+     fault leaves out, with its instance), every `standby_of:` under the
+     standby and its primary's **Standbys** line, every job of a
+     scheduler's `jobs.yaml` and every entry of a non-database node's
+     crontab, the Weekdays row in a scenario that ages, under each node
+     the domains `load-data` loads there and in section 7 the domains'
+     item, every instance's effective aging minimum, and the measured
+     figures, each file present or missing;
    - from v0.5, when the scenario has them: every `domains:` entry with
      its variant and `at:`, and `composition.yaml`'s keys, scale, order,
      derivations and left-out producers, every `merge.yaml` resolution;
@@ -206,8 +230,12 @@ first; never invent its rendering.
 - **Difficulty**: the score, with the number of fault instances beside it,
   which it equals, and the level when the file gives one.
 - **Planting moment**: `plant_at` as written, `T0` when absent; the
-  instance's `aging_minimum`, or "the definition's", only in a scenario
-  that ages. The document never reads the fault definitions for it.
+  instance's `aging_minimum` as written, only in a scenario that ages, in
+  the table's last column. From v0.7, without `aging_minimum`, the
+  definition's `aging.minimum` read from its `fault.yaml` (the scenario's
+  `faults/<id>/` first, then the catalog's), written "<minimum> (the
+  definition's)": the minimum the loader counts, so the GM sees it
+  without opening the definition.
 - **Write overrides**: a bullet under the node, after its write policy,
   only for a node that has them.
 - **Behavioural check**: its window and threshold under the sealed check,
@@ -226,8 +254,9 @@ the v0.3 document, unchanged.
 - **Purposes**: a subsection of section 3 after the flows, one block per
   purpose: its id, its catalog folder, and a row per part with the node
   or the `<node>/<database>` location `scenario.yaml` maps it to. The
-  purpose's definition is not read: its jobs are in the runner's files,
-  named in section 7, and the faults attached to it are in section 5.
+  purpose's definition is not read: its jobs are listed under the runner
+  (a scheduler's `jobs.yaml`, a database node's crontab and `pg_cron`
+  jobs), and the faults attached to it are in section 5.
 - **Governance and the policy file**: a subsection of section 3, the
   policy file and the classification named by path, a row per class as
   `governance.classes` writes it, `internal` added as "any (the default)"
@@ -309,6 +338,60 @@ the v0.4 document, unchanged.
   table (`where`, `source`, `how`, `shows`, as an instance's) and
   `acceptable`. A false alarm is no fault instance: it has no row in
   "Fault instances" and counts in no difficulty score.
+
+## The v0.7 items
+
+ISS-009's fixes. Each is an "if:" block but for the aging-minimum value,
+the T0 line, the placement totals and the starter pack's joining, which
+every document with them has.
+
+- **Options and standbys**: under a node, after its write overrides,
+  "**Options**" when it has `options:` (each on, every other option its
+  brick declares off), or when a topology fault (`option_absent`) is on
+  it, which adds the option not chosen and the instance: a missing
+  option is that fault's only trace in the topology. After its seed
+  files, "**Standby of**" on a standby (no data of its own: cloned after
+  the load) and "**Standbys**" on its primary.
+- **A non-database node's jobs** (the fifth exception): a jobs table
+  under any node seeding `jobs.yaml` (a scheduler) or, not being a
+  database node, a `crontab` (the health check): Kind `jobs.yaml` or
+  `crontab`; a `jobs.yaml` job's name, `at` as written (with its
+  `timezone_offset`), connection and key; a crontab entry's command, its
+  OS user. A fault naming a job by name (the shop's `close-day`) finds it
+  here. The streams of `schedule.yaml` stay summarised by the flows.
+- **Weekdays** (section 1, a scenario that ages): derived from the
+  schedulers' `schedule.yaml` shapes, no format key: the shapes writing
+  `days:`, each with its day groups, and the day to age on; or "the same
+  every day". The GM chooses the aging's start from it
+  ([game-master-setup](../game-master-setup/SKILL.md), "Real aging").
+- **Measured figures** (under "Fake aging"): each
+  `nodes/<node>/service-times.yaml` a scheduler with keys needs and each
+  `nodes/<node>/wal-rate.yaml` a primary needs, present or missing with
+  the command that refuses, from the folder listing alone; section 7
+  names the files present as **Fake aging figures**, GM side and never
+  mapped.
+- **Where the composed domains load**: under each node `domains:`
+  places one on, "The domain(s) loaded here by `load-data`, after the
+  data file: ..." with each domain's database, or "Data: no data file;
+  the domain(s) loaded here ..." on a node without data; the jobs line
+  says "(its data file schedules none)" or "it has no data file" by the
+  same test; section 7's restored-backup data ends with the domains'
+  item, and reads "none." only with neither a data file nor a domain.
+- **Column classification for `domains:`**: the scenario's copy of the
+  composed domains' classification files, one per domain, each key
+  prefixed with its table's database.
+- **Unwritten cases, now rules**: a crontab entry naming no database,
+  "all (<what the command covers>)"; `cron.timezone` absent from the
+  seed, "cron.timezone not set (pg_cron's default, GMT)"; an empty
+  `pg_cron` table, its one "nothing scheduled in the baseline" row; a
+  `cron.schedule` job as `postgres` in `cron.database_name`; one bold
+  total row per host after the node rows, in `designed_for.hosts` order,
+  each sum in the largest unit giving a whole number or one decimal
+  place; scenario-only bricks before faults, each in folder-name order;
+  the starter pack's items joined with ", ", the last with ", and ";
+  T0 "right after the data load, before the workload starts" in a
+  scenario that ages; section 1's Domain row naming the domain's
+  `docs/gm.md`, "and producer" only when the domain has `producers/`.
 
 ## The data register (v0.5)
 

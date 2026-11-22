@@ -32,6 +32,7 @@ for, not any one playground.
 | Brief | `brief.md` |
 | Difficulty | score 10 (10 fault instances); targets normal |
 | Aging | 16h at least; hand-over designed for 14:00, scenario time |
+| Weekdays | the same every day: no scheduler's shape writes `days:` |
 
 ### Initiator's inputs, as given
 
@@ -136,6 +137,8 @@ No knobs.
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Options**: `monitoring`: on; every other option its brick declares is
+  off.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -215,6 +218,12 @@ Knobs (initial value as seeded; envelope as the validator enforces it):
   `nodes/producer/jobs.yaml`; `schedule.yaml` →
   `nodes/producer/schedule.yaml`.
 
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `close-day` | `0 12 * * *` | `app` | — | key `orders.close-day` |
+
 Resources (absolute, never recomputed per playground):
 
 | | CPU | Memory | Disk |
@@ -239,6 +248,13 @@ No knobs.
 - **Seed files**: `queries.yaml` → `nodes/consumer/queries.yaml`;
   `jobs.yaml` → `nodes/consumer/jobs.yaml`; `schedule.yaml` →
   `nodes/consumer/schedule.yaml`.
+
+Jobs on the node (the scheduler's `jobs.yaml`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| jobs.yaml | `nightly-rollup` | `30 1 * * *` | `reports` | — | key `reports.rollup` |
+| jobs.yaml | `accounting-export` | `0 2 * * *`; timezone_offset -8 | `reports` | — | key `reports.export` |
 
 Resources (absolute, never recomputed per playground):
 
@@ -376,11 +392,11 @@ Placement and the reservations it was sized with:
 | `db` | `host-1` | 0.5 | 512M | 2.25G |
 | `pooler` | `host-1` | 0.05 | 32M | 256M |
 | `producer` | `host-1` | 0.1 | 64M | 128M |
-| **Total on `host-1`** | | 0.75 of 2 | 704M of 3G | 2944M of 10G |
 | `consumer` | `host-2` | 0.1 | 64M | 128M |
 | `prometheus` | `host-2` | 0.1 | 160M | 512M |
 | `exporter` | `host-2` | 0.05 | 48M | 64M |
 | `grafana` | `host-2` | 0.1 | 272M | 256M |
+| **Total on `host-1`** | | 0.75 of 2 | 704M of 3G | 2944M of 10G |
 | **Total on `host-2`** | | 0.35 of 2 | 544M of 2G | 960M of 8G |
 
 ## 5. Incidents, flaws and defects
@@ -389,18 +405,18 @@ Placement and the reservations it was sized with:
 
 | Instance | Fault | Node | Parameters | Visibility | Planted at | Aging minimum |
 |---|---|---|---|---|---|---|
-| `f1` | `scheduler-query-error` 0.1.0 | `producer` | key = catalog.lookup, database = shop | hidden | `T0` | the definition's |
-| `f2` | `scheduler-report-unbounded` 0.1.0 | `consumer` | key = reports.best-days, date-column = placed_at, database = shop | known | `T0` | the definition's |
-| `f3` | `scheduler-insert-retry-duplicates` 0.1.0 | `producer` | database = shop, table-name = delivery_events, id-column = event_id, time-column = received_at, db-node = db, key = deliveries.ingest | known | `T0` | the definition's |
-| `f4` | `scheduler-transaction-held-open` 0.1.0 | `consumer` | key = reports.dashboard | hidden | `T0` | the definition's |
+| `f1` | `scheduler-query-error` 0.1.0 | `producer` | key = catalog.lookup, database = shop | hidden | `T0` | 10m (the definition's) |
+| `f2` | `scheduler-report-unbounded` 0.1.0 | `consumer` | key = reports.best-days, date-column = placed_at, database = shop | known | `T0` | 30m (the definition's) |
+| `f3` | `scheduler-insert-retry-duplicates` 0.1.0 | `producer` | database = shop, table-name = delivery_events, id-column = event_id, time-column = received_at, db-node = db, key = deliveries.ingest | known | `T0` | 1h (the definition's) |
+| `f4` | `scheduler-transaction-held-open` 0.1.0 | `consumer` | key = reports.dashboard | hidden | `T0` | 2h (the definition's) |
 | `f5` | `scheduler-batch-at-peak` 0.1.0 | `producer` | job = close-day, shape = business-hours, quiet-below = 0.5, key = orders.close-day, blocked-key = orders.place | known | `T0` | 15h |
 | `f6` | `scheduler-job-wrong-timezone` 0.1.0 | `consumer` | job = accounting-export, offset = -8 | known | `T0` | 13h |
 | `f7` | `pgbouncer-pool-too-small` 0.1.0 | `pooler` | database = shop, min-pool-size = 6 | known | `T0` | 10h |
 | `f8` | `pg-join-index-missing` 0.1.0 | `db` | database = shop, table-name = order_lines, column = order_id, key = orders.detail | known | `handover-6h` | 4h |
 | `f9` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = shop, table-name = orders | hidden | `T0` | 12h |
-| `f10` | `prometheus-scrape-target-missing` 0.1.0 | `prometheus` | node = pooler | hidden | `T0` | the definition's |
+| `f10` | `prometheus-scrape-target-missing` 0.1.0 | `prometheus` | node = pooler | hidden | `T0` | 0m (the definition's) |
 
-`T0`: right after the data load, before the load starts.
+`T0`: right after the data load, before the workload starts.
 `handover-6h`: 6 hours before the hand-over.
 
 ### Issues given to the players
@@ -988,8 +1004,8 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, and `player/issues.md`. It does not carry this
+  document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
   - `pooler`: `nodes/pooler/pgbouncer.ini`
@@ -1002,6 +1018,8 @@ None.
   - `db`: `data/db.sql`
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
+- **Fake aging figures** (GM side, never mapped): `nodes/db/wal-rate.yaml`,
+  `nodes/producer/service-times.yaml`, `nodes/consumer/service-times.yaml`.
 
 ## Fake aging
 
@@ -1033,6 +1051,9 @@ bastion, the starter pack or a handout.
 - **Setup time**, from the deploy to the restart, the wait for the
   anchor not counted: 8 min 38 s, the fill 7 min 53 s of it
   (`tools/fake_aging/calibration/tarnbeck-outdoor-shop-short-game-20261120T1231Z.txt`).
+- **Measured figures**: `nodes/producer/service-times.yaml` present;
+  `nodes/consumer/service-times.yaml` present; `nodes/db/wal-rate.yaml`
+  present.
 
 ### Limits that touch its evidence
 

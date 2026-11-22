@@ -133,6 +133,8 @@ No knobs.
 - **Brick**: `postgres`, version 0.5.1 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
+- **Options**: `monitoring`: on; every other option its brick declares
+  is off.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -692,8 +694,8 @@ the expected answer): none.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, and `player/issues.md`. It does not carry this
+  document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
   - `prometheus`: `nodes/prometheus/prometheus.yml`

@@ -161,7 +161,7 @@ Placement and the reservations it was sized with:
 |---|---|---|---|---|
 | `bastion` | `host-1` | 0.1 | 64M | 256M |
 | `db` | `host-1` | 0.5 | 512M | 2G |
-| **Total on `host-1`** | | 0.6 of 2 | 576M of 4G | 2.25G of 20G |
+| **Total on `host-1`** | | 0.6 of 2 | 576M of 4G | 2304M of 20G |
 
 ## 5. Incidents, flaws and defects
 
@@ -462,8 +462,8 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
-  warning, and nothing in it names a hidden fault or an answer.
+  `player/story.md`, and `player/issues.md`. It does not carry this
+  document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
 - **Restored-backup data**, streamed in after deployment:
