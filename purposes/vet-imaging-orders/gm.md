@@ -1,6 +1,6 @@
 # vet-imaging-orders — GM notes
 
-Purpose 13 of v0.5 (master spec 12.2; [vet-machinery-domain.md](../../specs/versions/v0.5/vet-machinery-domain.md#vet-imaging-orders-the-imaging-requests-and-their-reports),
+Purpose 13 of v0.5 (master spec 12.2; v0.5's `vet-machinery-domain.md`,
 "`vet-imaging-orders`"; capture W4 items 0 and 6): the imaging requests the
 vets write at a consultation's close posted into the PACS's worklist by the
 centre's integration engine, and the final reports copied back. **A round

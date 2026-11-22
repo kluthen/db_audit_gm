@@ -3,7 +3,7 @@
 # never edit by hand: change an input and regenerate. It describes the system as
 # designed, before any fault is planted (master spec 8.2, 8.4).
 generated_from:
-  scenario.yaml: sha256:3ff9b07883739c220c9f12466423f0bdd91e9e375510969529d9436dcb8122f6
+  scenario.yaml: sha256:e7abcf05fef11879137823256b12c7a86bfec0ba7f39a5a10751ddf304917e9f
   nodes/records/postgresql.conf: sha256:4086e1748318ac261582d767d32df4e2fba469f27b45f818f97925158df7245b
   nodes/records/crontab: sha256:fff49abac53f7a6234aab00ffd9440530f2d6ef1f904df874240ccb3ae0cc458
   data/records.sql: sha256:1479f6c2493a9caab58e5b6f5130aef927ccd7683324d8831b55d1a8532ee71e
@@ -85,7 +85,7 @@ generated_from:
   catalog/purposes/vet-portal-messages/purpose.yaml: sha256:1b828016fa21a360302abb350d937b10d818c29ad3c82e7b78de490ee682b7de
   catalog/purposes/vet-portal-messages/material/source/ddl.sql: sha256:6a40ead78789cf1246d000bf8238913f13dde485627c4c50b48ca2bdc45d9bd0
   player/partners.md: sha256:3bfa9368ffa48d73eeeeac91188c06d83eb322ea1f240d262353680c4b081740
-  gm/data-register.yaml: sha256:b5b512b7d4ba50774f2123ebeae00c064d965996f4f3bdc8fcefd82b7bca1f18
+  gm/data-register.yaml: sha256:c0964491be1cdecd77d826344c79d925fc9d25324616fcf76e362c8c57536b40
   gm/answer-key.yaml: sha256:e7a34999256fae05265694667d582ba8aa822e09ae751a32a74c58f7cbbe1e48
   player/story.md: sha256:d1e5618422eed073bf17afabff066eab1991238a69ab21f292979a0ae139d521
 header:

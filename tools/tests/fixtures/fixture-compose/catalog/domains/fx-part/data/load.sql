@@ -1,1 +1,0 @@
--- The test part's load (tools/tests, v0.5 chunk 2).

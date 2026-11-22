@@ -1,7 +1,7 @@
 # The vet-scheduling domain: GM notes
 
 `vet-scheduling` is the centre's agenda (v0.5 master spec 9.4;
-[vet-scheduling-domain.md](../../../specs/versions/v0.5/vet-scheduling-domain.md),
+v0.5's `vet-scheduling-domain.md`,
 which holds the design; capture W3 item 2 with "W3 item 2, revised" and
 W3-b in the v0.5 wave log; spec D408 to D414): the rooms and the ten
 bookable machines, the bookings and the allocations they take, the slot
@@ -163,7 +163,7 @@ bookings, the agenda ahead):
   rota, held once past. Their note names the resource (`service: machine
   7`), which `sched.rota.publish` reads to stay idempotent;
 - **imaging**: each request the core sent, on its code's machine for its
-  section ([the procedure catalogue](../../../specs/versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373)),
+  section (the procedure catalogue, v0.5's `vet-machinery-domain.md`),
   an urgent one at the first free slot from ten minutes after its request
   in the machine's hours, a routine one at the first free slot of the
   imaging day from an hour after it; arrived when started before T0,

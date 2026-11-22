@@ -1,7 +1,7 @@
 # Purpose 7, the medicines registers: GM notes
 
 The register of supplies and the controlled-drugs register (v0.5 master
-spec 11.3, 12.1, 12.2 purpose 7; [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+spec 11.3, 12.1, 12.2 purpose 7; v0.5's `clinic-purposes.md`
 section 11; Regulation (EU) 2019/6 Art 103(3); spec D265, D278, D280,
 D300, D436): **pulled, periodic**. Published in the back office's
 database `office` for the inspector and the vets to query: fed daily from
@@ -86,7 +86,7 @@ them, and the players recommend the rerun (master spec 12.1).
 
 ## The faults this purpose carries
 
-From [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+From v0.5's `clinic-purposes.md`
 section 11 (the selection is the scenario's): administrations joined
 through prescription lines twice (MR1; `meds.register.read`); doses given
 left out (MR1); the day in UTC (MR1; the script's bounds or the query);

@@ -1,7 +1,7 @@
 # Purpose 5, the notifiable diseases: GM notes
 
 The notifications of listed diseases to the national veterinary authority
-(v0.5 master spec 11.3, 12.1, 12.2 purpose 5; [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+(v0.5 master spec 11.3, 12.1, 12.2 purpose 5; v0.5's `clinic-purposes.md`
 section 9; Regulation (EU) 2016/429 Art 18; spec D302, D304, D306,
 D308): a **pushed obligation**, the owner's own example of the kind. Two
 triggers, one receiver and one rule: a vet's notifiable diagnosis,
@@ -125,7 +125,7 @@ open at T0, planted by vet-lab, are posted at the first run after T0; the
 
 ## The faults this purpose carries
 
-From [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+From v0.5's `clinic-purposes.md`
 section 9 (the selection is the scenario's): category A treated as
 another listed disease (ND1, a day late; the script's `DEADLINE`);
 `notify-vet` taking confirmed diagnoses only (ND1; `VET_NEW`); `notify-lab`

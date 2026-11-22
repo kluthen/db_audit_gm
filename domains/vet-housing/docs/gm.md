@@ -1,7 +1,7 @@
 # The vet-housing domain: GM notes
 
 The wards of the centre of Aldermoor Veterinary Hospitals (v0.5 master
-spec 9.5; [vet-housing-domain.md](../../../specs/versions/v0.5/vet-housing-domain.md);
+spec 9.5; v0.5's `vet-housing-domain.md`;
 capture W3 item 3): the 64 boxes, stalls, pens, kennels and cages, which
 of the core's hospital stays is placed in which, each stay's feeding plans
 and care log, and the display on each unit with the ward service behind
@@ -331,7 +331,7 @@ the board. Nothing ships to cold storage (D296, D297).
 
 ## The traps
 
-[vet-housing-domain.md](../../../specs/versions/v0.5/vet-housing-domain.md#traps-step-8)
+v0.5's `vet-housing-domain.md`, "Traps (step 8)",
 lists T150–T171 with their witnesses (the ward service and the displays
 T150–T156, the chain box → stay → animal T157–T161, care and biosecurity
 T162–T166, governance T167–T171) and four false alarms; the core's T14 (a

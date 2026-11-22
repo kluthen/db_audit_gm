@@ -59,11 +59,13 @@
 #     a pgBadger report made on db and copied into ~/reports/ in one hop,
 #     listed and served with the sandbox header, a path outside the folder
 #     and a symbolic link 404; with two routes and three documents, only
-#     those on the home, no dead link; the footprint at rest.
+#     those on the home, no dead link; the footprint at rest;
+#   - v0.7 (master spec 6.11): the bastion's brick page carries "The game
+#     assistant", how to start it and the shared SSH connection.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # debian:13-slim (the stub's image), an OpenSSH client (8.4 or later) and
 # curl on this host, and free TCP ports GMTEST_BASTION_PORT (default 22222)
@@ -75,7 +77,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 STARTER=$HERE/fixtures/starter
 STACK=gmtest-bastion
-IMAGE=127.0.0.1:5000/dbagm/bastion:0.6.0
+IMAGE=127.0.0.1:5000/dbagm/bastion:0.7.0
 PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 BASTION=${STACK}_bastion
 DB=${STACK}_db
@@ -480,6 +482,13 @@ fi
 code=$(page /docs/bricks/postgres)
 [ "$code" = 200 ] && grep -q '>PostgreSQL node — player notes</h1>' "$tmp/b" \
     && pass "/docs/bricks/postgres: the brick's player documentation" || fail "/docs/bricks/postgres: $code"
+code=$(page /docs/bricks/bastion)
+if [ "$code" = 200 ] && grep -q '<h2 id="the-game-assistant">The game assistant</h2>' "$tmp/b" \
+   && grep -q 'tools/play assistant' "$tmp/b" && grep -q 'ssh -M -S ~/.ssh/dbagm-&lt;game&gt;.sock' "$tmp/b"; then
+    pass "/docs/bricks/bastion: \"The game assistant\", how to start it and the shared connection (v0.7 master spec 6.11)"
+else
+    fail "/docs/bricks/bastion: $code $(grep -e '<h2' "$tmp/b")"
+fi
 bad=
 for p in /docs/bricks/api /docs/bricks/scheduler /docs/nothing /docs/ /docs/readme.html /docs/bricks/; do
     code=$(page "$p")

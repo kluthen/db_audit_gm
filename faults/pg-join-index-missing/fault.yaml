@@ -31,7 +31,7 @@ aging:
       emulate: []
 # The history signature (master spec 9.5, 9.7). Numbers from run R
 # (research/fake-aging 10d1bc6, fa-real 2026-11-14 to 15; f8 planted at
-# 2026-11-15T02:00Z): the counters read with tools/fake_aging/calibrate.py
+# 2026-11-15T02:00Z): the counters taken with tools/fake_aging/calibrate.py
 # per-call --planted from the reference's r-dump/r.om, the rate per call of
 # every key from 2026-11-14T20:00Z taken as the baseline; the service time
 # from R's log as calibrate-r-producer-20261115.txt summarises it, its sigma

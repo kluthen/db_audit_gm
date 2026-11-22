@@ -2,7 +2,7 @@
 
 The clinical pathology laboratory of the centre a scenario deploys, a
 part of `vet-core` (v0.5 master spec 9.3;
-[vet-lab-domain.md](../../../specs/versions/v0.5/vet-lab-domain.md)):
+v0.5's `vet-lab-domain.md`):
 the business, the keys it uses and its own, its data, who may touch
 what, its producers and partners, and the traps it holds. A design-time
 source: copy its files into a scenario and adapt them there; the domain
@@ -359,7 +359,7 @@ problem: its bursts, its holds and its round trips' backlogs are.
 ## The traps
 
 Listed with the core's in
-[clinic-traps.md](../../../specs/versions/v0.5/clinic-traps.md); those
+v0.5's `clinic-traps.md`; those
 biting the lab, by number:
 
 - **Its node and configuration**: T2 (pgaudit parameters on), T4

@@ -1,7 +1,7 @@
 # vet-lab-centre-orders — GM notes
 
 Purpose 1 of v0.5 (master spec 12.2;
-[clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md) section
+v0.5's `clinic-purposes.md` section
 5; capture W4 items 0 and 3). A **round trip** inside the centre, the core
 asking: the practice software records a consultation's analysis requests in
 `clinic`; the integration engine posts them to the lab's order API,

@@ -1,14 +1,14 @@
 ---
 name: data-register
-description: Use whenever a db_audit_gm scenario's data register has to be generated or regenerated — the true register gm/data-register.yaml, the player handout player/data-register.md and each register fault's register_diff in the answer key — when a scenario listing domains: (or one with governance.register) is composed or regenerated, after any change to its domains, classification, governance, composition, purposes, topology, third parties or register faults, and before deploying, at the game-master's Setup step 2, between the format check and the scenario document. Generated from the authoritative files, never edited by hand, regenerated rather than reconciled.
+description: Use whenever a db_audit_gm scenario's data register has to be generated or regenerated — the true register gm/data-register.yaml, the player handout player/data-register.md and each register fault's register_diff in the answer key — when a scenario listing domains: (or one with governance.register) is composed or regenerated, after any change to its domains, classification, governance, composition, purposes, topology, third parties or register faults, and before deploying, at the game-master-setup skill's Setup step 2, between the format check and the scenario document. Generated from the authoritative files, never edited by hand, regenerated rather than reconciled.
 ---
 
 # Data register
 
 A scenario's **data register** is game content (master spec 13.2, 13.3;
-[data-register-handout.md](../../../specs/versions/v0.5/data-register-handout.md)
+v0.5's data-register-handout.md,
 sections 1 to 3; capture W4 item 1 of
-[the v0.5 wave log](../../../specs/versions/v0.5/wave-log.md)): a player
+the v0.5 wave log): a player
 handout listing the business's data in the shape of a record of processing
 (GDPR Art 30), with two departures. It covers **all** the business's data,
 internal included (activities holding internal data only in a closing
@@ -53,7 +53,7 @@ register, and **a register fault never touches the policy**.
   its classification copy, `governance:` or the policy, the composition
   record, its purposes, its topology or third parties (`scenario.yaml`),
   `partners.md`, or its register faults (the answer key).
-- Before deploy, at the game-master's **Setup step 2**: the format check
+- Before deploy, at the game-master-setup skill's **Setup step 2**: the format check
   first, then this skill, then the scenario document, which reads its
   outputs. The loader refuses a register whose digests no longer match
   ("stale register: regenerate with the data-register skill").

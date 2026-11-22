@@ -1,9 +1,0 @@
-# The scenario layer of node ward's queries (v0.5 master spec 8.4), s9
-# planted (scheduler-display-refresh-loop): the faulty display's key,
-# ward.board's SQL byte for byte with its unit fixed (the fault's
-# inject/queries.yaml.snippet, {UNIT} 7).
-queries:
-  ward.board-loop:
-    sql: SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s
-    params:
-      unit: {int: [7, 7]}

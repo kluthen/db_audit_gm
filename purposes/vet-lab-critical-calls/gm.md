@@ -1,7 +1,7 @@
 # vet-lab-critical-calls — GM notes
 
 Purpose 6 of v0.5 (master spec 12.2;
-[clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md) section
+v0.5's `clinic-purposes.md` section
 10; capture W4 items 0 and 3). A **pushed obligation** whose receiver is
 the person owed the call: a critical result (the trigger) owes a call to the
 requesting vet or the practice within 60 minutes (the deadline, lab rule

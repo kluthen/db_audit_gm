@@ -23,7 +23,7 @@ version: "3.8"
 
 services:
   bastion:
-    image: 127.0.0.1:5000/dbagm/bastion:0.6.0
+    image: 127.0.0.1:5000/dbagm/bastion:0.7.0
     hostname: bastion
     read_only: true
     cap_drop: [ALL]

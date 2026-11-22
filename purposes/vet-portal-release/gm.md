@@ -1,6 +1,6 @@
 # vet-portal-release — GM notes
 
-Purpose 15 of v0.5 (master spec 12.2; [vet-portal-domain.md](../../specs/versions/v0.5/vet-portal-domain.md),
+Purpose 15 of v0.5 (master spec 12.2; v0.5's `vet-portal-domain.md`,
 "`vet-portal-release`: the copies and the release gate"; capture W4 items 0,
 6 and 7): the owners' portal filling its own store from the core's record
 and the lab, **pulled** (v0.4's P1 shape) with a **release gate** (v0.4's

@@ -1,84 +1,112 @@
 # db_audit_gm — Database Audit Game Master
 
-A generator of **live database audit exercises**. An agent (the *game
-master*) assembles a realistic data stack — producers, databases,
-transformers, consumers, backup and monitoring tools — on a Docker Swarm,
-plants a set of issues in it, ages it so that those issues leave traces, and
-hands it over to a student (the *player*) through a single bastion host.
+A game of **live database audits**. An agent, the *game master*, builds a
+realistic data stack on a Docker Swarm: databases, the applications and
+jobs around them, backups, monitoring. It hands the stack over to the
+players through a single bastion host, as a customer would hand its
+systems over to a team of auditors.
 
-The player's job is the auditor's job: map the system, check what the
+The players do the auditor's job: map the system, check what the
 monitoring says against what is really happening, find the issues the
-customer already knows about, discover the ones nobody has noticed, fix what
-they are allowed to fix, and write an audit report.
+customer already knows about and the ones nobody has noticed, fix what
+they are allowed to fix, and write an audit report. The game master takes
+the report and the players' final answer, evaluates them against the live
+system, and gives feedback.
 
-## Status
+A game lasts up to about four hours, usually one scenario for a class,
+sometimes one per student.
 
-**v0.5 released** (2026-11-14): domain definition, with the veterinary
-clinic franchise as the worked example; its known limits and the checks
-left to v1.0 gating are in its
-[release notes](specs/versions/v0.5/README.md#release-notes). v0.6 and
-v1.0 are still being drafted.
+## The trust line
 
-| Version | Theme | Released | Scenario |
-|---|---|---|---|
-| [v0.1](specs/versions/v0.1/README.md) | Settle the GM stance: a static PostgreSQL database investigated for specific defects | 2026-10-21 | `bookshop-new-server` |
-| [v0.2](specs/versions/v0.2/README.md) | Monitoring and the usual tooling: node health, PostgreSQL metrics, dashboards, alerting, logs | 2026-10-22 | `fernway-clinics-monitoring` |
-| [v0.3](specs/versions/v0.3/README.md) | Producers and consumers: a scheduler driving load, ingestion, load spikes, misbehaving requests; aging under real time | 2026-10-30 | `tarnbeck-outdoor-shop` |
-| [v0.4](specs/versions/v0.4/README.md) | Purposes: the side uses of the data (reporting, leads, mailing, export declarations), several PostgreSQL instances, jobs on a database node, the shop as the first business domain, a first cut of data governance | 2026-11-03 | `tarnbeck-outdoor-campaign` |
-| [v0.5](specs/versions/v0.5/README.md) | Domain definition: a procedure for defining a domain, the clinic's domains, purposes and round trips, `postgres` brick options, a post-mortem collection | 2026-11-14 | `aldermoor-centre` |
-| [v0.6](specs/versions/v0.6/README.md) | The bastion as the players' main activity point: a home page linking every site of the game, a documentation site, the network overview, general tooling; fake aging for quick games | spec consolidated 2026-11-16, for review | — |
-| [v1.0](specs/versions/v1.0/README.md) | First release: the full pipeline scenario | draft | — |
+**This repository holds the game's answers.** Everything the game master
+needs to set a game up and judge it is here, the game master's side of
+every scenario included. Players don't read it: a player reads only what
+the game hands over on the bastion, and what the game master gives them.
+Some tampering can't be prevented in practice; what can't be enforced is
+marked `DO NOT TAMPER`, and the players are trusted not to break the game.
 
-The specification starts at [`specs/README.md`](specs/README.md) (index,
-status and how to resume). The roadmap, along with what lies beyond v1.0
-and the v1.0 gating list, is in
-[`specs/versions/README.md`](specs/versions/README.md). Each version page
-has its own release notes.
+## What you need
+
+- Docker, with Swarm mode, on the machine or machines that run the game;
+- Python 3 with PyYAML, and git;
+- [Claude Code](https://claude.com/claude-code) or
+  [OpenCode](https://opencode.ai), for the game master and the players'
+  assistant.
+
+## Starting a game
+
+From a fresh clone of this repository, never from a checkout used for
+anything else, start the game master by name, in a session of its own,
+at the repository root:
+
+```sh
+git clone <this repository> db_audit_gm
+cd db_audit_gm
+tools/play gm
+```
+
+`tools/play gm` runs Claude Code as the game master; with OpenCode, run
+`tools/play gm --opencode`, or `opencode --agent game-master`. The game
+master picks or designs a scenario with you, sets the game up through
+`tools/gmctl`, hands it over, keeps its stance during play, evaluates the
+players' final answer, gives feedback and tears the game down.
+
+A session started plainly is neither the game master nor the assistant:
+each is started by name, and never handed work by another session.
+
+## The players' assistant
+
+The game assistant is an agent a player may run beside them: a
+PostgreSQL DBA colleague who coaches the players through their audit,
+with no knowledge of the game's answers. It never connects to a
+database: it writes the SQL and the commands, and the players run them.
+It never talks to the game master; the players' report reaches the game
+master as ever.
+
+**It runs on the player's side.** Each player runs it on their own
+machine, from their own clone of this repository:
+
+```sh
+tools/play assistant
+```
+
+(`tools/play assistant --opencode`, or `opencode --agent game-assistant`,
+with OpenCode). It runs in a session of its own, never the game
+master's.
+
+- A student playing alone runs it on their own machine, which also runs
+  the game master.
+- When one machine is run for the players (a teacher's), the assistant
+  never runs there: each player runs it on their own machine and reaches
+  the bastion over the network.
+- On a classroom swarm of student laptops, each student runs it on their
+  own laptop.
+
+**The shared connection.** The bastion takes passwords only, and the
+assistant is never given one. The player opens a shared SSH connection
+in their own terminal, typing the password once (`<game>` is a label of
+their choice):
+
+```sh
+ssh -M -S ~/.ssh/dbagm-<game>.sock -fN -p <port> player@<address>
+```
+
+The assistant runs each of its reads on the bastion through that
+connection. It writes the players' report, its drafts and the tracking
+files they ask for in the clone, under `play/` by default, never on the
+bastion. The bastion's own documentation has a page on the assistant.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| [`tools/gmctl`](tools/gmctl) | The GM's host-side command line: `fit`, `render`, `deploy`, `load-data`, `inject`, `start-load`, `validate`, `check`, `snapshot`, `restart`, `status`, `exec`, `logs`, `teardown` (code in [`tools/gm/`](tools/gm/)) |
-| [`tools/go-sbom`](tools/go-sbom) | Generates (`generate`) and checks (`check`, offline) the CycloneDX SBOMs of the Go binaries the bricks download as release tarballs (Prometheus, promtool, Grafana and its Prometheus data source plugin, postgres_exporter, pgwatch), from the exact archive each Dockerfile pins; the daily cve-watch sweep reads the SBOMs through [`.tech`](.tech)'s `lockfiles`. Kept by the security advisor |
-| [`tools/tests/`](tools/tests/) | Unit tests for `gmctl` and the smoke and rehearsal scripts |
-| [`bricks/`](bricks/) | Node definitions: `postgres` 0.5.1, `bastion` 0.6.0, `scheduler` 0.4.0, `api` 0.1.1, `pgbouncer` 0.1.2, `prometheus` 0.2.2, `postgres-exporter` 0.2.1, `grafana` 0.4.0, `pgwatch` 0.1.1, `health-check` 0.1.1, each on Debian GNU/Linux 13 (`base:`) |
-| `bricks/<brick>/sbom/` | One CycloneDX SBOM per downloaded Go binary (`<binary>.cdx.json`, written by `tools/go-sbom`): [`prometheus`](bricks/prometheus/sbom/), [`postgres-exporter`](bricks/postgres-exporter/sbom/), [`grafana`](bricks/grafana/sbom/), [`pgwatch`](bricks/pgwatch/sbom/); a bump of a pinned release regenerates them (`tools/tests/test_go_sbom.py` fails until it does) |
-| [`faults/`](faults/) | The fault catalog (40 faults): PostgreSQL configuration and security, backups, monitoring and alerting, scheduler jobs, purposes, governance and the data register, the network overview (`docs-overview-backup-claimed`, the `documentation` family's first); the clinic's round trips (`purpose-urgent-priority-dropped`, `purpose-retry-without-key`) and its reports' faults (`purpose-herd-use-dropped`, `governance-statement-log-personal`, `pg-standby-apply-delay`), and its scopes (`security-policy-ownership-end-dropped`, `scheduler-display-refresh-loop`, `pg-monitoring-option-absent`) |
-| [`domains/`](domains/) | Business domains: `shop`, `vet-core` (the clinic's medical record and the keys its parts share, with the other centres' stub), `vet-lab` (the centre's laboratory, a part of `vet-core`, with its two partners' stubs), `vet-housing` (its wards: units, placements, care log, the displays and their ward service; lands in the core's database), `vet-machinery` (the clinic's machines and their three systems' databases, `pacs`, `vitals`, `biomed`), `vet-portal` (the owners' portal: accounts, consents, released documents and messages, under row-level security, in a database `portal` beside the core's, with the owners' traffic on the partners' nodes), `vet-scheduling` (its agenda: bookings on rooms, machines and staff under four exclusion constraints, the slot function, the rota and its clocked hours, the training centre; in the core's database). The one-domain form (`domain:`) copies a domain into the scenario at design time; a composed scenario (`domains:`) takes its producer fragments through `gmctl compose`, and `load-data` reads its data files from the catalogue at every load |
-| [`partners/`](partners/README.md) | The partners' three shared nodes (`shared/`: the `api` node, the back end and the small database every third party runs on) and cold storage, the vault (`coldstore/`), design-time sources a scenario copies from |
-| [`purposes/`](purposes/) | Purposes (what the customer's data is for): `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations`; the clinic's `vet-lab-centre-orders` (the centre's lab orders and their results, a round trip on the integration engine), `vet-lab-practice-results` (the lab's results delivered to the region's practices' callbacks, a round trip the partner asks), `vet-lab-send-outs` (the lab's send-outs to the external reference lab, posted at 16:00, chased, answered days later) and `vet-lab-critical-calls` (the critical calls' watch, a `pg_cron` job in the lab's database), their own tables in a schema `ops` of the domain's database; the clinic's `vet-centre-exchanges` (the exchanges with the franchise's other centres, both ways, its endpoints on `clinic-api`) and `vet-notifiable-diseases` (the vets' and the lab's notifications to the authority, its stub in the purpose, copied to the back office's `office`); the clinic's periodic reports, on the back office's report runner, reading the record's standby (the lab on its only node) and writing `office`: `vet-medicines-registers` (7, the register of supplies and the controlled-drugs register, closed monthly), `vet-antimicrobial-use` (8, the yearly report to the authority), `vet-head-office-figures` (9, the centre's daily figures, the month's sent to the franchise's head office by the 5th, its stub in the purpose), `vet-lab-statements` (10, the practices' charges and monthly statements) and `vet-working-time` (12, the working-time record); the clinic's parts' `vet-bookings-sync` (11), `vet-imaging-orders` (13) and `cold-storage-archive` (14), `vet-portal-release` (15, the owners' portal's copies and release gate) and `vet-portal-messages` (16, its notices and reminders to the franchise's messaging service, whose stub it brings). A scenario copies a purpose's material at design time; a purpose's `history:` (the past periods' outputs planted into its target) is read from the catalogue by `load-data` at every load |
-| [`scenarios/`](scenarios/) | Playable scenario folders, one per released version (table above) |
-| [`post_mortem/`](post_mortem/README.md) | Summaries of 27 public database incident reports. They are source material for future games and end-of-game handouts, not fault definitions |
-| [`specs/`](specs/README.md) | The living specification: concept, platform, formats, decisions, open questions, version pages and the archive |
-| [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |
-
-To play, open a Claude Code session at the repository root and run
-`/game-master`. The GM sets the game up from a complete scenario folder
-through `tools/gmctl`, hands it over, holds its stance during play,
-evaluates the final answer against the answer key and the live system,
-gives feedback and tears the game down.
-
-## Core ideas
-
-- **Scenarios, not a fixed lab.** Each scenario is generated from a teacher's
-  brief (background story, required incidents, whether the agent may add
-  more), then frozen into a manifest and a sealed answer key so it can be
-  redeployed identically.
-- **A growing catalog of bricks.** The repository holds Dockerfiles,
-  configurations and documentation for clean and faulty nodes: several
-  database engines and versions, backup tools, monitoring, pipelines (e.g.
-  dbt + DuckDB). The agent picks bricks from the catalog or builds new ones
-  that follow the brick contract.
-- **Constrained resources.** Every scenario must fit in the cluster's CPU and
-  memory budget. Databases are deliberately nerfed; the player's tuning must
-  stay within published bounds, checked by a validator on each node.
-- **Bastion only.** The player never touches the swarm. They get SSH access
-  to the bastion and, from there, legal access to every node of the
-  topology, with write access only where fixing is part of the exercise.
-- **Trust, documented.** Some tampering cannot be prevented in practice. What
-  can't be enforced is clearly marked (`DO NOT TAMPER`), and the players are
-  trusted not to break the game.
-- **Sessions of up to 4 hours**, usually one scenario per class, sometimes one
-  per student.
-
+| `.claude/agents/`, `.opencode/agents/` | The game master and the game assistant, one definition per tool |
+| `.claude/skills/` | The game master's workflow skills and helpers |
+| `tools/play` | Starts the game master or the assistant |
+| `tools/gmctl` | The game master's command line (code in `tools/gm/`) |
+| `bricks/` | The nodes a game is built from, with their players' and game master's documentation |
+| `domains/`, `purposes/`, `partners/` | The customers' businesses, the side uses of their data, and the third parties they deal with |
+| `faults/` | The game master's catalogue |
+| `scenarios/` | The playable scenarios, the game master's side included |
+| `post_mortem/` | Summaries of public database incident reports, handed out after a game |
+| `references/` | The audit grid |

@@ -1,7 +1,7 @@
 # vet-lab-send-outs — GM notes
 
 Purpose 3 of v0.5 (master spec 12.2;
-[clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md) section
+v0.5's `clinic-purposes.md` section
 7; capture W4 items 0 and 3; spec D436). A **round trip the lab asks**, the
 consumer-producer the owner ruled: at 16:00 on working days the lab posts
 the day's send-outs to the external reference lab (vet-lab's `xlab` stub,

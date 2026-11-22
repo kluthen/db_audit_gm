@@ -8,7 +8,7 @@
 # master spec 7.3, D224).
 # Generic image: no scenario content. The starter pack and the secrets
 # arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion
+# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------

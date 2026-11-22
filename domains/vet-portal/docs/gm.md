@@ -2,7 +2,7 @@
 
 The owners' portal of the centre a scenario deploys, a part of
 `vet-core` (v0.5 master spec 9.7;
-[vet-portal-domain.md](../../../specs/versions/v0.5/vet-portal-domain.md)):
+v0.5's `vet-portal-domain.md`):
 the business, the keys it uses and its own, its data, who may see what
 and how the database enforces it, its producers, and the traps it holds.
 A design-time source: copy its files into a scenario and adapt them
@@ -383,7 +383,7 @@ the portal (the visits recorded, the messages received).
 
 ## The traps
 
-T250 to T295 ([vet-portal-domain.md](../../../specs/versions/v0.5/vet-portal-domain.md#traps-step-8)),
+T250 to T295 (v0.5's `vet-portal-domain.md`, "Traps (step 8)"),
 where each bites in this build:
 
 - **Reach and settings** (T250–T255): the database settings in

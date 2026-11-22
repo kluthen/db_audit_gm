@@ -1,13 +1,13 @@
 ---
 name: network-overview
-description: Use whenever a db_audit_gm scenario's network overview has to be generated or regenerated — the true overview gm/network-overview.yaml, the player handout player/network-overview.md and each overview fault's overview_diff in the answer key — when a scenario listing domains: is composed or regenerated, after any change to its nodes, seed files, bricks, domains, purposes, third parties, story, data register or overview faults, and before deploying, at the game-master's Setup step 2, after the data register and before the scenario document. Generated from the authoritative files, never edited by hand, regenerated rather than reconciled.
+description: Use whenever a db_audit_gm scenario's network overview has to be generated or regenerated — the true overview gm/network-overview.yaml, the player handout player/network-overview.md and each overview fault's overview_diff in the answer key — when a scenario listing domains: is composed or regenerated, after any change to its nodes, seed files, bricks, domains, purposes, third parties, story, data register or overview faults, and before deploying, at the game-master-setup skill's Setup step 2, after the data register and before the scenario document. Generated from the authoritative files, never edited by hand, regenerated rather than reconciled.
 ---
 
 # Network overview
 
 A scenario's **network overview** is game content (v0.6 master spec 8.1 to
 8.4; capture W2 items 3 to 6 of
-[the v0.6 wave log](../../../specs/versions/v0.6/wave-log.md)): the
+the v0.6 wave log): the
 customer's own inventory of its servers, one entry per machine of its
 estate, what it is for, what runs on it, who connects to it, what runs at
 night, how it is backed up. It is customer documentation, which may be
@@ -57,7 +57,7 @@ facts its coverage reads, so the skill builds from the same reading:
   after any change to its inputs (below): the loader refuses an overview
   whose digests no longer match ("stale overview: regenerate with the
   network-overview skill").
-- At the game-master's **Setup step 2**, in this order: the format check,
+- At the game-master-setup skill's **Setup step 2**, in this order: the format check,
   the data register (its skill), then this skill, then the scenario
   document, which reads both. The register comes first: the overview
   digests it, and a change to `scenario.yaml` (a register input) is

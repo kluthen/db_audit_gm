@@ -1,4 +1,0 @@
-# The runner's repository fragment of the test purpose.
-queries:
-  sales.copy:
-    sql: INSERT INTO sales_hourly (hour, total) SELECT 0, 0

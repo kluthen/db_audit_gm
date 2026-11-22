@@ -1091,8 +1091,8 @@ folder: `material/` (one folder per part receiving material, each file a
 fragment named as the scenario's own), `checks/` (one script per
 invariant), `gm.md`. Capture W1 item 5 of
 `specs/versions/v0.4/wave-log.md` settles the keys and closed values;
-v0.5's additions are `specs/formats.md` "Purpose definition". In
-particular:
+v0.5's additions, from formats.md "Purpose definition", are the "From
+v0.5" items below. In particular:
 
 - **Identity**: `id` (the folder's name, `[a-z][a-z0-9-]*`), `title`,
   `domains` (non-empty, each an existing domain whose `purposes` lists
@@ -1225,15 +1225,78 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   run writes one `ops.runs` row (or the target's `runs`) in the same
   transaction as its output. In a scenario, a `trace` table on a database
   part placed on a `domains:` entry's `at:` is in schema `ops`.
+- **More parts of a kind** (from v0.5's build, D431): a purpose may
+  declare more database parts `source_<w>` and more runners
+  `runner_<w>` (`<w>` `[a-z][a-z0-9]*`), each checked as its base part (a
+  `source_<w>` a location, never a standby; a `runner_<w>` a scheduler
+  node of role `transformer`, its jobs in its own `jobs.yaml`) and usable
+  wherever the base is (`jobs[].source` and `target`, `jobs[].part`,
+  `roles[].part`, `trace[].part`, `data_moved.writes`, `ddl:` keys). A
+  runner none of whose jobs the purpose runs needs no `jobs.yaml`; a job
+  with no `part` is `runner`'s. A report job reading a standby keeps its
+  part on the primary (a standby is no location), its scheduler
+  connection targeting the standby.
+- **A `pg_cron` job on a database part** (from v0.5's build, D431): a job
+  of `method: pg_cron` names as its `part` the database part it runs in,
+  is in no runner's `jobs.yaml` and is scheduled by that part's own
+  `ddl:` file (`cron.schedule_in_database(…, current_database(), <role>)`,
+  the node's seed preloading pg_cron with `cron.database_name` that
+  database); its `key` is the pg_cron job name. The loader refuses a
+  `pg_cron` job naming a runner, any other job naming a database part,
+  a `pg_cron` job whose part has no `ddl:`, and a runner declared beside
+  `pg_cron` jobs only (`parts.runner` is then left out).
+- **Calendar-gated cadences** (from v0.5's build, D436): the scheduler's
+  cron subset takes no day of month or month, and a day of week only
+  with a single-number hour, a range written as a list (`0 16 * * 1,2,3,4,5`).
+  So a monthly or yearly job runs daily at its hour (`0 3 * * *`) and
+  acts only when the customer's local date, read from its source, is its
+  day (the 1st; the 1st to the 5th; 15 January), writing neither output
+  nor run row otherwise; a windowed job (08:00–19:00, Monday to
+  Saturday) runs `*/15 * * * *` and returns at once outside its window.
+  `computes:` and `gm.md` state the calendar.
+- **The `ops` block** (from v0.5's build, W4): every `ddl:` file writing
+  a domain database carries one text, between the lines `-- ops: begin`
+  and `-- ops: end`, byte-identical across the purposes (a unit test
+  compares them): the role `ops` (`NOLOGIN`) created guarded, the schema
+  `ops` it owns, `PUBLIC` revoked, and as `ops` the tables
+  `ops.runs (id, purpose, job, started_at, finished_at, rows_read,
+  rows_written)`, `ops.incidents (id, purpose, job, kind, ref, opened_at,
+  reason, run_id)` and `ops.watermarks (purpose, name, at, last_id,
+  run_id)`, each `CREATE … IF NOT EXISTS`, so any subset of purposes
+  loads alike. `ref` names an id, never a name; no unique constraint on
+  incidents ("one incident each" is the jobs' care and the checks'
+  judgement). Each purpose's DDL inserts its own watermarks at
+  `:'load_epoch'` (`ON CONFLICT DO NOTHING`), grants each of its roles
+  `USAGE` on `ops`, `SELECT, INSERT` on `ops.runs` and `ops.incidents`,
+  `SELECT, INSERT, UPDATE` on `ops.watermarks`, and creates its own `ops`
+  tables owned by `ops`, each with `run_id bigint NOT NULL REFERENCES
+  ops.runs (id)`. A run writes its domain rows, then its `ops.runs` row
+  with final counts, then the rows naming it; a job writing two
+  databases writes a run row in each, with the same `job` and
+  `started_at`. The purposes' login roles are created guarded at top
+  level of their own line in the `DO` block, `CONNECT` granted by name;
+  a purpose's DDL never creates nor alters a role a domain creates, only
+  grants to it. `office`'s `office.sql` (the same text in every purpose
+  using `office`) creates the database, `office`, `office_jobs` and
+  `office_reader` and `runs` (the same columns, in `public`).
+- **The checks** (from v0.5's build): as v0.4, on the runner node, the
+  runs from `check-runs` and the databases through `check-sql` as
+  `gm_check` (which prints a boolean as `True` or `False`); a check
+  needing a partner's side runs on the partners' database node
+  (`check-psql`, the customer's databases through `check-psql --node`),
+  in shell with its verdict in SQL, since a `postgres` node has no
+  Python. A check reading a table with row-level security first finds
+  `gm_check_read` on it and no `RESTRICTIVE` policy for `public` or
+  `gm_check`, else exits 2 (D432).
 
 ### Domain (v0.4 master spec 6.8, 11.3; v0.5 master spec 6.1, 8.2 to 8.6; v0.6 master spec 6.5)
 
 Every key of [templates/domain.yaml](templates/domain.yaml), each path
 naming a file of the domain folder that exists (`producers` a folder),
 and `docs/gm.md`; the folder as [templates/layouts.md](templates/layouts.md)
-lays it out. The procedure's checklist
-(`specs/versions/v0.5/domain-procedure.md`, section 3) and formats.md "A
-domain is done" are the definition of done; `model.check_domain_dir`
+lays it out. "A domain is done", at the end of this section (from v0.5's
+domain procedure, section 3, and formats.md "A domain is done"), is the
+definition of done; `model.check_domain_dir`
 checks what a script can decide, reading every file refusing duplicate
 keys. Capture W1 item 7 of `specs/versions/v0.5/wave-log.md` settles the
 keys. In particular:
@@ -1392,6 +1455,35 @@ keys. In particular:
   classification, the producer, the rules, the traps (each with its
   class), loading; a part's "Core keys used"; each producer's growth an
   hour at intensity 1.0 and each shipped type's retention on site.
+
+**A domain is done** when its draft is approved and its folder passes
+every item below. It is **proven** once a scenario has run with it.
+
+- `domain.yaml` has every key, `id` its folder's name, each path a file
+  that exists, `requires` when it is a part;
+- `schema.sql` follows the data load's contract and runs into the
+  `postgres` image, a part's after its core's; `load.sql` after it, with
+  the shift variables at 0 and at a non-zero shift, its sizes within the
+  disk and memory budget and its load time measured; from v0.5 both as
+  `load-data` runs them, connected to their database, neither creating
+  one;
+- every role holds exactly the grants the draft lists (diffed);
+- every column of every table is classed, `internal` included;
+- the business's own rules, when it has any, are written;
+- every table belongs to one activity of the register fragment (D334);
+- the producer fragments parse as `queries.yaml`, `schedule.yaml` and
+  `jobs.yaml` fragments, and every statement runs as its role;
+- every purpose listed exists, or is named in the draft as to be
+  drafted;
+- every variant names parts that exist, sets the three scale axes, takes
+  its tags from the vocabulary only, and lists purposes that fit;
+- every `SECURITY DEFINER` function carries a fixed `search_path` (from
+  v0.5, D323): in the schema and load files, `data/derive.sql`,
+  `data/keys.sql` and each partner `data.sql`, a `SET search_path` never
+  naming `"$user"` (`FROM CURRENT` is no fixed path);
+- `docs/gm.md` has its sections: the business, the data, the roles, the
+  classification, the producer, the rules, the traps, loading;
+- the `scenario-format` skill finds nothing missing.
 
 ### Composition (v0.5 master spec 8.4, 8.5, 15)
 

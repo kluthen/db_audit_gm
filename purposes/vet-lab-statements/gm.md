@@ -1,7 +1,7 @@
 # Purpose 10, the lab's statements: GM notes
 
 The practices' monthly statements (v0.5 master spec 11.3, 12.1, 12.2
-purpose 10; [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+purpose 10; v0.5's `clinic-purposes.md`
 section 14; vet-lab rule 13; spec D294, D300, D304, D436): **pulled,
 periodic**. Published in the back office's database `office`: each
 practice's charges fed daily from the laboratory's database, its statement
@@ -83,7 +83,7 @@ them, and the players recommend the rerun (master spec 12.1).
 
 ## The faults this purpose carries
 
-From [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+From v0.5's `clinic-purposes.md`
 section 14 (the selection is the scenario's): the feeder run at bench hours
 (`jobs.yaml`); voids taken only for charges made the same day
 (`charges.feed.read`, ST1); a charge at today's price (the lab's own

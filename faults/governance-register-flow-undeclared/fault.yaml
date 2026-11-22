@@ -21,7 +21,7 @@ severity: medium
 applies_to:
   bricks:
     - id: bastion
-      versions: ["0.5.0", "0.6.0"]
+      versions: ["0.5.0", "0.6.0", "0.7.0"]
   preconditions:
     - a scenario with a data register (governance.register), its bastion mapping data-register.md
     - the recipient a processor the true register names on at least one entry (cold storage when a node archives to it; the franchise's messaging service when the portal's outbound flow reaches it)

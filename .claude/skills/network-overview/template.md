@@ -5,7 +5,7 @@ handout, `player/network-overview.md` (part 2), rendered from the same
 entries (with a planted overview fault's change applied). Replace every
 `<placeholder>`; a generated file keeps none. The loader checks both
 (`tools/gm/model.py`, "the network overview"; capture W2 items 3 to 5 of
-[the v0.6 wave log](../../../specs/versions/v0.6/wave-log.md)).
+the v0.6 wave log).
 
 ## Part 1: `gm/network-overview.yaml`
 

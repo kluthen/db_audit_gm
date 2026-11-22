@@ -47,10 +47,102 @@ if [ "$branch" = dev ] && [ -z "$dev" ]; then
     exit 1
 fi
 
+# The GM's own skills (capture W2 item 3): its four workflow skills and its
+# four helpers. Every other skill its session would load is turned off.
+gm_skills='game-master-setup game-master-restart game-master-evaluation game-master-feedback
+scenario-format scenario-document data-register network-overview'
+gm_settings=.claude/game-master.settings.json
+
+# Writes $gm_settings (master spec 7.6): every skill name found under the
+# user's skills (followed through symlinks, nested ones included) and the
+# clone's .claude/skills directories (the root's and nested ones) set to
+# "off", the GM's own left out; bundled skills and the automatic memory off.
+# Then warns of every enabled plugin, whose skills skillOverrides can't hide.
+write_gm_settings() {
+    # shellcheck disable=SC2086 # $gm_skills splits into one argument per name
+    python3 - "${CLAUDE_CONFIG_DIR:-${HOME:?}/.claude}" . "$gm_settings" $gm_skills <<'PY'
+import json
+import os
+import re
+import sys
+
+config_dir, root, out = sys.argv[1:4]
+own = set(sys.argv[4:])
+
+
+def names_in(skills_dir):
+    """Each skill's directory name and frontmatter name (either invokes it),
+    for every SKILL.md under skills_dir, symlinked directories followed."""
+    names, seen = set(), set()
+    for top, dirs, files in os.walk(skills_dir, followlinks=True):
+        real = os.path.realpath(top)
+        if real in seen:
+            dirs[:] = []
+            continue
+        seen.add(real)
+        if "SKILL.md" not in files:
+            continue
+        names.add(os.path.basename(top))
+        with open(os.path.join(top, "SKILL.md"), encoding="utf-8", errors="replace") as f:
+            front = re.match(r"---\r?\n(.*?)\r?\n---", f.read(), re.S)
+        name = front and re.search(r"^name:[ \t]*(.+?)[ \t]*$", front.group(1), re.M)
+        if name:
+            names.add(name.group(1).strip("'\""))
+    return names
+
+
+names = names_in(os.path.join(config_dir, "skills"))
+for top, dirs, _ in os.walk(root):
+    dirs[:] = [d for d in dirs if d != ".git"]
+    if os.path.basename(top) == ".claude" and "skills" in dirs:
+        names |= names_in(os.path.join(top, "skills"))
+
+settings = {
+    "skillOverrides": {name: "off" for name in sorted(names - own)},
+    "disableBundledSkills": True,
+    "autoMemoryEnabled": False,
+}
+os.makedirs(os.path.dirname(out), exist_ok=True)
+with open(out + ".tmp", "w", encoding="utf-8") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+os.replace(out + ".tmp", out)
+
+# Enabled plugins: the user's settings, overridden by the project's, then the local.
+plugins = {}
+for path in (os.path.join(config_dir, "settings.json"),
+             os.path.join(root, ".claude", "settings.json"),
+             os.path.join(root, ".claude", "settings.local.json")):
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        continue
+    except (OSError, ValueError) as error:
+        print(f"tools/play gm: warning: {path} not read for its plugins ({error})",
+              file=sys.stderr)
+        continue
+    enabled = data.get("enabledPlugins") if isinstance(data, dict) else None
+    if isinstance(enabled, dict):
+        plugins.update(enabled)
+on = sorted(name for name, value in plugins.items() if value)
+if on:
+    print("tools/play gm: warning: enabled plugins keep their skills visible to the GM "
+          "(skillOverrides does not reach them): " + ", ".join(on)
+          + "; disable them with /plugin before a game", file=sys.stderr)
+PY
+}
+
 case $verb in
     gm)
-        echo "tools/play gm: not yet available" >&2
-        exit 1
+        if [ -n "$opencode" ]; then
+            exec opencode --agent game-master
+        fi
+        write_gm_settings || {
+            echo "tools/play gm: could not write $gm_settings" >&2
+            exit 1
+        }
+        exec claude --agent game-master --settings "$gm_settings"
         ;;
     assistant)
         if [ -n "$opencode" ]; then

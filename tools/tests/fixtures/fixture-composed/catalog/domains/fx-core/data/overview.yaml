@@ -1,7 +1,0 @@
-# fx-core's overview fragment (v0.6 master spec 6.5, 6.9): its login role.
-roles:
-  - role: core_app
-    who: the desk software
-    reads: the core's tables
-    writes: the core's tables
-jobs: []

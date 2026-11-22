@@ -1,7 +1,7 @@
 # Purpose 12, the working-time record: GM notes
 
 The record a labour inspector may ask for (v0.5 master spec 11.3, 12.1,
-12.2 purpose 12; [vet-scheduling-domain.md](../../specs/versions/v0.5/vet-scheduling-domain.md),
+12.2 purpose 12; v0.5's `vet-scheduling-domain.md`,
 purpose 12; Directive 2003/88/EC; CJEU C-55/18 *CCOO*; spec D265, D300,
 D436): **pulled, periodic**. Fed daily into `office` from the record's
 standby (vet-scheduling's shifts, the core's staff), summed monthly. A

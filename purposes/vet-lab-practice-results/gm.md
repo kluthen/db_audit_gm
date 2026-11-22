@@ -1,7 +1,7 @@
 # vet-lab-practice-results — GM notes
 
 Purpose 2 of v0.5 (master spec 12.2;
-[clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md) section
+v0.5's `clinic-purposes.md` section
 6; capture W4 items 0 and 3). A **round trip the partner asks**: a
 practice's back end (vet-lab's `practices` stub, 120 accounts on one
 hostname) posts its order to the lab's order API, `lab-api`, and gets the

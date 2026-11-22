@@ -1,5 +1,5 @@
 > **Informative reference, not a requirement** (spec D558). The owner's
-> PostgreSQL audit grid, copied verbatim on 2026-11-19 from the owner's
+> PostgreSQL audit grid, copied verbatim on 2026-11-19 (refreshed 2026-11-21, O299) from the owner's
 > own material (`/home/bastien/audits/grille_audit_pg.md`), in French as
 > written, for a separate workshop on the Bluebox dataset: its "Dans le
 > labo" boxes, scripts (`revue_config_pg.sh`, `lab …`), Grafana dashboard
@@ -32,7 +32,11 @@ Le registre des constats et les fiches d'investigation sont tenus à part
 Requêtes vérifiées sur PostgreSQL 19 (un serveur 19.0 jetable, 19/11/2026 ;
 avant sur PostgreSQL 18, `pg-primary`, 27/10/2026). Toutes sont
 en lecture seule ; les lancer dans une session
-`SET default_transaction_read_only = on;`.
+`SET default_transaction_read_only = on;`. Seule exception :
+l'échantillonnage « Qui émet une requête » crée une table temporaire, ce
+que PostgreSQL refuse dans une transaction en lecture seule (tout `CREATE`
+l'est) ; le lancer dans une session à part, sans ce réglage. Il n'écrit
+que dans sa table temporaire, propre à la session.
 
 ---
 
@@ -258,9 +262,12 @@ l'`application_name`, on relie le `queryid` au `query_id` de
 `pg_stat_activity` (renseigné si `compute_query_id` vaut `auto` ou `on`).
 Les requêtes courtes échappent à une photo : on échantillonne quelques
 minutes dans une table temporaire (elle disparaît à la fin de la session
-`psql`).
+`psql`). Le `CREATE TEMP TABLE` est refusé en lecture seule : lancer ce
+bloc dans une session ouverte sans `default_transaction_read_only`, à part
+des autres requêtes.
 
 ```sql
+-- Session à part, sans default_transaction_read_only (le CREATE y serait refusé)
 CREATE TEMP TABLE echantillons AS
 SELECT now() AS t, pid, usename, application_name, state, query_id,
        wait_event_type, wait_event
@@ -404,8 +411,8 @@ SELECT relname, n_live_tup, n_dead_tup,
        pg_size_pretty(pg_total_relation_size(relid)) AS taille
 FROM pg_stat_user_tables ORDER BY n_dead_tup DESC LIMIT 15;
 
--- Seuil réel de déclenchement, options de table comprises (depuis
--- PostgreSQL 18 : plafonné par autovacuum_vacuum_max_threshold)
+-- Seuil réel de déclenchement, options de table comprises (PostgreSQL 18 :
+-- plafonné par autovacuum_vacuum_max_threshold)
 WITH o AS (
   SELECT c.oid, c.relname, c.reltuples,
          (SELECT option_value::float8 FROM pg_options_to_table(c.reloptions) WHERE option_name = 'autovacuum_vacuum_threshold') AS t,
@@ -519,10 +526,7 @@ seule somme de contrôle en échec signale une corruption, à traiter avant
 tout le reste.
 
 **Où regarder** : Grafana *Checkpointer / Bgwriter / Block IO Stats* ;
-pgBadger (*Checkpoints*, *Temporary files*) ; pgCluu. Sur PostgreSQL 19,
-pgBadger 13.3 ne lit plus les lignes `checkpoint complete:` : sa section
-*Checkpoints* reste vide ; lire ces lignes dans le journal
-(`log_checkpoints`) et `pg_stat_checkpointer`.
+pgBadger (*Checkpoints*, *Temporary files*) ; pgCluu.
 
 ```sql
 -- Cache, fichiers temporaires, temps d'I/O (track_io_timing), sommes de contrôle
@@ -593,8 +597,8 @@ Décompte rapide par niveau, sur l'hôte :
 
 **À lire dans pgBadger** : *Events* (erreurs les plus fréquentes, avec la
 requête), *Top* (requêtes lentes, à croiser avec A3), *Locks* (attentes de
-verrou au-delà de `deadlock_timeout`), *Temporary files*, *Checkpoints*
-(vide sur PostgreSQL 19 avec pgBadger 13.3, voir A7), *Vacuums*, *Sessions*.
+verrou au-delà de `deadlock_timeout`), *Temporary files*, *Checkpoints*,
+*Vacuums*, *Sessions*.
 
 **Ce qui doit alerter** :
 - tout `PANIC` ; un `FATAL` qui n'est pas une erreur d'authentification

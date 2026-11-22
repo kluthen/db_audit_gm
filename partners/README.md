@@ -3,7 +3,7 @@
 GM material, never shipped to players. A catalogue folder beside
 `domains/` and `purposes/` (v0.5 master spec 10.2, 10.4, 11.2; capture W2
 item 6 and its as-built addendum W2-f in
-[`specs/versions/v0.5/wave-log.md`](../specs/versions/v0.5/wave-log.md)).
+v0.5's `wave-log.md`).
 Every third party of a scenario with nodes runs on **three shared nodes**,
 all `no-access`: `partners-api` (one `api` node serving every partner under
 its own hostname, a network alias), `partners-backend` (one `scheduler`
@@ -24,8 +24,8 @@ A domain's own partners join the same nodes through `gmctl compose`
 (`producers/partners/<prefix>/`: its back-end fragments onto
 `partners-backend`, its `api.yaml`, `routes/` and `db/` onto
 `partners-api`); `load-data` runs its `data.sql` in `partners` (chunk 8).
-The fixtures [`fixture-partners`](../tools/tests/fixtures/fixture-partners/)
-(two sample partners) and [`fixture-archive`](../tools/tests/fixtures/fixture-archive/)
+The fixtures `fixture-partners`
+(two sample partners) and `fixture-archive`
 (cold storage and an archiving node) are such copies;
 `tools/tests/test_partners.py` keeps them equal to this folder.
 

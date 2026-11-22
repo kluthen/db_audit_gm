@@ -2,13 +2,13 @@
 
 GM documentation of the `bastion` brick (`brick.yaml`, master spec 9.2
 and 14; required sections: spec D56). Never shipped to players. Brick
-version 0.6.0, expected to evolve as games are played.
+version 0.7.0, expected to evolve as games are played.
 
 ## Purpose
 
 An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 19
 client tools alongside, in the image
-`127.0.0.1:5000/dbagm/bastion:0.6.0`. It fills the role `bastion`: the
+`127.0.0.1:5000/dbagm/bastion:0.7.0`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
 find the starter pack in their home, and reach the in-game nodes from
 there by SSH and `psql`. Its **web front**, on a second port behind the
@@ -50,7 +50,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.6.0 bricks/bastion`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
 - **Next to which node**: on the manager. Its SSH port and the web
@@ -144,7 +144,7 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
 | Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
-| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read at every start | `gmctl deploy`, whenever `bastion` 0.6.0 is in the topology; the GM hands it to the players in every game, with the bastion password (D224). The same secret as Grafana's administrator password |
+| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read at every start | `gmctl deploy`, whenever `bastion` 0.7.0 is in the topology; the GM hands it to the players in every game, with the bastion password (D224). The same secret as Grafana's administrator password |
 | Routes `web_routes` | `GM_WEB_ROUTES`, turned into `/run/web-front/nginx.conf` and the page's links at start-up | the scenario's node `parameters` (above) |
 | Published ports | the host's ports for container ports 22 and 8080 | the scenario's `published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]`, routes or none |
 
@@ -589,7 +589,7 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`bastion` `0.6.0`, and no other.
+`bastion` `0.7.0`, and no other.
 
 Nothing on the bastion is part of the game (master spec 9.2), its write
 policy is `report-only`, and a fault in its configuration would cut the

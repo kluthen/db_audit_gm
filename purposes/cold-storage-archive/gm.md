@@ -1,7 +1,7 @@
 # cold-storage-archive — GM notes
 
-Purpose 14 of v0.5 (master spec 12.2; [vet-machinery-domain.md](../../specs/versions/v0.5/vet-machinery-domain.md#cold-storage-archive-the-readings-to-the-vault),
-"`cold-storage-archive`"; [cold-storage.md](../../specs/versions/v0.5/cold-storage.md)
+Purpose 14 of v0.5 (master spec 12.2; v0.5's `vet-machinery-domain.md`,
+"`cold-storage-archive`"; v0.5's `cold-storage.md`
 2, 3 and 6; capture W4 items 0 and 6): the generic round trip of cold
 storage, first drafted for `vet-machinery`. Heavy time series live on site
 in day partitions; each night the integration engine ships every day older

@@ -1,1 +1,0 @@
--- The test core's load (tools/tests, v0.5 chunk 2).

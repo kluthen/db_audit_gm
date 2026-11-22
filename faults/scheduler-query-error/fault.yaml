@@ -35,7 +35,7 @@ aging:
 # The history signature (master spec 9.5, 9.7): the failed calls' errors
 # and latencies reach the past through the fill's metrics record, not
 # here (capture W1 item 9). Numbers from run R (research/fake-aging
-# 10d1bc6, fa-real 2026-11-14 to 15), read with tools/fake_aging/calibrate.py
+# 10d1bc6, fa-real 2026-11-14 to 15), taken with tools/fake_aging/calibrate.py
 # per-call from the reference's r-dump/r.om (tools/fake_aging/reference).
 history:
   - kind: counter_per_call          # a failed call rolls its transaction back

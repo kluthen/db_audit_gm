@@ -1,6 +1,6 @@
 # vet-bookings-sync — GM notes
 
-Purpose 11 of v0.5 (master spec 12.2; [vet-scheduling-domain.md](../../specs/versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record),
+Purpose 11 of v0.5 (master spec 12.2; v0.5's `vet-scheduling-domain.md`,
 "11. `vet-bookings-sync`"; capture W4 items 0 and 6): the hospital's agenda
 (`vet-scheduling`) and its medical record (`vet-core`) kept in step by the
 centre's integration engine, as a human hospital's scheduling messages

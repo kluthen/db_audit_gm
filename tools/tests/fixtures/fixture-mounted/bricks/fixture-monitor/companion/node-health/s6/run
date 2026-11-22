@@ -1,2 +1,0 @@
-#!/bin/sh
-exec s6-setuidgid nobody /usr/local/lib/gm/node-health/node-health.sh

@@ -2,7 +2,7 @@
 
 The medical record of one centre of Aldermoor Veterinary Hospitals, a
 regional franchise of three national centres and three abroad (v0.5
-master spec 9.1, 9.2; [vet-core-domain.md](../../../specs/versions/v0.5/vet-core-domain.md)):
+master spec 9.1, 9.2; v0.5's `vet-core-domain.md`):
 the business, its keys, its data, who may touch what, and the traps it
 holds. A design-time source: copy its files into a scenario and adapt
 them there; the domain itself never changes for a scenario. The core is
@@ -495,8 +495,9 @@ Requests 1–17 000 in their consultation's order. Returns `kind`, `code`,
   imaging mix about 60 % domestic, 30 % horses, 10 % farm (at the
   reference T0: 42.5 %, 7 214 orders of 1.83, 2 971 studies, 58.9/29.8/11.4).
 - **Its code**, from the parts' catalogues (D372):
-  [the lab's tests](../../../specs/versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372)
-  and [the machinery's procedures](../../../specs/versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  the lab's tests (v0.5's `vet-lab-domain.md`, "The test catalogue (D372)")
+  and the machinery's procedures (v0.5's `vet-machinery-domain.md`,
+  "The procedure catalogue (D372, D373)"),
   each code weighted for the section, a weighted draw **without
   replacement** within the consultation (the codes ordered by
   `ln(u₈₃(1 000 c + id)) / weight`, descending; the consultation's `k`-th
@@ -626,8 +627,8 @@ history: `load-data` passes one `load_epoch` to every file of a run.
 ### The catalogues' shares, as the load measures them
 
 Measured at the reference T0 (the same at shift 0 within a tenth of a
-point), against the two catalogues' draws ([vet-lab](../../../specs/versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372),
-[vet-machinery](../../../specs/versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373)):
+point), against the two catalogues' draws (v0.5's `vet-lab-domain.md` and
+`vet-machinery-domain.md`):
 
 - **Analyses**: 13 196, 9 654 routine and 3 542 urgent. Every routine
   code is within 2.1 points of its weight in the domestic section, 3.0 on
@@ -845,7 +846,7 @@ least 16 MB an hour.
 
 ## The traps
 
-[clinic-traps.md](../../../specs/versions/v0.5/clinic-traps.md) lists
+v0.5's `clinic-traps.md` lists
 each with its witness and where it is fixed; those biting the core: on its
 instance T1, T3, T5, T7, T9; in its data and identity T13 (the dozen
 mistyped chips, planted by this load), T14 to T19; in its grants and views

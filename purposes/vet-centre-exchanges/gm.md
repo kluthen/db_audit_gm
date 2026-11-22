@@ -1,7 +1,7 @@
 # Purpose 4, the exchanges with the other centres: GM notes
 
 The centre's exchanges with the franchise's other centres (v0.5 master
-spec 12.1, 12.2 purpose 4; [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+spec 12.1, 12.2 purpose 4; v0.5's `clinic-purposes.md`
 section 8; spec D285, D286, D293, D306, D438, D440): a **round trip both
 ways**. The centre asks another centre for a transfer or an examination
 its own machines or specialists cannot do (out); the other centres ask it
@@ -125,7 +125,7 @@ working day is the chase's.
 
 ## The faults this purpose carries
 
-From [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+From v0.5's `clinic-purposes.md`
 section 8 (the selection is the scenario's): `clinic-api`'s endpoint
 answering 201 from a transaction it never commits (EX2 present at once:
 the centre told "received", the clinic holding nothing; fixed on

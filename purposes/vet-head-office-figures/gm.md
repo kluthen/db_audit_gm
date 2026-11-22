@@ -2,7 +2,7 @@
 
 The centre's monthly activity figures to the franchise's head office
 (v0.5 master spec 11.3, 12.1, 12.2 purpose 9;
-[clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+v0.5's `clinic-purposes.md`
 section 13; one-centre 1; vet-housing O189; spec D300, D318, D436): a
 **pushed obligation, periodic**. The figures are fed daily into the back
 office's database `office`, the back office's own business report; the
@@ -83,7 +83,7 @@ leaves them, and the players recommend the rerun (master spec 12.1).
 
 ## The faults this purpose carries
 
-From [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+From v0.5's `clinic-purposes.md`
 section 13 (the selection is the scenario's): the stays counted when the
 feeder runs, not at midnight (`figures.feed.read`, HO1); the turnaround's
 median taking cancelled and unperformed tests (`figures.feed.lab`, HO1);

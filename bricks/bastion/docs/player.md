@@ -1,7 +1,7 @@
 # Bastion — player notes
 
 What you may know about the bastion of a db_audit_gm game. Version
-0.6, expected to evolve.
+0.7, expected to evolve.
 
 ## Getting in
 
@@ -131,6 +131,47 @@ running, your home is writable, and `~/.ssh/id_ed25519` and `~/.pgpass`
 are in place with mode `600`. It prints `GREEN: ...` and exits 0, or one
 `RED ...` line per problem and exits 1. Each node has its own validator;
 see `README.md`.
+
+## The game assistant
+
+The game assistant is an agent you may run beside you: a PostgreSQL DBA
+colleague, with no knowledge of the game's answers. It is not the game
+master.
+
+- **It cannot touch the databases.** It never connects to one and never
+  runs a command that changes something: it writes the SQL and commands,
+  you run them. On the bastion it only reads, through your connection,
+  what a colleague looking over your shoulder would see; it never reads
+  `~/.pgpass`, `~/.ssh/` or the web site (tell it what the site shows).
+  It writes only your report, its drafts and the tracking files you ask
+  for, on your machine, never on the bastion.
+- **The game master takes your report, not the assistant.** The
+  assistant never hands it in, never talks to the game master and never
+  says whether a finding is right; the game master is not told it
+  helped. The game master runs in its own session: anything for the game
+  master goes there. Your report reaches the game master as ever:
+  pasted, left in `~/report.md`, or talked through.
+
+**Starting it.** On your own machine, from your own clone of the game's
+repository:
+
+```
+tools/play assistant
+```
+
+(`tools/play assistant --opencode` with OpenCode). It starts in a
+session of its own, never the game master's.
+
+**Your shared connection.** The bastion takes passwords only, and the
+assistant is never given one. Open a shared SSH connection in your own
+terminal, typing the password once (`<game>` is a label of your
+choice):
+
+```
+ssh -M -S ~/.ssh/dbagm-<game>.sock -fN -p <port> player@<address>
+```
+
+The assistant runs each of its reads through it.
 
 ## Do not tamper
 

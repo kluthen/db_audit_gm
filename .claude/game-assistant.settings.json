@@ -1,6 +1,9 @@
 {
   "skillOverrides": {
-    "game-master": "off",
+    "game-master-setup": "off",
+    "game-master-restart": "off",
+    "game-master-evaluation": "off",
+    "game-master-feedback": "off",
     "scenario-format": "off",
     "scenario-document": "off",
     "data-register": "off",

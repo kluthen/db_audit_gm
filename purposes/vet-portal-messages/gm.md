@@ -1,6 +1,6 @@
 # vet-portal-messages — GM notes
 
-Purpose 16 of v0.5 (master spec 12.2; [vet-portal-domain.md](../../specs/versions/v0.5/vet-portal-domain.md),
+Purpose 16 of v0.5 (master spec 12.2; v0.5's `vet-portal-domain.md`,
 "`vet-portal-messages`: notices and reminders to the messaging service";
 capture W4 items 0, 6 and 7; spec D404): **pushed** (v0.4's P3, customer
 mailing) to a third party, the franchise's messaging service (a processor),

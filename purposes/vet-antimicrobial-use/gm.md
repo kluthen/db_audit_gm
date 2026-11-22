@@ -1,7 +1,7 @@
 # Purpose 8, the antimicrobial use: GM notes
 
 The yearly antimicrobial-use report to the authority (v0.5 master spec
-11.3, 12.1, 12.2 purpose 8; [clinic-purposes.md](../../specs/versions/v0.5/clinic-purposes.md)
+11.3, 12.1, 12.2 purpose 8; v0.5's `clinic-purposes.md`
 section 12; core rule 4; spec D436): a **pushed obligation, periodic**. Fed
 daily into `office` for every species from the record's standby; on 15
 January last year's report for the species due, posted to the authority,

@@ -2,7 +2,7 @@
 
 The machines of one centre of Aldermoor Veterinary Hospitals and their
 three systems' databases (v0.5 master spec 9.6;
-[vet-machinery-domain.md](../../../specs/versions/v0.5/vet-machinery-domain.md)):
+v0.5's `vet-machinery-domain.md`):
 the business, the data, who may touch what, the producer, the rules, the
 traps, loading. A design-time source: a scenario composes it with
 `vet-core` (`domains:`, `at:` a map) and the domain itself never changes
@@ -361,7 +361,7 @@ the witnesses are the vault's graph, the partition count and
 ## The traps
 
 The catalogue is the domain document's (T200–T237, with its false-alarm
-lines; [vet-machinery-domain.md](../../../specs/versions/v0.5/vet-machinery-domain.md#traps-step-8)),
+lines; v0.5's `vet-machinery-domain.md`, "Traps (step 8)"),
 each with its witness and where it is fixed. By class: on the shared
 instance T200 (M), T201 (M), T202 (M, V when exposed), T203 (M), T204
 (M); data and identity T205 (D), T206 (V), T207 (D), T208 (M; D without
