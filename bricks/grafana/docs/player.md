@@ -6,10 +6,10 @@ version (v0.2), expected to evolve.
 ## Getting there
 
 - **Web interface**: Grafana, through the bastion's web front, at
-  `/grafana/` (the game master gives you the address and the tools
-  password). The front asks for its own login first (user `player`, the
-  tools password); then Grafana asks for its own: user **`admin`**, the
-  same tools password. That account is Grafana's administrator.
+  `/grafana/` (the game master gives you the address). The front asks for
+  no login; Grafana asks for its own: user **`admin`**, the tools
+  password, shown on the bastion home's Access section. That account is
+  Grafana's administrator.
 - **Shell**: from the bastion, `ssh player@<node>` (the key is already in
   your `~/.ssh`).
 - **From any node of the game**: `http://<node>:3000/grafana/`, for
@@ -76,7 +76,8 @@ something is wrong it prints one `RED ...` line per broken rule and exits
   dashboard file is loaded, and no file changed since (otherwise reload).
 
 `ERROR: Grafana refused the administrator's login` means its password is
-no longer the tools password: tell the game master.
+no longer the tools password (the one on the bastion home's Access
+section): tell the game master.
 
 The validator does not tell you whether the dashboards and alerts watch
 the right things, or whether the data source points at the right place:

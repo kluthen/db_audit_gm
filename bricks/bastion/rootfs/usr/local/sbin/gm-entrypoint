@@ -10,19 +10,20 @@
 #      credentials handed over in place of its {{credential:<name>}}
 #      placeholders (/run/gm/starter/partners.md; v0.5, spec D365, D433),
 #      failing on a name with no secret /opt/gm/secrets/http_<name>;
-#   4. builds /run/gm/shadow (/etc/shadow points to it) with the hash of
-#      the per-game password;
+#   4. (none since 0.8.0: `player` has no password, set in the image);
 #   5. copies the starter pack from /opt/gm/starter into the player's home,
 #      once, never over an existing file; an optional file the scenario
 #      does not provide (data-policy.md, partners.md, data-register.md,
 #      network-overview.md) is skipped; creates ~/reports/, served by the
 #      front (v0.6 master spec 7.5);
 #   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets;
-#   7. writes the web front's nginx configuration, password file and pages
-#      under /run/web-front, routes or none (spec D224; v0.6 master spec
-#      7.1 to 7.5, capture W2 item 2): the home at / (Sites: the routes of
-#      GM_WEB_ROUTES, Reports; Documents: each starter-pack file present,
-#      then Tools, each brick's page), the documentation site under /docs/
+#   7. writes the web front's nginx configuration and pages under
+#      /run/web-front, routes or none, no login (spec D224; v0.6 master spec
+#      7.1 to 7.5, capture W2 item 2; 0.8.0, the owner's ruling of
+#      2026-11-23): the home at / (Access: every credential the players'
+#      tools need; Sites: the routes of GM_WEB_ROUTES, Reports; Documents:
+#      each starter-pack file present, then Tools, each brick's page), the
+#      documentation site under /docs/
 #      rendered from the starter pack as handed over (/opt/gm/starter) and
 #      the brick pages (/opt/gm/docs/bricks), the reports folder at
 #      /reports/, and, with the partners' status file, one status page per
@@ -39,14 +40,12 @@ STARTER_OPTIONAL="data-policy.md partners.md data-register.md network-overview.m
                                                 # unless the scenario has it
 RESOLVED_DIR=/run/gm/starter        # starter files with their placeholders replaced
 HOSTKEY_DIR=/var/lib/gm-sshd-keys
-SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
 REPORTS_DIR=$PLAYER_HOME/reports    # the stack's reports, served at /reports/ (master spec 7.5)
 BRICK_DOCS_DIR=/opt/gm/docs/bricks  # the brick pages render delivers (capture W2 item 1)
 STATUS_FILE=/opt/gm/secrets/partners_status.json   # the partners' status file (W2 item 1)
 WEB_DIR=/run/web-front
 WEB_PORT=8080
-WEB_USER=player                     # the basic-authentication user name
 WEB_ACCOUNT=www-data                # nginx runs as this account
 
 . /usr/local/lib/gm/pages.sh
@@ -97,8 +96,10 @@ if [ ! -s "$HOSTKEY_DIR/ssh_host_ed25519_key" ]; then
 fi
 
 # --- 3. secrets ---------------------------------------------------------
-player_password=$(read_secret player_password)
 dba_password=$(read_secret dba_password)
+# The tools password: Grafana's administrator password, shown on the
+# home's Access section when the game routes Grafana (no longer the front's).
+tools_password=$(read_secret tools_password)
 [ -s "$SECRETS_DIR/player_ssh_key" ] || die "secret $SECRETS_DIR/player_ssh_key is missing or empty"
 ssh-keygen -y -f "$SECRETS_DIR/player_ssh_key" >/dev/null 2>&1 \
     || die "secret player_ssh_key is not an unencrypted OpenSSH private key"
@@ -146,18 +147,6 @@ starter_source() {
     if [ -f "$RESOLVED_DIR/$1" ]; then printf '%s' "$RESOLVED_DIR/$1"; else printf '%s' "$STARTER_DIR/$1"; fi
 }
 
-# --- 4. password ----------------------------------------------------------
-# The root filesystem is read-only, so /etc/shadow is a symlink to
-# /run/gm/shadow, rebuilt here at every start from the image's copy.
-hash=$(printf '%s\n' "$player_password" | openssl passwd -6 -stdin)
-case $hash in '$6$'*) ;; *) die "could not hash the player password" ;; esac
-GM_HASH=$hash awk -F: 'BEGIN { OFS = ":" } $1 == "player" { $2 = ENVIRON["GM_HASH"] } { print }' \
-    "$SHADOW_BASE" > /run/gm/shadow
-grep -q '^player:\$6\$' /run/gm/shadow || die "could not set the player password"
-chown root:shadow /run/gm/shadow
-chmod 0640 /run/gm/shadow
-unset player_password hash
-
 # --- 5. player's home and starter pack -------------------------------------
 # 0751: the front's account (www-data) passes through the home to
 # ~/reports/ alone, and lists nothing else in it (master spec 7.5).
@@ -201,7 +190,7 @@ install -d -o player -g player -m 0700 "$PLAYER_HOME/.ssh"
 printf '%s\n' "$(cat "$SECRETS_DIR/player_ssh_key")" | put_file "$PLAYER_HOME/.ssh/id_ed25519" 0600
 pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
 printf '*:*:*:dba:%s\n' "$pw_pgpass" | put_file "$PLAYER_HOME/.pgpass" 0600
-unset dba_password pw_pgpass
+unset pw_pgpass
 
 # --- 7. web front -----------------------------------------------------------
 # The front runs in every game (spec D224), routes or none: its home, /, is
@@ -215,9 +204,9 @@ unset dba_password pw_pgpass
 # /<name>/manifests (to /manifests, its query string kept) are proxied, with
 # Host: <host>, the partner's hostname; any other path or method is 404.
 # The front's own answers (the page at /, the redirect of /<name> to
-# /<name>/, 404 elsewhere) are static files under $WEB_DIR/www, served in
-# nginx's content phase: a `return` would answer in the rewrite phase,
-# before auth_basic in the access phase, so without the password.
+# /<name>/, 404 elsewhere) are static files under $WEB_DIR/www. The front
+# has no login since 0.8.0 (the owner's ruling of 2026-11-23); the
+# upstreams keep theirs (Grafana's own `admin` login).
 web_names=
 web_locations=
 set -f
@@ -235,12 +224,11 @@ for token in ${GM_WEB_ROUTES:-}; do
     case " $web_names " in *" $name "*) die "GM_WEB_ROUTES: route $name given twice" ;; esac
     web_names="$web_names $name"
     var=gm_upstream_$(printf '%s' "$name" | tr - _)
-    # = /<name>: without it, nginx's own 301 of /<name> to the proxy_pass
-    # location /<name>/ would answer before auth_basic (find-config
-    # phase); the static directory www/routes/<name>/ answers instead.
+    # = /<name>: the static directory www/routes/<name>/ answers /<name>
+    # with a 301 to /<name>/, as for every route.
     if [ -n "$console" ]; then
-        # proxy_set_header here replaces the server's: the front's
-        # credentials still stop at the front.
+        # proxy_set_header here replaces the server's: no Authorization
+        # header reaches the partner through its console.
         for path in / /manifests; do
             web_locations="$web_locations
         location = /$name$path {
@@ -274,15 +262,6 @@ set +f
 
 install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR"
 install -d -o "$WEB_ACCOUNT" -g "$WEB_ACCOUNT" -m 0700 "$WEB_DIR/tmp"
-# Password file: user `player`, SHA-512 crypt of the tools password,
-# readable by nginx's account only.
-tools_password=$(read_secret tools_password)
-hash=$(printf '%s\n' "$tools_password" | openssl passwd -6 -stdin)
-case $hash in '$6$'*) ;; *) die "could not hash the tools password" ;; esac
-printf '%s:%s\n' "$WEB_USER" "$hash" > "$WEB_DIR/htpasswd"
-chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
-chmod 0440 "$WEB_DIR/htpasswd"
-unset tools_password hash
 # Static answers: www/not-found.txt, www/routes/<name>/, one empty
 # directory per route (and reports/, for /reports), for which nginx's
 # static module answers /<name> with a 301 to /<name>/; the pages.
@@ -353,9 +332,46 @@ for f in "$BRICK_DOCS_DIR"/*.md; do
 done
 rm -f /run/gm/page.html /run/gm/status-map
 
+# Access (the owner's ruling of 2026-11-23): every credential the players'
+# tools need, with its value, in one section near the top of the home: the
+# bastion (SSH, no password), this site (no login), the nodes (the key in
+# ~/.ssh), PostgreSQL (role dba, the password ~/.pgpass holds), each routed
+# web interface (Grafana: user admin, the tools password; the others no
+# login of their own), and where the partners' credentials are.
+dba_html=$(printf '%s' "$dba_password" | html_escape)
+tools_html=$(printf '%s' "$tools_password" | html_escape)
+access_rows=
+for name in $web_names; do
+    case $name in
+        grafana) login="Its own login: user <code>admin</code>, password <code>$tools_html</code><br>Grafana's administrator: do not change its users or this password" ;;
+        *) login="No login" ;;
+    esac
+    access_rows="$access_rows<tr><td>$name</td><td><a href=\"/$name/\">/$name/</a></td><td>$login</td></tr>
+"
+done
+if [ -f "$STARTER_DIR/partners.md" ]; then
+    access_rows="$access_rows<tr><td>The partners' services</td><td><a href=\"/docs/partners\">Partners</a>, also <code>~/partners.md</code></td><td>Each credential the customer holds with a partner is in that document, with the partner it is for</td></tr>
+"
+fi
+access_section="<section id=\"access\">
+<h2>Access</h2>
+<p>Every credential your tools need is on this page. The bastion itself asks for no password, on SSH or here.</p>
+<table>
+<thead><tr><th>What</th><th>How</th><th>Credentials</th></tr></thead>
+<tbody>
+<tr><td>The bastion (SSH)</td><td><code>ssh -p &lt;port&gt; player@&lt;address&gt;</code></td><td>User <code>player</code>, no password and no key: it logs straight in</td></tr>
+<tr><td>This web site</td><td><code>http://&lt;address&gt;:&lt;web port&gt;/</code></td><td>No login</td></tr>
+<tr><td>The nodes</td><td><code>ssh &lt;node&gt;</code>, from the bastion</td><td>The key in <code>~/.ssh/id_ed25519</code>, already in place</td></tr>
+<tr><td>PostgreSQL</td><td><code>psql -h &lt;node&gt;</code>, from the bastion</td><td>Role <code>dba</code>, password <code>$dba_html</code><br><code>psql</code> reads it from <code>~/.pgpass</code> by itself</td></tr>
+${access_rows}</tbody>
+</table>
+<p class=\"note\"><code>&lt;address&gt;</code> is this site's address, the one in your browser's address bar; <code>&lt;port&gt;</code> and <code>&lt;web port&gt;</code> are the ports the game master gave you.</p>
+</section>"
+unset dba_password tools_password dba_html tools_html access_rows login
+
 # The home (master spec 7.2): a header naming the customer (the story's
-# first heading), Sites (the routes, Reports), Documents (each page above),
-# then Tools (each brick's page).
+# first heading), Access (above), Sites (the routes, Reports), Documents
+# (each page above), then Tools (each brick's page).
 customer=$(md_title "$STARTER_DIR/story.md" "the customer" | html_escape)
 site_links=
 for name in $web_names; do
@@ -371,6 +387,7 @@ $status_links"
 <h1>$customer</h1>
 <p>The documents below are what $customer handed over at the mission's start. Your own copies are in your home on the bastion.</p>
 </header>
+$access_section
 <section id="sites">
 <h2>Sites</h2>
 <ul>
@@ -387,7 +404,7 @@ HOME
     printf '</section>\n'
     page_close
 } | put_page "$WEB_DIR/www/index.html"
-unset doc_links tool_links site_links status_links customer
+unset doc_links tool_links site_links status_links customer access_section
 
 cat > "$WEB_DIR/nginx.conf" <<EOF
 # nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
@@ -414,23 +431,21 @@ http {
     server {
         listen $WEB_PORT;
         absolute_redirect off;
-        auth_basic "db_audit_gm web front";
-        auth_basic_user_file $WEB_DIR/htpasswd;
+        # No login on the front (0.8.0); the upstreams keep their own.
         proxy_http_version 1.1;
         proxy_read_timeout 300s;
         proxy_set_header Host \$http_host;
-        # The front's credentials stop here: Grafana would read them.
+        # No Authorization header goes upstream: Grafana takes its own
+        # login (a form and a cookie), never a browser's basic credentials.
         proxy_set_header Authorization "";
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection \$connection_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        # An upstream's own challenge would make the browser drop the
-        # front's credentials.
+        # An upstream's own basic-authentication challenge is not passed
+        # on: the browser's answer to it would be stripped above anyway.
         proxy_hide_header WWW-Authenticate;
-        # Every answer below comes from the content phase, after
-        # auth_basic; a return directive would answer before it.
         location = / {
             root $WEB_DIR/www;
             types { }

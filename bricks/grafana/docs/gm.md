@@ -75,7 +75,7 @@ seed-file fault.
 | What | Where it lands | Set by |
 |---|---|---|
 | The seed files (`seed.files`: five required, `pgwatch.json` optional, `seed.optional`) | `/opt/gm/seed/<file>`, root `0444`, copied into `/etc/grafana/provisioning/` at first start (table below) | the scenario's `seed_files` (`nodes/<node>/<file>`), copied from `companion/`; `pgwatch.json` only when the scenario has a `pgwatch` node |
-| Secret `tools_password` (kind `password`, `handed_over: true`) | `/opt/gm/secrets/tools_password`, uid 0, gid 472 (`grafana`), `0440` | `gmctl deploy`: the same secret as the bastion's (16 characters, the player alphabet); the GM hands it over with the web front |
+| Secret `tools_password` (kind `password`, `handed_over: true`) | `/opt/gm/secrets/tools_password`, uid 0, gid 472 (`grafana`), `0440` | `gmctl deploy`: the same secret as the bastion's (16 characters, the player alphabet); the bastion (0.8.0) shows it on its home's Access section, and the web front itself takes no login |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 
 The `tools_password` secret's uid, gid and mode differ from the bastion's
@@ -281,8 +281,8 @@ with it, by its node name.
   confirms the bastion's `consumes {ui, http, 3000}`), which the front
   serves at `/grafana/` and forwards with the path unchanged, clearing the
   players' `Authorization` header. Players sign in on Grafana's login page
-  as `admin` with the tools password, after the front's own `player` login
-  with the same password.
+  as `admin` with the tools password, which the bastion's home shows on
+  its Access section; the front itself takes no login (bastion 0.8.0).
 - **Provides `ssh`, SSH protocol, port 22.** The other side is the
   bastion's inner hop (`ssh <node>`), as `player`, by public key only: the
   node's `player_ssh_pubkey` is the public half of the bastion's
@@ -321,14 +321,16 @@ these interfaces: they run inside the container through `gmctl exec`.
   database; no login. The secret's gid is this group's.
 - Grafana's own users: **`admin` only**, a Grafana administrator, password
   the tools password. Sign-up and organisation creation are off;
-  anonymous access is off. The front's user `player` is not a Grafana user,
-  so a front header that leaked through could never log anyone in.
+  anonymous access is off. The front has no login since bastion 0.8.0,
+  and it clears the `Authorization` header, so no browser credential
+  reaches Grafana through it.
 - `sudo`: `player` may run the two wrappers as root, with no arguments
   (`/etc/sudoers.d/gm-player`): `env_reset`, fixed `secure_path`, no
   syslog, log in `/run/gm/sudo.log`.
 
 **Web interface**: Grafana's UI through the bastion's web front at
-`/grafana/`. The tools password makes the players Grafana administrators
+`/grafana/`. The tools password, on the bastion home's Access section,
+makes the players Grafana administrators
 (access model 8): they may edit dashboards, data sources and alert rules
 they create in the UI, and must not change Grafana's users or the
 administrator's password (DO NOT TAMPER, `docs/player.md`; not enforced,

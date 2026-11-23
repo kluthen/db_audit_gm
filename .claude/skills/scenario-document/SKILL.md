@@ -205,14 +205,14 @@ node's bullets, before its resources (see the template).
   route, in YAML order: the route as `ui:<name>` (the name the answer
   key's evidence uses), its path `/<name>/` on the web front, the
   upstream node and port (the value `"<node>:<port>"` split). Then one
-  line, in master spec 7.6's and access model 5 and 7's wording:
-  "Published on the bastion's web front port, behind HTTP basic
-  authentication on the tools password; a request without it is refused
-  with HTTP 401." An empty map (`{}` written in `scenario.yaml`): no
-  table, and the line "Web front routes (`<NAME>`): none. The topology
-  has no web interface: the web front serves the starter-pack page
-  alone, and the tools password is handed over all the same" (v0.4,
-  D224). A parameter the scenario leaves out (its brick's default
+  line (bastion 0.8.0, the owner's ruling of 2026-11-23, replacing
+  master spec 7.6's and access model 5 and 7's basic authentication):
+  "Published on the bastion's web front port, with no login of the
+  front's own (bastion 0.8.0); an upstream with a login keeps it
+  (Grafana's `admin`, the tools password)." An empty map (`{}` written in
+  `scenario.yaml`): no table, and the line "Web front routes (`<NAME>`):
+  none. The topology has no web interface: the web front serves the
+  starter-pack page alone, with its Access section" (v0.4, D224). A parameter the scenario leaves out (its brick's default
   applies) is not rendered: the Parameters line says what
   `scenario.yaml` writes.
 

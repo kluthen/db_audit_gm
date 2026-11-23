@@ -106,7 +106,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.7.0
+      version: 0.8.0
     role: bastion
     stateful: true
     networks: [backend]

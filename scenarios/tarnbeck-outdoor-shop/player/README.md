@@ -21,8 +21,8 @@ last night and keeps running while you work.
 All eight nodes are on one private network. From outside, only the
 bastion's SSH port and its web front port are reachable.
 
-- You log in to the bastion as `player` with the bastion password the
-  game master gave you: the bastion takes no SSH key. The key in
+- You log in to the bastion as `player`, with no password: the bastion
+  asks for none and takes no SSH key. The key in
   `~/.ssh/id_ed25519` is only for the hops from the bastion to the nodes:
   `ssh <node>` logs you in to a node as `player` with it.
 - `psql -h db` from the bastion, or `psql` on `db`, connects you as the

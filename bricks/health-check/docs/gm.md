@@ -178,8 +178,9 @@ translate host name") until a later run reads it.
 - **Wrappers**: `gm-crontab` (any argument, checked: `-l` or one file
   read as player), `gm-run-checks` (the checks now, as `postgres`),
   `gm-validate`.
-- **The page** has no login beyond the web front's tools password
-  (access model 13), and no `edit-content`: each run rewrites it.
+- **The page** has no login, and the web front asks for none since
+  bastion 0.8.0 (access model 13); it has no `edit-content`: each run
+  rewrites it.
 - Capabilities as the exporter's, `cap_drop: ALL` first.
 
 ## Footprint

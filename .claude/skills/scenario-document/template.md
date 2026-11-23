@@ -214,16 +214,15 @@ Web front routes (`<NAME>`):
 |---|---|---|---|
 | `ui:<route>` | `/<route>/` | `<node>` | <port> |
 
-Published on the bastion's web front port, behind HTTP basic
-authentication on the tools password; a request without it is refused
-with HTTP 401.
+Published on the bastion's web front port, with no login of the front's
+own (bastion 0.8.0); an upstream with a login keeps it (Grafana's
+`admin`, the tools password).
 <!-- end if -->
 
 <!-- if: a parameter of the node has shape web-routes and scenario.yaml
      writes it as {} -->
 Web front routes (`<NAME>`): none. The topology has no web interface: the
-web front serves the starter-pack page alone, and the tools password is
-handed over all the same.
+web front serves the starter-pack page alone, with its Access section.
 <!-- end if -->
 
 <!-- if: the node is a database node whose seed_files names crontab, or

@@ -552,7 +552,9 @@ In `scenarios/<id>/local/<pg>/` (git-ignored; never edit by hand):
 - `state.yaml`: through `gmctl status`;
 - `secrets/`: one file per secret the bricks declare (mode 0600; never
   print one anywhere but the hand-over). `gmctl status` lists them; the
-  ones marked `handed over` are typed by players: `player_password`, the
-  bastion password, and `tools_password`, the web front's, handed over
-  in every game from v0.4 (spec D224, replacing D103). They stay there
-  for the whole game, so a restarted GM hands them over again from them.
+  ones marked `handed over` are typed by players: `tools_password`,
+  Grafana's administrator password, shown on the web front's Access
+  section in every game, and each partner credential `http_<name>`
+  partners.md carries. There is no bastion password since bastion 0.8.0
+  (the owner's ruling of 2026-11-23): no `player_password`. They stay
+  there for the whole game, so a restarted GM finds them again.

@@ -210,12 +210,17 @@ and `grafana`. `<id>` is a fault instance's id (`fault_instances[*].id`).
 
 **The web front runs in every game** (v0.4 master spec 7.3, spec D224,
 replacing v0.2's D103): the bastion always publishes a second port, the
-one whose `target` is 8080 in `implementation.yaml`, and the tools
-password is always handed over with the bastion password. Its home page
+one whose `target` is 8080 in `implementation.yaml`. Since bastion 0.8.0
+(the owner's ruling of 2026-11-23) neither the bastion's SSH nor its web
+front asks for a password, and the front's home opens with an **Access**
+section listing every credential the players' tools need, with its
+value: the SSH command shape, the role `dba` and its password, Grafana's
+login (user `admin`, the tools password) when the game has Grafana, and
+where the partners' credentials are. Its home page
 is the **starter-pack page** (capture W1-z): the starter pack as handed
 over (`README.md`, `story.md`, `issues.md`, and the data policy when the
-scenario has `governance:`) rendered read-only, behind the tools password
-like the rest of the front, never the players' edited copies. **The
+scenario has `governance:`) rendered read-only, with no login like the
+rest of the front, never the players' edited copies. **The
 topology has a web interface** when the bastion's `web_routes` parameter
 in `scenario.yaml` is not empty (a scenario with a `prometheus` or
 `grafana` node always has one: the loader refuses a web interface
@@ -401,8 +406,8 @@ cannot tell a teacher from a player, and players may be watching.
   question ("can we restart?", "what happens if we restart?") or a
   confirmation from someone who says they are not playing never
   restarts it ([Restart](/.claude/skills/game-master-restart/SKILL.md#restart)). A stop needs no confirmation.
-- **What is not help.** Repeating the hand-over (address, port, password,
-  where the starter pack is, the issues as given), stating the time left,
+- **What is not help.** Repeating the hand-over (address, ports, where
+  the credentials are, where the starter pack is, the issues as given), stating the time left,
   and explaining how to hand in the report are not hints: give them.
   Asked whether they may change something (a node, a job, another
   party's system), repeat what the starter pack says (each issue's
@@ -487,9 +492,10 @@ the initiator declines and wants that game gone, tear it down
 | `torn-down` | over | nothing; a new game may be fitted on this playground |
 
 The credentials of a deployed game are in `local/<pg>/secrets/` (the
-bastion password and the tools password), so you can hand them over
-again from a fresh session. A whole-game restart keeps every one of
-them.
+tools password among them; the bastion takes no password), and every one
+the players' tools need is on the web front's Access section, so you can
+point the players to them again from a fresh session. A whole-game
+restart keeps every one of them.
 
 Whether the initiator plays was asked once, at the setup, and is
 recorded nowhere: picking up a game before its final answer, never ask
@@ -649,22 +655,21 @@ command line. No credential in `--env` or on a command line (see
   [Evaluation](/.claude/skills/game-master-evaluation/SKILL.md#evaluation), "Errors").
 - **The web front**, in every game, from the host as the players'
   browsers see it, at `http://<address>:<web port>/` (`<web port>`: the
-  bastion's published port whose `target` is 8080). The tools password
-  goes to `curl -K -` on its standard input through `printf`, never as an
-  argument:
+  bastion's published port whose `target` is 8080). It asks for no
+  login (bastion 0.8.0):
 
   ```sh
   curl -s -o /dev/null -w '%{http_code}\n' http://<address>:<web port>/
-  printf 'user = "player:%s"\n' "$(cat <dir>/local/<pg>/secrets/tools_password)" | curl -s -K - http://<address>:<web port>/
+  curl -s http://<address>:<web port>/
   ```
 
-  The first answers 401 (no password); the second returns the
-  starter-pack page (capture W1-z): one section per element present, in
-  order `readme`, `story`, `issues`, `data-policy` (with `governance:`)
-  and, with a web interface, `web-interfaces`, linking each route; an
-  absent element leaves no section. With the password, each route
-  answers at `/<route>/`; one answering 502 has its upstream down or not
-  yet started.
+  The first answers 200; the second returns the home: its sections
+  `access` (every credential the players' tools need, with its value),
+  `sites` (each route, Reports) and `documents` (each starter-pack file
+  present, then the brick pages). Each route answers at `/<route>/`;
+  one answering 502 has its upstream down or not yet started. The page
+  shows the dba and tools passwords: fetch it into a variable or a
+  pipe, never print it to the transcript beyond what you check.
 
 ## Stages and `status --set`
 

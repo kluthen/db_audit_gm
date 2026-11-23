@@ -7,7 +7,7 @@ scripts, with a status page.
 ## Getting there
 
 - **The page**: from your browser, the bastion's web front, `/health/`
-  (the tools password). `status.txt` beside it is the same in plain text.
+  (no login). `status.txt` beside it is the same in plain text.
 - **The node**: from the bastion, `ssh player@<node>`.
 
 ## What it does

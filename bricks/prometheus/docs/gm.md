@@ -289,8 +289,8 @@ from nodes sharing a network with it, by its node name.
   sub-path itself (`--web.external-url=/prometheus/`,
   `--web.route-prefix=/prometheus/`), so the route name must be
   `prometheus`. Nothing is served outside the sub-path (404), except a
-  redirect from `/` to it. Prometheus has no login of its own; the front
-  asks for the tools password. Grafana's data source uses
+  redirect from `/` to it. Prometheus has no login of its own, and the
+  front asks for none (bastion 0.8.0). Grafana's data source uses
   `http://<node>:9090/prometheus`. From inside the game network any node
   reaches it directly (access model, `through-web-front`).
 - **`ssh`, SSH protocol, port 22.** The other side is the bastion's inner
@@ -336,7 +336,7 @@ these interfaces: they run inside the container through `gmctl exec`.
   syslog, log in `/run/gm/sudo.log`.
 
 **Web interface**: Prometheus' UI through the bastion's web front at
-`/prometheus/`, with the tools password (see "Connections"). The admin
+`/prometheus/`, with no login (see "Connections"). The admin
 and lifecycle HTTP endpoints are disabled: `POST /prometheus/-/reload`
 and `PUT /prometheus/-/quit` answer 403 ("Lifecycle API is not
 enabled."), `/prometheus/api/v1/admin/...` answers 500 ("admin APIs

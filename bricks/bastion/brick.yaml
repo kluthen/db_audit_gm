@@ -1,6 +1,14 @@
 # brick.yaml: bastion node (master spec 7, 9.2 and 14).
 #
-# Version 0.7.0 (unreleased until the v0.7 release gate, D100): 0.6.0,
+# Version 0.8.0: 0.7.0 with the bastion's access opened (the owner's ruling
+# of 2026-11-23, after the junior week's first game): SSH as `player`
+# without a password (sshd's `none` method, an empty password), the web
+# front without a login, the secret player_password gone; the home's Access
+# section lists every credential the players' tools need (the dba
+# password, Grafana's login, where the partners' credentials are), and a
+# softer stylesheet on every page; AUDIT_WRITE added (sshd's audit record
+# of a terminal session: without it an interactive login is cut at once).
+# 0.7.0 (released with v0.7): 0.6.0,
 # released with v0.6, plus the player documentation's "The game assistant"
 # (v0.7 master spec 6.11, 6.4; documentation only: docs/player.md, which
 # gmctl delivers as a config, the image's content unchanged but for its tag).
@@ -32,13 +40,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.7.0
+version: 0.8.0
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 19 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.7.0
+image: 127.0.0.1:5000/dbagm/bastion:0.8.0
 base: {os: Debian GNU/Linux, version: "13"}  # the image's system (v0.6 master spec 6.4),
                                     # checked against its /etc/os-release (tools/tests/check-base.sh)
 
@@ -79,17 +87,18 @@ protected_files:
   - /etc/ssh/ssh_config.d/gm-game.conf
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/lib/gm/healthcheck
-  - /usr/local/lib/gm/shadow.base
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d
   - /etc/s6-overlay/user-bundles.d
-  - /run/web-front                  # the web front's configuration, password file and page,
-                                    # rewritten at each start
+  - /run/web-front                  # the web front's configuration and pages, rewritten at
+                                    # each start
 player_access:
-  ssh_account: player               # password login, the per-game secret player_password
+  ssh_account: player               # no password (0.8.0): an empty one, sshd's `none` method
   group: player
   sudo_wrappers: []                 # no sudo on the bastion (master spec 9.2)
 capabilities:                       # added back after cap_drop: ALL
+  - AUDIT_WRITE                     # sshd: the Linux audit record of a terminal (PTY) session;
+                                    # without it an interactive login is cut right after it opens
   - CHOWN                           # entrypoint: ownership of the home, its files, /run
   - DAC_OVERRIDE                    # entrypoint: emptying /run, writing in the player's home
   - FOWNER                          # entrypoint: modes on files it does not own
@@ -111,14 +120,8 @@ healthcheck:                        # healthy while sshd is up and listening on 
 secrets:                            # and, derived by render (v0.5, W4 item 1), one password
                                     # http_<name> per credential a third_parties: entry hands
                                     # over, at /opt/gm/secrets/http_<name>, 0:0 0400, read into
-                                    # partners.md by the entrypoint
-  - name: player_password           # the players' login password, handed over by the GM
-    kind: password
-    handed_over: true
-    path: /opt/gm/secrets/player_password
-    uid: 0
-    gid: 0
-    mode: "0400"
+                                    # partners.md by the entrypoint. No player_password since
+                                    # 0.8.0: the bastion takes no password.
   - name: player_ssh_key            # inner-hop private key (ed25519); its public half is
     kind: key-pair                  # the database node's player_ssh_pubkey
     pair: player_ssh_key
@@ -128,14 +131,14 @@ secrets:                            # and, derived by render (v0.5, W4 item 1), 
     gid: 0
     mode: "0400"
   - name: dba_password              # password of the dba role; the same Swarm secret as the
-    kind: password                  # database node's
+    kind: password                  # database node's; in ~/.pgpass and on the home's Access
     path: /opt/gm/secrets/dba_password
     uid: 0
     gid: 0
     mode: "0400"
-  - name: tools_password            # the web front's password (user `player`), handed over by
-    kind: password                  # the GM in every game; also Grafana's administrator
-    handed_over: true               # password; read at every start (D224)
+  - name: tools_password            # Grafana's administrator password (user admin), shown on
+    kind: password                  # the home's Access section when Grafana is routed; no
+    handed_over: true               # longer the front's (0.8.0); read at every start (D224)
     path: /opt/gm/secrets/tools_password
     uid: 0
     gid: 0

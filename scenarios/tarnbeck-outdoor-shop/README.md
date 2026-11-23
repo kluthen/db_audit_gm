@@ -89,7 +89,7 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.7.0 | bastion | yes | backend | report-only |
+| `bastion` | `bastion` 0.8.0 | bastion | yes | backend | report-only |
 | `db` | `postgres` 0.5.1 | database | yes | backend | fixable |
 | `pooler` | `pgbouncer` 0.1.2 | pooler | yes | backend | fixable |
 | `producer` | `scheduler` 0.4.0 | producer | yes | backend | report-only |
@@ -100,7 +100,7 @@ The story as the players read it: `player/story.md`.
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.7.0 (pinned).
+- **Brick**: `bastion`, version 0.8.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.

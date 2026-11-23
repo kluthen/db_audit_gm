@@ -7,7 +7,7 @@
 # Rules (the bastion's own invariants, nothing on the database side):
 #   - sshd is running and listening on port 22;
 #   - /etc/ssh/sshd_config is root-owned, not writable by others, and still
-#     allows `player` in with a password;
+#     lets `player` in without a password (an empty one, since 0.8.0);
 #   - the player's home is a directory owned by `player`, and writable;
 #   - ~/.ssh/id_ed25519 is the player's own, mode 0600, and loads as a key;
 #   - ~/.pgpass is the player's own, mode 0600, with a line for `dba`.
@@ -65,7 +65,8 @@ else
     esac
     grep -Eq '^[[:space:]]*AllowUsers[[:space:]]+player[[:space:]]*$' "$SSHD_CONFIG" \
         && grep -Eq '^[[:space:]]*PasswordAuthentication[[:space:]]+yes[[:space:]]*$' "$SSHD_CONFIG" \
-        || say_red "sshd_config: password login for player is no longer configured (DO NOT TAMPER)"
+        && grep -Eq '^[[:space:]]*PermitEmptyPasswords[[:space:]]+yes[[:space:]]*$' "$SSHD_CONFIG" \
+        || say_red "sshd_config: login for player without a password is no longer configured (DO NOT TAMPER)"
 fi
 
 # --- home --------------------------------------------------------------------------

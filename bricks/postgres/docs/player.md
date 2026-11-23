@@ -51,7 +51,7 @@ scp <node>:pgbadger.html ~/reports/
 ```
 
 then open `http://<address>:<web port>/reports/` in your browser (the
-bastion's web site, with the tools password) and click the report. No
+bastion's web site, no login) and click the report. No
 copy to your own machine is needed. The folder is served read-only, and
 only what is in it.
 

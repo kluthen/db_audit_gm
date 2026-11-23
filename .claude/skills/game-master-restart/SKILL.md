@@ -82,11 +82,12 @@ is refused (see [the stance](../../agents/game-master.md#the-stance)).
    choose another range as in setup step 4 and run it again with
    `--overlay-range <cidr>` added (`gmctl fit --overlay-range` then counts
    only for the playground's next games).
-5. **After it**, tell the players the game is back (the address, ports
-   and passwords unchanged, the tools password and, with a Grafana node,
-   Grafana's login too) and, from the snapshot, the maintenance window:
+5. **After it**, tell the players the game is back (the address and
+   ports unchanged, and every credential on the web front's Access
+   section, Grafana's login included, unchanged too) and, from the
+   snapshot, the maintenance window:
    "<!-- player -->The system is back, as it was when you received it.
-   Your addresses and passwords are unchanged. Its history has a
+   Your addresses and credentials are unchanged. Its history has a
    maintenance window from 14:00 to 14:20 UTC. The session still ends at
    18:00 UTC."<!-- /player --> Without the snapshot the
    bastion's SSH host key is new, so their SSH client warns of a changed

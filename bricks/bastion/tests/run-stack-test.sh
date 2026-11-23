@@ -10,7 +10,10 @@
 # checks, from this host as a player would and from the GM side
 # (docker exec):
 #   - both containers become healthy;
-#   - password login as `player` on the published port, nothing else;
+#   - 0.8.0 (the owner's ruling of 2026-11-23): `player` logs in on the
+#     published port with no password and no key, the client never asked
+#     (BatchMode), and interactively with a terminal (ssh -tt: sshd's audit
+#     record needs AUDIT_WRITE); root refused, keys not taken;
 #   - the starter pack's four files are in the home, ~/report.md is writable;
 #   - from the bastion, `ssh db` with the key (ServerAliveInterval 60) and
 #     `psql -h db` as dba;
@@ -18,9 +21,9 @@
 #   - after the database node is replaced (new host key), `ssh db` works;
 #   - after the bastion is replaced, its host key, the home and the
 #     player's edits are kept, and the starter pack is not copied again;
-#   - the web front (port GMTEST_BASTION_WEB_PORT): 401 and a challenge
-#     without the tools password on every path (/, /stub, /nothing/ too),
-#     with it the page at / (README, story, issues, data policy, in that
+#   - the web front (port GMTEST_BASTION_WEB_PORT): no login and no
+#     challenge on any path (0.8.0), the page at / (README, story, issues,
+#     data policy, in that
 #     order, a README table as an HTML table, raw HTML omitted, the links
 #     to the routes and nothing else; a player's edit of ~/story.md before
 #     the bastion's replacement absent from it), /stub redirected, 404
@@ -28,9 +31,10 @@
 #     the path unchanged, no Authorization header upstream, the stub's own
 #     challenge not passed on, 502 for a route whose upstream is down;
 #   - read-only root, capabilities, `/run` volume, secrets unreadable;
-#   - with the routes emptied (spec D224): the front up on port 8080, 401
-#     without the password, the page alone with no web-interface section
-#     or link, the health check green, the data policy still copied;
+#   - with the routes emptied (spec D224): the front up on port 8080, no
+#     login, the page alone with no web-interface section or link (no
+#     Grafana login on Access), the health check green, the data policy
+#     still copied;
 #   - v0.5 (master spec 7.3; spec D363, D365, D433): partners.md and
 #     data-register.md copied and on the page ("Partners" then "Data
 #     register" after the data policy), partners.md's
@@ -53,19 +57,24 @@
 #     documentation site /docs/<id> and /docs/bricks/<brick-id> rendered
 #     from the starter pack as handed over (a player's edit of a home copy
 #     changes no page), headings with GitHub's ids, links between starter
-#     files rewritten to /docs/, every page behind the basic
-#     authentication; no page for a brick not delivered; jq and tmux as
+#     files rewritten to /docs/, every page open with no login; no page
+#     for a brick not delivered; jq and tmux as
 #     player, jq reading a Prometheus API answer (the stub's) through curl;
 #     a pgBadger report made on db and copied into ~/reports/ in one hop,
 #     listed and served with the sandbox header, a path outside the folder
 #     and a symbolic link 404; with two routes and three documents, only
 #     those on the home, no dead link; the footprint at rest;
 #   - v0.7 (master spec 6.11): the bastion's brick page carries "The game
-#     assistant", how to start it and the shared SSH connection.
+#     assistant", how to start it and how it reaches the bastion (0.8.0:
+#     directly, `ssh -p <port> player@<address> '<read>'`);
+#   - 0.8.0: the home's Access section first, with the SSH command shape,
+#     the dba password, Grafana's login (user admin, the tools password)
+#     while Grafana is routed, the partners' page while there is one; the
+#     inline stylesheet's light and dark schemes.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.8.0 bricks/bastion
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.1 bricks/postgres
 # debian:13-slim (the stub's image), an OpenSSH client (8.4 or later) and
 # curl on this host, and free TCP ports GMTEST_BASTION_PORT (default 22222)
@@ -77,7 +86,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 STARTER=$HERE/fixtures/starter
 STACK=gmtest-bastion
-IMAGE=127.0.0.1:5000/dbagm/bastion:0.7.0
+IMAGE=127.0.0.1:5000/dbagm/bastion:0.8.0
 PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.1
 BASTION=${STACK}_bastion
 DB=${STACK}_db
@@ -89,7 +98,7 @@ WPORT=${GMTEST_BASTION_WEB_PORT:-28080}
 export GMTEST_BASTION_PORT=$PORT GMTEST_BASTION_WEB_PORT=$WPORT
 LABEL=dbagm.test=chunk3-bastion
 CONFIGS="starter_readme starter_story starter_issues starter_policy starter_partners starter_register starter_overview doc_bastion doc_postgres seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
-SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password http_demo_customer"
+SECRETS="player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password http_demo_customer"
 VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 
 failures=0
@@ -148,13 +157,10 @@ fi
 
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
-# Passwords with the characters the shadow line, .pgpass and SQL must survive.
-PLAYER_PASSWORD="p@ss:w0rd $(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')\"'\\"
-printf '%s' "$PLAYER_PASSWORD" > "$tmp/player_password"
+# A password with the characters .pgpass, SQL and the home page must survive.
 DBA_PASSWORD="T:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"
 printf '%s' "$DBA_PASSWORD" > "$tmp/dba_password"
-printf 'wrong password\n' > "$tmp/bad_password"
-# The tools password, with a colon: basic authentication splits at the first.
+# The tools password (Grafana's administrator's), shown on the home.
 TOOLS_PASSWORD="t00ls:$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 printf '%s' "$TOOLS_PASSWORD" > "$tmp/tools_password"
 # The database node's monitoring role password (postgres 0.5.0); unused here.
@@ -165,10 +171,6 @@ DEMO_KEY=$(head -c 1024 /dev/urandom | LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyzA
 printf '%s' "$DEMO_KEY" > "$tmp/http_demo_customer"
 [ "${#DEMO_KEY}" -eq 16 ] || { echo "could not make the credential" >&2; exit 2; }
 sed "s/{{credential:demo_customer}}/$DEMO_KEY/" "$STARTER/partners.md" > "$tmp/partners.resolved"
-for p in player_password bad_password; do
-    printf '#!/bin/sh\ncat %s\n' "$tmp/$p" > "$tmp/askpass_$p"
-    chmod 0700 "$tmp/askpass_$p"
-done
 
 docker config create -l "$LABEL" "${STACK}_starter_readme" "$STARTER/README.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_starter_story" "$STARTER/story.md" >/dev/null
@@ -183,7 +185,7 @@ docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$PG_FIXTURES/p
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$PG_FIXTURES/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$PG_FIXTURES/envelopes.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_stub_upstream" "$HERE/fixtures/stub-upstream.pl" >/dev/null
-docker secret create -l "$LABEL" "${STACK}_player_password" "$tmp/player_password" >/dev/null
+
 docker secret create -l "$LABEL" "${STACK}_player_ssh_key" "$tmp/id" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
@@ -225,23 +227,43 @@ done
 B=$(container "$BASTION")
 D=$(container "$DB")
 
-# --- players' side: password login on the published port -------------------------
-SSH_OPTS="-p $PORT -o UserKnownHostsFile=$tmp/known_hosts -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR -o ConnectTimeout=10 -o PreferredAuthentications=password -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1"
-pb() {  # pb <command>: run <command> on the bastion as player, logged in with the password
-    SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force \
-        timeout 120 ssh $SSH_OPTS player@127.0.0.1 "$@" </dev/null
+# --- players' side: login with no password on the published port ------------------
+# BatchMode: the client may never prompt; no key offered, no agent.
+SSH_OPTS="-p $PORT -o UserKnownHostsFile=$tmp/known_hosts -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR -o ConnectTimeout=10 -o BatchMode=yes -o PubkeyAuthentication=no -o IdentityAgent=none -o IdentitiesOnly=yes"
+pb() {  # pb <command>: run <command> on the bastion as player, logged in with no password
+    timeout 120 ssh $SSH_OPTS player@127.0.0.1 "$@" </dev/null
 }
 gm() { docker exec -i "$B" "$@"; }
 hostkey() { ssh-keyscan -T 5 -t ed25519 -p "$PORT" 127.0.0.1 2>/dev/null | ssh-keygen -lf - 2>/dev/null | cut -d' ' -f2; }
 
 u=$(pb id -un 2>&1)
-[ "$u" = player ] && pass "password login as player on port $PORT" || fail "password login: $u"
-check "wrong password refused" sh -c "! SSH_ASKPASS=$tmp/askpass_bad_password SSH_ASKPASS_REQUIRE=force timeout 30 ssh $SSH_OPTS player@127.0.0.1 true </dev/null"
-check "root login refused" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force timeout 30 ssh $SSH_OPTS root@127.0.0.1 true </dev/null"
-check "public-key login refused" sh -c "! timeout 30 ssh -p $PORT -o UserKnownHostsFile=$tmp/known_hosts -o BatchMode=yes -o LogLevel=ERROR -o PreferredAuthentications=publickey -o IdentitiesOnly=yes -i $tmp/id player@127.0.0.1 true"
-eff=$(gm sshd -T -f /etc/ssh/sshd_config 2>/dev/null | grep -E '^(passwordauthentication|pubkeyauthentication|permitrootlogin|allowtcpforwarding|persourcepenalties|allowusers) ' | sort | tr '\n' ';')
-[ "$eff" = "allowtcpforwarding no;allowusers player;passwordauthentication yes;permitrootlogin no;persourcepenalties no;pubkeyauthentication no;" ] \
+[ "$u" = player ] && pass "login as player on port $PORT with no password and no key, never prompted (BatchMode)" \
+    || fail "login with no password: $u"
+w=$(timeout 30 ssh -v $SSH_OPTS player@127.0.0.1 true </dev/null 2>&1 | grep -i 'Authenticated to' || true)
+case $w in *"using \"none\""*) pass "the client authenticated with OpenSSH's none method ($w)" ;;
+    *) fail "authentication method: $w" ;; esac
+# An interactive login (a terminal, as players open it): sshd writes an audit
+# record for it, which needs AUDIT_WRITE; without it the session is cut at once.
+w=$(printf 'tty; echo "interactive-$((40 + 2))"; exit\n' | timeout 30 ssh -tt $SSH_OPTS player@127.0.0.1 2>&1 | tr -d '\r')
+# The terminal's echo of the input never holds interactive-42: only the shell's output does.
+if printf '%s\n' "$w" | grep -q '/dev/pts/' && printf '%s\n' "$w" | grep -q 'interactive-42'; then
+    pass "interactive login with a terminal (ssh -tt): a shell, its output on /dev/pts"
+else
+    fail "interactive login (ssh -tt): $w"
+fi
+w=$(timeout 30 ssh -tt $SSH_OPTS player@127.0.0.1 'tty; echo done' </dev/null 2>&1 | tr -d '\r')
+printf '%s\n' "$w" | grep -q '^/dev/pts/' && printf '%s\n' "$w" | grep -qx done \
+    && pass "a command with a terminal (ssh -tt <command>)" || fail "ssh -tt <command>: $w"
+check "root login refused" sh -c "! timeout 30 ssh $SSH_OPTS root@127.0.0.1 true </dev/null"
+# Keys are not taken (pubkeyauthentication no, below); an SSH client
+# always tries `none` first, which now lets player in, so a key login
+# cannot be told apart from outside.
+check "no forwarding: ssh -R refused" sh -c "! timeout 30 ssh $SSH_OPTS -o ExitOnForwardFailure=yes -R 40999:127.0.0.1:9 player@127.0.0.1 true </dev/null"
+eff=$(gm sshd -T -f /etc/ssh/sshd_config 2>/dev/null | grep -E '^(passwordauthentication|permitemptypasswords|pubkeyauthentication|permitrootlogin|allowtcpforwarding|persourcepenalties|allowusers) ' | sort | tr '\n' ';')
+[ "$eff" = "allowtcpforwarding no;allowusers player;passwordauthentication yes;permitemptypasswords yes;permitrootlogin no;persourcepenalties no;pubkeyauthentication no;" ] \
     && pass "sshd effective settings ($eff)" || fail "sshd effective settings: $eff"
+w=$(gm awk -F: '$2 == "" { print $1 }' /etc/shadow)
+[ "$w" = player ] && pass "only player has an empty password in /etc/shadow" || fail "empty passwords in /etc/shadow: $w"
 
 # --- home and starter pack ------------------------------------------------------
 ok=1
@@ -288,7 +310,7 @@ w=$(pb "tmux -V && tmux new-session -d -s gmtest 'sleep 60' && tmux has-session 
 case $w in "tmux "*ok) pass "tmux runs a session as player ($(printf '%s' "$w" | head -n 1))" ;;
     *) fail "tmux as player: $w" ;; esac
 pb "echo 'audit notes' > ~/report.md" && pass "~/report.md is writable" || fail "~/report.md not writable"
-m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow /home/player/reports | tr '\n' ' ')
+m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /etc/shadow /home/player/reports | tr '\n' ' ')
 [ "$m" = "751 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow 755 player:player " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
 
@@ -353,7 +375,7 @@ fi
 fp2=$(hostkey)
 [ -n "$fp" ] && [ "$fp" = "$fp2" ] && pass "bastion host key kept across a new container ($fp)" || fail "bastion host key: '$fp' -> '$fp2'"
 u=$(pb id -un 2>&1)
-[ "$u" = player ] && pass "password login on the new bastion (known_hosts unchanged)" || fail "login after replacement: $u"
+[ "$u" = player ] && pass "login with no password on the new bastion (known_hosts unchanged)" || fail "login after replacement: $u"
 w=$(pb cat report.md 2>&1)
 [ "$w" = "audit notes" ] && pass "~/report.md kept in a new container" || fail "report.md after replacement: $w"
 w=$(pb tail -n 1 README.md 2>&1)
@@ -378,55 +400,80 @@ links() {  # links <page>: every href in it, in order, space-separated
 section() {  # section <page> <id>: that section's HTML
     sed -n "/<section id=\"$2\">/,/<\/section>/p" "$1"
 }
+homelinks() {  # homelinks <page>: the hrefs of the home outside its Access section
+    sed "/<section id=\"access\">/,/<\/section>/d" "$1" > "$1.noaccess"
+    links "$1.noaccess"
+}
 i=0
-while [ "$i" -lt 60 ] && [ "$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")" != 200 ]; do
+while [ "$i" -lt 60 ] && [ "$(web "$URL/stub/")" != 200 ]; do
     sleep 2; i=$((i + 2))
 done
-code=$(web "$URL/stub/")
-if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm web front"' "$tmp/h"; then
-    pass "web front without the tools password: 401 and a basic-authentication challenge"
-else
-    fail "web front without the password: $code $(tr -d '\r' < "$tmp/h" | grep -i '^www-auth')"
-fi
-# The front's own answers too: the page, a path outside the routes,
-# a route without its trailing slash.
-for p in / /nothing/ /stub; do
+# No login on the front (0.8.0): no challenge on any path, the front's own
+# answers included (the page, a path outside the routes, a route without
+# its trailing slash).
+bad=
+for p in / /stub/ /nothing/ /stub /docs/readme /reports/; do
     code=$(web "$URL$p")
-    if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm web front"' "$tmp/h"; then
-        pass "web front without the tools password, $p: 401 and the challenge"
-    else
-        fail "web front without the password, $p: $code $(tr -d '\r' < "$tmp/h" | grep -i -e '^www-auth' -e '^location')"
-    fi
+    case $code in 200|301|404) ;; *) bad="$bad $p:$code" ;; esac
+    ! grep -qi '^WWW-Authenticate:' "$tmp/h" || bad="$bad $p:challenge"
 done
-code=$(web -u "player:wrong password" "$URL/stub/")
-[ "$code" = 401 ] && pass "web front with a wrong password: 401" || fail "wrong tools password: $code"
-code=$(web -u "admin:$TOOLS_PASSWORD" "$URL/stub/")
-[ "$code" = 401 ] && pass "web front with another user name: 401" || fail "user admin: $code"
+[ -z "$bad" ] && pass "web front with no credentials: no 401 and no challenge (/, /stub/, /nothing/, /stub, /docs/readme, /reports/)" \
+    || fail "web front with no credentials:$bad"
+# Credentials a browser still sends change nothing, and never go upstream.
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/graph?g0.expr=up")
 if [ "$code" = 200 ] && grep -qx 'GET /stub/graph?g0.expr=up HTTP/1.1' "$tmp/b"; then
-    pass "with the tools password: the stub reached under /stub/, path and query unchanged"
+    pass "the stub reached under /stub/, path and query unchanged, a browser's credentials ignored"
 else
-    fail "with the tools password: $code $(head -n 2 "$tmp/b")"
+    fail "/stub/ with credentials: $code $(head -n 2 "$tmp/b")"
 fi
 check "no Authorization header reaches the upstream" sh -c "! grep -qi '^authorization:' $tmp/b"
+code=$(web "$URL/stub/graph?g0.expr=up")
+if [ "$code" = 200 ] && grep -qx 'GET /stub/graph?g0.expr=up HTTP/1.1' "$tmp/b"; then
+    pass "with no credentials: the stub reached under /stub/, path and query unchanged"
+else
+    fail "with no credentials: $code $(head -n 2 "$tmp/b")"
+fi
 check "the upstream sees the front's Host (127.0.0.1:$WPORT)" grep -qix "host: 127.0.0.1:$WPORT" "$tmp/b"
 check "the upstream sees X-Forwarded-Proto http" grep -qix 'x-forwarded-proto: http' "$tmp/b"
 check "the upstream's own challenge is not passed on" sh -c "! grep -qi '^www-authenticate:' $tmp/h"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub")
+code=$(web "$URL/stub")
 [ "$code" = 301 ] && grep -qi '^Location: /stub/' "$tmp/h" \
     && pass "/stub redirects to /stub/" || fail "/stub: $code $(grep -i '^location' "$tmp/h")"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
+code=$(web "$URL/")
 [ "$code" = 200 ] && grep -qi '^Content-Type: text/html; charset=utf-8' "$tmp/h" \
-    && pass "/ with the tools password: the page, HTML in UTF-8" \
+    && pass "/ with no credentials: the page, HTML in UTF-8" \
     || fail "/: $code $(tr -d '\r' < "$tmp/h" | grep -i '^content-type')"
 w=$(sections "$tmp/b")
-[ "$w" = "sites documents " ] && pass "the home: Sites, then Documents ($w)" || fail "the home's sections: $w"
+[ "$w" = "access sites documents " ] && pass "the home: Access, then Sites, then Documents ($w)" || fail "the home's sections: $w"
+# The Access section (the owner's ruling of 2026-11-23): every credential,
+# with its value; the dba password as ~/.pgpass holds it (HTML-escaped).
+dba_html=$(printf '%s' "$DBA_PASSWORD" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g')
+section "$tmp/b" access > "$tmp/access"
+if grep -qF '<code>ssh -p &lt;port&gt; player@&lt;address&gt;</code>' "$tmp/access" \
+   && grep -qF 'User <code>player</code>, no password' "$tmp/access" \
+   && grep -qF "Role <code>dba</code>, password <code>$dba_html</code>" "$tmp/access" \
+   && grep -qF '<code>~/.pgpass</code>' "$tmp/access" \
+   && grep -qF "user <code>admin</code>, password <code>$TOOLS_PASSWORD</code>" "$tmp/access" \
+   && grep -qF '<a href="/docs/partners">Partners</a>' "$tmp/access"; then
+    pass "Access: the SSH command (player, no password), the dba password, Grafana's login (admin, the tools password), the partners' page"
+else
+    fail "Access: $(cat "$tmp/access")"
+fi
+w=$(links "$tmp/access")
+[ "$w" = "/cold-storage/ /grafana/ /other/ /stub/ /docs/partners " ] \
+    && pass "Access: each route and the partners' page linked ($w)" || fail "Access links: $w"
+[ "$(grep -c 'No login' "$tmp/access")" = 4 ] \
+    && pass "Access: the front and the routes without a login of their own say so (4)" \
+    || fail "Access: 'No login' $(grep -c 'No login' "$tmp/access") times"
+grep -q 'prefers-color-scheme: dark' "$tmp/b" && grep -q 'max-width: 58rem' "$tmp/b" && ! grep -qi -e '<link' -e '<script' -e 'url(' "$tmp/b" \
+    && pass "the home's inline stylesheet: light and dark schemes, a max width, no external resource" \
+    || fail "the home's stylesheet: $(sed -n '/<style>/,/<\/style>/p' "$tmp/b" | head -n 5)"
 grep -q '<h1>Story (stack test)</h1>' "$tmp/b" \
     && grep -q "what Story (stack test) handed over at the mission's start" "$tmp/b" \
     && pass "the home's header names the customer from the story's heading" \
     || fail "the home's header: $(sed -n '/<header>/,/<\/header>/p' "$tmp/b")"
-HOME_ALL="/cold-storage/ /other/ /stub/ /reports/ /docs/readme /docs/story /docs/issues /docs/data-policy /docs/partners /docs/data-register /docs/network-overview /docs/bricks/bastion /docs/bricks/postgres "
-w=$(links "$tmp/b")
+HOME_ALL="/cold-storage/ /grafana/ /other/ /stub/ /reports/ /docs/readme /docs/story /docs/issues /docs/data-policy /docs/partners /docs/data-register /docs/network-overview /docs/bricks/bastion /docs/bricks/postgres "
+w=$(homelinks "$tmp/b")
 [ "$w" = "$HOME_ALL" ] \
     && pass "the home's links: the routes, Reports, the seven documents, then Tools, nothing else ($w)" \
     || fail "the home's links: $w"
@@ -436,15 +483,13 @@ section "$tmp/b" documents | grep -q '<h3>Tools</h3>' && section "$tmp/b" docume
 dead=
 for p in $(links "$tmp/b"); do
     case $p in /docs/*|/reports/) ;; *) continue ;; esac
-    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
-    [ "$code" = 200 ] || dead="$dead $p:$code"
     code=$(web "$URL$p")
-    [ "$code" = 401 ] || dead="$dead $p:$code-without-password"
+    [ "$code" = 200 ] || dead="$dead $p:$code"
 done
-[ -z "$dead" ] && pass "every page the home links answers 200, and 401 without the tools password" \
-    || fail "dead or open links:$dead"
-page() {  # page <path>: GET with the tools password; body in $tmp/b
-    web -u "player:$TOOLS_PASSWORD" "$URL$1"
+[ -z "$dead" ] && pass "every page the home links answers 200, with no login" \
+    || fail "dead links:$dead"
+page() {  # page <path>: GET, no credentials; body in $tmp/b
+    web "$URL$1"
 }
 code=$(page /docs/partners)
 if [ "$code" = 200 ] && grep -q "<code>$DEMO_KEY</code>" "$tmp/b" && ! grep -q 'credential:' "$tmp/b" \
@@ -484,8 +529,8 @@ code=$(page /docs/bricks/postgres)
     && pass "/docs/bricks/postgres: the brick's player documentation" || fail "/docs/bricks/postgres: $code"
 code=$(page /docs/bricks/bastion)
 if [ "$code" = 200 ] && grep -q '<h2 id="the-game-assistant">The game assistant</h2>' "$tmp/b" \
-   && grep -q 'tools/play assistant' "$tmp/b" && grep -q 'ssh -M -S ~/.ssh/dbagm-&lt;game&gt;.sock' "$tmp/b"; then
-    pass "/docs/bricks/bastion: \"The game assistant\", how to start it and the shared connection (v0.7 master spec 6.11)"
+   && grep -q 'tools/play assistant' "$tmp/b" && grep -qF "ssh -p &lt;port&gt; player@&lt;address&gt; '&lt;read&gt;'" "$tmp/b"; then
+    pass "/docs/bricks/bastion: \"The game assistant\", how to start it and how it reaches the bastion directly (0.8.0)"
 else
     fail "/docs/bricks/bastion: $code $(grep -e '<h2' "$tmp/b")"
 fi
@@ -515,50 +560,50 @@ else
     fail "/reports/pgbadger.html: $code $(tr -d '\r' < "$tmp/h")"
 fi
 code=$(web "$URL/reports/pgbadger.html")
-[ "$code" = 401 ] && pass "/reports/ without the tools password: 401" || fail "/reports/ without the password: $code"
+[ "$code" = 200 ] && pass "/reports/pgbadger.html with no credentials: 200" || fail "/reports/ with no credentials: $code"
 code=$(page /reports)
 [ "$code" = 301 ] && pass "/reports redirects to /reports/" || fail "/reports: $code"
 pb "ln -s /etc/passwd ~/reports/passwd && ln -s / ~/reports/root && ln -s ~ ~/reports/home" >/dev/null 2>&1
 bad=
 for p in /reports/passwd /reports/root/etc/passwd /reports/home/report.md /reports/../report.md \
          /reports/%2e%2e/report.md /reports/nothing.html; do
-    code=$(web -u "player:$TOOLS_PASSWORD" --path-as-is "$URL$p")
+    code=$(web --path-as-is "$URL$p")
     [ "$code" = 404 ] || bad="$bad $p:$code"
 done
-code=$(web -u "player:$TOOLS_PASSWORD" -X POST -d x "$URL/reports/pgbadger.html")
+code=$(web -X POST -d x "$URL/reports/pgbadger.html")
 [ "$code" = 404 ] || bad="$bad POST:$code"
 [ -z "$bad" ] && pass "nothing outside ~/reports/ served: a link, a path out of it, a missing file, a POST, all 404" \
     || fail "outside ~/reports/:$bad"
 pb "rm -f ~/reports/passwd ~/reports/root ~/reports/home" >/dev/null 2>&1
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing/")
+code=$(web "$URL/nothing/")
 [ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b" \
     && pass "a path outside the routes: 404" || fail "/nothing/: $code $(head -n 2 "$tmp/b")"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing")
+code=$(web "$URL/nothing")
 [ "$code" = 404 ] && pass "a path outside the routes, no trailing slash: 404" || fail "/nothing: $code"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/other/")
+code=$(web "$URL/other/")
 [ "$code" = 502 ] && pass "a route whose upstream is down: 502" || fail "/other/: $code"
 # Cold storage's console (master spec 7.3, spec D363; W4 item 1): GET / and
 # GET /manifests only, under the partner's hostname.
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage/")
+code=$(web "$URL/cold-storage/")
 if [ "$code" = 200 ] && grep -qx 'GET / HTTP/1.1' "$tmp/b" && grep -qix 'host: cold-storage' "$tmp/b" \
    && ! grep -qi '^authorization:' "$tmp/b"; then
     pass "console: GET /cold-storage/ reaches cold storage as GET / with Host cold-storage, no Authorization"
 else
     fail "console GET /cold-storage/: $code $(head -n 3 "$tmp/b")"
 fi
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage/manifests?type=wal&from=2026-11-01")
+code=$(web "$URL/cold-storage/manifests?type=wal&from=2026-11-01")
 if [ "$code" = 200 ] && grep -qx 'GET /manifests?type=wal&from=2026-11-01 HTTP/1.1' "$tmp/b" \
    && grep -qix 'host: cold-storage' "$tmp/b"; then
     pass "console: GET /cold-storage/manifests reaches /manifests, its query string kept"
 else
     fail "console GET /cold-storage/manifests: $code $(head -n 2 "$tmp/b")"
 fi
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/cold-storage")
+code=$(web "$URL/cold-storage")
 [ "$code" = 301 ] && pass "console: /cold-storage redirects to /cold-storage/" || fail "/cold-storage: $code"
 for req in "POST /cold-storage/shipments" "GET /cold-storage/shipments" "POST /cold-storage/manifests" \
            "PUT /cold-storage/" "DELETE /cold-storage/manifests" "GET /cold-storage/manifests/x" \
            "GET /northfield-lab/" "GET /northfield-lab/orders" "GET /partners-api/"; do
-    code=$(web -u "player:$TOOLS_PASSWORD" -X "${req%% *}" -d '{}' "$URL${req#* }")
+    code=$(web -X "${req%% *}" -d '{}' "$URL${req#* }")
     if [ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b"; then
         pass "console: $req refused (404, never forwarded)"
     else
@@ -566,22 +611,22 @@ for req in "POST /cold-storage/shipments" "GET /cold-storage/shipments" "POST /c
     fi
 done
 code=$(web "$URL/cold-storage/manifests")
-[ "$code" = 401 ] && pass "console: without the tools password, 401" || fail "console without the password: $code"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
+[ "$code" = 200 ] && pass "console: with no credentials, 200" || fail "console with no credentials: $code"
+code=$(web "$URL/stub/")
 [ "$code" = 200 ] && pass "the other routes still answer" || fail "/stub/ after /other/: $code"
 # No status file in this stack (no partner's status page): the s6 service
 # status-pages stays down, /status/ answers 404 (master spec 7.6).
 st=$(gm /command/s6-svstat -o up,wantedup /run/service/status-pages 2>&1)
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/status/northfield-lab/")
+code=$(web "$URL/status/northfield-lab/")
 [ "$st" = "false false" ] && [ "$code" = 404 ] \
     && pass "without the status file: status-pages down ($st), /status/northfield-lab/ 404" \
     || fail "without the status file: status-pages $st, /status/: $code"
 users=$(gm ps -o user= -C nginx | sort -u | tr '\n' ' ')
 [ "$users" = "www-data " ] && pass "nginx runs as www-data" || fail "nginx users: $users"
-m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/htpasswd /run/web-front/nginx.conf /run/web-front/www/index.html | tr '\n' ' ')
-[ "$m" = "750 root:www-data 440 root:www-data 444 root:root 440 root:www-data " ] \
+m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/nginx.conf /run/web-front/www/index.html | tr '\n' ' ')
+[ "$m" = "750 root:www-data 444 root:root 440 root:www-data " ] \
     && pass "front's files ($m)" || fail "front's files: $m"
-check "player cannot read the front's password file" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /run/web-front/htpasswd </dev/null"
+check "no password file and no auth_basic on the front" sh -c "! docker exec $B test -e /run/web-front/htpasswd && ! docker exec $B grep -q auth_basic /run/web-front/nginx.conf"
 rss=$(gm ps -o rss= -C nginx | awk '{ s += $1 } END { print s }')
 info "nginx resident memory: ${rss} KiB (master and worker)"
 info "bastion container memory with the front: $(docker stats --no-stream --format '{{.MemUsage}}' "$B")"
@@ -598,11 +643,12 @@ out=$(gm /usr/local/lib/gm/healthcheck 2>&1); rc=$?
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $B)\" = true ]"
 check "root cannot write /usr/local/sbin" sh -c "! docker exec $B touch /usr/local/sbin/x"
-check "player cannot write sshd_config" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 'echo x >> /etc/ssh/sshd_config' </dev/null"
-for s in player_password player_ssh_key dba_password tools_password http_demo_customer; do
-    check "player cannot read the $s secret file" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /opt/gm/secrets/$s </dev/null"
+check "player cannot write sshd_config" sh -c "! timeout 30 ssh $SSH_OPTS player@127.0.0.1 'echo x >> /etc/ssh/sshd_config' </dev/null"
+for s in player_ssh_key dba_password tools_password http_demo_customer; do
+    check "player cannot read the $s secret file" sh -c "! timeout 30 ssh $SSH_OPTS player@127.0.0.1 cat /opt/gm/secrets/$s </dev/null"
 done
-check "player cannot read /etc/shadow" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /etc/shadow </dev/null"
+check "no player_password secret any more" sh -c "! docker exec $B test -e /opt/gm/secrets/player_password"
+check "player cannot read /etc/shadow" sh -c "! timeout 30 ssh $SSH_OPTS player@127.0.0.1 cat /etc/shadow </dev/null"
 check "no sudo on the bastion" sh -c "! docker exec $B sh -c 'command -v sudo'"
 caps=$(docker inspect -f '{{.HostConfig.CapDrop}} {{.HostConfig.CapAdd}}' "$B")
 info "capabilities: $caps"
@@ -634,21 +680,27 @@ q=$(docker inspect -f '{{range $p, $b := .NetworkSettings.Ports}}{{if $b}}{{$p}}
     && pass "ports 22 and 8080 published (service: $p; container: $q)" \
     || fail "published ports: service $p; container $q"
 i=0
-while [ "$i" -lt 30 ] && [ "$(web "$URL/")" != 401 ]; do
+while [ "$i" -lt 30 ] && [ "$(web "$URL/")" != 200 ]; do
     sleep 1; i=$((i + 1))
 done
 code=$(web "$URL/")
-if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm web front"' "$tmp/h"; then
-    pass "without routes, / without the tools password: 401 and the challenge"
+if [ "$code" = 200 ] && ! grep -qi '^WWW-Authenticate:' "$tmp/h"; then
+    pass "without routes, / with no credentials: 200, no challenge"
 else
-    fail "without routes, / without the password: $code"
+    fail "without routes, / with no credentials: $code"
 fi
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
-w=$(links "$tmp/b")
+section "$tmp/b" access > "$tmp/access"
+if grep -qF 'Role <code>dba</code>' "$tmp/access" && ! grep -qF "$TOOLS_PASSWORD" "$tmp/b" \
+   && ! grep -q 'admin' "$tmp/access"; then
+    pass "without routes, Access: the dba password, no Grafana login (Grafana not routed)"
+else
+    fail "without routes, Access: $(cat "$tmp/access")"
+fi
+w=$(homelinks "$tmp/b")
 [ "$code" = 200 ] && [ "$w" = "/reports/ /docs/readme /docs/story /docs/issues /docs/data-policy /docs/partners /docs/data-register /docs/network-overview /docs/bricks/bastion /docs/bricks/postgres " ] \
     && pass "without routes, the home: Reports alone under Sites, the documents and the tools ($w)" \
     || fail "without routes, the home: $code, links $w"
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
+code=$(web "$URL/stub/")
 [ "$code" = 404 ] && pass "without routes, a former route's path: 404" || fail "/stub/ without routes: $code"
 out=$(gm /usr/local/lib/gm/healthcheck 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "health check green without routes" || fail "health check without routes: exit $rc: $out"
@@ -690,11 +742,11 @@ for f in data-policy.md partners.md data-register.md network-overview.md; do
 done
 check "the starter marker written again" docker exec "$B" test -f /home/player/.gm-starter-copied
 i=0
-while [ "$i" -lt 60 ] && [ "$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")" != 200 ]; do
+while [ "$i" -lt 60 ] && [ "$(web "$URL/stub/")" != 200 ]; do
     sleep 2; i=$((i + 2))
 done
-code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
-w=$(links "$tmp/b")
+code=$(web "$URL/")
+w=$(homelinks "$tmp/b")
 [ "$code" = 200 ] && [ "$w" = "/other/ /stub/ /reports/ /docs/readme /docs/story /docs/issues /docs/bricks/bastion /docs/bricks/postgres " ] \
     && ! grep -qi -e 'data policy' -e 'partners' -e 'data register' -e 'network overview' "$tmp/b" \
     && pass "two routes and three documents: Sites the two routes and Reports, Documents the three, then Tools ($w)" \
@@ -702,14 +754,14 @@ w=$(links "$tmp/b")
 dead=
 for p in $w; do
     [ "$p" = /other/ ] && continue                 # its upstream is down by design: 502
-    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
+    code=$(web "$URL$p")
     [ "$code" = 200 ] || dead="$dead $p:$code"
 done
 [ -z "$dead" ] && pass "no dead link on that home (each answers 200; /other/ is the down route)" \
     || fail "dead links:$dead"
 bad=
 for p in /docs/data-policy /docs/partners /docs/data-register /docs/network-overview; do
-    code=$(web -u "player:$TOOLS_PASSWORD" "$URL$p")
+    code=$(web "$URL$p")
     [ "$code" = 404 ] || bad="$bad $p:$code"
 done
 [ -z "$bad" ] && pass "no page for an absent document (404)" || fail "absent documents' pages:$bad"

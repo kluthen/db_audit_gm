@@ -19,15 +19,18 @@
 # v0.6 (chunk 6): the starter pack's seventh file, network-overview.md, and
 # two brick pages (the bastion's and the postgres brick's docs/player.md)
 # as gmctl render delivers them (capture W2 item 1).
+# 0.8.0 (the owner's ruling of 2026-11-23): no player_password secret,
+# AUDIT_WRITE added, and a `grafana` route (to the stub) so the home's
+# Access section shows Grafana's login.
 version: "3.8"
 
 services:
   bastion:
-    image: 127.0.0.1:5000/dbagm/bastion:0.7.0
+    image: 127.0.0.1:5000/dbagm/bastion:0.8.0
     hostname: bastion
     read_only: true
     cap_drop: [ALL]
-    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
     healthcheck:
       test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
       interval: 10s
@@ -35,7 +38,7 @@ services:
       retries: 5
       start_period: 30s
     environment:                    # as the renderer passes web_routes (capture W2-A)
-      GM_WEB_ROUTES: "cold-storage=cold-storage:9090:console other=stub:9091 stub=stub:9090"
+      GM_WEB_ROUTES: "cold-storage=cold-storage:9090:console grafana=stub:9090 other=stub:9091 stub=stub:9090"
     ports:
       - {target: 22, published: "${GMTEST_BASTION_PORT:-22222}", protocol: tcp, mode: host}
       - {target: 8080, published: "${GMTEST_BASTION_WEB_PORT:-28080}", protocol: tcp, mode: host}
@@ -54,7 +57,6 @@ services:
       - {source: doc_bastion, target: /opt/gm/docs/bricks/bastion.md, uid: "0", gid: "0", mode: 0444}
       - {source: doc_postgres, target: /opt/gm/docs/bricks/postgres.md, uid: "0", gid: "0", mode: 0444}
     secrets:
-      - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
       - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
       - {source: tools_password, target: /opt/gm/secrets/tools_password, uid: "0", gid: "0", mode: 0400}
@@ -150,7 +152,6 @@ configs:
   stub_upstream: {external: true, name: gmtest-bastion_stub_upstream}
 
 secrets:
-  player_password: {external: true, name: gmtest-bastion_player_password}
   player_ssh_key: {external: true, name: gmtest-bastion_player_ssh_key}
   player_ssh_pubkey: {external: true, name: gmtest-bastion_player_ssh_pubkey}
   dba_password: {external: true, name: gmtest-bastion_dba_password}

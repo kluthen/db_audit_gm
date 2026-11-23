@@ -1,11 +1,12 @@
 # Bastion — player notes
 
 What you may know about the bastion of a db_audit_gm game. Version
-0.7, expected to evolve.
+0.8, expected to evolve.
 
 ## Getting in
 
-The game master gives you the bastion's address, port and password:
+The game master gives you the bastion's address and port. No password:
+the bastion lets `player` in straight away.
 
 ```
 ssh -p <port> player@<address>
@@ -17,18 +18,17 @@ copying your notes or your report.
 
 ## The web site
 
-The game master also gives you a second port and a second password, the
-**tools password**. Open the bastion's web site in your browser:
+The game master also gives you a second port, the web site's. Open the
+bastion's web site in your browser; it asks for no login:
 
 ```
 http://<address>:<web port>/
 ```
 
-Your browser asks for a user name and password: user `player`, password
-the tools password. Without them you get "401 Unauthorized", on every
-page.
-
-The home page has two lists:
+The home page opens with **Access**: every credential your tools need,
+with its value (the bastion, the databases' role `dba` and its password,
+the login of a web interface that has one, such as Grafana, and where
+the partners' credentials are). Then two lists:
 
 - **Sites**: the web interfaces of your game, when it has any (such as
   Prometheus and Grafana, at `/<name>/`); **Reports**, your reports folder
@@ -79,14 +79,14 @@ site. Your own audit report stays yours: write it where you like
   may link to its console at `http://<address>:<web port>/cold-storage/`:
   its page and its manifests (`/cold-storage/manifests`), read only, as
   the customer sees them. Nothing else of a partner is on the web page.
-- Grafana asks you to log in as well: its administrator account, with
-  the same tools password. Do not change Grafana's users or the
-  administrator's password (DO NOT TAMPER): the game master's own checks
-  use them.
+- Grafana asks you to log in: its administrator account, `admin`, with
+  the password the home's Access section shows. Do not change Grafana's
+  users or the administrator's password (DO NOT TAMPER): the game
+  master's own checks use them.
 - "502 Bad Gateway" means the interface is not up (yet); try again in a
   minute, or tell the game master.
-- The connection is plain HTTP: the tools password is not encrypted on
-  the way. Use it only for this game.
+- The connection is plain HTTP: nothing on it is encrypted. Use what it
+  shows only for this game.
 
 ## What is there
 
@@ -118,7 +118,8 @@ site. Your own audit report stays yours: write it where you like
 - `ssh <node>` logs you in to a node as `player`, with the key already in
   `~/.ssh/id_ed25519`. Use the node names from `README.md`.
 - `psql -h <node>` connects you to a database as the role `dba`; the
-  password is in `~/.pgpass`.
+  password is in `~/.pgpass`, which `psql` reads by itself (the home
+  page's Access section shows it too).
 
 Nodes are reached by their name. Their SSH host keys are not checked or
 remembered for these names, because a node's key changes when it is
@@ -140,8 +141,8 @@ master.
 
 - **It cannot touch the databases.** It never connects to one and never
   runs a command that changes something: it writes the SQL and commands,
-  you run them. On the bastion it only reads, through your connection,
-  what a colleague looking over your shoulder would see; it never reads
+  you run them. On the bastion it only reads, over SSH, what a colleague
+  looking over your shoulder would see; it never reads
   `~/.pgpass`, `~/.ssh/` or the web site (tell it what the site shows).
   It writes only your report, its drafts and the tracking files you ask
   for, on your machine, never on the bastion.
@@ -162,22 +163,27 @@ tools/play assistant
 (`tools/play assistant --opencode` with OpenCode). It starts in a
 session of its own, never the game master's.
 
-**Your shared connection.** The bastion takes passwords only, and the
-assistant is never given one. Open a shared SSH connection in your own
-terminal, typing the password once (`<game>` is a label of your
-choice):
+**Reaching the bastion.** The bastion asks for no password, so the
+assistant reaches it directly, one read at a time, with the address and
+port you give it:
+
+```
+ssh -p <port> player@<address> '<read>'
+```
+
+A shared connection is still possible, and optional: opened in your own
+terminal (`<game>` is a label of your choice), the assistant may run its
+reads through it:
 
 ```
 ssh -M -S ~/.ssh/dbagm-<game>.sock -fN -p <port> player@<address>
 ```
 
-The assistant runs each of its reads through it.
-
 ## Do not tamper
 
 Do not change SSH, the validator, `~/.ssh/id_ed25519`, `~/.pgpass`, or the
 file `~/.gm-starter-copied`. Most of the bastion is read-only anyway.
-There is no `sudo` here, and you cannot change the password.
+There is no `sudo` here, and `player` has no password to change.
 
 ## Good to know
 

@@ -534,8 +534,8 @@ wish for a quick or an extended game taken into account.
     every Prometheus scrape target up, the node-health endpoints included;
     the exporter connected (`pg_up 1`); Grafana's data source healthy and
     its dashboards and alert rules provisioned; the web front's
-    starter-pack page answering with the tools password, and each route
-    through it; each scheduler node
+    starter-pack page answering with no login, its Access section listing
+    the credentials, and each route through it; each scheduler node
     `idle` (its load is not started yet); a pooler's console answering.
     Targets can take up to
     two minutes to come up: read again before concluding. A reading that a
@@ -997,7 +997,10 @@ not counted). Before giving the players anything, in this order:
 
 ### What you give the players
 
-Then give the players, in the session:
+Then give the players, in the session. Write every command, address and
+password a player may copy as a code span with no punctuation right
+after it: end the line there, or put it on a line of its own (on
+2026-11-23 a player copied a trailing `.` with one).
 
 - **the bastion's address and port**: the host of the SSH endpoint, or,
   for the local engine, the address of this machine that the players can
@@ -1005,9 +1008,15 @@ Then give the players, in the session:
   where the bastion publishes its ports; the port is the bastion's
   `published_ports[*].published` whose `target` is 22 in
   `local/<pg>/implementation.yaml` (also printed by `deploy`, "container
-  port 22"). As a command: `ssh -p <port> player@<address>`;
-- **the password**: the content of `local/<pg>/secrets/player_password`.
-  It is per game and cannot be changed during the game;
+  port 22"). As a command, on its own line:
+
+  ```
+  ssh -p <port> player@<address>
+  ```
+
+  No password: the bastion lets `player` in with no prompt (bastion
+  0.8.0, the owner's ruling of 2026-11-23). Neither the bastion nor its
+  web front asks for one;
 - **the web front**, in every game (spec D224; see
   [What you may do](../../agents/game-master.md#what-you-may-do)):
   - its address and port: the bastion's address, and the bastion's
@@ -1018,12 +1027,17 @@ Then give the players, in the session:
     than in a terminal. With a web interface, the page links to each
     route, and each has its own address, `http://<address>:<port>/<route>/`
     for each key of the bastion's `web_routes` (for example `/prometheus/`
-    and `/grafana/`). Plain HTTP;
-  - the **tools password**, always, with the bastion password: the
-    content of `local/<pg>/secrets/tools_password`, with the user name
-    `player`. It is per game and cannot be changed during the game. With
-    a Grafana node, Grafana asks for its own login as well: user `admin`,
-    the same tools password, which makes them Grafana administrators;
+    and `/grafana/`). Plain HTTP, and no login;
+  - its **Access** section, at the top of the home: every credential
+    their tools need is there, with its value (the SSH command shape;
+    PostgreSQL's role `dba` and its password, the one `~/.pgpass` holds
+    and `psql -h <node>` reads by itself; with a Grafana node, Grafana's
+    own login, user `admin` and the tools password; where the partners'
+    credentials are). Tell them it is there rather than reading the
+    passwords out. With a Grafana node, Grafana asks for that login, which
+    makes them Grafana administrators. The tools password (the content of
+    `local/<pg>/secrets/tools_password`) is per game and cannot be
+    changed during the game;
 - **the starter pack**: in their home on the bastion (`~/README.md`,
   `~/story.md`, `~/issues.md`, and `~/data-policy.md`, the company's data
   policy, when the scenario has `governance:`), and on the web front's

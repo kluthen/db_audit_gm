@@ -82,17 +82,23 @@ master's.
 - On a classroom swarm of student laptops, each student runs it on their
   own laptop.
 
-**The shared connection.** The bastion takes passwords only, and the
-assistant is never given one. The player opens a shared SSH connection
-in their own terminal, typing the password once (`<game>` is a label of
-their choice):
+**Reaching the bastion.** The bastion asks for no password, so the
+assistant reaches it directly, one read at a time, with the address and
+port the player gives it:
+
+```sh
+ssh -p <port> player@<address> '<read>'
+```
+
+A shared connection stays possible, and optional: the player may open
+one in their own terminal (`<game>` is a label of their choice), and the
+assistant then runs its reads through it:
 
 ```sh
 ssh -M -S ~/.ssh/dbagm-<game>.sock -fN -p <port> player@<address>
 ```
 
-The assistant runs each of its reads on the bastion through that
-connection. It writes the players' report, its drafts and the tracking
+The assistant writes the players' report, its drafts and the tracking
 files they ask for in the clone, under `play/` by default, never on the
 bastion. The bastion's own documentation has a page on the assistant.
 

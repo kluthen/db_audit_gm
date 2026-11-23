@@ -8,8 +8,8 @@ version (v0.2), expected to evolve.
 - **Shell**: from the bastion, `ssh player@<node>` (the key is already in
   your `~/.ssh`).
 - **Web interface**: Prometheus' own UI, through the bastion's web front,
-  at `/prometheus/` (the game master gives you the address and the tools
-  password). Prometheus has no login of its own.
+  at `/prometheus/` (the game master gives you the address). Neither the
+  front nor Prometheus asks for a login.
 - **From any node of the game**: `http://<node>:9090/prometheus/`, for
   example with `curl` on this node: `curl -s
   http://localhost:9090/prometheus/api/v1/targets`.

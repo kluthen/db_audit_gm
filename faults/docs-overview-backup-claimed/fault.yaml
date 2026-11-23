@@ -22,7 +22,7 @@ severity: medium
 applies_to:
   bricks:
     - id: bastion
-      versions: ["0.6.0", "0.7.0"]
+      versions: ["0.6.0", "0.7.0", "0.8.0"]
   preconditions:
     - a scenario with a network overview (gm/network-overview.yaml), its bastion mapping network-overview.md
     - the node a customer node with an entry whose true Backups lack the claimed protection (a database server sending only a nightly base backup, with no WAL archive; one with no backup at all)

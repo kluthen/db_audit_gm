@@ -1,14 +1,16 @@
 # Bastion node for db_audit_gm (master spec 9.2).
 #
-# The players' only entry point: sshd (password login as `player`), the
+# The players' only entry point: sshd (`player`, no password), the
 # PostgreSQL 19 client tools and an SSH client for the inner hop, curl (the
 # players' HTTP client), and the web front (nginx, port 8080), in every
 # game: its home the starter-pack page, rendered at start-up by cmark-gfm,
 # and the monitoring web interfaces when the scenario routes any (v0.4
-# master spec 7.3, D224).
+# master spec 7.3, D224). Since 0.8.0 (the owner's ruling of 2026-11-23)
+# neither SSH nor the web front asks for a password; the home's Access
+# section lists the credentials the players' tools need.
 # Generic image: no scenario content. The starter pack and the secrets
 # arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion
+# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.8.0 bricks/bastion
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
@@ -41,7 +43,7 @@ ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8
 
 # PostgreSQL ${PG_MAJOR} client tools from the PGDG repository (signing key
 # shipped in postgresql-common), as in the PostgreSQL brick. `openssl`
-# hashes the per-game passwords at start-up (gm-entrypoint). nginx, from
+# stays for the players. nginx, from
 # Debian's own repository, is the web front; its packaged site, logs and
 # state are removed (its configuration is written under /run at start-up).
 # cmark-gfm, from Debian too, renders the starter pack into the front's
@@ -90,18 +92,14 @@ RUN set -eux; \
     printf '| a |\n|---|\n| 1 |\n' | cmark-gfm -e table | grep -q '<table>'; \
     printf '<b>x</b>\n' | cmark-gfm | grep -q 'raw HTML omitted'
 
-# Account `player` (SSH by password only). Its password is set at each
-# start: /etc/shadow is a symlink to /run/gm/shadow, which gm-entrypoint
-# builds from the image's own copy plus the hash of the per-game secret.
+# Account `player`, with an empty password: sshd lets it in with no prompt
+# (PermitEmptyPasswords, sshd_config). Every other account stays locked.
 RUN set -eux; \
     useradd --create-home --home-dir /home/player --shell /bin/bash player; \
-    usermod --password '*' player; \
+    passwd -d player; \
+    grep -q '^player::' /etc/shadow; \
     chmod 0750 /home/player; \
     install -d -m 0755 /usr/local/lib/gm; \
-    mv /etc/shadow /usr/local/lib/gm/shadow.base; \
-    chown root:shadow /usr/local/lib/gm/shadow.base; \
-    chmod 0640 /usr/local/lib/gm/shadow.base; \
-    ln -s /run/gm/shadow /etc/shadow; \
     rm -f /etc/shadow- /etc/gshadow-; \
     # fixed in-container paths for the starter pack, secrets, validator,
     # and the mount point of the `hostkeys` volume
@@ -139,9 +137,9 @@ ENV S6_READ_ONLY_ROOT=1 \
 
 EXPOSE 22 8080
 
-# gm-entrypoint prepares /run, the sshd host key, the password, the
-# player's home, starter pack and ~/reports/, the web front's
-# configuration, password file and pages, then execs s6-overlay's /init,
+# gm-entrypoint prepares /run, the sshd host key, the player's home,
+# starter pack and ~/reports/, the web front's configuration and pages,
+# then execs s6-overlay's /init,
 # which supervises `sshd`, `web-front` and `status-pages` (the partners'
 # status pages, every minute, when the game has a status file).
 ENTRYPOINT ["/usr/local/sbin/gm-entrypoint"]

@@ -2,18 +2,23 @@
 
 GM documentation of the `bastion` brick (`brick.yaml`, master spec 9.2
 and 14; required sections: spec D56). Never shipped to players. Brick
-version 0.7.0, expected to evolve as games are played.
+version 0.8.0, expected to evolve as games are played: 0.7.0 with the
+bastion's access opened (the owner's ruling of 2026-11-23, after the
+junior week's first game): SSH and the web front ask for no password,
+and the home's Access section lists every credential the players' tools
+need.
 
 ## Purpose
 
 An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 19
 client tools alongside, in the image
-`127.0.0.1:5000/dbagm/bastion:0.7.0`. It fills the role `bastion`: the
-players' only way into the game. They log in with a per-game password,
-find the starter pack in their home, and reach the in-game nodes from
-there by SSH and `psql`. Its **web front**, on a second port behind the
-per-game tools password, runs in every game (D224): its home is a
-read-only page of the starter pack, and it publishes the topology's
+`127.0.0.1:5000/dbagm/bastion:0.8.0`. It fills the role `bastion`: the
+players' only way into the game. They log in as `player` with no
+password, find the starter pack in their home, and reach the in-game
+nodes from there by SSH and `psql`. Its **web front**, on a second port
+and with no login, runs in every game (D224): its home is a read-only
+page of the starter pack, opening on the Access section (every
+credential the players' tools need), and it publishes the topology's
 monitoring web interfaces (Prometheus, Grafana) to the players' browsers
 when there are any (master spec 7.6; v0.4 master spec 7.3). The GM picks
 it for every scenario; nothing on it is part of the game.
@@ -24,8 +29,9 @@ The image:
   (OpenSSH 10.0), PostgreSQL 19 client tools from the PGDG repository
   (`trixie-pgdg`, `postgresql-client-19`, 19.0 at the 0.6.0 build, v0.6
   spec D587; the build asserts the client and libpq at 19 and no other
-  major's client), `openssl` (password hashing),
-  `nano`, `vim-tiny`, `less`, `procps`. No `sudo`.
+  major's client), `openssl` (for the players; it hashed the per-game
+  passwords until 0.7.0), `nano`, `vim-tiny`, `less`, `procps`. No
+  `sudo`.
 - nginx 1.26.3 from Debian's own repository (package `nginx`), the web
   front. Its packaged site, logs and state directories are removed; its
   configuration is written at start-up.
@@ -43,14 +49,16 @@ The image:
   asserts `curl --version` runs.
 - s6-overlay 3.2.3.2 (x86_64), same archives and SHA-256 as the PostgreSQL
   brick.
-- Generic: no scenario content, no host key, no password in the image.
+- Generic: no scenario content, no host key, no secret in the image.
+  `player`'s password is empty in the image's `/etc/shadow` (`passwd -d
+  player`, 0.8.0); every other account stays locked.
 
 ## Placement
 
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.7.0 bricks/bastion`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.8.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
 - **Next to which node**: on the manager. Its SSH port and the web
@@ -113,9 +121,10 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
   default: 8080}`, beside SSH's: the front runs in every game (D224), and
   the loader refuses a bastion without it.
 - Empty or absent (the default): the front serves the starter-pack page
-  alone, with no web-interface section or link; the tools password is
-  read and handed over all the same. v0.3's rule (no route, no front, no
-  second port, no tools password; D103) no longer holds.
+  alone, with no web-interface section or link and no Grafana row on
+  Access; the tools password is generated and mounted all the same.
+  v0.3's rule (no route, no front, no second port, no tools password;
+  D103) no longer holds.
 - The loader checks that each route's node exists and provides a web
   interface on that port with `web_path: /<name>/`, and that every web
   interface of the topology has exactly one route. The entrypoint checks
@@ -141,17 +150,19 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Starter pack `partners.md` (`seed.files`, `seed.optional`; v0.5) | `/opt/gm/starter/partners.md`, likewise, when mapped, each `{{credential:<name>}}` replaced in the home's copy and on the page | a scenario with partners maps it, `partners.md: player/partners.md` (master spec 6.2, 7.3) |
 | Starter pack `data-register.md` (`seed.files`, `seed.optional`; v0.5) | `/opt/gm/starter/data-register.md`, likewise, when mapped | a scenario with `governance.register` maps it to the register handout, `data-register.md: player/data-register.md` (master spec 13.2), unless a planted fault leaves the register out |
 | Secret `http_<name>` (kind `password`, handed over; v0.5) | `/opt/gm/secrets/http_<name>`, root `0400`; read at every start into `partners.md` | render, one per name a `third_parties:` entry lists under `credentials:` (the customer's own credential with that partner; spec D365, D433), the same secret as the partner's endpoint checks; `gmctl status` lists it as "password, handed over" |
-| Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
+
 | Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
-| Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
-| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read at every start | `gmctl deploy`, whenever `bastion` 0.7.0 is in the topology; the GM hands it to the players in every game, with the bastion password (D224). The same secret as Grafana's administrator password |
+| Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400`; written into `~/.pgpass` and shown on the home's Access section (0.8.0) | `gmctl deploy`: the same secret as the database node's |
+| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read at every start | `gmctl deploy`, whenever `bastion` is in the topology, in every game (D224). Grafana's administrator password (user `admin`), the same secret as the Grafana node's; no longer the front's password (0.8.0). The bastion shows it on the home's Access section when a route is named `grafana` |
 | Routes `web_routes` | `GM_WEB_ROUTES`, turned into `/run/web-front/nginx.conf` and the page's links at start-up | the scenario's node `parameters` (above) |
 | Published ports | the host's ports for container ports 22 and 8080 | the scenario's `published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]`, routes or none |
 
 `dba_password` is the same Swarm secret as the database node's.
 `player_ssh_key` is the private half of the database node's
 `player_ssh_pubkey`: an unencrypted OpenSSH private key (ed25519).
-`player_password`, `dba_password` and `tools_password` are single lines.
+`dba_password` and `tools_password` are single lines. There is no
+`player_password` since 0.8.0: `brick.yaml` no longer declares it, so
+`gmctl` neither generates nor mounts it.
 
 ### Fixed paths (capture W1-C)
 
@@ -165,9 +176,9 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Starter marker | `/home/player/.gm-starter-copied` | root, `0444` |
 | Inner-hop key | `/home/player/.ssh/id_ed25519` | `player`, `0600`, rewritten at each start |
 | `.pgpass` | `/home/player/.pgpass` | `*:*:*:dba:<password>`, `player`, `0600`, rewritten at each start |
-| Secrets | `/opt/gm/secrets/player_password`, `player_ssh_key`, `dba_password`, `tools_password` | root, `0400` |
+| Secrets | `/opt/gm/secrets/player_ssh_key`, `dba_password`, `tools_password` | root, `0400` |
 | sshd host key | `/var/lib/gm-sshd-keys/ssh_host_ed25519_key` | volume `hostkeys`, root, `0700` dir |
-| Password file | `/etc/shadow` → `/run/gm/shadow` | rebuilt at each start (see below) |
+| Password file | `/etc/shadow` | a plain file of the image, root:shadow, `0640`; `player`'s password empty, every other account locked (see below) |
 | Runtime | `/run` | volume `run`, emptied at each start |
 | Validator | `/opt/gm/validator/validate.sh` | `/usr/local/bin/gm-validate` links to it |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
@@ -175,7 +186,7 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | SSH client settings | `/etc/ssh/ssh_config.d/gm-game.conf` | see "Inner hop and host keys" |
 | Web front directory | `/run/web-front/` | root:www-data, `0750`, rewritten at each start, routes or none; `tmp/` (www-data, `0700`) holds nginx's pid and temporary files |
 | Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
-| Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
+
 | Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.html` (the home at `/`, see "Web front" under "Access"), `docs/<id>.html` and `docs/bricks/<brick-id>.html` (the documentation site) and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route (and `routes/reports/`), from which nginx answers `/<name>` with the redirect to `/<name>/` |
 | Page renderers | `/usr/local/lib/gm/pages.sh`, `/usr/local/lib/gm/html-ids`, `/usr/local/lib/gm/render-status` | v0.6: the page functions (`md_page`: `cmark-gfm -e table`, then `html-ids`), sourced by the entrypoint and `render-status`; `html-ids` gives each heading its GitHub id, points links between starter files to `/docs/` and, with the status map, links each partner's status page under its heading; `render-status` writes the partners' status pages |
 | Partners' status file | `/opt/gm/secrets/partners_status.json` | v0.6: secret `<game_id>_partners_status`, kind `rendered`, written by `gmctl render` (and a restart's re-render) into `local/<playground>/secrets/partners_status.json`, mounted only when a third party has a player document; root, `0400`: it holds incidents still to come (capture W2 item 1) |
@@ -192,15 +203,15 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 2. Creates the ed25519 sshd host key in the `hostkeys` volume if it is not
    there yet.
 3. Fails the container if a secret is missing or empty, if
-   `player_password` or `dba_password` is not a single line, or if
+   `dba_password` or `tools_password` is not a single line, or if
    `player_ssh_key` does not load as an unencrypted private key. When
    the scenario maps `partners.md`, writes `/run/gm/starter/partners.md`,
    each `{{credential:<name>}}` replaced by the secret
    `/opt/gm/secrets/http_<name>`, failing the container on a name that is
    not a credential's or has no secret (v0.5, spec D365, D433).
-4. Builds `/run/gm/shadow` (root:shadow, `0640`): the image's own copy
-   (`/usr/local/lib/gm/shadow.base`) with `player`'s hash
-   (`openssl passwd -6`, SHA-512 crypt) of the per-game password.
+4. None since 0.8.0 (its number kept): `player`'s password is empty in
+   the image, and nothing about it is written at start-up. Until 0.7.0
+   this step wrote the per-game password's hash into `/run/gm/shadow`.
 5. Fails the container if a required starter pack file (`README.md`,
    `story.md`, `issues.md`) is missing. If `~/.gm-starter-copied` is
    absent, copies the starter pack into `/home/player` (`player`,
@@ -215,33 +226,48 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 7. Reads `GM_WEB_ROUTES`, failing the container on a token that is not
    `name=node:port` or, cold storage's console, `name=host:port:console`
    (lowercase names, as the loader checks them) or on a
-   route given twice. Then, routes or none (D224): reads
-   `tools_password` (same rules as the other passwords); writes
-   `/run/web-front/htpasswd` (user `player`, `openssl passwd -6` hash),
-   `/run/web-front/www/` (the front's own answers, served as static files
-   so that they come after the password check: the page, rendered from
-   `/opt/gm/starter/`, and the 404 body) and `/run/web-front/nginx.conf`
-   (the page at `/`, one `location /<name>/` per route, see "Web front"
-   under "Access"); fails the container if `cmark-gfm` cannot render a
-   starter file or nginx (`nginx -t`, as `www-data`) refuses the
-   configuration.
+   route given twice. Then, routes or none (D224), with no login (0.8.0):
+   writes `/run/web-front/www/` (the front's own answers, served as
+   static files: the pages, rendered from `/opt/gm/starter/`, the home
+   opening on its Access section, which shows the `dba` password and,
+   when a route is named `grafana`, Grafana's login with the tools
+   password; and the 404 body) and `/run/web-front/nginx.conf` (the page
+   at `/`, one `location /<name>/` per route, see "Web front" under
+   "Access"); fails the container if `cmark-gfm` cannot render a starter
+   file or nginx (`nginx -t`, as `www-data`) refuses the configuration.
 8. Execs s6-overlay's `/init`, which supervises `sshd` and `web-front`.
    The `web-front` service, keyed on `/run/web-front/nginx.conf`, finds it
    at every start; without it (a start that wrote none) it would mark
    itself once-only (`s6-svc -O`) and exit.
 
 Seeded once: the starter pack (on a fresh `home` volume) and the sshd host
-key (on a fresh `hostkeys` volume). Rewritten at each start: `/run`, the
-password file, `~/.ssh/id_ed25519`, `~/.pgpass`, and the web front's
-configuration, password file and page.
+key (on a fresh `hostkeys` volume). Rewritten at each start: `/run`,
+`~/.ssh/id_ed25519`, `~/.pgpass`, and the web front's configuration and
+pages.
 
-### Why `/etc/shadow` is a symlink
+### Why `player`'s password is empty
 
-The root filesystem is read-only, and the password is per game. sshd runs
-without PAM (as on the database node) and reads `/etc/shadow` itself, so
-the image replaces it with a symlink to `/run/gm/shadow`, which the
-entrypoint writes. `passwd` cannot change the password: the players keep
-the one the GM handed over for the whole game.
+The owner's ruling of 2026-11-23, after the junior week's first game:
+the bastion's access asks for no password, on SSH or on the web front;
+the credentials the players' tools need are on the home's Access
+section. The ruling is about the bastion's access only: the nodes still
+take the key, PostgreSQL the `dba` password, Grafana its own login.
+
+How SSH logs `player` in without a prompt: the image empties `player`'s
+password (`passwd -d player`, so `player::` in `/etc/shadow`, a plain
+file of the image, root:shadow, `0640`). sshd runs without PAM (`UsePAM
+no`, as on the database node) and reads `/etc/shadow` itself; with
+`PasswordAuthentication yes` and `PermitEmptyPasswords yes`, OpenSSH
+accepts the client's first attempt, the `none` method, for an account
+whose password is empty, so the client never asks for one. Nothing is
+written at start-up, and the root filesystem stays read-only. `passwd`
+cannot set a password: `/etc/shadow` is read-only.
+
+What still holds: `AllowUsers player` (no other account logs in, and
+every other account's password stays locked), `PermitRootLogin no`, no
+public key (`PubkeyAuthentication no`, `AuthorizedKeysFile none`), no
+keyboard-interactive, no forwarding of any kind, the read-only root
+filesystem, and no `sudo`.
 
 ## Connections
 
@@ -253,8 +279,11 @@ The bastion provides two interfaces and consumes four, of three kinds
   the game. The scenario's `published_ports: [{port: 22, default: 2222}]`
   (`extra.published_port_default: 2222`) publishes it on the host that
   runs the bastion, and the local implementation records the port
-  actually used. The players log in as `player` with the per-game
-  password (see "Access").
+  actually used. The players log in as `player` with no password (see
+  "Access"). The game assistant reaches it the same way, `ssh -p <port>
+  player@<address> '<read>'`; its shared socket (`ssh -M -S
+  ~/.ssh/dbagm-<game>.sock -fN -p <port> player@<address>`) remains
+  possible but optional.
 - **Provides `web-front`, HTTP, port 8080**, in every game (D224): the
   players' browsers, from outside the game. The scenario publishes
   `{port: 8080, default: 8080}` (`extra.web_front_port_default: 8080`)
@@ -286,8 +315,8 @@ The bastion provides two interfaces and consumes four, of three kinds
 
 **Monitoring**: `brick.yaml` declares no monitoring exposure, and the
 bastion has no metrics endpoint. The sshd log and the web front's errors
-(a wrong password, an unreachable upstream) go to the container's output
-only (`gmctl logs`); the front keeps no access log.
+(an unreachable upstream) go to the container's output only (`gmctl
+logs`); the front keeps no access log.
 
 **Mounted material**: the image accepts another brick's mounted companion
 material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
@@ -329,13 +358,14 @@ override it in `~/.ssh/config`; nothing in the game depends on it.
 
 ### SSH server
 
-- Password login as `player` only (`AllowUsers player`); public keys,
+- Login as `player` only (`AllowUsers player`), with no password and no
+  key (0.8.0, the owner's ruling of 2026-11-23): `player`'s password is
+  empty and `PermitEmptyPasswords yes` lets OpenSSH's `none` method in
+  (see "Why `player`'s password is empty"). Public keys,
   keyboard-interactive and root are refused.
 - `PerSourcePenalties no`: players often share one source address (a
   classroom NAT, or Swarm's routing mesh), and OpenSSH's default
-  per-source penalties would lock all of them out after a few mistyped
-  passwords. The password is random and per game, and a game lasts at most
-  4 hours.
+  per-source penalties would lock all of them out.
 - No forwarding of any kind (TCP, agent, X11, tunnels): players work on
   the bastion, and the database node's ports stay inside the game's
   network. `sftp` and `scp` are allowed, so players can copy
@@ -355,13 +385,13 @@ override it in `~/.ssh/config`; nothing in the game depends on it.
   at each start, see "Start-up").
 - Protected (root-owned, read-only): `/etc/ssh/sshd_config`,
   `/etc/ssh/ssh_config.d/gm-game.conf`, the entrypoint, the health check,
-  `/usr/local/lib/gm/shadow.base`, the validator, and the s6-overlay
+  the validator, and the s6-overlay
   service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`).
 - Write policy: `report-only`. Nothing on the bastion is part of the game:
   players write only their home and the scratch space.
-- The web front's files under `/run/web-front/` are root-owned; `player`
-  cannot read the password file.
+- The web front's files under `/run/web-front/` are root-owned, and
+  `player` cannot write them.
 
 ### Web front
 
@@ -379,7 +409,18 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   path answers 404.
 - **The home** (`/`, v0.6 master spec 7.2): one HTML page (`text/html`,
   UTF-8), a header naming the customer (the first `# ` heading of the
-  handed-over `story.md`), then two lists: **Sites** (`<section
+  handed-over `story.md`), then **Access** (0.8.0, the owner's ruling of
+  2026-11-23; `<section id="access">`, first): a table What / How /
+  Credentials with every credential the players' tools need, in this
+  order: the bastion (`ssh -p <port> player@<address>`, user `player`,
+  no password and no key), this web site (no login), the nodes (`ssh
+  <node>` from the bastion, the key in `~/.ssh/id_ed25519`), PostgreSQL
+  (`psql -h <node>` from the bastion, role `dba`, its password, which
+  `psql` reads from `~/.pgpass` by itself), one row per route (`grafana`:
+  its own login, user `admin`, the tools password, with "do not change
+  its users or this password"; any other route: "No login"), and, when
+  `partners.md` is present, a row pointing to `/docs/partners` and
+  `~/partners.md`, where each partner credential is. Then two lists: **Sites** (`<section
   id="sites">`: one link `/<route>/` per route of `GM_WEB_ROUTES`, then
   **Reports**, `/reports/`, always) and **Documents** (`<section
   id="documents">`: one link `/docs/<id>` per starter file present, in
@@ -387,7 +428,11 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   `data-register`, `network-overview`; then **Tools**, one link
   `/docs/bricks/<brick-id>` per brick page delivered, by its first
   heading, by brick id). An absent element leaves nothing: no link, no
-  page.
+  page, no Access row.
+- **Style** (0.8.0): every page the front writes carries a small inline
+  stylesheet (light and dark through `prefers-color-scheme`, a maximum
+  width of 58rem, sections as cards, styled tables and code); no
+  external resource, games run offline.
 - **The documentation site** (`/docs/`, master spec 7.3): each page
   rendered at each start from the starter pack as handed over (the
   mounted `/opt/gm/starter/`, `partners.md` with its credentials written
@@ -423,11 +468,11 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   folder, a missing file or another method: 404. The front never reaches
   into a database node: the players bring a report in one hop, `scp
   <node>:pgbadger.html ~/reports/`.
-- **Authentication**: HTTP basic, user `player`, password the per-game
-  `tools_password`, on every path, `/` included. Without it, or with a
-  wrong user or password: `401` with `WWW-Authenticate: Basic
-  realm="db_audit_gm web front"`, so the browser asks for it. Plain HTTP
-  (access model, "Known gaps").
+- **Authentication**: none since 0.8.0 (the owner's ruling of
+  2026-11-23): every path answers with no credentials, `/` included,
+  and the front never sends a challenge. The upstreams keep their own
+  login (Grafana's, user `admin`). Plain HTTP (access model, "Known
+  gaps").
 - **Cold storage's console** (v0.5): `GET /cold-storage/` and `GET
   /cold-storage/manifests` only, forwarded to `/` and `/manifests` with
   `Host: cold-storage` and the query kept; any other path or method under
@@ -436,16 +481,17 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
   `Host` as the browser sent it (`<host>:<port>`, which Grafana compares
   with `Origin`); `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto:
   http`; WebSocket upgrades (Grafana Live). It removes the `Authorization`
-  header, so Grafana never sees the front's credentials and keeps its own
-  login, and hides an upstream's `WWW-Authenticate` header, which would
-  make the browser drop the front's credentials.
+  header, so no browser's basic credentials reach an upstream (Grafana
+  takes its own login, a form and a cookie), and hides an upstream's
+  `WWW-Authenticate` header: its basic-authentication challenge is not
+  passed on, since the browser's answer to it would be stripped anyway.
 - **Errors**: an upstream that is down or not yet started answers `502`;
   the other routes keep working.
 - **Without routes** (no web interface in the topology): the front runs
-  all the same, on the published port 8080, behind the tools password,
-  and serves its own pages alone, with no route on the home; the
-  GM hands over the tools password in every game (D224; v0.3's D103 no
-  longer holds).
+  all the same, on the published port 8080, with no login, and serves
+  its own pages alone, with no route on the home and no Grafana row on
+  Access; `tools_password` is still generated and mounted in every game
+  (D224; v0.3's D103 no longer holds).
 - **Process**: nginx (master and one worker) as `www-data` under s6
   (`web-front`); 256 connections at most; request bodies up to 16M
   (Grafana dashboard imports).
@@ -454,13 +500,17 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
 
 `cap_drop: ALL`, then the list in `brick.yaml`, checked by dropping each
 one in turn (Docker 29.8.2): without `CHOWN`, `DAC_OVERRIDE` or `FOWNER`
-the entrypoint fails; without `SETGID`, `SETUID` or `SYS_CHROOT` password
-logins fail; without `KILL` a container stop with a player logged in
+the entrypoint fails; without `SETGID`, `SETUID` or `SYS_CHROOT` logins
+fail; without `KILL` a container stop with a player logged in
 waits out Docker's grace period and ends in `SIGKILL` (exit 137).
 `NET_BIND_SERVICE` is not needed under Docker, which sets
 `net.ipv4.ip_unprivileged_port_start=0`, but sshd binds port 22, so it
-stays for other platforms. `AUDIT_WRITE` is not needed: there is no
-`sudo` and no PAM. The web front needs none of its own: it listens on an
+stays for other platforms. `AUDIT_WRITE` is needed (added in 0.8.0;
+confirmed live on 2026-11-23): sshd writes a Linux audit record for a
+terminal (PTY) session, even without PAM, and without
+`CAP_AUDIT_WRITE` an interactive login is cut right after it opens. A
+command without a terminal (`ssh player@<address> <command>`) works
+without it. The web front needs none of its own: it listens on an
 unprivileged port, and `s6-setuidgid www-data` uses `SETUID` and
 `SETGID`, already in the list.
 
@@ -506,8 +556,9 @@ without; nginx's master and worker show about 13 MiB resident, most of it
 shared libraries. What makes the front grow: the players' browsers
 (Grafana dashboards issue several requests per panel and refresh), each
 proxied response buffered in memory or, above nginx's buffers, under
-`/run/web-front/tmp/` (the `run` volume). CPU: a password check (SHA-512
-crypt) per request, a few milliseconds each.
+`/run/web-front/tmp/` (the `run` volume). CPU: until 0.7.0, a password
+check (SHA-512 crypt) per request, a few milliseconds each; none since
+0.8.0, the front having no login.
 
 At rest since v0.4, the front running in every game: measured in the
 stack test (armenelos, Docker 29.9.1, idle, 2026-10-30), the bastion's
@@ -589,7 +640,7 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`bastion` `0.7.0`, and no other.
+`bastion` `0.8.0`, and no other.
 
 Nothing on the bastion is part of the game (master spec 9.2), its write
 policy is `report-only`, and a fault in its configuration would cut the
@@ -646,7 +697,8 @@ only:
 
 - `sshd` runs and listens on port 22;
 - `/etc/ssh/sshd_config` is root-owned, not writable by others, and still
-  has `AllowUsers player` and `PasswordAuthentication yes`;
+  has `AllowUsers player`, `PasswordAuthentication yes` and, since 0.8.0,
+  `PermitEmptyPasswords yes` (`player` logs in without a password);
 - `/home/player` is a directory owned by `player`, and a file can be
   created in it (a full disk shows here);
 - `~/.ssh/id_ed25519` is a regular file, `player`, `0600`, and loads as a
@@ -688,24 +740,27 @@ printf '%s\n' "ssh -o BatchMode=yes <db> true && psql -h <db> -U dba -d postgres
 
 Exit 0 and `1` printed: the key, the host-key settings, the `dba`
 password and the database node's `pg_hba.conf` all work. Then log in once
-from outside on the published port with the player password, as the
-players will.
+from outside on the published port, as the players will, with no password
+and no key: `ssh -p <port> player@<host>` opens a shell with no prompt
+(and with a terminal: an interactive login cut at once means the node
+lacks `AUDIT_WRITE`).
 
 Check the web front from outside, in every game, as the players'
-browsers will (`<web port>` is the port recorded for container port 8080; read the
-tools password from `local/<pg>/secrets/tools_password` and hand it to
-`curl -K -` on its standard input through `printf`, a shell builtin; never
-pass it to `gmctl exec --env` nor on a command line):
+browsers will (`<web port>` is the port recorded for container port
+8080), with no credentials:
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' http://<host>:<web port>/      # 401
-printf 'user = "player:%s"\n' "$(cat local/<pg>/secrets/tools_password)" | curl -s -K - http://<host>:<web port>/   # the page
+curl -s -o /dev/null -w '%{http_code}\n' http://<host>:<web port>/      # 200, never 401
+curl -s http://<host>:<web port>/                                       # the page
 ```
 
-The page holds a section per starter file the scenario provides and, with
-routes, their links. Then open each `/<route>/` with the password: a
-`502` means the upstream is not up (yet), or does not serve under
-`/<route>/`.
+The page opens on its Access section (the SSH command's shape, the `dba`
+password and, when Grafana is routed, Grafana's login with the tools
+password; the partners' row when the scenario has partners), then holds a
+link per starter file the scenario provides and, with routes, their
+links. Then open each `/<route>/`: a `502` means the upstream is not up
+(yet), or does not serve under `/<route>/`; Grafana asks for its own
+login there.
 
 ### Stack test
 
@@ -718,19 +773,30 @@ with the starter pack of `tests/fixtures/starter/` (a README with a table
 and a `<script>`, a data policy, partners, a data register and a network
 overview) and two brick pages (this brick's and the `postgres` brick's
 `docs/player.md`, as `gmctl fit` delivers them). It
-logs in with the password on the published SSH port (`GMTEST_BASTION_PORT`,
-default 22222), checks the four starter files in the home and the inner
+logs in on the published SSH port (`GMTEST_BASTION_PORT`, default 22222)
+with no password and no key, the client in `BatchMode` (never asked) and
+authenticated by OpenSSH's `none` method, then interactively (`ssh -tt`:
+a shell on a `/dev/pts` terminal) and with `ssh -tt <command>`; checks
+that root and a public key are refused, that `ssh -R` is refused, sshd's
+effective settings (`permitemptypasswords yes` among them) and that
+`player` alone has an empty password in `/etc/shadow`; checks the four
+starter files in the home and the inner
 hop by key and `psql`, replaces each node in turn (the player having
 edited `~/story.md`), then checks the web front on its published port
-(`GMTEST_BASTION_WEB_PORT`, default 28080), with the routes `stub=stub:9090`
-and `other=stub:9091` (nothing listens there): 401 and the challenge
-without the tools password, with a wrong one or another user name; the
+(`GMTEST_BASTION_WEB_PORT`, default 28080), with the routes `stub=stub:9090`,
+`grafana=stub:9090` and `other=stub:9091` (nothing listens there): no
+401 and no challenge on any path, with no credentials; no
+`/run/web-front/htpasswd` and no `auth_basic` in the configuration, no
+`player_password` secret; the
 stub reached under `/stub/` with the path and query unchanged, no
 `Authorization` header upstream, `Host` and `X-Forwarded-Proto` set, the
-stub's own challenge hidden; the home (the customer named, Sites, then
-Documents and Tools, its links only to the routes, Reports, the seven
-documents and the two brick pages, each answering 200 and 401 without the
-password); the documentation site (the README's table as an HTML table,
+stub's own challenge hidden; the home (the customer named, Access first,
+with the SSH command's shape, the `dba` password, Grafana's login, user
+`admin` and the tools password, while the `grafana` route exists, and the
+partners' row; then Sites, Documents and Tools, its links only to the
+routes, Reports, the seven documents and the two brick pages, each
+answering 200 with no credentials; the inline stylesheet's light and dark
+schemes); the documentation site (the README's table as an HTML table,
 raw HTML omitted, the player's edits absent, GitHub heading ids, links
 between starter files pointing to `/docs/`, 404 for a brick not
 delivered); `jq` (on the stub's answer in Prometheus' API form, through
@@ -739,16 +805,16 @@ into `~/reports/` in one hop, listed and served with the sandbox header,
 and nothing outside the folder (a link, `..`, a POST: 404); the redirect, 404, 502 on
 `/other/`; nginx as `www-data`; the health check failing while the front
 is stopped. Then it empties the routes (port 8080 and `tools_password`
-kept): the front up, 401 without the password, the page alone, no
-web-interface section or link, the health check green, the data policy
+kept): the front up with no login, the page alone, no web-interface
+section or link and no Grafana login on Access, the health check green,
+the data policy
 copied again; then removes the data policy, the partners, the register
 and the overview and sets two routes (master spec 12.1): the home lists
 the two routes, Reports and the three documents, no dead link; then
 removes `issues.md`: the container refused. The
 validator is green in every state that starts. It removes everything it created, volumes, configs and secrets
 included. Needs a swarm manager, the bastion and postgres images built,
-`debian:13-slim`, `curl`, and an OpenSSH client 8.4 or later on the host
-(`SSH_ASKPASS_REQUIRE`).
+`debian:13-slim`, `curl`, and an OpenSSH client 8.4 or later on the host.
 
 ## Known limits
 
@@ -765,14 +831,20 @@ included. Needs a swarm manager, the bastion and postgres images built,
   container.
 - **sshd log** only in the container output (`gmctl logs`), as the web
   front's errors; the front keeps no access log.
-- **Plain HTTP** on the web front: the tools password crosses the network
-  base64-encoded (access model, "Known gaps").
-- **One user name**, `player`, for the web front; a browser that offers
-  another is refused like a wrong password.
+- **Open access** (0.8.0, the owner's ruling of 2026-11-23): anyone who
+  reaches the SSH port logs in as `player`, and anyone who reaches the
+  web port reads every page.
+- **Plain HTTP** on the web front, and the home shows the `dba` password
+  and, when Grafana is routed, the tools password (Grafana's
+  administrator password): anyone who reaches the web port reads them,
+  and they cross the network in clear. Accepted by the owner: "We aren't
+  in a true secure platform, nor a true live production system, it's
+  okay to share these passwords" (access model, "Known gaps").
 - **Routes fixed at start-up.** The front reads `GM_WEB_ROUTES` when the
   container starts; a changed `web_routes` needs a new render and deploy.
-- **The front publishes, it does not protect.** Prometheus has no login of
-  its own and stays reachable from every node of the game without the
-  tools password (access model, "Known gaps").
+- **The front publishes, it does not protect.** Prometheus and the health
+  page have no login of their own: through the front, and from every
+  node of the game, they are open (access model, "Known gaps"). Grafana
+  keeps its own login.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default
   10 s stop grace period.

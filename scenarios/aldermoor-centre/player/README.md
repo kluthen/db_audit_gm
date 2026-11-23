@@ -14,8 +14,8 @@ has been running since last night and keeps running while you work.
 The centre's machines, and **Your access** on each (the rule for what you may
 change), are in its network overview, `network-overview.md`, also on the web front.
 
-- You log in to the bastion as `player` with the bastion password the
-  game master gave you: the bastion takes no SSH key. The key in
+- You log in to the bastion as `player`, with no password: the bastion
+  asks for none and takes no SSH key. The key in
   `~/.ssh/id_ed25519` is only for the hops from the bastion to the nodes:
   `ssh <node>` logs you in to a node as `player` with it.
 - `psql -h <server>` from the bastion, or `psql` on a database node,

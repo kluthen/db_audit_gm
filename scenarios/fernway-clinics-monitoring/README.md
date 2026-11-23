@@ -90,7 +90,7 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.7.0 | bastion | yes | backend | report-only |
+| `bastion` | `bastion` 0.8.0 | bastion | yes | backend | report-only |
 | `db` | `postgres` 0.5.1 | database | yes | backend | fixable |
 | `prometheus` | `prometheus` 0.2.2 | monitoring | yes | backend | fixable |
 | `exporter` | `postgres-exporter` 0.2.1 | monitoring | yes | backend | fixable |
@@ -98,7 +98,7 @@ The story as the players read it: `player/story.md`.
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.7.0 (pinned).
+- **Brick**: `bastion`, version 0.8.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
